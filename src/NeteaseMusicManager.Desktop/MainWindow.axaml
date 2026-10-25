@@ -177,12 +177,12 @@
               <DoubleTransition Property="Opacity" Duration="0:0:0.22" Easing="CubicEaseOut" />
             </Transitions>
           </Grid.Transitions>
-          <Button Classes="ghost" Width="32" Height="32" Padding="0" Margin="0,6,0,0"
+          <Button Classes="ghost" Width="36" Height="36" Padding="0" Margin="0,6,0,0"
                   HorizontalAlignment="Center"
                   Command="{Binding ToggleSidebarCommand}"
                   ToolTip.Tip="展开歌单"
                   AutomationProperties.Name="展开歌单">
-            <PathIcon Width="14" Height="14"
+            <PathIcon Width="16" Height="16"
                       Data="M9 6l6 6-6 6z" />
           </Button>
           <ListBox Grid.Row="1" Classes="playlist-rail" Margin="0,6,0,0" Padding="0,18,0,18"
@@ -201,11 +201,11 @@
             </ListBox.OpacityMask>
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <Border Width="42" Height="42" CornerRadius="8" ClipToBounds="True"
+                <Border Width="56" Height="56" CornerRadius="12" ClipToBounds="True"
                         Background="{StaticResource PanelHoverBrush}"
                         ToolTip.Tip="{Binding Name}">
                   <Panel>
-                    <TextBlock Text="♪" FontSize="17" Foreground="{StaticResource TextTertiaryBrush}"
+                    <TextBlock Text="♪" FontSize="22" Foreground="{StaticResource TextTertiaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <Image Source="{Binding Cover}" Stretch="UniformToFill" />
                   </Panel>
