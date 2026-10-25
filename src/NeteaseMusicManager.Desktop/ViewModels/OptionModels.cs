@@ -20,3 +20,11 @@ public sealed record ConcurrencyOption(int Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>文件名模板预设。</summary>
+public sealed record FileNameTemplateOption(string Value, string Label)
+{
+    public static FileNameTemplateOption Custom { get; } = new(string.Empty, "自定义");
+
+    public override string ToString() => Label;
+}
+

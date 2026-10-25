@@ -10,14 +10,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsStore _settingsStore;
     private bool _syncingExclusiveFlags;
+    private bool _syncingFileNameTemplate;
 
     public SettingsViewModel(AppSettings current, ISettingsStore settingsStore)
     {
         _settingsStore = settingsStore;
+        _syncingFileNameTemplate = true;
 
         DownloadDirectory = current.DownloadDirectory;
         LibraryDirectory = current.LibraryDirectory;
-        FileNameTemplate = current.FileNameTemplate;
         MaxConcurrency = Math.Clamp(current.MaxConcurrency, 1, 8);
         WriteCover = current.WriteCover;
         OverwriteExisting = current.OverwriteExisting;
@@ -43,11 +44,25 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         ConcurrencyOptions = Enumerable.Range(1, 8).Select(i => new ConcurrencyOption(i, $"{i} 个并发任务")).ToArray();
         SelectedConcurrency = ConcurrencyOptions.FirstOrDefault(o => o.Value == MaxConcurrency) ?? ConcurrencyOptions[2];
+
+        FileNameTemplateOptions =
+        [
+            new("{artist} - {title}", "作者 - 标题"),
+            new("{title} - {artist}", "标题 - 作者"),
+            new("{artist} - {title} ({year})", "作者 - 标题（含年份）"),
+            FileNameTemplateOption.Custom,
+        ];
+        FileNameTemplate = current.FileNameTemplate;
+        SelectedFileNameTemplate = FileNameTemplateOptions
+            .FirstOrDefault(o => o.Value.Length > 0 && string.Equals(o.Value, FileNameTemplate, StringComparison.Ordinal))
+            ?? FileNameTemplateOption.Custom;
+        _syncingFileNameTemplate = false;
     }
 
     public IReadOnlyList<QualityOption> QualityOptions { get; }
     public IReadOnlyList<LyricModeOption> LyricModeOptions { get; }
     public IReadOnlyList<ConcurrencyOption> ConcurrencyOptions { get; }
+    public IReadOnlyList<FileNameTemplateOption> FileNameTemplateOptions { get; }
 
     [ObservableProperty]
     private string _downloadDirectory = string.Empty;
@@ -80,6 +95,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private ConcurrencyOption _selectedConcurrency = null!;
 
     [ObservableProperty]
+    private FileNameTemplateOption _selectedFileNameTemplate = null!;
+
+    [ObservableProperty]
     private string? _validationMessage;
 
     [ObservableProperty]
@@ -90,6 +108,33 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnValidationMessageChanged(string? value) => OnPropertyChanged(nameof(HasValidationMessage));
 
     partial void OnSelectedConcurrencyChanged(ConcurrencyOption value) => MaxConcurrency = value.Value;
+
+    partial void OnSelectedFileNameTemplateChanged(FileNameTemplateOption value)
+    {
+        if (_syncingFileNameTemplate || value is null || value.Value.Length == 0)
+        {
+            return;
+        }
+
+        _syncingFileNameTemplate = true;
+        FileNameTemplate = value.Value;
+        _syncingFileNameTemplate = false;
+    }
+
+    partial void OnFileNameTemplateChanged(string value)
+    {
+        if (_syncingFileNameTemplate || FileNameTemplateOptions is null)
+        {
+            return;
+        }
+
+        var match = FileNameTemplateOptions.FirstOrDefault(
+            option => option.Value.Length > 0 &&
+                      string.Equals(option.Value, value, StringComparison.Ordinal));
+        _syncingFileNameTemplate = true;
+        SelectedFileNameTemplate = match ?? FileNameTemplateOption.Custom;
+        _syncingFileNameTemplate = false;
+    }
 
     partial void OnOverwriteExistingChanged(bool value)
     {

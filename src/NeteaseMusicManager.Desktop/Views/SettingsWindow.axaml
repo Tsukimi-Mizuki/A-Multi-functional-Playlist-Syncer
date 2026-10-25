@@ -109,8 +109,22 @@
         <Border Classes="salt-card">
           <StackPanel Spacing="12">
             <TextBlock Classes="salt-card-title" Text="文件名模板" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <TextBlock Text="预设" VerticalAlignment="Center" FontSize="12"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding FileNameTemplateOptions}"
+                        SelectedItem="{Binding SelectedFileNameTemplate, Mode=TwoWay}"
+                        HorizontalAlignment="Left" MinWidth="260"
+                        AutomationProperties.Name="文件名模板预设">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Label}" FontSize="12" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
             <TextBox Text="{Binding FileNameTemplate, Mode=TwoWay}" />
-            <TextBlock Text="可用占位符：{title} {artist} {album} {track} {year} {id}；文件名中的非法字符会被自动清理。"
+            <TextBlock Text="新增预设「标题 - 作者」；也可在输入框自由编辑。可用占位符：{title} {artist} {album} {track} {year} {id}。"
                        FontSize="10.5" TextWrapping="Wrap"
                        Foreground="{StaticResource TextTertiaryBrush}" />
           </StackPanel>
