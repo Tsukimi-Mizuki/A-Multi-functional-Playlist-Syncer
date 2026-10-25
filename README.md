@@ -107,6 +107,8 @@ dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.
   客户端会自动把数据目录切换到程序目录下的 `data`（便携模式），并在运行日志中提示；
   下载/曲库默认目录同时切换到 `data\Music`。也可用环境变量
   `NETEASE_MUSIC_MANAGER_DATA_DIR` 指定数据目录。
+- 便携模式一旦启用（程序目录存在 `data`）会保持稳定，之后无论怎样启动都使用该目录；
+  发布 zip **不包含** `data`，升级时保留/备份该目录即可保留登录态与设置。
 - 程序不收集、不上传任何账号信息；所有网络请求直接发往网易云音乐官方域名。
 
 ## 已知限制

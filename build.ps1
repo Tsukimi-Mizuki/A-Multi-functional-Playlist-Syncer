@@ -36,7 +36,10 @@ if ($Publish) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     $zip = Join-Path $root 'publish\NeteaseMusicManager-win-x64.zip'
     if (Test-Path $zip) { Remove-Item $zip -Force }
-    Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip
+    # Do not package the portable data dir: it can contain the user's encrypted login cookie/settings.
+    # Keep it on disk between publishes so the app keeps its login state.
+    $archiveItems = Get-ChildItem $out -Force | Where-Object { $_.Name -ne 'data' } | Select-Object -ExpandProperty FullName
+    Compress-Archive -Path $archiveItems -DestinationPath $zip
     Write-Host "Published to $out"
     Write-Host "Zip: $zip"
 }
