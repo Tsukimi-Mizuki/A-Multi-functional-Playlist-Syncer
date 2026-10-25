@@ -280,6 +280,30 @@ public sealed class LyricParserTests
     }
 
     [Fact]
+    public void ToPlainLrc_SupportsBilingualAndIgnoresSlashPlaceholders()
+    {
+        const string lrc = """
+[00:01.00]line one
+[00:02.00]line two
+""";
+        const string translated = """
+[00:01.00]翻译一
+[00:02.00]//
+""";
+
+        var document = _parser.Parse(new RawLyrics(lrc, translated));
+
+        var bilingual = _parser.ToPlainLrc(document, includeTranslation: true);
+        var original = _parser.ToPlainLrc(document, includeTranslation: false);
+
+        Assert.Contains("翻译一", bilingual);
+        Assert.DoesNotContain("翻译一", original);
+        Assert.DoesNotContain("//", bilingual);
+        Assert.Contains("[00:02.00]line two", bilingual);
+        Assert.DoesNotContain("[00:02.00]//", bilingual);
+    }
+
+    [Fact]
     public void Parse_EmptyInput_ReturnsEmptyDocument()
     {
         var document = _parser.Parse(new RawLyrics(null));

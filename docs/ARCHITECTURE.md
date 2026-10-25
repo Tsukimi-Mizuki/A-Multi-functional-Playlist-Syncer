@@ -89,11 +89,12 @@ Core
     专辑 mid（用于封面），歌词使用 `fcg_query_lyric_new` 接口；
   - 两个来源都用独立超时与错误提示；封面通过 CDN 下载，限制大小，失败时保留本地封面；
   - 搜索结果只读取公开元数据、封面和歌词，不下载音频。
-- 歌词格式支持“逐行”“逐字优先”和“双语”：
+- 歌词格式支持“逐行”和“逐字优先”，并默认生成双语歌词：
   - 网易云同时提供 LRC、翻译与 YRC；逐字模式会转成增强 LRC；
-  - QQ 音乐提供逐行 LRC 和可选翻译，逐字模式自动回退逐行；
-  - 双语模式使用 `ILyricParser.ToPlainLrc/ToEnhancedLrc(document, includeTranslation)`，
-    把翻译行追加在原文同一时间戳下；无翻译时自动使用原文。
+  - QQ 音乐通过 `music.musichallSong.PlayLyricInfo` 获取 LRC 和翻译（旧 fcg 接口作为回退），
+    逐字模式自动回退逐行；
+  - 双语输出使用 `ILyricParser.ToPlainLrc/ToEnhancedLrc(document, includeTranslation)`，
+    把翻译行追加在原文同一时间戳下；`//` 等占位翻译不写入，无翻译时使用原文。
 - 编辑器中的搜索结果列表点击后自动填入标签、封面与对应格式歌词，用户确认后再写入本地音频标签。
 - 打开/重新读取本地文件后，以去掉扩展名（并清理常见音轨前缀）的文件名作为关键词，
   自动向当前选中的在线来源搜索一次；不会自动应用结果，仍由用户点击确认。

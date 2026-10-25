@@ -293,7 +293,8 @@ public sealed class LyricParser : ILyricParser
 
         used[bestIndex] = true;
         var text = translated[bestIndex].Text.Trim();
-        return text.Length == 0 ? null : text;
+        // QQ/网易云用 // 表示该行没有翻译或为纯音乐，不写入双语歌词。
+        return text.Length == 0 || text.All(ch => ch == '/') ? null : text;
     }
 
     /// <summary>解析网易云 YRC（v0 明文行或 v1 JSON 风格行，二者可混合出现）。</summary>

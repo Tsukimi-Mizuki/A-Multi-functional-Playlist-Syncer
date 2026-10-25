@@ -23,7 +23,7 @@
     <!-- 在线搜索 -->
     <Border Grid.Row="1" Classes="salt-card" Padding="12,10" Margin="0,12,0,0">
       <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
           <ComboBox ItemsSource="{Binding SearchSources}"
                     SelectedItem="{Binding SelectedSearchSource, Mode=TwoWay}"
                     Width="132" Height="32" MinHeight="30" Padding="9,3"
@@ -50,12 +50,7 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-          <CheckBox Grid.Column="3" Content="双语"
-                    IsChecked="{Binding IncludeTranslation, Mode=TwoWay}"
-                    VerticalAlignment="Center"
-                    ToolTip.Tip="载入原文 + 翻译的双语歌词"
-                    AutomationProperties.Name="双语歌词" />
-          <Button Grid.Column="4" Classes="primary" Content="搜索"
+          <Button Grid.Column="3" Classes="primary" Content="搜索"
                   Command="{Binding SearchOnlineCommand}"
                   Padding="20,7" AutomationProperties.Name="在线搜索" />
         </Grid>

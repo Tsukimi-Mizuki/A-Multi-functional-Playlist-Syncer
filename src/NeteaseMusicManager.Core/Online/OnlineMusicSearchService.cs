@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Models;
@@ -15,6 +16,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
 
     private static readonly Uri QqSearchBase = new("https://c.y.qq.com/soso/fcgi-bin/client_search_cp");
     private static readonly Uri QqLyricBase = new("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg");
+    private static readonly Uri QqPlayLyricUri = new("https://u.y.qq.com/cgi-bin/musicu.fcg");
 
     private readonly INeteaseApiClient _netease;
     private readonly HttpClient _http;
@@ -195,6 +197,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 ? null
                 : $"https://y.gtimg.cn/music/photo_new/T002R300x300M000{albumMid}.jpg";
 
+            var numericId = GetLong(item, "id");
             results.Add(new OnlineSongResult(
                 OnlineMusicSource.QQMusic,
                 mid,
@@ -207,7 +210,8 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 disc is uint d && d > 0 ? d + 1 : (disc is not null ? 1u : null),
                 null,
                 null,
-                coverUrl));
+                coverUrl,
+                numericId > 0 ? numericId.ToString(CultureInfo.InvariantCulture) : null));
         }
 
         return results;
@@ -217,11 +221,27 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         OnlineSongResult song,
         CancellationToken cancellationToken)
     {
+        var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
+
+        // 优先走 musichall 的 PlayLyricInfo：它同时返回原文和翻译（QQ 的旧 fcg 接口通常没有翻译）。
+        try
+        {
+            var playLyric = await TryGetQqPlayLyricInfoAsync(song, cancellationToken).ConfigureAwait(false);
+            if (playLyric is { } info)
+            {
+                return new OnlineSongDetails(song, info.Line, null, cover, info.Bilingual, null);
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException or FormatException)
+        {
+            // 回退到旧歌词接口，至少保留原文。
+        }
+
         try
         {
             var uri = new Uri(
                 QqLyricBase,
-                $"?songmid={Uri.EscapeDataString(song.SourceId)}&format=json&nobase64=1&g_tk=5381");
+                $"?songmid={Uri.EscapeDataString(song.SourceId)}&format=json&nobase64=1&g_tk=5381&trans=1&trans_t=0");
             var body = await SendStringAsync(uri, "https://y.qq.com/", cancellationToken).ConfigureAwait(false);
             using var document = JsonDocument.Parse(body);
             var root = document.RootElement;
@@ -229,12 +249,11 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 retcode.TryGetInt32(out var retcodeValue) &&
                 retcodeValue != 0)
             {
-                return new OnlineSongDetails(song, null, null, await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false));
+                return new OnlineSongDetails(song, null, null, cover);
             }
 
             var lyrics = GetString(root, "lyric");
             var translation = GetString(root, "trans");
-            var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(lyrics))
             {
                 return new OnlineSongDetails(song, null, null, cover);
@@ -256,8 +275,128 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
         {
-            var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
             return new OnlineSongDetails(song, null, null, cover);
+        }
+    }
+
+    private async Task<(string Line, string? Bilingual)?> TryGetQqPlayLyricInfoAsync(
+        OnlineSongResult song,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(song.NumericSourceId) ||
+            !long.TryParse(song.NumericSourceId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var songId) ||
+            songId <= 0)
+        {
+            return null;
+        }
+
+        var interval = Math.Max(0, song.DurationMs / 1000);
+        var payload = new
+        {
+            comm = new
+            {
+                ct = 19,
+                cv = 2111,
+                v = 2111,
+                tmeAppID = "qqmusiclight",
+                format = "json",
+                nettype = "NETWORK_WIFI",
+                udid = "0",
+            },
+            request = new
+            {
+                method = "GetPlayLyricInfo",
+                module = "music.musichallSong.PlayLyricInfo",
+                param = new
+                {
+                    albumName = ToBase64(song.Album),
+                    crypt = 0,
+                    ct = 19,
+                    cv = 2111,
+                    interval,
+                    lrc_t = 0,
+                    qrc = 0,
+                    qrc_t = 0,
+                    roma = 0,
+                    roma_t = 0,
+                    singerName = ToBase64(song.Artist),
+                    songID = songId,
+                    songName = ToBase64(song.Title),
+                    trans = 1,
+                    trans_t = 0,
+                    type = 0,
+                },
+            },
+        };
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_requestTimeout);
+        using var request = new HttpRequestMessage(HttpMethod.Post, QqPlayLyricUri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("User-Agent", "okhttp/3.14.9");
+        request.Headers.TryAddWithoutValidation("Referer", "https://y.qq.com/");
+        using var response = await _http.SendAsync(request, timeout.Token).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        if (root.TryGetProperty("code", out var code) &&
+            code.TryGetInt32(out var codeValue) &&
+            codeValue != 0)
+        {
+            return null;
+        }
+
+        if (!root.TryGetProperty("request", out var requestElement) ||
+            !requestElement.TryGetProperty("data", out var data))
+        {
+            return null;
+        }
+
+        var line = DecodeBase64(GetString(data, "lyric"));
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return null;
+        }
+
+        var translation = DecodeBase64(GetString(data, "trans"));
+        if (string.IsNullOrWhiteSpace(translation))
+        {
+            return (line, null);
+        }
+
+        var parsed = _lyrics.Parse(new RawLyrics(line, translation));
+        var original = _lyrics.ToPlainLrc(parsed, includeTranslation: false);
+        var bilingual = _lyrics.ToPlainLrc(parsed, includeTranslation: true);
+        return (original, bilingual);
+    }
+
+    private static string ToBase64(string? value) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(value ?? string.Empty));
+
+    private static string? DecodeBase64(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Encoding.UTF8.GetString(Convert.FromBase64String(value));
+        }
+        catch (FormatException)
+        {
+            return null;
         }
     }
 

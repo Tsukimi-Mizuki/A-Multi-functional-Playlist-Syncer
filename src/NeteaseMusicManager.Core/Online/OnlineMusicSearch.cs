@@ -19,7 +19,9 @@ public sealed record OnlineSongResult(
     uint? DiscNumber = null,
     string? Genre = null,
     string? Composer = null,
-    string? CoverUrl = null)
+    string? CoverUrl = null,
+    /// <summary>QQ 音乐的数值 song id；逐行翻译接口需要。</summary>
+    string? NumericSourceId = null)
 {
     public string SourceLabel => Source == OnlineMusicSource.Netease ? "网易云音乐" : "QQ 音乐";
 
