@@ -49,12 +49,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _ui = ui;
         VisualStyleOptions =
         [
-            new(AppVisualStyle.Classic, "经典深色", "实色深色界面，性能最稳妥"),
+            new(AppVisualStyle.SaltLight, "Salt 浅色", "Salt UI 清爽浅色卡片与蓝色高亮"),
+            new(AppVisualStyle.SaltDark, "Salt 深色", "Salt UI 中性深色卡片与蓝色高亮"),
             new(AppVisualStyle.FrostedGlass, "磨砂玻璃", "Mica 背景与冷色雾面玻璃"),
             new(AppVisualStyle.Acrylic, "亚克力", "Windows 亚克力模糊与半透明面板"),
             new(AppVisualStyle.LiquidGlass, "液态玻璃", "彩色流动背景与高光玻璃面板"),
+            new(AppVisualStyle.Classic, "经典深色", "实色深色界面，性能最稳妥"),
         ];
-        _selectedVisualStyle = VisualStyleOptions[3];
+        _selectedVisualStyle = VisualStyleOptions[0];
         RefreshEmptyStates();
         RefreshCommandStates();
     }
@@ -74,10 +76,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private VisualStyleOption _selectedVisualStyle = null!;
 
-    public bool IsGlassStyle => SelectedVisualStyle.Value != AppVisualStyle.Classic;
+    public bool IsGlassStyle => SelectedVisualStyle.Value is
+        AppVisualStyle.FrostedGlass or AppVisualStyle.Acrylic or AppVisualStyle.LiquidGlass;
     public bool IsFrostedStyle => SelectedVisualStyle.Value == AppVisualStyle.FrostedGlass;
     public bool IsAcrylicStyle => SelectedVisualStyle.Value == AppVisualStyle.Acrylic;
     public bool IsLiquidStyle => SelectedVisualStyle.Value == AppVisualStyle.LiquidGlass;
+    public bool IsSaltStyle => SelectedVisualStyle.Value is AppVisualStyle.SaltLight or AppVisualStyle.SaltDark;
 
     partial void OnSelectedVisualStyleChanged(VisualStyleOption value)
     {
@@ -90,6 +94,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsFrostedStyle));
         OnPropertyChanged(nameof(IsAcrylicStyle));
         OnPropertyChanged(nameof(IsLiquidStyle));
+        OnPropertyChanged(nameof(IsSaltStyle));
         VisualStyleChanged?.Invoke(value.Value);
 
         if (!_settingsLoaded || _suppressVisualStyleSave)

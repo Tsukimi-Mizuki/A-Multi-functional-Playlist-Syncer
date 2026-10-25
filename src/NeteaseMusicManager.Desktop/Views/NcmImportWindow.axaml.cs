@@ -14,6 +14,7 @@ public partial class NcmImportWindow : Window
     {
         InitializeComponent();
         UiAssets.ApplyWindowIcon(this);
+        VisualThemeManager.ApplyDialog(this, VisualThemeManager.CurrentStyle);
     }
 
     protected override void OnOpened(EventArgs e)

@@ -14,4 +14,10 @@ public enum AppVisualStyle
 
     /// <summary>液态玻璃：彩色流动背景 + 高光玻璃面板。</summary>
     LiquidGlass = 3,
+
+    /// <summary>Salt UI 浅色：清爽卡片、发丝分割线与胶囊控件。</summary>
+    SaltLight = 4,
+
+    /// <summary>Salt UI 深色：中性深色卡片、发丝分割线与蓝色高亮。</summary>
+    SaltDark = 5,
 }

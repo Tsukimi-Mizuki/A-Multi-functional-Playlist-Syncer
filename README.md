@@ -20,10 +20,13 @@
   程序同样会检测 NCM 文件头，若实际拿到加密数据会自动解密。
 - **歌词匹配**：自动拉取歌词与翻译，支持逐行 LRC 或逐字增强 LRC（原生 YRC 数据存在时），写入标签。
 - **标签补全**：标题、歌手、专辑、专辑歌手、音轨号、年份、封面、网易云歌曲 ID。
-- **可视化界面**：Avalonia 11 + MVVM，支持进度、日志与错误提示；歌单侧栏可用顶栏按钮或 `Ctrl+B` 收起/展开。
-- **多种玻璃外观**：右上角“外观”下拉框可选 **经典深色 / 磨砂玻璃 / 亚克力 / 液态玻璃**。
-  磨砂玻璃使用 Windows Mica，亚克力使用系统 AcrylicBlur；液态玻璃在可交互背景上叠加彩色流动光斑、
-  高光与半透明玻璃面板。外观选择会自动保存，下次启动恢复；系统不支持透明效果时仍保留内部玻璃背景作为兜底。
+- **Salt UI 风格界面**：以 [Salt UI](https://moriafly.com/program/salt-ui/) 的设计规范为参考，
+  在 Avalonia 中原生重建控件：SaltColors 分层色板、RoundedColumn 圆角卡片、发丝描边、
+  胶囊按钮、紧凑的桌面 Item 与蓝色 highlight；设置窗口也改为卡片式布局。Salt UI 本身是
+  Compose Multiplatform 库，Avalonia 无法直接引用，因此这里是对其视觉与组件语言的原生实现。
+- **多种外观/材质**：右上角“外观”下拉框可选 **Salt 浅色 / Salt 深色 / 磨砂玻璃 / 亚克力 /
+  液态玻璃 / 经典深色**。磨砂玻璃使用 Windows Mica，亚克力使用系统 AcrylicBlur；液态玻璃叠加
+  彩色流动光斑与高光。外观选择会自动保存，下次启动恢复；系统不支持透明效果时保留内部兜底背景。
 
 ## 界面
 
@@ -44,6 +47,7 @@
 
 - .NET 8 / C# 12
 - Avalonia 11.3（Windows 桌面；Core 不依赖 UI，方便后续复用）
+- GUI 视觉规范参考 Salt UI（Apache-2.0），为 Avalonia 原生实现，不依赖 Compose
 - CommunityToolkit.Mvvm
 - TagLibSharp（音频标签）
 - QRCoder（登录二维码）

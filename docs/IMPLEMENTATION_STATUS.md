@@ -14,7 +14,7 @@
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、翻译合并；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | 登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志；深色主题与图标 |
+| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/浅深色；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志；玻璃材质 |
 | Windows 发布 | ✅ 完成 | 自包含 win-x64 发布目录 + zip |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
 
@@ -47,9 +47,11 @@
   从便携数据目录的 DPAPI 加密 session.dat 自动恢复登录，无需再次扫码。
 - 歌单侧栏支持收起/展开（顶栏 ☰ 按钮或 `Ctrl+B`），收起后歌曲表格自动占满宽度；
   已用 UI 自动化验证收起/展开两种布局。
-- 新增四套可切换外观（经典/磨砂玻璃/亚克力/液态玻璃），通过 `Window.TransparencyLevelHint`
-  使用 Windows Mica/AcrylicBlur，XAML 提供玻璃高光、彩色模糊光斑与液态高光动画；
-  切换后自动持久化。已在真实窗口上验证亚克力透出桌面、液态玻璃和经典样式的切换。
+- 新增 Salt UI 风格外观：参考 SaltColors、RoundedColumn、胶囊按钮、紧凑 Item 与发丝描边，
+  在 Avalonia 中原生实现 Salt 浅色 / Salt 深色两套主题；主窗口与设置对话框改为圆角卡片布局，
+  标题栏通过 DWM 与主题同步。另保留磨砂玻璃/亚克力/液态玻璃/经典深色材质。
+- 外观切换通过 UI 自动化验证：主界面、设置窗口、Salt 浅色/Salt 深色/液态玻璃切换均正常，
+  选择已持久化到 settings.json。
 
 ### NCM
 - 使用合成 NCM fixture（对算法做逆变换生成）验证密钥盒、元数据、封面、MP3/FLAC 识别、

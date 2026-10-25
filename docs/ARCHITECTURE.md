@@ -60,15 +60,23 @@ Core
 - AES-128-ECB 解出 RC4 密钥盒与元数据；按 32 KB 分块流式 XOR 解密音频。
 - 输出格式由首块内容判断（ID3 => mp3，fLaC => flac）。
 
-## 外观与窗口效果
+## 外观与窗口效果（Salt UI 风格）
 
-- `VisualThemeManager` 负责窗口级效果与调色板：
-  - 经典：不透明深色窗口；
-  - 磨砂玻璃：`WindowTransparencyLevel.Mica` + 冷色雾面层；
-  - 亚克力：`WindowTransparencyLevel.AcrylicBlur` + 较低不透明度的玻璃面板；
-  - 液态玻璃：`AcrylicBlur` + XAML 彩色模糊光斑、顶部玻璃高光与呼吸动画。
-- 主题色通过修改 `Application.Resources` 中的 `SolidColorBrush` 实例即时生效，避免重建控件树。
-- 外观选择保存在 `AppSettings.VisualStyle`；窗口透明效果在无 DWM/远程桌面等场景下由内部暗色玻璃层兜底。
+- `VisualThemeManager` 实现 Salt UI 的 SaltColors 设计令牌：
+  - **Salt 浅色**：背景 `#F3F3F3`、白色卡片、`#0470E6` highlight、发丝描边；
+  - **Salt 深色**：背景 `#202020`、低透明度白色卡片、`#0088FF` highlight；
+  - **磨砂玻璃**：`WindowTransparencyLevel.Mica` + 冷色雾面层；
+  - **亚克力**：`WindowTransparencyLevel.AcrylicBlur` + 半透明卡片；
+  - **液态玻璃**：`AcrylicBlur` + XAML 彩色模糊光斑、顶部高光与呼吸动画；
+  - **经典深色**：不透明深色窗口。
+- 控件按 Salt UI 视觉语言重建：
+  - RoundedColumn 式 10px 圆角卡片 + 发丝描边；
+  - 胶囊按钮（Filled / Subtle / Plain 三种层级）；
+  - 桌面紧凑行高、蓝色 section header、浅灰输入面；
+  - `Application.RequestedThemeVariant` 跟随 Salt 浅/深色切换；
+  - 原生标题栏通过 DWM caption/text color 与主题同步，对话框复用同一调色板。
+- 颜色通过修改 `Application.Resources` 中的 `SolidColorBrush` 实例即时传播；状态徽标转换器也支持浅/深色两套颜色。
+- 外观选择保存在 `AppSettings.VisualStyle`；玻璃模式在无 DWM/远程桌面等场景下由内部背景兜底。
 
 ## 线程与取消
 

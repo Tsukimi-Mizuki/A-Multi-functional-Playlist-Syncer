@@ -19,6 +19,15 @@ NCM 解密与网易云接口协议来自社区公开研究，代码为本项目�
 - Binaryify/NeteaseCloudMusicApi 及其社区继任者 — weapi 加密与接口端点语义参考
 - 社区调研文档（.research/netease-integration-research.md，开发期参考，不参与发布）
 
+## 界面设计参考
+
+- **Salt UI** — Apache License 2.0，https://github.com/Moriafly/SaltUI
+  - 本项目参考其 SaltColors 色板、RoundedColumn 卡片、胶囊按钮、Item 紧凑布局和
+    毛玻璃/亚克力/Mica/Premium 材质命名与视觉方向；
+  - Salt UI 是 Compose Multiplatform 库，本项目无法直接引用，也未复制其 Kotlin 源文件；
+    Avalonia 控件样式为按该设计语言重新实现。
+- **Salt Player / Moriafly 官网** — 界面与产品形态参考，https://moriafly.com/
+
 ## 视觉/窗口效果参考
 
 本项目未引入额外 UI 主题包，玻璃效果由 Avalonia 自带能力与 Win32/DWM 实现：
