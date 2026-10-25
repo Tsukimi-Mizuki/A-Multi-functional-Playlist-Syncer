@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Online;
 using NeteaseMusicManager.Core.Tags;
 using NeteaseMusicManager.Desktop.Services;
@@ -15,17 +16,20 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private readonly IAudioTagService _tags;
     private readonly IDesktopUiService _ui;
     private readonly IOnlineMusicSearchService _onlineSearch;
+    private readonly IBatchLyricsService _batchLyrics;
     private byte[]? _coverData;
     private long? _neteaseId;
 
     public LyricsEditorViewModel(
         IAudioTagService tags,
         IDesktopUiService ui,
-        IOnlineMusicSearchService onlineSearch)
+        IOnlineMusicSearchService onlineSearch,
+        IBatchLyricsService batchLyrics)
     {
         _tags = tags;
         _ui = ui;
         _onlineSearch = onlineSearch;
+        _batchLyrics = batchLyrics;
         SearchSources =
         [
             new(OnlineMusicSource.Netease, "网易云音乐"),
@@ -46,6 +50,13 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         {
             await LoadFileAsync(initialPath).ConfigureAwait(true);
         }
+    }
+
+    /// <summary>给歌词编辑窗口的“批量歌词”按钮创建子窗口 ViewModel。</summary>
+    public BatchLyricsViewModel CreateBatchLyricsViewModel()
+    {
+        var directory = FilePath is { Length: > 0 } path ? Path.GetDirectoryName(path) : null;
+        return new BatchLyricsViewModel(_batchLyrics, _ui, directory);
     }
 
     [ObservableProperty]

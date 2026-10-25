@@ -15,8 +15,6 @@ public interface IDesktopUiService
 
     Task ShowLyricsEditorAsync(LyricsEditorViewModel viewModel);
 
-    Task ShowBatchLyricsAsync(BatchLyricsViewModel viewModel);
-
     Task<string?> PickAudioFileAsync(string title);
 
     Task<bool> ConfirmAsync(string title, string message, string okText = "确定", string cancelText = "取消");

@@ -259,7 +259,6 @@
               <Button Classes="primary" Content="同步选中" Command="{Binding SyncSelectedCommand}" Margin="0,0,6,6" />
               <Button Content="导入 NCM" Command="{Binding ImportNcmCommand}" ToolTip.Tip="导入/解密 NCM" Margin="0,0,6,6" />
               <Button Content="歌词编辑" Command="{Binding OpenLyricsEditorCommand}" Margin="0,0,6,6" />
-              <Button Content="批量歌词" Command="{Binding OpenBatchLyricsCommand}" Margin="0,0,6,6" />
               <Button Content="设置" Command="{Binding OpenSettingsCommand}" Margin="0,0,6,6" />
               <Button Content="下载目录" Command="{Binding OpenDownloadFolderCommand}" ToolTip.Tip="打开下载目录" Margin="0,0,6,6" />
             </WrapPanel>

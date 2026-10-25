@@ -29,9 +29,6 @@ public sealed class DesktopUiService : IDesktopUiService
     public Task ShowLyricsEditorAsync(LyricsEditorViewModel viewModel) =>
         new LyricsEditorWindow { DataContext = viewModel }.ShowDialog(RequireOwner());
 
-    public Task ShowBatchLyricsAsync(BatchLyricsViewModel viewModel) =>
-        new BatchLyricsWindow { DataContext = viewModel }.ShowDialog(RequireOwner());
-
     public async Task<string?> PickAudioFileAsync(string title)
     {
         var files = await RequireOwner().StorageProvider
