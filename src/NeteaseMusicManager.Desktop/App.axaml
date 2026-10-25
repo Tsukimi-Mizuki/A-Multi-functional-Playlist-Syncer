@@ -197,6 +197,14 @@
         </Transitions>
       </Setter>
     </Style>
+    <Style Selector="ListBox.playlist-rail ListBoxItem /template/ ContentPresenter">
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.18" />
+          <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+        </Transitions>
+      </Setter>
+    </Style>
 
     <!-- ===== Salt UI cards ===== -->
     <Style Selector="Border.salt-card">
@@ -231,6 +239,30 @@
       <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
     </Style>
     <Style Selector="ListBox.playlists ListBoxItem:selected">
+      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- 收起后的歌单封面栏 -->
+    <Style Selector="ListBox.playlist-rail">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.playlist-rail ListBoxItem">
+      <Setter Property="Width" Value="48" />
+      <Setter Property="Height" Value="48" />
+      <Setter Property="Padding" Value="3" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.playlist-rail ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.playlist-rail ListBoxItem:selected /template/ ContentPresenter">
       <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
     </Style>
 

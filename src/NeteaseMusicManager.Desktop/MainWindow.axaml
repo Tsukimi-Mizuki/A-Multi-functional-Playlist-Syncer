@@ -142,37 +142,44 @@
           </Border>
         </Grid>
 
-        <!-- 收起状态：一个可点击的歌单图标 -->
-        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,18,0,0" Spacing="6"
-                    Opacity="{Binding SidebarCollapsedOpacity}"
-                    IsHitTestVisible="{Binding IsSidebarCollapsed}">
-          <StackPanel.Transitions>
+        <!-- 收起状态：全部歌单封面，点击封面即可切换 -->
+        <Grid RowDefinitions="Auto,*"
+              Opacity="{Binding SidebarCollapsedOpacity}"
+              IsHitTestVisible="{Binding IsSidebarCollapsed}">
+          <Grid.Transitions>
             <Transitions>
               <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
             </Transitions>
-          </StackPanel.Transitions>
-          <Button Width="48" Height="48" Padding="0"
+          </Grid.Transitions>
+          <Button Classes="ghost" Width="32" Height="32" Padding="0" Margin="0,6,0,0"
+                  HorizontalAlignment="Center"
                   Command="{Binding ToggleSidebarCommand}"
                   ToolTip.Tip="展开歌单"
-                  AutomationProperties.Name="展开歌单"
-                  Background="Transparent" BorderThickness="0"
-                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-            <Border Width="44" Height="44" CornerRadius="10" ClipToBounds="True"
-                    Background="{StaticResource AccentSoftBrush}"
-                    BorderBrush="{StaticResource AccentBorderBrush}"
-                    BorderThickness="1">
-              <Panel>
-                <PathIcon Width="20" Height="20"
-                          Foreground="{StaticResource AccentBrush}"
-                          HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Data="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
-                <Image Source="{Binding SelectedPlaylist.Cover}" Stretch="UniformToFill" />
-              </Panel>
-            </Border>
+                  AutomationProperties.Name="展开歌单">
+            <PathIcon Width="14" Height="14"
+                      Data="M9 6l6 6-6 6z" />
           </Button>
-          <TextBlock Text="歌单" FontSize="10.5" HorizontalAlignment="Center"
-                     Foreground="{StaticResource AccentBrush}" />
-        </StackPanel>
+          <ListBox Grid.Row="1" Classes="playlist-rail" Margin="0,6,0,0"
+                   ItemsSource="{Binding Playlists}"
+                   IsEnabled="{Binding IsNotBusy}"
+                   SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Width="42" Height="42" CornerRadius="8" ClipToBounds="True"
+                        Background="{StaticResource PanelHoverBrush}"
+                        ToolTip.Tip="{Binding Name}">
+                  <Panel>
+                    <TextBlock Text="♪" FontSize="17" Foreground="{StaticResource TextTertiaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Source="{Binding Cover}" Stretch="UniformToFill" />
+                  </Panel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
         </Panel>
       </Border>
 
