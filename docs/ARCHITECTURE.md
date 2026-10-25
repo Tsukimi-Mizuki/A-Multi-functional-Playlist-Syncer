@@ -60,6 +60,16 @@ Core
 - AES-128-ECB 解出 RC4 密钥盒与元数据；按 32 KB 分块流式 XOR 解密音频。
 - 输出格式由首块内容判断（ID3 => mp3，fLaC => flac）。
 
+## 外观与窗口效果
+
+- `VisualThemeManager` 负责窗口级效果与调色板：
+  - 经典：不透明深色窗口；
+  - 磨砂玻璃：`WindowTransparencyLevel.Mica` + 冷色雾面层；
+  - 亚克力：`WindowTransparencyLevel.AcrylicBlur` + 较低不透明度的玻璃面板；
+  - 液态玻璃：`AcrylicBlur` + XAML 彩色模糊光斑、顶部玻璃高光与呼吸动画。
+- 主题色通过修改 `Application.Resources` 中的 `SolidColorBrush` 实例即时生效，避免重建控件树。
+- 外观选择保存在 `AppSettings.VisualStyle`；窗口透明效果在无 DWM/远程桌面等场景下由内部暗色玻璃层兜底。
+
 ## 线程与取消
 
 - 所有 I/O 使用 async；ViewModel 命令接受 CancellationToken。

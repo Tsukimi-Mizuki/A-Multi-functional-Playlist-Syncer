@@ -37,11 +37,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _presentCount;
     private int _ncmCount;
     private int _missingCount;
+    private bool _settingsLoaded;
+    private bool _suppressVisualStyleSave;
+
+    /// <summary>外观切换通知主窗口应用系统模糊/亚克力等窗口级效果。</summary>
+    public event Action<AppVisualStyle>? VisualStyleChanged;
 
     public MainWindowViewModel(AppServices services, IDesktopUiService ui)
     {
         _services = services;
         _ui = ui;
+        VisualStyleOptions =
+        [
+            new(AppVisualStyle.Classic, "经典深色", "实色深色界面，性能最稳妥"),
+            new(AppVisualStyle.FrostedGlass, "磨砂玻璃", "Mica 背景与冷色雾面玻璃"),
+            new(AppVisualStyle.Acrylic, "亚克力", "Windows 亚克力模糊与半透明面板"),
+            new(AppVisualStyle.LiquidGlass, "液态玻璃", "彩色流动背景与高光玻璃面板"),
+        ];
+        _selectedVisualStyle = VisualStyleOptions[3];
         RefreshEmptyStates();
         RefreshCommandStates();
     }
@@ -53,6 +66,56 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<SongRowViewModel> Songs { get; } = [];
 
     public ObservableCollection<LogEntryViewModel> LogEntries { get; } = [];
+
+    // ===== 外观 =====
+
+    public IReadOnlyList<VisualStyleOption> VisualStyleOptions { get; }
+
+    [ObservableProperty]
+    private VisualStyleOption _selectedVisualStyle = null!;
+
+    public bool IsGlassStyle => SelectedVisualStyle.Value != AppVisualStyle.Classic;
+    public bool IsFrostedStyle => SelectedVisualStyle.Value == AppVisualStyle.FrostedGlass;
+    public bool IsAcrylicStyle => SelectedVisualStyle.Value == AppVisualStyle.Acrylic;
+    public bool IsLiquidStyle => SelectedVisualStyle.Value == AppVisualStyle.LiquidGlass;
+
+    partial void OnSelectedVisualStyleChanged(VisualStyleOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(IsGlassStyle));
+        OnPropertyChanged(nameof(IsFrostedStyle));
+        OnPropertyChanged(nameof(IsAcrylicStyle));
+        OnPropertyChanged(nameof(IsLiquidStyle));
+        VisualStyleChanged?.Invoke(value.Value);
+
+        if (!_settingsLoaded || _suppressVisualStyleSave)
+        {
+            return;
+        }
+
+        _settings.VisualStyle = value.Value;
+        _ = SaveVisualStyleAsync();
+    }
+
+    private async Task SaveVisualStyleAsync()
+    {
+        try
+        {
+            await _services.SettingsStore.SaveAsync(_settings, _lifetimeCts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // 程序退出。
+        }
+        catch (Exception ex)
+        {
+            LogWarning("保存外观设置失败：" + ErrorFormatter.ToFriendlyMessage(ex));
+        }
+    }
 
     // ===== 登录态 =====
 
@@ -205,6 +268,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 LogWarning("系统数据目录不可写，已切换到便携数据目录：" + AppPaths.DataDirectory);
             }
 
+            _settingsLoaded = true;
+            var savedStyle = VisualStyleOptions.FirstOrDefault(option => option.Value == _settings.VisualStyle)
+                ?? VisualStyleOptions[0];
+            if (!ReferenceEquals(savedStyle, SelectedVisualStyle))
+            {
+                _suppressVisualStyleSave = true;
+                SelectedVisualStyle = savedStyle;
+                _suppressVisualStyleSave = false;
+            }
+
+            LogInfo($"外观：{SelectedVisualStyle.Label}");
             LogInfo($"设置已加载，下载目录：{_settings.DownloadDirectory}");
             LogInfo($"曲库目录：{_settings.LibraryDirectory}");
         }

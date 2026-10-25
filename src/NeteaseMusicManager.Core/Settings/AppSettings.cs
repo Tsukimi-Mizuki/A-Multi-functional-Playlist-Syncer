@@ -14,6 +14,7 @@ public sealed class AppSettings
     public string FileNameTemplate { get; set; } = "{artist} - {title}";
     public int MaxConcurrency { get; set; } = 3;
     public bool AutoMatchLocal { get; set; } = true;
+    public AppVisualStyle VisualStyle { get; set; } = AppVisualStyle.LiquidGlass;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
 

@@ -1,14 +1,104 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:media="using:Avalonia.Media"
         x:Class="NeteaseMusicManager.Desktop.MainWindow"
         Title="网易云音乐管理器"
         Width="1320" Height="860"
         MinWidth="1120" MinHeight="720"
         WindowStartupLocation="CenterScreen">
+  <Window.Styles>
+    <Style Selector="Border.liquid-glint">
+      <Style.Animations>
+        <Animation Duration="0:0:9" IterationCount="INFINITE" PlaybackDirection="Alternate">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0.18" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="0.62" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </Window.Styles>
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}" />
   </Window.KeyBindings>
   <Grid RowDefinitions="Auto,*">
+    <!-- ========== 玻璃背景层（不参与命中测试） ========== -->
+    <Grid Grid.RowSpan="2" IsHitTestVisible="False" ClipToBounds="True">
+      <!-- 窗顶高光 -->
+      <Border IsVisible="{Binding IsGlassStyle}" VerticalAlignment="Top" Height="190">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#26FFFFFF" Offset="0" />
+            <GradientStop Color="#00FFFFFF" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+
+      <!-- 磨砂玻璃 -->
+      <Grid IsVisible="{Binding IsFrostedStyle}">
+        <Border Background="#730A0F17" />
+        <Canvas>
+          <Canvas.Effect>
+            <media:BlurEffect Radius="95" />
+          </Canvas.Effect>
+          <Ellipse Width="760" Height="760" Canvas.Left="-240" Canvas.Top="-320" Fill="#553C6E9C" />
+          <Ellipse Width="640" Height="640" Canvas.Left="1150" Canvas.Top="310" Fill="#443C8B78" />
+          <Ellipse Width="540" Height="540" Canvas.Left="520" Canvas.Top="780" Fill="#333A5C9E" />
+        </Canvas>
+        <Border Background="#26060A12" />
+      </Grid>
+
+      <!-- 亚克力 -->
+      <Grid IsVisible="{Binding IsAcrylicStyle}">
+        <Border Background="#6B0A0C12" />
+        <Canvas>
+          <Canvas.Effect>
+            <media:BlurEffect Radius="110" />
+          </Canvas.Effect>
+          <Ellipse Width="760" Height="760" Canvas.Left="-200" Canvas.Top="-280" Fill="#44C56B4F" />
+          <Ellipse Width="600" Height="600" Canvas.Left="1150" Canvas.Top="220" Fill="#334A8CA5" />
+          <Ellipse Width="520" Height="520" Canvas.Left="480" Canvas.Top="760" Fill="#2E7A6688" />
+        </Canvas>
+        <Border Background="#3D070A10" />
+      </Grid>
+
+      <!-- 液态玻璃：彩色流动光斑 + 玻璃高光 -->
+      <Grid IsVisible="{Binding IsLiquidStyle}">
+        <Border>
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+              <GradientStop Color="#0A0E1B" Offset="0" />
+              <GradientStop Color="#14112B" Offset="0.42" />
+              <GradientStop Color="#071B21" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+        <Canvas>
+          <Canvas.Effect>
+            <media:BlurEffect Radius="120" />
+          </Canvas.Effect>
+          <Ellipse Width="820" Height="820" Canvas.Left="-240" Canvas.Top="-360" Fill="#88FF4B86" />
+          <Ellipse Width="700" Height="700" Canvas.Left="1120" Canvas.Top="-240" Fill="#7757D7FF" />
+          <Ellipse Width="620" Height="620" Canvas.Left="760" Canvas.Top="620" Fill="#707B5CFF" />
+        </Canvas>
+        <Border Background="#2E060A13" />
+        <Border Classes="liquid-glint" Height="260" VerticalAlignment="Top">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+              <GradientStop Color="#3DFFFFFF" Offset="0" />
+              <GradientStop Color="#10FFFFFF" Offset="0.4" />
+              <GradientStop Color="#00FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+        <Border Height="2" VerticalAlignment="Bottom" Background="#33A77BFF" />
+      </Grid>
+
+      <!-- 玻璃顶部亮边 -->
+      <Border IsVisible="{Binding IsGlassStyle}" Height="1" VerticalAlignment="Top" Background="#4DFFFFFF" />
+    </Grid>
     <!-- ========== 顶栏 ========== -->
     <Border Grid.Row="0" Height="68" Background="{StaticResource HeaderBrush}"
             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
@@ -35,6 +125,22 @@
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Text="外观" FontSize="11" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextTertiaryBrush}" />
+            <ComboBox ItemsSource="{Binding VisualStyleOptions}"
+                      SelectedItem="{Binding SelectedVisualStyle, Mode=TwoWay}"
+                      Width="128" Height="32" MinHeight="30" Padding="9,3"
+                      VerticalContentAlignment="Center"
+                      ToolTip.Tip="切换界面外观：经典 / 磨砂玻璃 / 亚克力 / 液态玻璃"
+                      AutomationProperties.Name="界面外观">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Label}" FontSize="12" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
           <Button Classes="primary" Content="扫码登录" Command="{Binding LoginCommand}"
                   IsVisible="{Binding IsNotLoggedIn}" Padding="18,7" />
           <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsLoggedIn}">
@@ -135,6 +241,16 @@
 
       <!-- 主内容区（侧栏收起后自动占满剩余宽度） -->
       <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <!-- 玻璃模式下给表格内容加一层暗色衬底，保证文字在明亮壁纸上可读 -->
+        <Border Grid.RowSpan="5" IsHitTestVisible="False" IsVisible="{Binding IsGlassStyle}">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+              <GradientStop Color="#40080B12" Offset="0" />
+              <GradientStop Color="#66080B12" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+
         <!-- 工具栏 -->
         <Border Grid.Row="0" Padding="20,14,20,10">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
