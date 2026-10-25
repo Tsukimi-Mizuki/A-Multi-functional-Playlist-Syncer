@@ -1,0 +1,16 @@
+bin/
+obj/
+.dotnet/
+.dotnet-home/
+.deps/
+.research/
+*.user
+*.suo
+TestResults/
+artifacts/
+.tmp/
+.nuget-packages/
+
+publish/
+.idea/
+.vs/

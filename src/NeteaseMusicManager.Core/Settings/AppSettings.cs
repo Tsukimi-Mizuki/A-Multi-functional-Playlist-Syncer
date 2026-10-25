@@ -1,0 +1,32 @@
+using NeteaseMusicManager.Core.Models;
+
+namespace NeteaseMusicManager.Core.Settings;
+
+public sealed class AppSettings
+{
+    public string DownloadDirectory { get; set; } = AppPaths.DefaultDownloadDirectory;
+    public string LibraryDirectory { get; set; } = AppPaths.DefaultDownloadDirectory;
+    public AudioQuality Quality { get; set; } = AudioQuality.ExHigh;
+    public LyricsWriteMode LyricsMode { get; set; } = LyricsWriteMode.Line;
+    public bool WriteCover { get; set; } = true;
+    public bool OverwriteExisting { get; set; }
+    public bool SkipExisting { get; set; } = true;
+    public string FileNameTemplate { get; set; } = "{artist} - {title}";
+    public int MaxConcurrency { get; set; } = 3;
+    public bool AutoMatchLocal { get; set; } = true;
+
+    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+
+    public AppSettings Normalize()
+    {
+        DownloadDirectory = string.IsNullOrWhiteSpace(DownloadDirectory) ? AppPaths.DefaultDownloadDirectory : DownloadDirectory.Trim();
+        LibraryDirectory = string.IsNullOrWhiteSpace(LibraryDirectory) ? DownloadDirectory : LibraryDirectory.Trim();
+        if (string.IsNullOrWhiteSpace(FileNameTemplate))
+        {
+            FileNameTemplate = "{artist} - {title}";
+        }
+
+        MaxConcurrency = Math.Clamp(MaxConcurrency, 1, 8);
+        return this;
+    }
+}
