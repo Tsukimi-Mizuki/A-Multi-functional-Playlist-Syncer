@@ -4,6 +4,7 @@ using NeteaseMusicManager.Core.Library;
 using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Ncm;
 using NeteaseMusicManager.Core.Netease;
+using NeteaseMusicManager.Core.Online;
 using NeteaseMusicManager.Core.Settings;
 using NeteaseMusicManager.Core.Storage;
 using NeteaseMusicManager.Core.Sync;
@@ -30,8 +31,10 @@ public sealed class AppServices : IDisposable
         ISyncService sync,
         ISessionStore sessionStore,
         ISettingsStore settingsStore,
-        CoverImageService covers)
+        CoverImageService covers,
+        IOnlineMusicSearchService onlineSearch)
     {
+        OnlineSearch = onlineSearch;
         Http = http;
         Api = api;
         NcmDecoder = ncmDecoder;
@@ -60,6 +63,7 @@ public sealed class AppServices : IDisposable
     public ISessionStore SessionStore { get; }
     public ISettingsStore SettingsStore { get; }
     public CoverImageService Covers { get; }
+    public IOnlineMusicSearchService OnlineSearch { get; }
 
     /// <summary>构造全部真实依赖。所有平台相关路径（设置、登录态）使用 Core 的 AppPaths 默认位置。</summary>
     public static AppServices Create()
@@ -91,6 +95,7 @@ public sealed class AppServices : IDisposable
         var sessionStore = new ProtectedSessionStore();
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);
+        var onlineSearch = new OnlineMusicSearchService(api, http);
 
         return new AppServices(
             http,
@@ -105,7 +110,8 @@ public sealed class AppServices : IDisposable
             sync,
             sessionStore,
             settingsStore,
-            covers);
+            covers,
+            onlineSearch);
     }
 
     public void Dispose()

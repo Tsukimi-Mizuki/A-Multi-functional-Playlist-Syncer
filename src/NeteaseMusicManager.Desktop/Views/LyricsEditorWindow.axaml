@@ -2,10 +2,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NeteaseMusicManager.Desktop.Views.LyricsEditorWindow"
         Title="歌词与标签编辑器"
-        Width="1240" Height="820"
-        MinWidth="1040" MinHeight="680"
+        Width="1240" Height="900"
+        MinWidth="1040" MinHeight="760"
         WindowStartupLocation="CenterOwner">
-  <Grid RowDefinitions="Auto,*,Auto" Margin="18">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="18">
     <!-- 顶栏 -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
       <StackPanel Spacing="2" VerticalAlignment="Center">
@@ -20,8 +20,59 @@
               Padding="18,7" AutomationProperties.Name="重新读取标签" />
     </Grid>
 
+    <!-- 在线搜索 -->
+    <Border Grid.Row="1" Classes="salt-card" Padding="12,10" Margin="0,12,0,0">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ComboBox ItemsSource="{Binding SearchSources}"
+                    SelectedItem="{Binding SelectedSearchSource, Mode=TwoWay}"
+                    Width="132" Height="32" MinHeight="30" Padding="9,3"
+                    VerticalContentAlignment="Center"
+                    AutomationProperties.Name="在线搜索来源">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" FontSize="12" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBox Grid.Column="1" Text="{Binding SearchKeyword, Mode=TwoWay}"
+                   Watermark="搜索歌曲、歌手或专辑，例如：夜空中最亮的星"
+                   AutomationProperties.Name="在线搜索关键词" />
+          <Button Grid.Column="2" Classes="primary" Content="搜索"
+                  Command="{Binding SearchOnlineCommand}"
+                  Padding="20,7" AutomationProperties.Name="在线搜索" />
+        </Grid>
+        <TextBlock Grid.Row="1" Text="{Binding SearchStatus}" FontSize="10.5"
+                   Foreground="{StaticResource TextTertiaryBrush}"
+                   IsVisible="{Binding SearchStatus, Converter={StaticResource NotEmptyStringConverter}}"
+                   TextTrimming="CharacterEllipsis" />
+        <ListBox Grid.Row="1" ItemsSource="{Binding SearchResults}"
+                 SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}"
+                 IsVisible="{Binding HasSearchResults}"
+                 MaxHeight="150" Margin="0,24,0,0"
+                 Background="Transparent" BorderThickness="0" Padding="0"
+                 AutomationProperties.Name="在线搜索结果">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding DisplayTitle}" FontSize="12.5" FontWeight="SemiBold"
+                             MaxLines="1" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Subtitle}" FontSize="10.5"
+                             Foreground="{StaticResource TextTertiaryBrush}"
+                             MaxLines="1" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding DurationText}" FontSize="10.5"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
     <!-- 左侧标签 + 右侧歌词 -->
-    <Grid Grid.Row="1" ColumnDefinitions="360,14,*" Margin="0,14,0,0">
+    <Grid Grid.Row="2" ColumnDefinitions="360,14,*" Margin="0,14,0,0">
       <Border Grid.Column="0" Classes="salt-card" Padding="16" ClipToBounds="True">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Spacing="10" Margin="0,0,8,0">
@@ -112,7 +163,7 @@
     </Grid>
 
     <!-- 底栏 -->
-    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,14,0,0">
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,14,0,0">
       <StackPanel Spacing="2" VerticalAlignment="Center">
         <TextBlock Text="{Binding FileInfoText}" FontSize="10.5"
                    Foreground="{StaticResource TextSecondaryBrush}"

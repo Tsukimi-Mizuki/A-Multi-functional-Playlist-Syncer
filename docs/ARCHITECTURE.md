@@ -81,6 +81,16 @@ Core
   - 传统 `DefaultRenderTimer` 后端会替换其固定 60FPS 驱动线程；
   - 该设置保存在 `AppSettings.RenderFrameRate`，重启后生效。
 
+## 在线歌词与标签搜索
+
+- `OnlineMusicSearchService` 同时支持网易云音乐和 QQ 音乐：
+  - 网易云使用公开搜索接口 `/api/search/get/web`，详情与歌词复用 `INeteaseApiClient`；
+  - QQ 音乐使用公开搜索接口 `client_search_cp` 读取标题、歌手、专辑、年份、音轨/碟号、时长，
+    歌词使用 `fcg_query_lyric_new` 接口；
+  - 两个来源都用独立超时与错误提示，搜索结果只读取公开元数据/歌词，不下载音频。
+- 歌词编辑器中的搜索结果列表点击后自动填入标签和歌词，用户确认后再写入本地音频标签。
+- 在线来源通过 `IOnlineMusicSearchService` 抽象，后续可继续扩展其他音乐平台。
+
 ## 歌词与标签编辑器
 
 - 独立窗口 `LyricsEditorWindow`，从主界面“歌词编辑”或命令行 `--lyrics <file>` 打开。

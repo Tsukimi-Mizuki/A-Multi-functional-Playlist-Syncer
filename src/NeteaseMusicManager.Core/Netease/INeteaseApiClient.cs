@@ -25,6 +25,12 @@ public interface INeteaseApiClient
 
     Task<PlaylistDetail> GetPlaylistDetailAsync(long playlistId, CancellationToken cancellationToken = default);
 
+    /// <summary>按关键词搜索歌曲（公开接口，无需登录）。</summary>
+    Task<IReadOnlyList<NeteaseSong>> SearchSongsAsync(
+        string keyword,
+        int limit = 20,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<NeteaseSong>> GetSongDetailsAsync(
         IReadOnlyCollection<long> songIds,
         CancellationToken cancellationToken = default);

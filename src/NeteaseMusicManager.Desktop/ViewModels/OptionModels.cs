@@ -1,4 +1,5 @@
 using NeteaseMusicManager.Core.Models;
+using NeteaseMusicManager.Core.Online;
 
 namespace NeteaseMusicManager.Desktop.ViewModels;
 
@@ -30,6 +31,12 @@ public sealed record FileNameTemplateOption(string Value, string Label)
 
 /// <summary>界面帧率上限选项。</summary>
 public sealed record RenderFrameRateOption(RenderFrameRateMode Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>在线搜索音乐源选项。</summary>
+public sealed record OnlineSourceOption(OnlineMusicSource Value, string Label)
 {
     public override string ToString() => Label;
 }

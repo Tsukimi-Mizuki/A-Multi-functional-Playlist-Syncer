@@ -1000,7 +1000,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var viewModel = new LyricsEditorViewModel(_services.Tags, _ui);
+            var viewModel = new LyricsEditorViewModel(_services.Tags, _ui, _services.OnlineSearch);
             await viewModel.InitializeAsync(initialPath).ConfigureAwait(true);
             await _ui.ShowLyricsEditorAsync(viewModel).ConfigureAwait(true);
         }

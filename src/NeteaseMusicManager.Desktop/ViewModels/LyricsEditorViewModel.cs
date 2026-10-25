@@ -2,6 +2,7 @@ using System.Globalization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NeteaseMusicManager.Core.Online;
 using NeteaseMusicManager.Core.Tags;
 using NeteaseMusicManager.Desktop.Services;
 
@@ -12,13 +13,24 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 {
     private readonly IAudioTagService _tags;
     private readonly IDesktopUiService _ui;
+    private readonly IOnlineMusicSearchService _onlineSearch;
     private byte[]? _coverData;
     private long? _neteaseId;
 
-    public LyricsEditorViewModel(IAudioTagService tags, IDesktopUiService ui)
+    public LyricsEditorViewModel(
+        IAudioTagService tags,
+        IDesktopUiService ui,
+        IOnlineMusicSearchService onlineSearch)
     {
         _tags = tags;
         _ui = ui;
+        _onlineSearch = onlineSearch;
+        SearchSources =
+        [
+            new(OnlineMusicSource.Netease, "网易云音乐"),
+            new(OnlineMusicSource.QQMusic, "QQ 音乐"),
+        ];
+        _selectedSearchSource = SearchSources[0];
     }
 
     public async Task InitializeAsync(string? initialPath)
@@ -83,6 +95,31 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     private bool _hasCover;
 
+    // ===== 在线搜索 =====
+
+    public IReadOnlyList<OnlineSourceOption> SearchSources { get; }
+
+    [ObservableProperty]
+    private OnlineSourceOption _selectedSearchSource;
+
+    [ObservableProperty]
+    private string _searchKeyword = string.Empty;
+
+    [ObservableProperty]
+    private string _searchStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isSearching;
+
+    [ObservableProperty]
+    private bool _hasSearchResults;
+
+    [ObservableProperty]
+    private IReadOnlyList<OnlineSongResult> _searchResults = Array.Empty<OnlineSongResult>();
+
+    [ObservableProperty]
+    private OnlineSongResult? _selectedSearchResult;
+
     public bool HasFile => !string.IsNullOrWhiteSpace(FilePath);
 
     public string LyricsLengthText => $"{Lyrics.Length:N0} 字符";
@@ -92,6 +129,8 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     public bool CanSave => HasFile && !IsBusy;
 
     public bool CanReload => HasFile && !IsBusy;
+
+    public bool CanSearch => !IsSearching && !IsBusy;
 
     partial void OnFilePathChanged(string? value)
     {
@@ -110,9 +149,107 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         OpenFileCommand.NotifyCanExecuteChanged();
         ReloadCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
+        SearchOnlineCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnLyricsChanged(string value) => OnPropertyChanged(nameof(LyricsLengthText));
+
+    partial void OnIsSearchingChanged(bool value) => SearchOnlineCommand.NotifyCanExecuteChanged();
+
+    partial void OnSelectedSearchResultChanged(OnlineSongResult? value)
+    {
+        if (value is not null)
+        {
+            _ = ApplyOnlineSongAsync(value);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSearch))]
+    private async Task SearchOnlineAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SearchKeyword))
+        {
+            SearchStatus = "请输入要搜索的歌曲、歌手或专辑。";
+            return;
+        }
+
+        IsSearching = true;
+        HasSearchResults = false;
+        SearchResults = Array.Empty<OnlineSongResult>();
+        SelectedSearchResult = null;
+        SearchStatus = "正在搜索...";
+        try
+        {
+            var results = await _onlineSearch
+                .SearchAsync(SelectedSearchSource.Value, SearchKeyword.Trim())
+                .ConfigureAwait(true);
+            SearchResults = results;
+            HasSearchResults = results.Count > 0;
+            SearchStatus = results.Count == 0
+                ? "没有找到匹配歌曲，换个关键词试试。"
+                : $"找到 {results.Count} 首歌曲，点击结果即可载入标签和歌词。";
+        }
+        catch (Exception ex)
+        {
+            SearchStatus = "搜索失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+        }
+        finally
+        {
+            IsSearching = false;
+        }
+    }
+
+    private async Task ApplyOnlineSongAsync(OnlineSongResult summary)
+    {
+        try
+        {
+            SearchStatus = $"正在获取{summary.SourceLabel}的标签和歌词...";
+            var details = await _onlineSearch.GetDetailsAsync(summary).ConfigureAwait(true);
+            var song = details?.Song ?? summary;
+
+            Title = song.Title;
+            Artist = song.Artist;
+            Album = song.Album;
+            if (song.Year is uint year)
+            {
+                Year = year.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (song.TrackNumber is uint track)
+            {
+                TrackNumber = track.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (song.DiscNumber is uint disc)
+            {
+                DiscNumber = disc.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (!string.IsNullOrWhiteSpace(song.Genre))
+            {
+                Genre = song.Genre;
+            }
+
+            if (!string.IsNullOrWhiteSpace(song.Composer))
+            {
+                Composer = song.Composer;
+            }
+
+            var hasLyrics = !string.IsNullOrWhiteSpace(details?.Lyrics);
+            if (hasLyrics)
+            {
+                Lyrics = details!.Lyrics!;
+            }
+
+            SearchStatus = hasLyrics
+                ? $"已载入{summary.SourceLabel}的标签与歌词，请确认后保存。"
+                : $"已载入{summary.SourceLabel}的标签；未获取到歌词。";
+        }
+        catch (Exception ex)
+        {
+            SearchStatus = "获取在线信息失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanInteract))]
     private async Task OpenFileAsync()

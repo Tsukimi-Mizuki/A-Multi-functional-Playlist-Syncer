@@ -149,6 +149,11 @@ internal sealed class FakeApiForDownload : INeteaseApiClient
     public Task<PlaylistDetail> GetPlaylistDetailAsync(long playlistId, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
+    public Task<IReadOnlyList<NeteaseSong>> SearchSongsAsync(
+        string keyword,
+        int limit = 20,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     public Task<IReadOnlyList<NeteaseSong>> GetSongDetailsAsync(
         IReadOnlyCollection<long> songIds,
         CancellationToken cancellationToken = default) => throw new NotSupportedException();
