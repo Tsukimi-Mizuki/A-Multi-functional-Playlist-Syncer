@@ -73,6 +73,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     // ===== 状态 =====
 
     [ObservableProperty]
+    private bool _isSidebarExpanded = true;
+
+    public string SidebarToggleToolTip => IsSidebarExpanded ? "收起歌单列表 (Ctrl+B)" : "展开歌单列表 (Ctrl+B)";
+
+    partial void OnIsSidebarExpandedChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleToolTip));
+
+    [RelayCommand]
+    private void ToggleSidebar() => IsSidebarExpanded = !IsSidebarExpanded;
+
+    [ObservableProperty]
     private bool _isBusy;
 
     public bool IsNotBusy => !IsBusy;
