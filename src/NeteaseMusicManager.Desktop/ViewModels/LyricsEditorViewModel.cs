@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -377,6 +378,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         }
 
         IsBusy = true;
+        var loaded = false;
         StatusText = "正在读取标签与歌词...";
         try
         {
@@ -414,6 +416,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
                 : "--:--";
             FileInfoText = $"{format} · {durationText} · {info.Bitrate} kbps · {FormatBytes(info.FileSize)}";
             StatusText = "标签与歌词已读取。";
+            loaded = true;
         }
         catch (Exception ex)
         {
@@ -423,6 +426,37 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         {
             IsBusy = false;
         }
+
+        if (loaded)
+        {
+            await AutoSearchOpenedFileAsync(path).ConfigureAwait(true);
+        }
+    }
+
+    private async Task AutoSearchOpenedFileAsync(string path)
+    {
+        var keyword = BuildSearchKeywordFromFileName(path);
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return;
+        }
+
+        SearchKeyword = keyword;
+        await SearchOnlineAsync().ConfigureAwait(true);
+    }
+
+    private static string BuildSearchKeywordFromFileName(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return string.Empty;
+        }
+
+        // 去掉常见的 “01 - ” / “01.” 音轨前缀，并把下划线替换为空格。
+        name = Regex.Replace(name, @"^\s*\d{1,3}[\s._-]+", string.Empty);
+        name = name.Replace('_', ' ');
+        return Regex.Replace(name, @"\s+", " ").Trim();
     }
 
     private void SetCover(byte[]? coverData)
