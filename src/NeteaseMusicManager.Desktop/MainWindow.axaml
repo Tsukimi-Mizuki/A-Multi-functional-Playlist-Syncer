@@ -65,7 +65,7 @@
               IsHitTestVisible="{Binding IsSidebarExpanded}">
           <Grid.Transitions>
             <Transitions>
-              <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+              <DoubleTransition Property="Opacity" Duration="0:0:0.22" Easing="CubicEaseOut" />
             </Transitions>
           </Grid.Transitions>
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="18,16,12,8">
@@ -89,10 +89,18 @@
           </Grid>
 
           <Grid Grid.Row="1">
-            <ListBox Classes="playlists" Margin="8,0,6,8"
+            <ListBox Classes="playlists" Margin="8,0,6,8" Padding="0,10,0,10"
                      ItemsSource="{Binding Playlists}"
                      IsEnabled="{Binding IsNotBusy}"
                      SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}">
+              <ListBox.OpacityMask>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                  <GradientStop Color="#00FFFFFF" Offset="0" />
+                  <GradientStop Color="#FFFFFFFF" Offset="0.03" />
+                  <GradientStop Color="#FFFFFFFF" Offset="0.97" />
+                  <GradientStop Color="#00FFFFFF" Offset="1" />
+                </LinearGradientBrush>
+              </ListBox.OpacityMask>
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
@@ -125,6 +133,24 @@
               <Button Classes="primary" Content="扫码登录" Command="{Binding LoginCommand}"
                       IsVisible="{Binding IsNotLoggedIn}" HorizontalAlignment="Center" />
             </StackPanel>
+
+            <!-- 列表上下渐变，让歌单图标滚入/滚出时渐隐 -->
+            <Border Height="18" VerticalAlignment="Top" IsHitTestVisible="False">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                  <GradientStop Color="#CC151A23" Offset="0" />
+                  <GradientStop Color="#00151A23" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border Height="18" VerticalAlignment="Bottom" IsHitTestVisible="False">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                  <GradientStop Color="#00151A23" Offset="0" />
+                  <GradientStop Color="#CC151A23" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
           </Grid>
 
           <Border Grid.Row="2" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
@@ -148,7 +174,7 @@
               IsHitTestVisible="{Binding IsSidebarCollapsed}">
           <Grid.Transitions>
             <Transitions>
-              <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+              <DoubleTransition Property="Opacity" Duration="0:0:0.22" Easing="CubicEaseOut" />
             </Transitions>
           </Grid.Transitions>
           <Button Classes="ghost" Width="32" Height="32" Padding="0" Margin="0,6,0,0"
@@ -159,12 +185,20 @@
             <PathIcon Width="14" Height="14"
                       Data="M9 6l6 6-6 6z" />
           </Button>
-          <ListBox Grid.Row="1" Classes="playlist-rail" Margin="0,6,0,0"
+          <ListBox Grid.Row="1" Classes="playlist-rail" Margin="0,6,0,0" Padding="0,18,0,18"
                    ItemsSource="{Binding Playlists}"
                    IsEnabled="{Binding IsNotBusy}"
                    SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}"
                    ScrollViewer.VerticalScrollBarVisibility="Auto"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.OpacityMask>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#00FFFFFF" Offset="0" />
+                <GradientStop Color="#FFFFFFFF" Offset="0.03" />
+                <GradientStop Color="#FFFFFFFF" Offset="0.97" />
+                <GradientStop Color="#00FFFFFF" Offset="1" />
+              </LinearGradientBrush>
+            </ListBox.OpacityMask>
             <ListBox.ItemTemplate>
               <DataTemplate>
                 <Border Width="42" Height="42" CornerRadius="8" ClipToBounds="True"
@@ -179,6 +213,23 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+
+          <Border Grid.Row="1" Height="16" VerticalAlignment="Top" IsHitTestVisible="False">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#CC151A23" Offset="0" />
+                <GradientStop Color="#00151A23" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
+          <Border Grid.Row="1" Height="16" VerticalAlignment="Bottom" IsHitTestVisible="False">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#00151A23" Offset="0" />
+                <GradientStop Color="#CC151A23" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
         </Grid>
         </Panel>
       </Border>
