@@ -2,9 +2,358 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NeteaseMusicManager.Desktop.MainWindow"
         Title="网易云音乐管理器"
-        Width="1200" Height="780"
+        Width="1320" Height="860"
+        MinWidth="1120" MinHeight="720"
         WindowStartupLocation="CenterScreen">
-  <Grid>
-    <TextBlock Text="网易云音乐管理器 - 初始化中" HorizontalAlignment="Center" VerticalAlignment="Center" />
+  <Grid RowDefinitions="Auto,*">
+    <!-- ========== 顶栏 ========== -->
+    <Border Grid.Row="0" Height="68" Background="{StaticResource HeaderBrush}"
+            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="20,0" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Border Width="40" Height="40" CornerRadius="12" ClipToBounds="True"
+                  Background="{StaticResource AccentGradientBrush}">
+            <Image Source="/Assets/logo.png" Stretch="UniformToFill" />
+          </Border>
+          <StackPanel VerticalAlignment="Center" Spacing="1">
+            <TextBlock Text="网易云音乐管理器" FontSize="17" FontWeight="Bold" />
+            <TextBlock Text="本地曲库同步 · NCM 解密 · 歌词标签" FontSize="11"
+                       Foreground="{StaticResource TextTertiaryBrush}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Button Classes="primary" Content="扫码登录" Command="{Binding LoginCommand}"
+                  IsVisible="{Binding IsNotLoggedIn}" Padding="18,7" />
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsLoggedIn}">
+            <Border Width="36" Height="36" CornerRadius="18" ClipToBounds="True"
+                    Background="{StaticResource PanelHoverBrush}">
+              <Panel>
+                <TextBlock Text="♪" FontSize="16" Foreground="{StaticResource TextTertiaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Image Source="{Binding Avatar}" Stretch="UniformToFill" />
+              </Panel>
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="0">
+              <TextBlock Text="{Binding AccountName}" FontSize="13" FontWeight="SemiBold" MaxWidth="200"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding AccountSubtitle}" FontSize="10.5"
+                         Foreground="{StaticResource TextTertiaryBrush}" />
+            </StackPanel>
+            <Button Classes="ghost" Content="退出" Command="{Binding LogoutCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ========== 主体 ========== -->
+    <Grid Grid.Row="1" ColumnDefinitions="272,1,*">
+      <!-- 歌单侧栏 -->
+      <Border Grid.Column="0" Background="{StaticResource PanelBrush}">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="18,16,12,8">
+            <StackPanel Spacing="3" VerticalAlignment="Center">
+              <TextBlock Text="我的歌单" FontSize="13" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding PlaylistEmptyHint}" FontSize="10.5"
+                         Foreground="{StaticResource TextTertiaryBrush}"
+                         IsVisible="{Binding IsPlaylistsEmpty}"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="ghost" Content="刷新"
+                    Command="{Binding RefreshPlaylistsCommand}" />
+          </Grid>
+
+          <Grid Grid.Row="1">
+            <ListBox Classes="playlists" Margin="8,0,6,8"
+                     ItemsSource="{Binding Playlists}"
+                     IsEnabled="{Binding IsNotBusy}"
+                     SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Border Width="42" Height="42" CornerRadius="8" ClipToBounds="True"
+                            Background="{StaticResource PanelHoverBrush}">
+                      <Panel>
+                        <TextBlock Text="♪" FontSize="17" Foreground="{StaticResource TextTertiaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image Source="{Binding Cover}" Stretch="UniformToFill" />
+                      </Panel>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                      <TextBlock Text="{Binding Name}" FontSize="12.5" MaxLines="1"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding CountText}" FontSize="10.5"
+                                 Foreground="{StaticResource TextTertiaryBrush}" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10"
+                        Margin="24" IsVisible="{Binding IsPlaylistsEmpty}">
+              <TextBlock Text="♪" FontSize="30" HorizontalAlignment="Center"
+                         Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="{Binding PlaylistEmptyHint}" FontSize="12" TextWrapping="Wrap"
+                         TextAlignment="Center" MaxWidth="200"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <Button Classes="primary" Content="扫码登录" Command="{Binding LoginCommand}"
+                      IsVisible="{Binding IsNotLoggedIn}" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+
+          <Border Grid.Row="2" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                  Padding="18,12">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding LibraryStatusText}" FontSize="11"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <TextBlock Text="{Binding LibraryPathText}" FontSize="10.5"
+                         Foreground="{StaticResource TextTertiaryBrush}" MaxLines="1"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LibraryPathText}" />
+              <TextBlock Text="{Binding DownloadPathText}" FontSize="10.5"
+                         Foreground="{StaticResource TextTertiaryBrush}" MaxLines="1"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DownloadPathText}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+
+      <!-- 主内容区 -->
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <!-- 工具栏 -->
+        <Border Grid.Row="0" Padding="20,14,20,10">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Content="扫描本地曲库" Command="{Binding ScanLibraryCommand}" />
+              <Button Content="重新对比" Command="{Binding RecomputeDiffCommand}" />
+              <Button Content="全选缺失" Command="{Binding SelectMissingCommand}" />
+              <Button Classes="primary" Content="同步选中" Command="{Binding SyncSelectedCommand}" />
+              <Button Content="导入解密 NCM" Command="{Binding ImportNcmCommand}" />
+              <Button Content="设置" Command="{Binding OpenSettingsCommand}" />
+              <Button Content="打开下载目录" Command="{Binding OpenDownloadFolderCommand}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center" IsVisible="{Binding IsBusy}">
+              <TextBlock Text="{Binding BusyText}" FontSize="11.5" MaxWidth="300" MaxLines="1"
+                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <Button Classes="ghost" Content="取消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- 汇总条 -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="20,0,20,10">
+          <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <TextBlock Text="{Binding CurrentPlaylistTitle}" FontSize="15" FontWeight="Bold"
+                       MaxWidth="320" MaxLines="1" TextTrimming="CharacterEllipsis" />
+            <Border Width="1" Height="12" Background="{StaticResource BorderBrush}"
+                    VerticalAlignment="Center" />
+            <TextBlock Text="{Binding SummaryText}" FontSize="11.5" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Classes="chip">
+              <TextBlock Text="{Binding QualityText}" FontSize="10.5"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+            </Border>
+            <Border Classes="chip">
+              <TextBlock Text="{Binding LyricsModeText}" FontSize="10.5"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <!-- 错误横幅 -->
+        <Border Grid.Row="2" IsVisible="{Binding HasError}" Margin="20,0,20,10"
+                Background="{StaticResource DangerSoftBrush}" BorderBrush="#4A2224"
+                BorderThickness="1" CornerRadius="8" Padding="12,8">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <TextBlock Text="!" FontWeight="Bold" VerticalAlignment="Center"
+                       Foreground="{StaticResource DangerBrush}" />
+            <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" FontSize="12"
+                       TextWrapping="Wrap" VerticalAlignment="Center"
+                       Foreground="{StaticResource DangerBrush}" />
+            <Button Grid.Column="2" Classes="ghost" Content="关闭"
+                    Command="{Binding ClearErrorCommand}" />
+          </Grid>
+        </Border>
+
+        <!-- 歌曲表格 -->
+        <Grid Grid.Row="3" Margin="20,0,20,0">
+          <DataGrid ItemsSource="{Binding Songs}" IsVisible="{Binding HasSongs}"
+                    AutoGenerateColumns="False" CanUserSortColumns="False">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Width="46" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="22" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="#" Width="46" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Index}" FontSize="11.5" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="歌曲" Width="2*" MinWidth="240" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                      <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                 MaxLines="1" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding ArtistText}" FontSize="11"
+                                 MaxLines="1" TextTrimming="CharacterEllipsis"
+                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="专辑" Width="1*" MinWidth="130" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding AlbumText}" FontSize="11.5" MaxLines="1"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="时长" Width="76" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DurationText}" FontSize="11.5" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextTertiaryBrush}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="本地状态" Width="140" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="9" Padding="9,3" HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Background="{Binding Availability, Converter={StaticResource StateBadgeBackgroundConverter}}">
+                      <StackPanel Orientation="Horizontal" Spacing="5">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                 Fill="{Binding Availability, Converter={StaticResource StateBadgeForegroundConverter}}" />
+                        <TextBlock Text="{Binding LocalStateText}" FontSize="10.5"
+                                   Foreground="{Binding Availability, Converter={StaticResource StateBadgeForegroundConverter}}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="本地文件" Width="2*" MinWidth="180" CanUserSort="False">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DetailText}" FontSize="10.5" MaxLines="1"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               ToolTip.Tip="{Binding DetailToolTip}"
+                               Foreground="{StaticResource TextTertiaryBrush}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+
+          <!-- 空状态：未登录 -->
+          <Border IsVisible="{Binding ShowLoginOverlay}" Background="{StaticResource PanelBrush}"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14"
+                  Padding="38,32" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
+              <Border Width="64" Height="64" CornerRadius="18" ClipToBounds="True"
+                      HorizontalAlignment="Center">
+                <Image Source="/Assets/logo.png" Stretch="UniformToFill" />
+              </Border>
+              <TextBlock Text="登录网易云音乐" FontSize="17" FontWeight="Bold"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="扫码登录后即可浏览你的歌单、对比本地曲库并一键同步下载。"
+                         FontSize="12" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="340"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <Button Classes="primary" Content="扫码登录" Command="{Binding LoginCommand}"
+                      HorizontalAlignment="Center" Padding="24,8" Margin="0,6,0,0" />
+            </StackPanel>
+          </Border>
+
+          <!-- 空状态：未选择歌单 -->
+          <Border IsVisible="{Binding ShowSelectPlaylistOverlay}" Background="{StaticResource PanelBrush}"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14"
+                  Padding="38,30" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="10" HorizontalAlignment="Center">
+              <TextBlock Text="请选择左侧歌单" FontSize="16" FontWeight="Bold"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="选择歌单后将自动对比本地曲库，标记缺失与 NCM 文件。"
+                         FontSize="12" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+            </StackPanel>
+          </Border>
+
+          <!-- 空状态：歌单无歌曲 -->
+          <Border IsVisible="{Binding ShowEmptyPlaylistOverlay}" Background="{StaticResource PanelBrush}"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14"
+                  Padding="38,30" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="10" HorizontalAlignment="Center">
+              <TextBlock Text="歌单暂无歌曲" FontSize="16" FontWeight="Bold"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="可以点击「重新对比」刷新，或换一个歌单。"
+                         FontSize="12" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- 底部：进度 + 日志 -->
+        <Border Grid.Row="4" Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                Padding="20,12">
+          <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding StatusText}" FontSize="11.5" MaxLines="1"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <ProgressBar Value="{Binding ProgressValue}" Maximum="100"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="ghost" Content="取消当前任务"
+                      Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}"
+                      VerticalAlignment="Center" />
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+              <TextBlock Text="运行日志" FontSize="10.5" VerticalAlignment="Center"
+                         Foreground="{StaticResource TextTertiaryBrush}" />
+              <Button Grid.Column="1" Classes="ghost" Content="清空"
+                      Command="{Binding ClearLogCommand}" />
+            </Grid>
+            <ScrollViewer Grid.Row="2" x:Name="LogScrollViewer" Height="92"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding LogEntries}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" Margin="0,1">
+                      <TextBlock Text="{Binding Time}" FontFamily="Consolas, Microsoft YaHei UI"
+                                 FontSize="10.5" VerticalAlignment="Top"
+                                 Foreground="{StaticResource TextTertiaryBrush}" />
+                      <TextBlock Grid.Column="1" Text="{Binding LevelText}" FontSize="10.5"
+                                 Width="26" VerticalAlignment="Top"
+                                 Foreground="{Binding LevelKey, Converter={StaticResource LogLevelBrushConverter}}" />
+                      <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="11"
+                                 TextWrapping="Wrap"
+                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
   </Grid>
 </Window>

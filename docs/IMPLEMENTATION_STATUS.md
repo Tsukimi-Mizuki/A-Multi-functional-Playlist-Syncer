@@ -1,0 +1,59 @@
+# 实现状态
+
+> 最后更新：2026-10-25。当前状态：**v1.0 桌面端功能完成，构建/单测/真实网络冒烟/UI 启动均通过**。
+
+## 模块
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| 解决方案 / 契约 / 构建 | ✅ 完成 | .NET 8，Core/Desktop/Tests 三项目，Debug/Release 0 warning / 0 error |
+| 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复登录态 |
+| 歌单读取与曲目补齐 | ✅ 完成 | 我的歌单分页、大歌单 trackIds 按 500/批补齐、保持顺序 |
+| 本地扫描与歌单差异匹配 | ✅ 完成 | 标签/文件名/NCM 元数据、网易云 ID 精确匹配、模糊匹配、一对一 |
+| 音质选择下载 | ✅ 完成 | 标准/较高/极高/无损/Hi-Res；接口降档报告实际 level；试听片段拒收 |
+| NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出 |
+| 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、翻译合并；普通/逐字写入标签 |
+| 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
+| Avalonia GUI | ✅ 完成 | 登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志；深色主题与图标 |
+| Windows 发布 | ✅ 完成 | 自包含 win-x64 发布目录 + zip |
+| Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
+
+## 验证记录
+
+### 自动化测试
+- `dotnet test`：**170 / 170 通过，0 skipped**。
+  - Netease API：61
+  - NCM / Lyrics / Tags：40
+  - Library / Download / Sync：60
+  - Storage / Settings / Filename：9
+- Debug 与 Release 全解决方案构建均 0 warning / 0 error。
+
+### 真实网络冒烟（匿名，官方域名）
+- 扫码出码 + 轮询 801：通过（确认段需本人手机扫码，自动化环境无法完成）。
+- 用户歌单 uid=1（848 个，分页逻辑生效）。
+- 热歌榜 playlist 3778678（200 首，trackIds 与 songs 一致）。
+- 歌曲详情 186016（晴天/周杰伦/叶惠美/999000 maxbr）。
+- 取链 33894312 ExHigh -> 320k mp3。
+- 歌词 33894312：LRC 1032 字符 + YRC 6473 字符。
+- 专辑 18875（跨时代/周杰伦）。
+- **完整链路**：下载 33894312（约 15.8MB 320k mp3）→ 写中文标签/封面/逐字歌词 →
+  TagLib 读回 title/artist/album/cover/lyrics/NeteaseId 全部正确。
+
+### UI
+- 客户端真实启动成功、窗口响应、无 fatal 日志。
+- 主界面截图：docs/screenshots/main-window.png。
+- 对话框（扫码/设置/NCM 导入）已实现并编译通过；无人环境未对真实账号扫码、未自动截图。
+
+### NCM
+- 使用合成 NCM fixture（对算法做逆变换生成）验证密钥盒、元数据、封面、MP3/FLAC 识别、
+  32KB 分块边界、截断/坏数据、取消/原子输出。
+- 未使用真实账号下载的 .ncm 文件（版权原因，未随附样本）。
+
+## 已知限制
+
+1. 扫码登录的 803 确认段需要真实手机扫码；自动化只能验证出码与轮询，无法验证最终 Cookie 获取。
+2. 无损/Hi-Res 取决于账号会员权益；无权限时会降级或明确失败，程序不绕过版权限制。
+3. 逐字歌词取决于网易云是否为该曲目提供 YRC；没有时回退逐行 LRC。
+4. FLAC 封面按 VorbisComment METADATA_BLOCK_PICTURE 写入（TagLibSharp 2.3.0 不支持原生 PICTURE block API），主流播放器兼容。
+5. 网易云接口为非公开接口，未来可能变更；相关端点集中在 Core/Netease 便于维护。
+6. 客户端暂未加入本地播放功能；当前定位为“歌单同步 / 下载 / 解密 / 标签管理”。

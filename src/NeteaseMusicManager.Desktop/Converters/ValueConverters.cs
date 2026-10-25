@@ -1,0 +1,94 @@
+using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Media;
+using NeteaseMusicManager.Core.Library;
+
+namespace NeteaseMusicManager.Desktop.Converters;
+
+/// <summary>本地匹配状态 → 徽标颜色。参数 "Background" 取浅色底，"Foreground" 取文字/圆点色。</summary>
+public sealed class LocalAvailabilityToBrushConverter : IValueConverter
+{
+    public string Mode { get; set; } = "Foreground";
+
+    private static readonly IBrush PresentFg = new SolidColorBrush(Color.Parse("#3DCC7E"));
+    private static readonly IBrush PresentBg = new SolidColorBrush(Color.Parse("#14281D"));
+    private static readonly IBrush NcmFg = new SolidColorBrush(Color.Parse("#E8A33D"));
+    private static readonly IBrush NcmBg = new SolidColorBrush(Color.Parse("#2A2213"));
+    private static readonly IBrush MissingFg = new SolidColorBrush(Color.Parse("#F26D6D"));
+    private static readonly IBrush MissingBg = new SolidColorBrush(Color.Parse("#2C1718"));
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var foreground = string.Equals(Mode, "Foreground", StringComparison.OrdinalIgnoreCase);
+        var availability = value is LocalAvailability state ? state : LocalAvailability.Missing;
+        return availability switch
+        {
+            LocalAvailability.Available => foreground ? PresentFg : PresentBg,
+            LocalAvailability.EncryptedNcm => foreground ? NcmFg : NcmBg,
+            _ => foreground ? MissingFg : MissingBg,
+        };
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>日志级别 → 文本颜色。</summary>
+public sealed class LogLevelToBrushConverter : IValueConverter
+{
+    private static readonly IBrush Info = new SolidColorBrush(Color.Parse("#A2A2AE"));
+    private static readonly IBrush Success = new SolidColorBrush(Color.Parse("#3DCC7E"));
+    private static readonly IBrush Warning = new SolidColorBrush(Color.Parse("#E8A33D"));
+    private static readonly IBrush Error = new SolidColorBrush(Color.Parse("#F26D6D"));
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        (value as string) switch
+        {
+            "success" => Success,
+            "warning" => Warning,
+            "error" => Error,
+            _ => Info,
+        };
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>扫码状态类型 → 状态文本颜色。</summary>
+public sealed class StatusKindToBrushConverter : IValueConverter
+{
+    private static readonly IBrush Waiting = new SolidColorBrush(Color.Parse("#A2A2AE"));
+    private static readonly IBrush Scanned = new SolidColorBrush(Color.Parse("#E8A33D"));
+    private static readonly IBrush Success = new SolidColorBrush(Color.Parse("#3DCC7E"));
+    private static readonly IBrush Error = new SolidColorBrush(Color.Parse("#F26D6D"));
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        (value as string) switch
+        {
+            "scanned" => Scanned,
+            "success" => Success,
+            "error" or "expired" => Error,
+            _ => Waiting,
+        };
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public sealed class InverseBoolConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is bool flag ? !flag : true;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is bool flag ? !flag : true;
+}
+
+public sealed class NotEmptyStringConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        !string.IsNullOrWhiteSpace(value as string);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

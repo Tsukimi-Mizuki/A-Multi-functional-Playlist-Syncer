@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NeteaseMusicManager.Desktop.Views.QrLoginWindow"
+        Title="扫码登录"
+        Width="432" Height="596"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="28,22,28,20">
+    <StackPanel Grid.Row="0" Spacing="3">
+      <TextBlock Text="扫码登录" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="登录状态会加密保存在本机，不会上传" FontSize="11"
+                 Foreground="{StaticResource TextTertiaryBrush}" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="20">
+      <Border Width="288" Height="288" Background="#FFFFFF" CornerRadius="16" Padding="16"
+              HorizontalAlignment="Center">
+        <Panel>
+          <TextBlock Text="二维码加载中…" Foreground="#777777" FontSize="12"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding IsQrReady, Converter={StaticResource InverseBoolConverter}}" />
+          <Image Source="{Binding QrImage}" Stretch="Uniform"
+                 RenderOptions.BitmapInterpolationMode="HighQuality"
+                 IsVisible="{Binding IsQrReady}" />
+        </Panel>
+      </Border>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding StatusText}" FontSize="14" FontWeight="SemiBold"
+                   HorizontalAlignment="Center"
+                   Foreground="{Binding StatusKind, Converter={StaticResource StatusKindBrushConverter}}" />
+        <TextBlock Text="{Binding HintText}" FontSize="11.5" TextWrapping="Wrap"
+                   TextAlignment="Center" MaxWidth="330"
+                   Foreground="{StaticResource TextSecondaryBrush}" />
+      </StackPanel>
+    </StackPanel>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+      <Button Classes="ghost" Content="刷新二维码" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding CanRefresh}" HorizontalAlignment="Left" />
+      <Button Grid.Column="1" Content="取消" Click="OnCancelClick" Padding="24,7" />
+    </Grid>
+  </Grid>
+</Window>

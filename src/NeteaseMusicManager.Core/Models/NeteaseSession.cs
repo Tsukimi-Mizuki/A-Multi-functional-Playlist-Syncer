@@ -24,7 +24,7 @@ public sealed class NeteaseSession
     public DateTimeOffset LoggedInAt { get; init; } = DateTimeOffset.Now;
 
     [JsonIgnore]
-    public bool IsLoggedIn => !string.IsNullOrWhiteSpace(Cookie) && UserId > 0;
+    public bool IsLoggedIn => !string.IsNullOrWhiteSpace(Cookie);
 
     [JsonIgnore]
     public string DisplayName => string.IsNullOrWhiteSpace(Nickname) ? "网易云用户" : Nickname!;

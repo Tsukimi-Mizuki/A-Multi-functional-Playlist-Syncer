@@ -10,6 +10,8 @@ TestResults/
 artifacts/
 .tmp/
 .nuget-packages/
+.nuget-http-cache/
+.nuget-plugins-cache/
 
 publish/
 .idea/

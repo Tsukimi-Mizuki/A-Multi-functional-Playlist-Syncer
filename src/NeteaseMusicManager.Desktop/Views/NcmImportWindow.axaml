@@ -1,0 +1,107 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NeteaseMusicManager.Desktop.Views.NcmImportWindow"
+        Title="导入并解密 NCM"
+        Width="820" Height="700"
+        MinWidth="720" MinHeight="560"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="26,20,26,20">
+    <StackPanel Grid.Row="0" Spacing="3">
+      <TextBlock Text="导入并解密 NCM" FontSize="20" FontWeight="Bold" />
+      <TextBlock Text="递归查找本地的 .ncm 文件，解密为 MP3/FLAC 并写入文件内自带的标签与封面"
+                 FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="18">
+        <!-- 文件位置 -->
+        <StackPanel Spacing="9">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+              <TextBlock Text="NCM 文件位置" FontSize="12" FontWeight="SemiBold"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <TextBlock Text="可以添加多个文件夹，导入时会去重" FontSize="10.5"
+                         Foreground="{StaticResource TextTertiaryBrush}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="添加文件夹…" Click="OnAddFoldersClick" />
+          </Grid>
+
+          <Border Background="{StaticResource InputBrush}" BorderBrush="{StaticResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="8" Padding="12" MinHeight="64" MaxHeight="120">
+            <Panel>
+              <TextBlock Text="尚未添加文件夹，点击右上角「添加文件夹…」"
+                         FontSize="11" VerticalAlignment="Center"
+                         Foreground="{StaticResource TextTertiaryBrush}"
+                         IsVisible="{Binding HasFolders, Converter={StaticResource InverseBoolConverter}}" />
+              <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Folders}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding}" FontSize="11" Margin="0,1"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding}"
+                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Panel>
+          </Border>
+        </StackPanel>
+
+        <!-- 输出目录 -->
+        <StackPanel Spacing="9">
+          <TextBlock Text="输出目录" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{StaticResource TextSecondaryBrush}" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox Text="{Binding OutputDirectory, Mode=TwoWay}" />
+            <Button Grid.Column="1" Content="浏览…" Click="OnBrowseOutputClick" />
+          </Grid>
+          <CheckBox Content="覆盖已存在的解密文件" IsChecked="{Binding Overwrite, Mode=TwoWay}" />
+        </StackPanel>
+
+        <!-- 进度 -->
+        <StackPanel Spacing="7">
+          <TextBlock Text="{Binding StatusText}" FontSize="11.5" TextWrapping="Wrap"
+                     Foreground="{StaticResource TextSecondaryBrush}" />
+          <ProgressBar Value="{Binding ProgressValue}" Maximum="100" />
+        </StackPanel>
+
+        <!-- 结果 -->
+        <StackPanel Spacing="8" IsVisible="{Binding HasResults}">
+          <TextBlock Text="{Binding SummaryText}" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{StaticResource TextSecondaryBrush}" />
+          <Border Background="{StaticResource PanelAltBrush}" BorderBrush="{StaticResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="8" Padding="12" MaxHeight="220">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Results}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="200,*" ColumnSpacing="12" Margin="0,2">
+                      <TextBlock Text="{Binding FileName}" FontSize="11" MaxLines="1"
+                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourcePath}"
+                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                      <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="11" MaxLines="1"
+                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ToolTipText}"
+                                 Foreground="{Binding StatusKey, Converter={StaticResource LogLevelBrushConverter}}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="0,16,0,0">
+      <TextBlock Text="{Binding DiscoveredCount, StringFormat='已发现 {0} 个文件'}" FontSize="10.5"
+                 VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+      <Button Grid.Column="2" Classes="primary" Content="开始解密"
+              Command="{Binding StartImportCommand}" Padding="24,7" />
+      <Button Grid.Column="3" Content="关闭" Click="OnCloseClick" Padding="24,7" />
+    </Grid>
+  </Grid>
+</Window>

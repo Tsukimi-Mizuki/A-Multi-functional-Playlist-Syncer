@@ -7,7 +7,12 @@ public sealed record LyricWord(int StartMs, int DurationMs, string Text)
 }
 
 /// <summary>一行歌词。逐字信息为空表示只有逐行时间轴。</summary>
-public sealed record LyricLine(int StartMs, int DurationMs, string Text, IReadOnlyList<LyricWord> Words)
+public sealed record LyricLine(
+    int StartMs,
+    int DurationMs,
+    string Text,
+    IReadOnlyList<LyricWord> Words,
+    string? Translation = null)
 {
     public bool HasWordTiming => Words.Count > 0;
     public int EndMs => StartMs + Math.Max(0, DurationMs);

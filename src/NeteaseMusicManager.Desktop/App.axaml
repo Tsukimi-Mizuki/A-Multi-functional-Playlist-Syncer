@@ -1,9 +1,252 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:NeteaseMusicManager.Desktop.Converters"
              x:Class="NeteaseMusicManager.Desktop.App"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <!-- NetEase red accent overrides Fluent's default blue accents. -->
+    <Color x:Key="SystemAccentColor">#EC4141</Color>
+    <Color x:Key="SystemAccentColorLight1">#FF5C5C</Color>
+    <Color x:Key="SystemAccentColorLight2">#FF7676</Color>
+    <Color x:Key="SystemAccentColorLight3">#FF9090</Color>
+    <Color x:Key="SystemAccentColorDark1">#D33232</Color>
+    <Color x:Key="SystemAccentColorDark2">#B92828</Color>
+    <Color x:Key="SystemAccentColorDark3">#9E1F1F</Color>
+
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0F0F12" />
+    <SolidColorBrush x:Key="HeaderBrush" Color="#151519" />
+    <SolidColorBrush x:Key="PanelBrush" Color="#17171B" />
+    <SolidColorBrush x:Key="PanelAltBrush" Color="#1D1D22" />
+    <SolidColorBrush x:Key="PanelHoverBrush" Color="#26262C" />
+    <SolidColorBrush x:Key="InputBrush" Color="#121215" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#2A2A31" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#3A3A44" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F2F2F5" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A2A2AE" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#70707C" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#EC4141" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF5C5C" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#D33232" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#331F1F" />
+    <SolidColorBrush x:Key="AccentBorderBrush" Color="#5C2A2A" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#3DCC7E" />
+    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#12281D" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#E8A33D" />
+    <SolidColorBrush x:Key="WarningSoftBrush" Color="#2A2213" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#F26D6D" />
+    <SolidColorBrush x:Key="DangerSoftBrush" Color="#2C1718" />
+    <LinearGradientBrush x:Key="AccentGradientBrush">
+      <GradientStop Color="#FF7259" Offset="0" />
+      <GradientStop Color="#E03131" Offset="1" />
+    </LinearGradientBrush>
+
+    <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeBackgroundConverter" Mode="Background" />
+    <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeForegroundConverter" Mode="Foreground" />
+    <conv:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
+    <conv:StatusKindToBrushConverter x:Key="StatusKindBrushConverter" />
+    <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+    <conv:NotEmptyStringConverter x:Key="NotEmptyStringConverter" />
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{StaticResource AppBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="FontFamily" Value="Microsoft YaHei UI, Microsoft YaHei UI Light, Microsoft YaHei, Segoe UI, Inter" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- ===== Buttons ===== -->
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="14,6" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BorderBrush}" />
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.42" />
+    </Style>
+
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource AccentPressedBrush}" />
+    </Style>
+
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+    </Style>
+    <Style Selector="Button.ghost:pointerover">
+      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.link">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="2,0" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.link:pointerover">
+      <Setter Property="Foreground" Value="{StaticResource AccentHoverBrush}" />
+    </Style>
+
+    <!-- ===== Inputs ===== -->
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{StaticResource InputBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+      <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Background" Value="{StaticResource InputBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="MinHeight" Value="24" />
+    </Style>
+    <Style Selector="ToggleSwitch">
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ProgressBar">
+      <Setter Property="Height" Value="6" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Background" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToolTip">
+      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- ===== Chips / badges ===== -->
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="9,3" />
+    </Style>
+
+    <!-- ===== Playlist sidebar ===== -->
+    <Style Selector="ListBox.playlists">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.playlists ListBoxItem">
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="Margin" Value="0,2" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.playlists ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.playlists ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+    </Style>
+    <Style Selector="ListBox.playlists ListBoxItem:selected">
+      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- ===== DataGrid ===== -->
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="RowHeight" Value="58" />
+      <Setter Property="ColumnHeaderHeight" Value="38" />
+      <Setter Property="GridLinesVisibility" Value="None" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="CanUserReorderColumns" Value="False" />
+      <Setter Property="CanUserResizeColumns" Value="True" />
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="RowBackground" Value="Transparent" />
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+    </Style>
+    <Style Selector="DataGridRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="MinHeight" Value="56" />
+    </Style>
+    <Style Selector="DataGridRow:pointerover /template/ Border#BackgroundRectangle">
+      <Setter Property="Background" Value="#14FFFFFF" />
+    </Style>
+    <Style Selector="DataGridRow:selected /template/ Border#BackgroundRectangle">
+      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="DataGridCell:selected /template/ Border#CellBorder">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ScrollViewer">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ScrollBar:vertical">
+      <Setter Property="Width" Value="8" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal">
+      <Setter Property="Height" Value="8" />
+    </Style>
   </Application.Styles>
 </Application>
