@@ -1070,23 +1070,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
-    private void OpenDownloadFolder()
-    {
-        try
-        {
-            var directory = string.IsNullOrWhiteSpace(_settings.DownloadDirectory)
-                ? AppPaths.DefaultDownloadDirectory
-                : _settings.DownloadDirectory;
-            _ui.OpenFolder(directory);
-            LogInfo($"已打开下载目录：{directory}");
-        }
-        catch (Exception ex)
-        {
-            HandleOperationError("打开下载目录失败", ex);
-        }
-    }
-
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {

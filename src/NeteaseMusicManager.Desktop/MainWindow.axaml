@@ -260,7 +260,6 @@
               <Button Content="导入 NCM" Command="{Binding ImportNcmCommand}" ToolTip.Tip="导入/解密 NCM" Margin="0,0,6,6" />
               <Button Content="歌词编辑" Command="{Binding OpenLyricsEditorCommand}" Margin="0,0,6,6" />
               <Button Content="设置" Command="{Binding OpenSettingsCommand}" Margin="0,0,6,6" />
-              <Button Content="下载目录" Command="{Binding OpenDownloadFolderCommand}" ToolTip.Tip="打开下载目录" Margin="0,0,6,6" />
             </WrapPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         VerticalAlignment="Center" IsVisible="{Binding IsBusy}">
