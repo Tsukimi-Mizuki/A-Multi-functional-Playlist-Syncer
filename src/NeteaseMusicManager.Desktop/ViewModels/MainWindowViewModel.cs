@@ -77,7 +77,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string SidebarToggleToolTip => IsSidebarExpanded ? "收起歌单列表 (Ctrl+B)" : "展开歌单列表 (Ctrl+B)";
     public bool IsSidebarCollapsed => !IsSidebarExpanded;
-    public double SidebarWidth => IsSidebarExpanded ? 272 : 56;
+    public double SidebarWidth => IsSidebarExpanded ? 272 : 64;
     public double SidebarExpandedOpacity => IsSidebarExpanded ? 1 : 0;
     public double SidebarCollapsedOpacity => IsSidebarExpanded ? 0 : 1;
 
