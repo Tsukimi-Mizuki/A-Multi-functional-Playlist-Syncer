@@ -48,8 +48,8 @@ public sealed record OnlineLyricModeOption(bool PreferWord, string Label)
     public override string ToString() => Label;
 }
 
-/// <summary>批量歌词来源选项。</summary>
-public sealed record BatchLyricsSourceOption(BatchLyricsSourcePreference Value, string Label)
+/// <summary>在线来源优先级选项。</summary>
+public sealed record OnlinePriorityOption(OnlineSourcePriority Value, string Label)
 {
     public override string ToString() => Label;
 }

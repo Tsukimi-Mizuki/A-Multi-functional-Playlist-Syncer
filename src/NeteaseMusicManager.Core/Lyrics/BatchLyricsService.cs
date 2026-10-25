@@ -1,19 +1,16 @@
 using System.Text;
+using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Online;
 using NeteaseMusicManager.Core.Tags;
 
 namespace NeteaseMusicManager.Core.Lyrics;
 
-public enum BatchLyricsSourcePreference
-{
-    Auto = 0,
-    Netease = 1,
-    QQMusic = 2,
-}
-
 public sealed record BatchLyricsOptions(
-    BatchLyricsSourcePreference Source = BatchLyricsSourcePreference.Auto,
-    bool OverwriteExisting = false);
+    OnlineSourcePriority TagPriority = OnlineSourcePriority.NeteaseFirst,
+    OnlineSourcePriority LyricsPriority = OnlineSourcePriority.NeteaseFirst,
+    bool OverwriteExisting = false,
+    bool FetchLyrics = true,
+    bool PreferWordLyrics = false);
 
 public sealed record BatchLyricsResult(
     string FilePath,
@@ -86,7 +83,6 @@ public sealed class BatchLyricsService : IBatchLyricsService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var fileName = Path.GetFileName(filePath);
         if (!File.Exists(filePath))
         {
             return Fail(filePath, "文件不存在");
@@ -104,72 +100,71 @@ public sealed class BatchLyricsService : IBatchLyricsService
             return Fail(filePath, "无法从标签或文件名识别歌曲名");
         }
 
-        var sources = options.Source switch
-        {
-            BatchLyricsSourcePreference.Auto => new[] { OnlineMusicSource.Netease, OnlineMusicSource.QQMusic },
-            BatchLyricsSourcePreference.Netease => new[] { OnlineMusicSource.Netease },
-            _ => new[] { OnlineMusicSource.QQMusic },
-        };
-
-        OnlineSongResult? matched = null;
-        double bestScore = 0;
         var query = string.IsNullOrWhiteSpace(localArtist) ? localTitle : $"{localTitle} {localArtist}";
-        foreach (var source in sources)
-        {
-            IReadOnlyList<OnlineSongResult> candidates;
-            try
-            {
-                candidates = await _online.SearchAsync(source, query, 5, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception) when (!cancellationToken.IsCancellationRequested)
-            {
-                continue;
-            }
+        var tagDetails = await FindBestDetailsAsync(
+            query,
+            localTitle,
+            localArtist,
+            info.DurationMs,
+            OrderSources(options.TagPriority),
+            requireLyrics: false,
+            preferWord: false,
+            cancellationToken).ConfigureAwait(false);
 
-            var candidate = FindBest(candidates, localTitle, localArtist, info.DurationMs, out var score);
-            if (candidate is not null && score > bestScore)
-            {
-                matched = candidate;
-                bestScore = score;
-            }
+        var replace = options.OverwriteExisting;
+        var shouldFetchLyrics = options.FetchLyrics &&
+                                (replace || string.IsNullOrWhiteSpace(info.Lyrics));
+        var lyricsDetails = shouldFetchLyrics
+            ? await FindBestDetailsAsync(
+                query,
+                localTitle,
+                localArtist,
+                info.DurationMs,
+                OrderSources(options.LyricsPriority),
+                requireLyrics: true,
+                preferWord: options.PreferWordLyrics,
+                cancellationToken).ConfigureAwait(false)
+            : null;
 
-            if (candidate is not null && IsAcceptable(score))
-            {
-                break;
-            }
-        }
-
-        if (matched is null || !IsAcceptable(bestScore))
+        var metadataSource = tagDetails ?? lyricsDetails;
+        if (metadataSource is null)
         {
             return Fail(filePath, "未找到匹配度足够的在线歌曲");
         }
 
-        OnlineSongDetails? details;
-        try
-        {
-            details = await _online.GetDetailsAsync(matched, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            return Fail(filePath, "在线信息请求失败");
-        }
+        var tagSong = metadataSource.Song;
+        var cover = tagDetails?.CoverData ?? lyricsDetails?.CoverData;
 
-        var song = details?.Song ?? matched;
-        var artists = SplitArtists(song.Artist);
-        var cover = details?.CoverData;
-        var replace = options.OverwriteExisting;
+        string? lyrics = null;
+        var lyricsFormat = string.Empty;
+        var writesLyrics = false;
+        var useWord = false;
+        if (shouldFetchLyrics && lyricsDetails is not null)
+        {
+            lyrics = lyricsDetails.GetLyrics(options.PreferWordLyrics, bilingual: true);
+            if (!string.IsNullOrWhiteSpace(lyrics))
+            {
+                useWord = options.PreferWordLyrics && lyricsDetails.HasWordLyrics;
+                writesLyrics = true;
+                lyricsFormat = useWord
+                    ? lyricsDetails.HasTranslation ? "双语逐字歌词" : "逐字歌词"
+                    : lyricsDetails.HasTranslation ? "双语逐行歌词" : "逐行歌词";
+            }
+        }
 
         var tagData = new AudioTagData
         {
-            Title = replace || string.IsNullOrWhiteSpace(info.Title) ? NullIfBlank(song.Title) : null,
-            Artists = replace || string.IsNullOrWhiteSpace(info.Artist) ? artists : Array.Empty<string>(),
-            Album = replace || string.IsNullOrWhiteSpace(info.Album) ? NullIfBlank(song.Album) : null,
-            Year = replace || info.Year is null ? song.Year : null,
-            TrackNumber = replace || info.TrackNumber is null ? song.TrackNumber : null,
-            DiscNumber = replace || info.DiscNumber is null ? song.DiscNumber : null,
-            Genre = replace || string.IsNullOrWhiteSpace(info.Genre) ? NullIfBlank(song.Genre) : null,
-            Composer = replace || string.IsNullOrWhiteSpace(info.Composer) ? NullIfBlank(song.Composer) : null,
+            Title = replace || string.IsNullOrWhiteSpace(info.Title) ? NullIfBlank(tagSong.Title) : null,
+            Artists = replace || string.IsNullOrWhiteSpace(info.Artist) ? SplitArtists(tagSong.Artist) : Array.Empty<string>(),
+            Album = replace || string.IsNullOrWhiteSpace(info.Album) ? NullIfBlank(tagSong.Album) : null,
+            Year = replace || info.Year is null ? tagSong.Year : null,
+            TrackNumber = replace || info.TrackNumber is null ? tagSong.TrackNumber : null,
+            DiscNumber = replace || info.DiscNumber is null ? tagSong.DiscNumber : null,
+            Genre = replace || string.IsNullOrWhiteSpace(info.Genre) ? NullIfBlank(tagSong.Genre) : null,
+            Composer = replace || string.IsNullOrWhiteSpace(info.Composer) ? NullIfBlank(tagSong.Composer) : null,
             CoverData = replace || !info.HasCover ? cover : null,
+            PlainLyrics = writesLyrics && !useWord ? lyrics : null,
+            WordLyrics = writesLyrics && useWord ? lyrics : null,
         };
 
         var writesTags =
@@ -182,16 +177,18 @@ public sealed class BatchLyricsService : IBatchLyricsService
             tagData.Genre is not null ||
             tagData.Composer is not null;
         var writesCover = tagData.CoverData is { Length: > 0 };
-        if (!writesTags && !writesCover)
+
+        if (!writesTags && !writesCover && !writesLyrics)
         {
             return new BatchLyricsResult(
                 filePath,
                 false,
                 true,
-                "标签与封面已完整，跳过",
-                matched.Title,
-                matched.Artist,
-                matched.SourceLabel);
+                "标签、封面与歌词已完整，跳过",
+                tagSong.Title,
+                tagSong.Artist,
+                metadataSource.Song.SourceLabel,
+                lyricsFormat);
         }
 
         await _tags.WriteAsync(filePath, tagData, cancellationToken).ConfigureAwait(false);
@@ -207,15 +204,93 @@ public sealed class BatchLyricsService : IBatchLyricsService
             parts.Add("封面");
         }
 
+        if (writesLyrics)
+        {
+            parts.Add(lyricsFormat);
+        }
+
+        var message = "已写入" + string.Join("、", parts);
+        if (shouldFetchLyrics && !writesLyrics)
+        {
+            message += "（未获取到歌词）";
+        }
+
         return new BatchLyricsResult(
             filePath,
             true,
             false,
-            "已写入" + string.Join("、", parts),
-            matched.Title,
-            matched.Artist,
-            matched.SourceLabel);
+            message,
+            tagSong.Title,
+            tagSong.Artist,
+            metadataSource.Song.SourceLabel,
+            lyricsFormat);
     }
+
+    private async Task<OnlineSongDetails?> FindBestDetailsAsync(
+        string query,
+        string localTitle,
+        string localArtist,
+        long localDurationMs,
+        IReadOnlyList<OnlineMusicSource> sources,
+        bool requireLyrics,
+        bool preferWord,
+        CancellationToken cancellationToken)
+    {
+        foreach (var source in sources)
+        {
+            IReadOnlyList<OnlineSongResult> candidates;
+            try
+            {
+                candidates = await _online.SearchAsync(source, query, 5, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                continue;
+            }
+
+            var candidate = FindBest(candidates, localTitle, localArtist, localDurationMs, out var score);
+            if (candidate is null || !IsAcceptable(score))
+            {
+                continue;
+            }
+
+            OnlineSongDetails? details;
+            try
+            {
+                details = await _online.GetDetailsAsync(candidate, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                continue;
+            }
+
+            if (details is null)
+            {
+                continue;
+            }
+
+            if (requireLyrics && string.IsNullOrWhiteSpace(details.GetLyrics(preferWord, bilingual: true)))
+            {
+                continue;
+            }
+
+            return details;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<OnlineMusicSource> OrderSources(OnlineSourcePriority priority) =>
+        priority switch
+        {
+            OnlineSourcePriority.QQMusicFirst =>
+                [OnlineMusicSource.QQMusic, OnlineMusicSource.Netease],
+            OnlineSourcePriority.NeteaseOnly =>
+                [OnlineMusicSource.Netease],
+            OnlineSourcePriority.QQMusicOnly =>
+                [OnlineMusicSource.QQMusic],
+            _ => [OnlineMusicSource.Netease, OnlineMusicSource.QQMusic],
+        };
 
     private static BatchLyricsResult Fail(string path, string message) =>
         new(path, false, false, message);

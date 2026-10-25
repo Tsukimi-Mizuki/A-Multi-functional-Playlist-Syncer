@@ -71,6 +71,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         ];
         SelectedRenderFrameRate = RenderFrameRateOptions
             .FirstOrDefault(o => o.Value == current.RenderFrameRate) ?? RenderFrameRateOptions[0];
+
+        OnlinePriorityOptions =
+        [
+            new(OnlineSourcePriority.NeteaseFirst, "网易云音乐优先"),
+            new(OnlineSourcePriority.QQMusicFirst, "QQ 音乐优先"),
+            new(OnlineSourcePriority.NeteaseOnly, "仅网易云音乐"),
+            new(OnlineSourcePriority.QQMusicOnly, "仅 QQ 音乐"),
+        ];
+        SelectedTagSourcePriority = OnlinePriorityOptions
+            .FirstOrDefault(o => o.Value == current.TagSourcePriority) ?? OnlinePriorityOptions[0];
+        SelectedLyricsSourcePriority = OnlinePriorityOptions
+            .FirstOrDefault(o => o.Value == current.LyricsSourcePriority) ?? OnlinePriorityOptions[0];
     }
 
     public IReadOnlyList<QualityOption> QualityOptions { get; }
@@ -78,6 +90,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<ConcurrencyOption> ConcurrencyOptions { get; }
     public IReadOnlyList<FileNameTemplateOption> FileNameTemplateOptions { get; }
     public IReadOnlyList<RenderFrameRateOption> RenderFrameRateOptions { get; }
+    public IReadOnlyList<OnlinePriorityOption> OnlinePriorityOptions { get; }
 
     [ObservableProperty]
     private string _downloadDirectory = string.Empty;
@@ -114,6 +127,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private RenderFrameRateOption _selectedRenderFrameRate = null!;
+
+    [ObservableProperty]
+    private OnlinePriorityOption _selectedTagSourcePriority = null!;
+
+    [ObservableProperty]
+    private OnlinePriorityOption _selectedLyricsSourcePriority = null!;
 
     [ObservableProperty]
     private string? _validationMessage;
@@ -253,6 +272,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 FileNameTemplate = template,
                 MaxConcurrency = Math.Clamp(SelectedConcurrency.Value, 1, 8),
                 RenderFrameRate = SelectedRenderFrameRate.Value,
+                TagSourcePriority = SelectedTagSourcePriority.Value,
+                LyricsSourcePriority = SelectedLyricsSourcePriority.Value,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

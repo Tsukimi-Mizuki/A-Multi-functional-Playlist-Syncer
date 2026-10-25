@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NeteaseMusicManager.Core.Lyrics;
+using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Desktop.Services;
 
 namespace NeteaseMusicManager.Desktop.ViewModels;
@@ -10,31 +11,47 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
 {
     private readonly IBatchLyricsService _batch;
     private readonly IDesktopUiService _ui;
+    private readonly OnlineSourcePriority _tagPriority;
+    private readonly OnlineSourcePriority _lyricsPriority;
     private CancellationTokenSource? _cts;
 
-    public BatchLyricsViewModel(IBatchLyricsService batch, IDesktopUiService ui, string? initialDirectory)
+    public BatchLyricsViewModel(
+        IBatchLyricsService batch,
+        IDesktopUiService ui,
+        string? initialDirectory,
+        OnlineSourcePriority tagPriority,
+        OnlineSourcePriority lyricsPriority)
     {
         _batch = batch;
         _ui = ui;
+        _tagPriority = tagPriority;
+        _lyricsPriority = lyricsPriority;
         FolderPath = Directory.Exists(initialDirectory) ? initialDirectory! : string.Empty;
-        SourceOptions =
+        TagPriorityText = PriorityLabel(tagPriority);
+        LyricsPriorityText = PriorityLabel(lyricsPriority);
+        LyricModeOptions =
         [
-            new(BatchLyricsSourcePreference.Auto, "自动（网易云优先）"),
-            new(BatchLyricsSourcePreference.Netease, "仅网易云音乐"),
-            new(BatchLyricsSourcePreference.QQMusic, "仅 QQ 音乐"),
+            new(false, "逐行歌词"),
+            new(true, "逐字歌词（有则优先）"),
         ];
-        _selectedSource = SourceOptions[0];
+        _selectedLyricMode = LyricModeOptions[0];
     }
 
     public ObservableCollection<BatchLyricsItemViewModel> Items { get; } = [];
 
-    public IReadOnlyList<BatchLyricsSourceOption> SourceOptions { get; }
+    public IReadOnlyList<OnlineLyricModeOption> LyricModeOptions { get; }
+
+    public string TagPriorityText { get; }
+    public string LyricsPriorityText { get; }
 
     [ObservableProperty]
     private string _folderPath = string.Empty;
 
     [ObservableProperty]
-    private BatchLyricsSourceOption _selectedSource;
+    private bool _fetchLyrics = true;
+
+    [ObservableProperty]
+    private OnlineLyricModeOption _selectedLyricMode;
 
     [ObservableProperty]
     private bool _overwriteExisting = true;
@@ -46,7 +63,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
     private bool _isRunning;
 
     [ObservableProperty]
-    private string _statusText = "选择目录后开始批量获取标签与封面。";
+    private string _statusText = "选择目录后开始批量获取标签、封面与歌词。";
 
     [ObservableProperty]
     private double _progressPercent;
@@ -147,8 +164,11 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
             }
 
             var options = new BatchLyricsOptions(
-                SelectedSource.Value,
-                OverwriteExisting);
+                _tagPriority,
+                _lyricsPriority,
+                OverwriteExisting,
+                FetchLyrics,
+                SelectedLyricMode.PreferWord);
 
             IProgress<BatchLyricsResult> progress = new Progress<BatchLyricsResult>(result =>
             {
@@ -198,7 +218,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
                 }
             });
 
-            StatusText = "正在批量获取标签与封面...";
+            StatusText = "正在批量获取标签、封面与歌词...";
             await Task.WhenAll(tasks).ConfigureAwait(true);
             StatusText = token.IsCancellationRequested
                 ? "已取消批量标签获取。"
@@ -219,6 +239,15 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
             IsRunning = false;
         }
     }
+
+    private static string PriorityLabel(OnlineSourcePriority priority) =>
+        priority switch
+        {
+            OnlineSourcePriority.QQMusicFirst => "QQ 音乐优先",
+            OnlineSourcePriority.NeteaseOnly => "仅网易云音乐",
+            OnlineSourcePriority.QQMusicOnly => "仅 QQ 音乐",
+            _ => "网易云音乐优先",
+        };
 
     [RelayCommand]
     private void Cancel() => _cts?.Cancel();

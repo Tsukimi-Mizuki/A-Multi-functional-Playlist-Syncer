@@ -1004,7 +1004,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 _services.Tags,
                 _ui,
                 _services.OnlineSearch,
-                _services.BatchLyrics);
+                _services.BatchLyrics,
+                _settings.TagSourcePriority,
+                _settings.LyricsSourcePriority);
             await viewModel.InitializeAsync(initialPath).ConfigureAwait(true);
             await _ui.ShowLyricsEditorAsync(viewModel).ConfigureAwait(true);
         }

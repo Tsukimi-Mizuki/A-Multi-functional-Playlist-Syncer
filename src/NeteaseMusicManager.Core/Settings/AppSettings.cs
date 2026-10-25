@@ -14,6 +14,8 @@ public sealed class AppSettings
     public string FileNameTemplate { get; set; } = "{artist} - {title}";
     public int MaxConcurrency { get; set; } = 3;
     public bool AutoMatchLocal { get; set; } = true;
+    public OnlineSourcePriority TagSourcePriority { get; set; } = OnlineSourcePriority.NeteaseFirst;
+    public OnlineSourcePriority LyricsSourcePriority { get; set; } = OnlineSourcePriority.NeteaseFirst;
     public RenderFrameRateMode RenderFrameRate { get; set; } = RenderFrameRateMode.VSync;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -31,6 +33,16 @@ public sealed class AppSettings
         if (!Enum.IsDefined(typeof(RenderFrameRateMode), RenderFrameRate))
         {
             RenderFrameRate = RenderFrameRateMode.VSync;
+        }
+
+        if (!Enum.IsDefined(typeof(OnlineSourcePriority), TagSourcePriority))
+        {
+            TagSourcePriority = OnlineSourcePriority.NeteaseFirst;
+        }
+
+        if (!Enum.IsDefined(typeof(OnlineSourcePriority), LyricsSourcePriority))
+        {
+            LyricsSourcePriority = OnlineSourcePriority.NeteaseFirst;
         }
 
         return this;

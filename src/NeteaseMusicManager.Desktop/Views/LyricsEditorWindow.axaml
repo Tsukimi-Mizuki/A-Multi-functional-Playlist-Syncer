@@ -18,8 +18,8 @@
               Padding="18,7" AutomationProperties.Name="打开音频文件" />
       <Button Grid.Column="2" Content="重新读取" Command="{Binding ReloadCommand}"
               Padding="18,7" AutomationProperties.Name="重新读取标签" />
-      <Button Grid.Column="3" Content="批量标签" Click="OnBatchLyricsClick"
-              Padding="18,7" AutomationProperties.Name="批量标签" />
+      <Button Grid.Column="3" Content="批量获取" Click="OnBatchLyricsClick"
+              Padding="18,7" AutomationProperties.Name="批量获取标签、封面与歌词" />
     </Grid>
 
     <!-- 在线搜索 -->

@@ -100,18 +100,19 @@ Core
   自动向当前选中的在线来源搜索一次；不会自动应用结果，仍由用户点击确认。
 - 在线来源通过 `IOnlineMusicSearchService` 抽象，后续可继续扩展其他音乐平台。
 
-## 批量标签与封面
+## 批量标签、封面与歌词
 
 - `BatchLyricsService`（内部沿用历史命名）扫描目录内 MP3/FLAC/M4A/OGG/WAV/AAC/WMA/OPUS 文件（可选递归）。
 - 每个文件优先读取标签中的标题/歌手/时长；没有标题时直接使用清理过的文件名作为查询，
   避免把“标题 - 歌手”或“歌手 - 标题”拆错。
-- 依次查询网易云/QQ（自动模式），用标题相似度、歌手相似度和时长差综合评分选择最佳结果，
+- 标签/封面和歌词分别按 `AppSettings.TagSourcePriority` / `LyricsSourcePriority` 的
+  来源顺序尝试（网易云优先、QQ 优先或仅单一来源），以标题、歌手和时长相似度评分选择最佳结果，
   低于阈值不会被强行写入。
-- 对最佳结果获取标签和封面后，只更新 Title/Artists/Album/Year/Track/Disc/Genre/Composer/Cover
-  字段，完全不写歌词（Lyrics/WordLyrics 保持原值）。
-- 可选择覆盖已有标签；未开启时只补缺失字段和缺失封面。
+- 对最佳结果获取标签/封面与歌词后，更新 Title/Artists/Album/Year/Track/Disc/Genre/Composer/Cover
+  以及 Lyrics/WordLyrics；歌词按逐行或逐字（有则优先）写入双语内容。
+- 可选择覆盖已有标签与歌词；未开启时只补缺失字段、缺失封面和缺失歌词。
 - 批量任务使用 3 个并发请求、进度回报和取消令牌；界面为独立窗口，从歌词编辑窗口右上角的
-  “批量标签”按钮以编辑器为 Owner 打开。
+  “批量获取”按钮以编辑器为 Owner 打开。
 
 ## 歌词与标签编辑器
 

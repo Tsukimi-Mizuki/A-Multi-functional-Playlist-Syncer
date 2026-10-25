@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NeteaseMusicManager.Core.Lyrics;
+using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Online;
 using NeteaseMusicManager.Core.Tags;
 using NeteaseMusicManager.Desktop.Services;
@@ -17,6 +18,8 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private readonly IDesktopUiService _ui;
     private readonly IOnlineMusicSearchService _onlineSearch;
     private readonly IBatchLyricsService _batchLyrics;
+    private readonly OnlineSourcePriority _tagPriority;
+    private readonly OnlineSourcePriority _lyricsPriority;
     private byte[]? _coverData;
     private long? _neteaseId;
 
@@ -24,12 +27,16 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         IAudioTagService tags,
         IDesktopUiService ui,
         IOnlineMusicSearchService onlineSearch,
-        IBatchLyricsService batchLyrics)
+        IBatchLyricsService batchLyrics,
+        OnlineSourcePriority tagPriority,
+        OnlineSourcePriority lyricsPriority)
     {
         _tags = tags;
         _ui = ui;
         _onlineSearch = onlineSearch;
         _batchLyrics = batchLyrics;
+        _tagPriority = tagPriority;
+        _lyricsPriority = lyricsPriority;
         SearchSources =
         [
             new(OnlineMusicSource.Netease, "网易云音乐"),
@@ -52,11 +59,16 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         }
     }
 
-    /// <summary>给歌词编辑窗口的“批量歌词”按钮创建子窗口 ViewModel。</summary>
+    /// <summary>给歌词编辑窗口的“批量标签”按钮创建子窗口 ViewModel。</summary>
     public BatchLyricsViewModel CreateBatchLyricsViewModel()
     {
         var directory = FilePath is { Length: > 0 } path ? Path.GetDirectoryName(path) : null;
-        return new BatchLyricsViewModel(_batchLyrics, _ui, directory);
+        return new BatchLyricsViewModel(
+            _batchLyrics,
+            _ui,
+            directory,
+            _tagPriority,
+            _lyricsPriority);
     }
 
     [ObservableProperty]

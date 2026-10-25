@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NeteaseMusicManager.Desktop.Views.BatchLyricsWindow"
-        Title="批量获取标签与封面"
+        Title="批量获取标签、封面与歌词"
         Width="1180" Height="820"
         MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterOwner">
@@ -9,8 +9,8 @@
     <!-- 顶栏 -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="10">
       <StackPanel Spacing="2" VerticalAlignment="Center">
-        <TextBlock Text="批量获取标签与封面" FontSize="20" FontWeight="Bold" />
-        <TextBlock Text="扫描本地音频，按标签/文件名从网易云或 QQ 音乐匹配歌曲，批量写入标签和封面；不修改歌词。"
+        <TextBlock Text="批量获取标签、封面与歌词" FontSize="20" FontWeight="Bold" />
+        <TextBlock Text="扫描本地音频，按标签/文件名从网易云或 QQ 音乐匹配歌曲，批量写入标签、封面和歌词；来源顺序由设置中的优先级决定。"
                    FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
       </StackPanel>
       <Button Grid.Column="1" Content="关闭" Click="OnCloseClick" Padding="20,7"
@@ -30,21 +30,30 @@
                   Padding="16,6" />
         </Grid>
         <WrapPanel Grid.Row="1" Orientation="Horizontal">
-          <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,14,6">
-            <TextBlock Text="来源" VerticalAlignment="Center" FontSize="11"
+          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,6">
+            <TextBlock Text="来源优先级" VerticalAlignment="Center" FontSize="11"
                        Foreground="{StaticResource TextTertiaryBrush}" />
-            <ComboBox ItemsSource="{Binding SourceOptions}"
-                      SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
-                      MinWidth="160" Height="32">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Label}" FontSize="12" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
+            <TextBlock Text="{Binding TagPriorityText, StringFormat=标签 {0}}" FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+            <TextBlock Text="·" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                       VerticalAlignment="Center" />
+            <TextBlock Text="{Binding LyricsPriorityText, StringFormat=歌词 {0}}" FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
           </StackPanel>
-          <CheckBox Content="覆盖已有标签" IsChecked="{Binding OverwriteExisting, Mode=TwoWay}"
+          <CheckBox Content="覆盖已有标签与歌词" IsChecked="{Binding OverwriteExisting, Mode=TwoWay}"
                     VerticalAlignment="Center" Margin="0,0,14,6" />
+          <CheckBox Content="同时获取歌词" IsChecked="{Binding FetchLyrics, Mode=TwoWay}"
+                    VerticalAlignment="Center" Margin="0,0,8,6" />
+          <ComboBox ItemsSource="{Binding LyricModeOptions}"
+                    SelectedItem="{Binding SelectedLyricMode, Mode=TwoWay}"
+                    IsEnabled="{Binding FetchLyrics}"
+                    MinWidth="160" Height="32" Margin="0,0,14,6">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" FontSize="12" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
           <CheckBox Content="包含子文件夹" IsChecked="{Binding Recursive, Mode=TwoWay}"
                     VerticalAlignment="Center" Margin="0,0,14,6" />
         </WrapPanel>
@@ -80,7 +89,7 @@
         <Button Grid.Column="1" Classes="primary" Content="开始批量获取"
                 Command="{Binding StartCommand}"
                 IsEnabled="{Binding CanStart}"
-                Padding="20,7" AutomationProperties.Name="开始批量获取标签与封面" />
+                Padding="20,7" AutomationProperties.Name="开始批量获取标签、封面与歌词" />
         <Button Grid.Column="2" Content="取消" Command="{Binding CancelCommand}"
                 IsEnabled="{Binding IsRunning}" Padding="20,7" />
       </Grid>
