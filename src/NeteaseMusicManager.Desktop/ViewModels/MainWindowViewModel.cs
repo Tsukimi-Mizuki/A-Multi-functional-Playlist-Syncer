@@ -828,6 +828,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             foreach (var row in Songs)
             {
                 row.IsSelected = false;
+                row.ShowSelectionBox = false;
             }
         }
         finally

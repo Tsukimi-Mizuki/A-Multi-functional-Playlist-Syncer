@@ -312,35 +312,26 @@
 
         <!-- 歌曲表格 -->
         <Grid Grid.Row="3" Margin="20,0,20,0">
-          <DataGrid ItemsSource="{Binding Songs}" IsVisible="{Binding HasSongs}"
+          <DataGrid x:Name="SongGrid" ItemsSource="{Binding Songs}" IsVisible="{Binding HasSongs}"
                     SelectedItem="{Binding SelectedSong, Mode=TwoWay}"
-                    AutoGenerateColumns="False" CanUserSortColumns="False">
+                    AutoGenerateColumns="False" CanUserSortColumns="False"
+                    ToolTip.Tip="长按歌曲行左侧可显示勾选框">
             <DataGrid.Columns>
-              <DataGridTemplateColumn Width="46" CanUserSort="False">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                              HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="22" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="#" Width="46" CanUserSort="False">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding Index}" FontSize="11.5" HorizontalAlignment="Center"
-                               VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
               <DataGridTemplateColumn Header="歌曲" Width="2*" MinWidth="240" CanUserSort="False">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <StackPanel VerticalAlignment="Center" Spacing="2">
-                      <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                 MaxLines="1" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="{Binding ArtistText}" FontSize="11"
-                                 MaxLines="1" TextTrimming="CharacterEllipsis"
-                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                      <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                IsVisible="{Binding ShowSelectionBox}"
+                                VerticalAlignment="Center" MinHeight="22"
+                                AutomationProperties.Name="选择歌曲" />
+                      <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                   MaxLines="1" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding ArtistText}" FontSize="11"
+                                   MaxLines="1" TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                      </StackPanel>
                     </StackPanel>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
