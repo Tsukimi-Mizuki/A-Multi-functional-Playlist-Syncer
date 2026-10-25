@@ -14,7 +14,6 @@ public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _longPressTimer;
     private MainWindowViewModel? _viewModel;
-    private SongRowViewModel? _longPressRow;
 
     public MainWindow()
     {
@@ -95,36 +94,29 @@ public partial class MainWindow : Window
         }
 
         var row = source.FindAncestorOfType<DataGridRow>();
-        if (row?.DataContext is not SongRowViewModel songRow)
+        if (row?.DataContext is not SongRowViewModel)
         {
             return;
         }
 
         _longPressTimer.Stop();
-        _longPressRow = songRow;
         _longPressTimer.Start();
     }
 
     private void OnSongGridPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _longPressTimer.Stop();
-        _longPressRow = null;
     }
 
     private void OnSongGridPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         _longPressTimer.Stop();
-        _longPressRow = null;
     }
 
     private void OnLongPressTimerTick(object? sender, EventArgs e)
     {
         _longPressTimer.Stop();
-        if (_longPressRow is { } row)
-        {
-            row.ShowSelectionBox = true;
-            _longPressRow = null;
-        }
+        _viewModel?.ToggleSelectionCheckboxes();
     }
 
     private void OnLogEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)

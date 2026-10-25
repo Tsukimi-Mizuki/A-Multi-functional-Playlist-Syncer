@@ -132,6 +132,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _selectedCount;
 
+    /// <summary>歌曲行是否显示勾选框；长按任意歌曲行切换。</summary>
+    [ObservableProperty]
+    private bool _showSelectionCheckboxes;
+
     [ObservableProperty]
     private string _qualityText = "音质 极高 320k";
 
@@ -819,6 +823,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string BuildSummaryText() =>
         $"共 {Songs.Count} 首 · 本地已存在 {_presentCount} · NCM 待解密 {_ncmCount} · 需下载 {_missingCount} · 已选 {SelectedCount}";
 
+    /// <summary>长按歌曲行：显示全部勾选框；再次长按隐藏全部勾选框。</summary>
+    public void ToggleSelectionCheckboxes()
+    {
+        ShowSelectionCheckboxes = !ShowSelectionCheckboxes;
+        LogInfo(ShowSelectionCheckboxes ? "已显示全部勾选框" : "已隐藏全部勾选框");
+    }
+
     [RelayCommand(CanExecute = nameof(CanClearSelection))]
     private void ClearSelection()
     {
@@ -828,7 +839,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             foreach (var row in Songs)
             {
                 row.IsSelected = false;
-                row.ShowSelectionBox = false;
             }
         }
         finally
@@ -836,6 +846,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _bulkSelectionChange = false;
         }
 
+        ShowSelectionCheckboxes = false;
         SelectedCount = 0;
         SummaryText = BuildSummaryText();
         LogInfo("已取消全部选择");

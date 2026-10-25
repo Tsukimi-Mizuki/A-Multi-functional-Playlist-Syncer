@@ -315,14 +315,14 @@
           <DataGrid x:Name="SongGrid" ItemsSource="{Binding Songs}" IsVisible="{Binding HasSongs}"
                     SelectedItem="{Binding SelectedSong, Mode=TwoWay}"
                     AutoGenerateColumns="False" CanUserSortColumns="False"
-                    ToolTip.Tip="长按歌曲行左侧可显示勾选框">
+                    ToolTip.Tip="长按歌曲行显示全部勾选框；再次长按隐藏全部勾选框">
             <DataGrid.Columns>
               <DataGridTemplateColumn Header="歌曲" Width="2*" MinWidth="240" CanUserSort="False">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
                       <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                IsVisible="{Binding ShowSelectionBox}"
+                                IsVisible="{Binding $parent[DataGrid].DataContext.ShowSelectionCheckboxes}"
                                 VerticalAlignment="Center" MinHeight="22"
                                 AutomationProperties.Name="选择歌曲" />
                       <StackPanel VerticalAlignment="Center" Spacing="2">

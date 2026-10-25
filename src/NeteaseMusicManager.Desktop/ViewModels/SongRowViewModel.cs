@@ -24,19 +24,7 @@ public sealed partial class SongRowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
-    /// <summary>长按行后显示勾选框；勾选状态下保持可见。</summary>
-    [ObservableProperty]
-    private bool _showSelectionBox;
-
-    partial void OnIsSelectedChanged(bool value)
-    {
-        if (value)
-        {
-            ShowSelectionBox = true;
-        }
-
-        _selectionChanged?.Invoke();
-    }
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke();
 
     public string Title => string.IsNullOrWhiteSpace(Song.Name) ? "未知歌曲" : Song.Name;
 
