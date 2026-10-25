@@ -73,6 +73,11 @@ Core
   原“我的歌单”文字替换为单个歌单图标按钮，最左上角不再有独立菜单按钮；收起后只保留这个
   歌单图标按钮，点击图标和 Ctrl+B 都可展开。按钮/列表项的背景变化使用短时过渡。
 - 受限环境（远程桌面、关闭透明效果、无 DWM）下 Acrylic 不可用时窗口退回深色玻璃背景。
+- 帧率上限由 `RenderTimerInstaller` 在 Avalonia 初始化后接管 Win32 渲染计时器：
+  - WinUI Composition 后端本身由 DWM 垂直同步驱动，垂直同步模式直接使用原生 Tick；
+  - 固定 FPS 模式对原生 Tick 做间隔节流；
+  - 传统 `DefaultRenderTimer` 后端会替换其固定 60FPS 驱动线程；
+  - 该设置保存在 `AppSettings.RenderFrameRate`，重启后生效。
 
 ## 线程与取消
 

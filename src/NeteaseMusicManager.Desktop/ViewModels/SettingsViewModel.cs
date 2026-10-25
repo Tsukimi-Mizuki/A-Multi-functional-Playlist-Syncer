@@ -57,12 +57,27 @@ public sealed partial class SettingsViewModel : ObservableObject
             .FirstOrDefault(o => o.Value.Length > 0 && string.Equals(o.Value, FileNameTemplate, StringComparison.Ordinal))
             ?? FileNameTemplateOption.Custom;
         _syncingFileNameTemplate = false;
+
+        RenderFrameRateOptions =
+        [
+            new(RenderFrameRateMode.VSync, "垂直同步（跟随显示器刷新率）"),
+            new(RenderFrameRateMode.Fps30, "30 FPS"),
+            new(RenderFrameRateMode.Fps60, "60 FPS"),
+            new(RenderFrameRateMode.Fps90, "90 FPS"),
+            new(RenderFrameRateMode.Fps120, "120 FPS"),
+            new(RenderFrameRateMode.Fps144, "144 FPS"),
+            new(RenderFrameRateMode.Fps165, "165 FPS"),
+            new(RenderFrameRateMode.Fps240, "240 FPS"),
+        ];
+        SelectedRenderFrameRate = RenderFrameRateOptions
+            .FirstOrDefault(o => o.Value == current.RenderFrameRate) ?? RenderFrameRateOptions[0];
     }
 
     public IReadOnlyList<QualityOption> QualityOptions { get; }
     public IReadOnlyList<LyricModeOption> LyricModeOptions { get; }
     public IReadOnlyList<ConcurrencyOption> ConcurrencyOptions { get; }
     public IReadOnlyList<FileNameTemplateOption> FileNameTemplateOptions { get; }
+    public IReadOnlyList<RenderFrameRateOption> RenderFrameRateOptions { get; }
 
     [ObservableProperty]
     private string _downloadDirectory = string.Empty;
@@ -96,6 +111,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private FileNameTemplateOption _selectedFileNameTemplate = null!;
+
+    [ObservableProperty]
+    private RenderFrameRateOption _selectedRenderFrameRate = null!;
 
     [ObservableProperty]
     private string? _validationMessage;
@@ -234,6 +252,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 SkipExisting = SkipExisting || !OverwriteExisting,
                 FileNameTemplate = template,
                 MaxConcurrency = Math.Clamp(SelectedConcurrency.Value, 1, 8),
+                RenderFrameRate = SelectedRenderFrameRate.Value,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

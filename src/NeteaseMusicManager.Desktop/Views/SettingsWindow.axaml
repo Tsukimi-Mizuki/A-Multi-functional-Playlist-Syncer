@@ -130,6 +130,30 @@
           </StackPanel>
         </Border>
 
+        <!-- 界面与性能 -->
+        <Border Classes="salt-card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="salt-card-title" Text="界面与性能" />
+            <Grid ColumnDefinitions="96,*" ColumnSpacing="12">
+              <TextBlock Text="帧率上限" VerticalAlignment="Center" FontSize="12"
+                         Foreground="{StaticResource TextSecondaryBrush}" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding RenderFrameRateOptions}"
+                        SelectedItem="{Binding SelectedRenderFrameRate, Mode=TwoWay}"
+                        HorizontalAlignment="Left" MinWidth="300"
+                        AutomationProperties.Name="帧率上限">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Label}" FontSize="12" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
+            <TextBlock Text="默认使用垂直同步，跟随显示器刷新率；也可限制为固定 FPS 以降低 GPU 占用。修改后需重启应用生效。"
+                       FontSize="10.5" TextWrapping="Wrap"
+                       Foreground="{StaticResource TextTertiaryBrush}" />
+          </StackPanel>
+        </Border>
+
         <Border IsVisible="{Binding HasValidationMessage}"
                 Background="{StaticResource DangerSoftBrush}" BorderBrush="{StaticResource DangerBorderBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="14,10">

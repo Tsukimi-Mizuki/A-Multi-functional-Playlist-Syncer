@@ -1,6 +1,7 @@
 using System.Text;
 using Avalonia;
 using NeteaseMusicManager.Core;
+using NeteaseMusicManager.Desktop.Services;
 
 namespace NeteaseMusicManager.Desktop;
 
@@ -32,7 +33,8 @@ internal static class Program
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .LogToTrace();
+            .LogToTrace()
+            .AfterSetup(_ => RenderTimerInstaller.InstallFromSettings());
 
     /// <summary>把致命异常追加写入日志目录，便于用户汇报问题时定位（失败时静默）。</summary>
     private static void LogFatal(string source, Exception? exception)

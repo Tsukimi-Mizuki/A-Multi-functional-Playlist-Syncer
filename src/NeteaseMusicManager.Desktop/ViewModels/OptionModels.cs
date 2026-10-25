@@ -28,3 +28,9 @@ public sealed record FileNameTemplateOption(string Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>界面帧率上限选项。</summary>
+public sealed record RenderFrameRateOption(RenderFrameRateMode Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
