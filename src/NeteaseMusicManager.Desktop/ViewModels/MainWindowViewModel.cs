@@ -996,6 +996,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task OpenLyricsEditorAsync() => OpenLyricsEditorForFileAsync(SelectedSong?.LocalPath);
 
+    [RelayCommand]
+    private async Task OpenBatchLyricsAsync()
+    {
+        try
+        {
+            var viewModel = new BatchLyricsViewModel(_services.BatchLyrics, _ui, _settings.LibraryDirectory);
+            await _ui.ShowBatchLyricsAsync(viewModel).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            HandleOperationError("打开批量歌词窗口失败", ex);
+        }
+    }
+
     public async Task OpenLyricsEditorForFileAsync(string? initialPath)
     {
         try

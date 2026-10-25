@@ -1,3 +1,4 @@
+using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Online;
 
@@ -43,6 +44,12 @@ public sealed record OnlineSourceOption(OnlineMusicSource Value, string Label)
 
 /// <summary>在线搜索歌词格式选项。</summary>
 public sealed record OnlineLyricModeOption(bool PreferWord, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>批量歌词来源选项。</summary>
+public sealed record BatchLyricsSourceOption(BatchLyricsSourcePreference Value, string Label)
 {
     public override string ToString() => Label;
 }

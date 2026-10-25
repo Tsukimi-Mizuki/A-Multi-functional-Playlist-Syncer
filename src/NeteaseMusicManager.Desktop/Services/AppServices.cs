@@ -32,9 +32,11 @@ public sealed class AppServices : IDisposable
         ISessionStore sessionStore,
         ISettingsStore settingsStore,
         CoverImageService covers,
-        IOnlineMusicSearchService onlineSearch)
+        IOnlineMusicSearchService onlineSearch,
+        IBatchLyricsService batchLyrics)
     {
         OnlineSearch = onlineSearch;
+        BatchLyrics = batchLyrics;
         Http = http;
         Api = api;
         NcmDecoder = ncmDecoder;
@@ -64,6 +66,7 @@ public sealed class AppServices : IDisposable
     public ISettingsStore SettingsStore { get; }
     public CoverImageService Covers { get; }
     public IOnlineMusicSearchService OnlineSearch { get; }
+    public IBatchLyricsService BatchLyrics { get; }
 
     /// <summary>构造全部真实依赖。所有平台相关路径（设置、登录态）使用 Core 的 AppPaths 默认位置。</summary>
     public static AppServices Create()
@@ -96,6 +99,7 @@ public sealed class AppServices : IDisposable
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);
         var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
+        var batchLyrics = new BatchLyricsService(tags, onlineSearch);
 
         return new AppServices(
             http,
@@ -111,7 +115,8 @@ public sealed class AppServices : IDisposable
             sessionStore,
             settingsStore,
             covers,
-            onlineSearch);
+            onlineSearch,
+            batchLyrics);
     }
 
     public void Dispose()
