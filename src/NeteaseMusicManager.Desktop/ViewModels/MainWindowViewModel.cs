@@ -121,6 +121,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private PlaylistItemViewModel? _selectedPlaylist;
 
     [ObservableProperty]
+    private SongRowViewModel? _selectedSong;
+
+    [ObservableProperty]
     private string _currentPlaylistTitle = "未选择歌单";
 
     [ObservableProperty]
@@ -987,6 +990,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             dialogVm.Dispose();
+        }
+    }
+
+    [RelayCommand]
+    private Task OpenLyricsEditorAsync() => OpenLyricsEditorForFileAsync(SelectedSong?.LocalPath);
+
+    public async Task OpenLyricsEditorForFileAsync(string? initialPath)
+    {
+        try
+        {
+            var viewModel = new LyricsEditorViewModel(_services.Tags, _ui);
+            await viewModel.InitializeAsync(initialPath).ConfigureAwait(true);
+            await _ui.ShowLyricsEditorAsync(viewModel).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            HandleOperationError("打开歌词编辑器失败", ex);
         }
     }
 

@@ -34,6 +34,11 @@ public partial class App : Application
                     try
                     {
                         await _mainViewModel.InitializeAsync();
+                        var startupLyricsFile = Program.GetStartupLyricsFile();
+                        if (!string.IsNullOrWhiteSpace(startupLyricsFile))
+                        {
+                            await _mainViewModel.OpenLyricsEditorForFileAsync(startupLyricsFile);
+                        }
                     }
                     catch (Exception ex)
                     {

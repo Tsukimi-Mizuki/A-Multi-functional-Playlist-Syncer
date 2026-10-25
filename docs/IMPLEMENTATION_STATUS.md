@@ -14,14 +14,14 @@
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、翻译合并；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；唯一磨砂玻璃主题；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志 |
+| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；唯一磨砂玻璃主题；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器 |
 | Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
 
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**170 / 170 通过，0 skipped**。
+- `dotnet test`：**171 / 171 通过，0 skipped**。
   - Netease API：61
   - NCM / Lyrics / Tags：40
   - Library / Download / Sync：60
@@ -51,6 +51,8 @@
   已实际验证选择预设会同步写入模板输入框。
 - 新增“界面与性能 → 帧率上限”：默认垂直同步（WinUI Composition/DWM 原生刷新），
   可选 30–240 FPS 固定上限；已通过启动诊断验证实际进入垂直同步与节流分支。
+- 新增独立歌词/标签编辑器：可从主界面或 `--lyrics <file>` 打开，读取封面/全部常用标签/歌词，
+  编辑后写回；已验证标签读取、歌词保存回读和 ReplaceAll 清空字段行为。
 - 移除了所有多主题/多材质逻辑与未使用的背景光斑、动画和颜色资源，只保留一套磨砂玻璃外观。
   主窗口使用 Windows AcrylicBlur，窗口后的内容变化会实时反映到磨砂背景上。
 - 歌单侧栏加入 240ms 宽度过渡与淡入淡出动画；收起为 56px 图标栏并显示歌单图标，可点击展开；

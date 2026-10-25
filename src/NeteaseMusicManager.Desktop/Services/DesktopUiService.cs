@@ -26,6 +26,30 @@ public sealed class DesktopUiService : IDesktopUiService
     public Task ShowNcmImportAsync(NcmImportViewModel viewModel) =>
         new NcmImportWindow { DataContext = viewModel }.ShowDialog(RequireOwner());
 
+    public Task ShowLyricsEditorAsync(LyricsEditorViewModel viewModel) =>
+        new LyricsEditorWindow { DataContext = viewModel }.ShowDialog(RequireOwner());
+
+    public async Task<string?> PickAudioFileAsync(string title)
+    {
+        var files = await RequireOwner().StorageProvider
+            .OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("音频文件")
+                    {
+                        Patterns = ["*.mp3", "*.flac", "*.m4a", "*.ogg", "*.wav", "*.aac", "*.wma", "*.opus"],
+                    },
+                    new FilePickerFileType("所有文件") { Patterns = ["*"] },
+                ],
+            })
+            .ConfigureAwait(true);
+
+        return files.FirstOrDefault()?.TryGetLocalPath();
+    }
+
     public async Task<bool> ConfirmAsync(string title, string message, string okText = "确定", string cancelText = "取消")
     {
         var dialog = new MessageDialog(title, message, okText, cancelText);

@@ -207,6 +207,65 @@ public sealed class AudioTagServiceTests : IDisposable
         Assert.True(info.Bitrate > 0);
     }
 
+    [Fact]
+    public async Task WriteAsync_RoundTripsExtendedTagsAndReplaceAllCanClearFields()
+    {
+        var path = CreateMp3("extended-tags.mp3");
+
+        await _service.WriteAsync(path, new AudioTagData
+        {
+            ReplaceAll = true,
+            Title = "T",
+            Artists = new[] { "A1", "A2" },
+            Album = "AL",
+            AlbumArtist = "AA",
+            Year = 2024,
+            TrackNumber = 2,
+            DiscNumber = 1,
+            Genre = "Pop/Rock",
+            Composer = "C1/C2",
+            Comment = "note",
+            PlainLyrics = "[00:01.00]line",
+        });
+
+        var info = await _service.ReadAsync(path);
+        Assert.NotNull(info);
+        Assert.Equal("T", info!.Title);
+        Assert.Equal("A1/A2", info.Artist);
+        Assert.Equal("AL", info.Album);
+        Assert.Equal("AA", info.AlbumArtist);
+        Assert.Equal(2024u, info.Year);
+        Assert.Equal(2u, info.TrackNumber);
+        Assert.Equal(1u, info.DiscNumber);
+        Assert.Equal("Pop/Rock", info.Genre);
+        Assert.Equal("C1/C2", info.Composer);
+        Assert.Equal("note", info.Comment);
+        Assert.Equal("[00:01.00]line", info.Lyrics);
+        Assert.True(info.FileSize > 0);
+        Assert.Equal("MP3", info.FileFormat);
+
+        await _service.WriteAsync(path, new AudioTagData
+        {
+            ReplaceAll = true,
+            Title = "Only title",
+            PlainLyrics = "new lyrics",
+        });
+
+        var cleared = await _service.ReadAsync(path);
+        Assert.NotNull(cleared);
+        Assert.Equal("Only title", cleared!.Title);
+        Assert.Null(cleared.Artist);
+        Assert.Null(cleared.Album);
+        Assert.Null(cleared.AlbumArtist);
+        Assert.Null(cleared.Year);
+        Assert.Null(cleared.TrackNumber);
+        Assert.Null(cleared.DiscNumber);
+        Assert.Null(cleared.Genre);
+        Assert.Null(cleared.Composer);
+        Assert.Null(cleared.Comment);
+        Assert.Equal("new lyrics", cleared.Lyrics);
+    }
+
     private string CreateMp3(string fileName)
     {
         var path = _temp.File(fileName);

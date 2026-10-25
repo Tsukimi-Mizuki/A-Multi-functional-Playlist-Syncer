@@ -79,6 +79,18 @@ Core
   - 传统 `DefaultRenderTimer` 后端会替换其固定 60FPS 驱动线程；
   - 该设置保存在 `AppSettings.RenderFrameRate`，重启后生效。
 
+## 歌词与标签编辑器
+
+- 独立窗口 `LyricsEditorWindow`，从主界面“歌词编辑”或命令行 `--lyrics <file>` 打开。
+- `LyricsEditorViewModel` 通过 `IAudioTagService` 读取文件标签：
+  标题、艺术家、专辑、专辑艺术家、年份、音轨/碟号、风格、作曲家、注释、封面、歌词、
+  文件大小/格式/时长/码率；无标签字段保持为空。
+- 保存使用 `AudioTagData.ReplaceAll = true`，完整替换编辑器展示的标签字段；网易云 ID 标记、
+  封面和未展示的标签会保留。清空某个字段会真正清除对应标签。
+- 歌词按原始文本写入 TagLib 的 Lyrics 字段（支持 LRC / 增强 LRC / 逐字文本），
+  写入后重新读取即可验证。
+- 文件选择通过 `IDesktopUiService.PickAudioFileAsync` 调用 Avalonia StorageProvider。
+
 ## 线程与取消
 
 - 所有 I/O 使用 async；ViewModel 命令接受 CancellationToken。

@@ -20,6 +20,15 @@ public sealed class AudioTagData
     public long? NeteaseId { get; init; }
 
     public string? Comment { get; init; }
+
+    /// <summary>流派；多个值用 / 分隔。</summary>
+    public string? Genre { get; init; }
+
+    /// <summary>作曲家；多个值用 / 分隔。</summary>
+    public string? Composer { get; init; }
+
+    /// <summary>编辑器保存时替换全部字段（包括清空未填写的标签），而不是只更新非空字段。</summary>
+    public bool ReplaceAll { get; init; }
 }
 
 public sealed record AudioTagInfo(
@@ -31,7 +40,16 @@ public sealed record AudioTagInfo(
     int Bitrate,
     string? Lyrics = null,
     bool HasCover = false,
-    long? NeteaseId = null);
+    long? NeteaseId = null,
+    uint? Year = null,
+    uint? TrackNumber = null,
+    uint? DiscNumber = null,
+    string? Genre = null,
+    string? Composer = null,
+    string? Comment = null,
+    byte[]? CoverData = null,
+    long FileSize = 0,
+    string? FileFormat = null);
 
 /// <summary>使用 TagLibSharp 读写 MP3/FLAC/M4A/OGG 标签。</summary>
 public interface IAudioTagService

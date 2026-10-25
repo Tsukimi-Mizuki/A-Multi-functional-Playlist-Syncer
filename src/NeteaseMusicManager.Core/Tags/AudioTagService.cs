@@ -75,6 +75,7 @@ public sealed class AudioTagService : IAudioTagService
                 : Math.Max(0L, (long)Math.Round(properties.Duration.TotalMilliseconds, MidpointRounding.AwayFromZero));
             var bitrate = properties?.AudioBitrate ?? 0;
 
+            var fileInfo = new System.IO.FileInfo(audioPath);
             return new AudioTagInfo(
                 Title: NullIfBlank(tag.Title),
                 Artist: JoinValues(tag.Performers),
@@ -84,7 +85,16 @@ public sealed class AudioTagService : IAudioTagService
                 Bitrate: bitrate,
                 Lyrics: NullIfBlank(tag.Lyrics),
                 HasCover: HasCover(tag),
-                NeteaseId: TryParseNeteaseId(tag.Comment));
+                NeteaseId: TryParseNeteaseId(tag.Comment),
+                Year: tag.Year > 0 ? tag.Year : null,
+                TrackNumber: tag.Track > 0 ? tag.Track : null,
+                DiscNumber: tag.Disc > 0 ? tag.Disc : null,
+                Genre: JoinValues(tag.Genres),
+                Composer: JoinValues(tag.Composers),
+                Comment: CleanDisplayComment(tag.Comment),
+                CoverData: TryGetCoverData(tag),
+                FileSize: fileInfo.Length,
+                FileFormat: System.IO.Path.GetExtension(audioPath).TrimStart('.').ToUpperInvariant());
         }
         catch (Exception ex) when (IsRecoverableReadError(ex))
         {
@@ -156,46 +166,62 @@ public sealed class AudioTagService : IAudioTagService
 
     private static void ApplyTag(TagLibFile file, TagLib.Tag tag, AudioTagData data)
     {
-        if (data.Title is not null)
+        var replace = data.ReplaceAll;
+
+        if (replace || data.Title is not null)
         {
-            tag.Title = data.Title;
+            tag.Title = data.Title ?? string.Empty;
         }
 
         var artists = CleanValues(data.Artists);
-        if (artists.Length > 0)
+        if (replace || artists.Length > 0)
         {
             tag.Performers = artists;
         }
 
-        if (data.Album is not null)
+        if (replace || data.Album is not null)
         {
-            tag.Album = data.Album;
+            tag.Album = data.Album ?? string.Empty;
         }
 
-        if (!string.IsNullOrWhiteSpace(data.AlbumArtist))
+        if (replace || data.AlbumArtist is not null)
         {
-            tag.AlbumArtists = new[] { data.AlbumArtist.Trim() };
+            tag.AlbumArtists = string.IsNullOrWhiteSpace(data.AlbumArtist)
+                ? Array.Empty<string>()
+                : new[] { data.AlbumArtist.Trim() };
         }
 
-        if (data.TrackNumber is uint trackNumber)
+        if (replace || data.TrackNumber is uint)
         {
-            tag.Track = trackNumber;
+            tag.Track = data.TrackNumber ?? 0;
         }
 
-        if (data.DiscNumber is uint discNumber)
+        if (replace || data.DiscNumber is uint)
         {
-            tag.Disc = discNumber;
+            tag.Disc = data.DiscNumber ?? 0;
         }
 
-        if (data.Year is uint year)
+        if (replace || data.Year is uint)
         {
-            tag.Year = year;
+            tag.Year = data.Year ?? 0;
+        }
+
+        var genres = SplitValues(data.Genre);
+        if (replace || genres.Length > 0)
+        {
+            tag.Genres = genres;
+        }
+
+        var composers = SplitValues(data.Composer);
+        if (replace || composers.Length > 0)
+        {
+            tag.Composers = composers;
         }
 
         var lyrics = FirstNonBlank(data.WordLyrics, data.PlainLyrics);
-        if (lyrics is not null)
+        if (replace || lyrics is not null)
         {
-            tag.Lyrics = lyrics;
+            tag.Lyrics = lyrics ?? string.Empty;
         }
 
         ApplyComment(tag, data);
@@ -204,7 +230,7 @@ public sealed class AudioTagService : IAudioTagService
 
     private static void ApplyComment(TagLib.Tag tag, AudioTagData data)
     {
-        var existing = NullIfBlank(tag.Comment);
+        var existing = data.ReplaceAll ? null : NullIfBlank(tag.Comment);
         var baseComment = data.Comment ?? existing;
 
         if (data.NeteaseId is long neteaseId && neteaseId > 0)
@@ -212,6 +238,12 @@ public sealed class AudioTagService : IAudioTagService
             var marker = NeteaseCommentPrefix + neteaseId.ToString(CultureInfo.InvariantCulture);
             var cleaned = CleanComment(NeteaseCommentCleanupPattern.Replace(baseComment ?? string.Empty, string.Empty));
             tag.Comment = cleaned.Length == 0 ? marker : $"{cleaned}; {marker}";
+            return;
+        }
+
+        if (data.ReplaceAll)
+        {
+            tag.Comment = NullIfBlank(baseComment) ?? string.Empty;
             return;
         }
 
@@ -309,6 +341,42 @@ public sealed class AudioTagService : IAudioTagService
             values.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()));
 
         return string.IsNullOrWhiteSpace(joined) ? null : joined;
+    }
+
+    private static string[] SplitValues(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Array.Empty<string>();
+        }
+
+        return value
+            .Split(new[] { '/', ';', '；', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .ToArray();
+    }
+
+    private static string? CleanDisplayComment(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            return null;
+        }
+
+        var cleaned = CleanComment(NeteaseCommentCleanupPattern.Replace(comment, string.Empty));
+        return NullIfBlank(cleaned);
+    }
+
+    private static byte[]? TryGetCoverData(TagLib.Tag tag)
+    {
+        try
+        {
+            return tag.Pictures is { Length: > 0 } pictures ? pictures[0]?.Data?.Data : null;
+        }
+        catch (Exception ex) when (ex is TagLib.CorruptFileException or IOException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static string[] CleanValues(IReadOnlyList<string>? values)

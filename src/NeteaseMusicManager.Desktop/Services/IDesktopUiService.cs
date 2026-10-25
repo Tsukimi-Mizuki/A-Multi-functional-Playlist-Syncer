@@ -13,6 +13,10 @@ public interface IDesktopUiService
 
     Task ShowNcmImportAsync(NcmImportViewModel viewModel);
 
+    Task ShowLyricsEditorAsync(LyricsEditorViewModel viewModel);
+
+    Task<string?> PickAudioFileAsync(string title);
+
     Task<bool> ConfirmAsync(string title, string message, string okText = "确定", string cancelText = "取消");
 
     Task ShowMessageAsync(string title, string message, string okText = "知道了");
