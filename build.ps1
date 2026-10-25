@@ -2,7 +2,8 @@
 param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Debug',
     [switch]$Test,
-    [switch]$Publish
+    [switch]$Publish,
+    [switch]$SelfContained
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -32,8 +33,17 @@ if ($Test) {
 }
 if ($Publish) {
     $out = Join-Path $root 'publish\win-x64'
-    & $dotnet publish (Join-Path $root 'src\NeteaseMusicManager.Desktop\NeteaseMusicManager.Desktop.csproj') -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=false -o $out
+    New-Item -ItemType Directory -Force -Path $out | Out-Null
+    # Keep the user's portable session/settings, remove stale assemblies from previous publishes.
+    Get-ChildItem $out -Force | Where-Object { $_.Name -ne 'data' } | Remove-Item -Recurse -Force
+    $selfContainedValue = if ($SelfContained) { 'true' } else { 'false' }
+    & $dotnet publish (Join-Path $root 'src\NeteaseMusicManager.Desktop\NeteaseMusicManager.Desktop.csproj') -c Release -r win-x64 --self-contained $selfContainedValue -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -o $out
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    # Remove unused non-Windows/designer assemblies from a Windows-only package.
+    foreach ($name in @('Avalonia.FreeDesktop.dll','Avalonia.Native.dll','Avalonia.X11.dll','Tmds.DBus.Protocol.dll','Avalonia.DesignerSupport.dll')) {
+        $pathToRemove = Join-Path $out $name
+        if (Test-Path $pathToRemove) { Remove-Item $pathToRemove -Force }
+    }
     $zip = Join-Path $root 'publish\NeteaseMusicManager-win-x64.zip'
     if (Test-Path $zip) { Remove-Item $zip -Force }
     # Do not package the portable data dir: it can contain the user's encrypted login cookie/settings.

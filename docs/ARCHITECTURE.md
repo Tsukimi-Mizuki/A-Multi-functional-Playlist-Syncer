@@ -60,23 +60,16 @@ Core
 - AES-128-ECB 解出 RC4 密钥盒与元数据；按 32 KB 分块流式 XOR 解密音频。
 - 输出格式由首块内容判断（ID3 => mp3，fLaC => flac）。
 
-## 外观与窗口效果（Salt UI 风格）
+## 外观与窗口效果（单一磨砂玻璃）
 
-- `VisualThemeManager` 实现 Salt UI 的 SaltColors 设计令牌：
-  - **Salt 浅色**：背景 `#F3F3F3`、白色卡片、`#0470E6` highlight、发丝描边；
-  - **Salt 深色**：背景 `#202020`、低透明度白色卡片、`#0088FF` highlight；
-  - **磨砂玻璃**：`WindowTransparencyLevel.Mica` + 冷色雾面层；
-  - **亚克力**：`WindowTransparencyLevel.AcrylicBlur` + 半透明卡片；
-  - **液态玻璃**：`AcrylicBlur` + XAML 彩色模糊光斑、顶部高光与呼吸动画；
-  - **经典深色**：不透明深色窗口。
-- 控件按 Salt UI 视觉语言重建：
-  - RoundedColumn 式 10px 圆角卡片 + 发丝描边；
-  - 胶囊按钮（Filled / Subtle / Plain 三种层级）；
-  - 桌面紧凑行高、蓝色 section header、浅灰输入面；
-  - `Application.RequestedThemeVariant` 跟随 Salt 浅/深色切换；
-  - 原生标题栏通过 DWM caption/text color 与主题同步，对话框复用同一调色板。
-- 颜色通过修改 `Application.Resources` 中的 `SolidColorBrush` 实例即时传播；状态徽标转换器也支持浅/深色两套颜色。
-- 外观选择保存在 `AppSettings.VisualStyle`；玻璃模式在无 DWM/远程桌面等场景下由内部背景兜底。
+- 只有一套外观：**磨砂玻璃**，基于 Salt UI 的卡片/胶囊按钮/紧凑 Item 结构，不再有主题选择器。
+- 主窗口设置 `WindowTransparencyLevel.AcrylicBlur`（回退到 Blur），
+  `Background = Transparent`，因此窗口后面的桌面、网页、视频和游戏会被 Windows 实时模糊透出，
+  背景内容变化时窗口材质同步变化，不使用静态壁纸或内部模拟光斑。
+- 半透明调色板集中在 `App.axaml`：Header/Panel 为 60%–70% 明度遮罩，
+  内容区增加一层轻量暗色衬底保证表格可读；标题栏通过 DWM 固定为深色。
+- 对话框不参与透明材质，使用深色实底 + 同一标题栏颜色，避免弹窗背景不可读。
+- 受限环境（远程桌面、关闭透明效果、无 DWM）下 Acrylic 不可用时窗口退回深色玻璃背景。
 
 ## 线程与取消
 

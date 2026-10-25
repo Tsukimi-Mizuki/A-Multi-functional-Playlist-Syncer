@@ -20,17 +20,12 @@
   程序同样会检测 NCM 文件头，若实际拿到加密数据会自动解密。
 - **歌词匹配**：自动拉取歌词与翻译，支持逐行 LRC 或逐字增强 LRC（原生 YRC 数据存在时），写入标签。
 - **标签补全**：标题、歌手、专辑、专辑歌手、音轨号、年份、封面、网易云歌曲 ID。
-- **Salt UI 风格界面**：以 [Salt UI](https://moriafly.com/program/salt-ui/) 的设计规范为参考，
-  在 Avalonia 中原生重建控件：SaltColors 分层色板、RoundedColumn 圆角卡片、发丝描边、
-  胶囊按钮、紧凑的桌面 Item 与蓝色 highlight；设置窗口也改为卡片式布局。Salt UI 本身是
-  Compose Multiplatform 库，Avalonia 无法直接引用，因此这里是对其视觉与组件语言的原生实现。
-- **多种外观/材质**：右上角“外观”下拉框可选 **Salt 浅色 / Salt 深色 / 磨砂玻璃 / 亚克力 /
-  液态玻璃 / 经典深色**。磨砂玻璃使用 Windows Mica，亚克力使用系统 AcrylicBlur；液态玻璃叠加
-  彩色流动光斑与高光。外观选择会自动保存，下次启动恢复；系统不支持透明效果时保留内部兜底背景。
+- **单一磨砂玻璃界面**：以 [Salt UI](https://moriafly.com/program/salt-ui/) 的卡片、胶囊按钮和
+  紧凑 Item 语言为参考，在 Avalonia 中原生重建控件。没有主题切换，只有这一套磨砂玻璃外观。
+- **实时动态背景**：主窗口使用 Windows **AcrylicBlur**，窗口后面的桌面、视频、网页或游戏会持续
+  实时模糊透出，而不是静态壁纸或内部绘制光斑；系统关闭透明效果时自动退回深色毛玻璃背景。
 
 ## 界面
-
-![主界面（未登录状态）](docs/screenshots/main-window.png)
 
 启动后：
 
@@ -40,8 +35,6 @@
 4. 点击 **扫描本地曲库**，再点击 **重新对比**；列表中会显示每首歌的本地状态。
 5. 勾选需要的歌曲（或“全选缺失”），点击 **下载/同步选中**。
 6. 已有的 .ncm 文件可在对比后直接走同步流程，也可使用 **导入/解密 NCM** 批量处理。
-
-截图位于 [docs/screenshots/](docs/screenshots/)。
 
 ## 技术栈
 
@@ -88,14 +81,17 @@ tests/
 # 单元测试
 .\build.ps1 -Test
 
-# 发布 Windows x64 独立目录
+# 发布 Windows x64（默认轻量框架依赖包）
 .\build.ps1 -Publish
 # 输出：publish\win-x64\NeteaseMusicManager.exe
-# 自包含发布包：publish\NeteaseMusicManager-win-x64.zip
+# 发布包：publish\NeteaseMusicManager-win-x64.zip
+
+# 如需不依赖本机 .NET 的自包含版（体积更大）
+.\build.ps1 -Publish -SelfContained
 ```
 
-发布的 win-x64 版本已包含 .NET 运行时，解压后直接运行 `NeteaseMusicManager.exe` 即可，
-目标机器不需要预装 .NET。
+默认发布为轻量框架依赖模式，目标机器需要安装 **.NET 8 Desktop Runtime**（zip 约 11MB）；
+自包含模式会把运行时一起打包（约 45MB，适合没有 .NET 的机器）。
 
 如果使用系统安装的 .NET 8 SDK，也可以：
 
@@ -125,6 +121,7 @@ dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.
 - 逐字歌词依赖网易云是否对该歌曲提供了 YRC 数据；没有时自动回退为逐行 LRC。
 - 版权受限/下架歌曲无法下载（接口返回空 URL），程序会标记失败而不是绕过版权限制。
 - 网易云接口非公开且可能变更；如遇接口失效，可在 Core/Netease 中调整端点。
+- 动态磨砂背景依赖 Windows 透明/合成能力；远程桌面、节能模式或关闭透明效果时会退回深色玻璃背景。
 - 当前版本定位为歌单同步/下载/解密/标签管理，不含本地播放器。
 
 第三方组件与参考项目见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
@@ -135,8 +132,9 @@ dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.
 - Core 单元测试 **170/170 通过**（API 61、NCM/歌词/标签 40、本地扫描/下载/同步 60、存储/设置/文件名 9）。
 - 真实网络冒烟：匿名 weapi 歌单/详情/歌词/取链、二维码出码与轮询 801，以及一首免费歌曲的
   320k 下载 + 中文标签 + 封面 + 逐字歌词写入/读回全部通过。
-- Avalonia 客户端已启动验证并截图（上方）；真实扫码登录已完成验证，且重启客户端后能自动恢复账号与歌单。
+- Avalonia 客户端已启动验证；真实扫码登录已完成验证，且重启客户端后能自动恢复账号与歌单。
 - 受限环境下自动切换到程序目录 `data` 的便携数据目录已验证，可正常保存登录 Cookie 和设置。
+- 仅保留磨砂玻璃主题；发布改为轻量框架依赖模式，发布目录约 27MB、zip 约 11MB。
 - NCM 解密使用合成 NCM 样本完成往返测试；未使用真实账号文件做版权内容验证。
 
 详见 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。

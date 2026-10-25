@@ -9,13 +9,11 @@ namespace NeteaseMusicManager.Desktop.ViewModels;
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsStore _settingsStore;
-    private readonly AppVisualStyle _visualStyle;
     private bool _syncingExclusiveFlags;
 
     public SettingsViewModel(AppSettings current, ISettingsStore settingsStore)
     {
         _settingsStore = settingsStore;
-        _visualStyle = current.VisualStyle;
 
         DownloadDirectory = current.DownloadDirectory;
         LibraryDirectory = current.LibraryDirectory;
@@ -191,7 +189,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 SkipExisting = SkipExisting || !OverwriteExisting,
                 FileNameTemplate = template,
                 MaxConcurrency = Math.Clamp(SelectedConcurrency.Value, 1, 8),
-                VisualStyle = _visualStyle,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

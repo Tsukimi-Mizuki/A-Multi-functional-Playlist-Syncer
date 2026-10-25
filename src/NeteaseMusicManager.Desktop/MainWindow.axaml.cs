@@ -1,7 +1,6 @@
 using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Desktop.Services;
 using NeteaseMusicManager.Desktop.ViewModels;
 
@@ -15,6 +14,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         UiAssets.ApplyWindowIcon(this);
+        VisualThemeManager.ApplyMainWindow(this);
     }
 
     public MainWindow(MainWindowViewModel viewModel)
@@ -23,8 +23,6 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         viewModel.LogEntries.CollectionChanged += OnLogEntriesChanged;
-        viewModel.VisualStyleChanged += OnVisualStyleChanged;
-        ApplyVisualStyle(viewModel.SelectedVisualStyle.Value);
         Opened += OnWindowOpened;
         Closed += OnWindowClosed;
     }
@@ -33,25 +31,8 @@ public partial class MainWindow : Window
     {
         Opened -= OnWindowOpened;
         // 透明/亚克力后端在窗口句柄创建后才会真正生效，打开时再同步一次。
-        if (_viewModel is not null)
-        {
-            ApplyVisualStyle(_viewModel.SelectedVisualStyle.Value);
-        }
+        VisualThemeManager.ApplyMainWindow(this);
     }
-
-    private void OnVisualStyleChanged(AppVisualStyle style)
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            ApplyVisualStyle(style);
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(() => ApplyVisualStyle(style));
-        }
-    }
-
-    private void ApplyVisualStyle(AppVisualStyle style) => VisualThemeManager.Apply(this, style);
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
@@ -62,7 +43,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _viewModel.VisualStyleChanged -= OnVisualStyleChanged;
         _viewModel.LogEntries.CollectionChanged -= OnLogEntriesChanged;
         _viewModel.Shutdown();
         _viewModel = null;

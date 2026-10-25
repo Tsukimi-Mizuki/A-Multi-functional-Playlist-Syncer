@@ -10,7 +10,7 @@ public partial class MessageDialog : Window
     {
         InitializeComponent();
         UiAssets.ApplyWindowIcon(this);
-        VisualThemeManager.ApplyDialog(this, VisualThemeManager.CurrentStyle);
+        VisualThemeManager.ApplyDialog(this);
     }
 
     public MessageDialog(string title, string message, string okText = "确定", string? cancelText = null)

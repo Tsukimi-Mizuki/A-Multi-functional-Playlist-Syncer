@@ -20,8 +20,3 @@ public sealed record ConcurrencyOption(int Value, string Label)
     public override string ToString() => Label;
 }
 
-/// <summary>下拉框选项：界面外观。</summary>
-public sealed record VisualStyleOption(AppVisualStyle Value, string Label, string Description)
-{
-    public override string ToString() => Label;
-}

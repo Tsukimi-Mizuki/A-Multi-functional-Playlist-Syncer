@@ -12,7 +12,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         UiAssets.ApplyWindowIcon(this);
-        VisualThemeManager.ApplyDialog(this, VisualThemeManager.CurrentStyle);
+        VisualThemeManager.ApplyDialog(this);
     }
 
     private SettingsViewModel? ViewModel => DataContext as SettingsViewModel;

@@ -4,42 +4,43 @@
              x:Class="NeteaseMusicManager.Desktop.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <!-- NetEase red accent overrides Fluent's default blue accents. -->
-    <Color x:Key="SystemAccentColor">#EC4141</Color>
-    <Color x:Key="SystemAccentColorLight1">#FF5C5C</Color>
-    <Color x:Key="SystemAccentColorLight2">#FF7676</Color>
-    <Color x:Key="SystemAccentColorLight3">#FF9090</Color>
-    <Color x:Key="SystemAccentColorDark1">#D33232</Color>
-    <Color x:Key="SystemAccentColorDark2">#B92828</Color>
-    <Color x:Key="SystemAccentColorDark3">#9E1F1F</Color>
+    <!-- 唯一主题：磨砂玻璃。高亮色取 Salt UI 风格的玫红。 -->
+    <Color x:Key="SystemAccentColor">#FF6B7D</Color>
+    <Color x:Key="SystemAccentColorLight1">#FF8A99</Color>
+    <Color x:Key="SystemAccentColorLight2">#FF9EAC</Color>
+    <Color x:Key="SystemAccentColorLight3">#FFB3BE</Color>
+    <Color x:Key="SystemAccentColorDark1">#E05569</Color>
+    <Color x:Key="SystemAccentColorDark2">#C74658</Color>
+    <Color x:Key="SystemAccentColorDark3">#AD3748</Color>
 
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0F0F12" />
-    <SolidColorBrush x:Key="HeaderBrush" Color="#151519" />
-    <SolidColorBrush x:Key="PanelBrush" Color="#17171B" />
-    <SolidColorBrush x:Key="PanelAltBrush" Color="#1D1D22" />
-    <SolidColorBrush x:Key="PanelHoverBrush" Color="#26262C" />
-    <SolidColorBrush x:Key="InputBrush" Color="#121215" />
-    <SolidColorBrush x:Key="ControlBrush" Color="#1D1D22" />
-    <SolidColorBrush x:Key="ControlHoverBrush" Color="#26262C" />
-    <SolidColorBrush x:Key="ControlPressedBrush" Color="#303038" />
+    <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
+    <SolidColorBrush x:Key="HeaderBrush" Color="#B3151B24" />
+    <SolidColorBrush x:Key="PanelBrush" Color="#A3151A23" />
+    <SolidColorBrush x:Key="PanelAltBrush" Color="#BF1D242F" />
+    <SolidColorBrush x:Key="PanelHoverBrush" Color="#D92B3442" />
+    <SolidColorBrush x:Key="InputBrush" Color="#CC10151D" />
+    <SolidColorBrush x:Key="ControlBrush" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#2BFFFFFF" />
+    <SolidColorBrush x:Key="ControlPressedBrush" Color="#3DFFFFFF" />
     <SolidColorBrush x:Key="RowHoverBrush" Color="#14FFFFFF" />
-    <SolidColorBrush x:Key="DangerBorderBrush" Color="#4A2224" />
-    <SolidColorBrush x:Key="BorderBrush" Color="#2A2A31" />
-    <SolidColorBrush x:Key="BorderStrongBrush" Color="#3A3A44" />
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F2F2F5" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A2A2AE" />
-    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#70707C" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#EC4141" />
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF5C5C" />
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="#D33232" />
-    <SolidColorBrush x:Key="AccentSoftBrush" Color="#331F1F" />
-    <SolidColorBrush x:Key="AccentBorderBrush" Color="#5C2A2A" />
-    <SolidColorBrush x:Key="SuccessBrush" Color="#3DCC7E" />
-    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#12281D" />
-    <SolidColorBrush x:Key="WarningBrush" Color="#E8A33D" />
-    <SolidColorBrush x:Key="WarningSoftBrush" Color="#2A2213" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#F26D6D" />
-    <SolidColorBrush x:Key="DangerSoftBrush" Color="#2C1718" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="#66FF7D7D" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#59FFFFFF" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F4F7FB" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#C2CBD7" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#96A1B0" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#FF6B7D" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF8A99" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#E05569" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#33EC4141" />
+    <SolidColorBrush x:Key="AccentBorderBrush" Color="#66FF7A7A" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#5BDB95" />
+    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#1E3428" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#F0B64D" />
+    <SolidColorBrush x:Key="WarningSoftBrush" Color="#332917" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#FF7D7D" />
+    <SolidColorBrush x:Key="DangerSoftBrush" Color="#3B1C20" />
     <LinearGradientBrush x:Key="AccentGradientBrush">
       <GradientStop Color="#FF7259" Offset="0" />
       <GradientStop Color="#E03131" Offset="1" />
