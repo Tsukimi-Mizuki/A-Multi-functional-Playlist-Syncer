@@ -114,6 +114,10 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     private OnlineLyricModeOption _selectedSearchLyricMode;
 
+    /// <summary>是否把翻译行一并载入（双语歌词）。</summary>
+    [ObservableProperty]
+    private bool _includeTranslation = true;
+
     [ObservableProperty]
     private string _searchKeyword = string.Empty;
 
@@ -177,6 +181,14 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     }
 
     partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
+    {
+        if (SelectedSearchResult is { } result)
+        {
+            _ = ApplyOnlineSongAsync(result);
+        }
+    }
+
+    partial void OnIncludeTranslationChanged(bool value)
     {
         if (SelectedSearchResult is { } result)
         {
@@ -256,9 +268,11 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             }
 
             var preferWord = SelectedSearchLyricMode.PreferWord;
-            var lyrics = details?.GetLyrics(preferWord);
+            var bilingual = IncludeTranslation;
+            var lyrics = details?.GetLyrics(preferWord, bilingual);
             var hasLyrics = !string.IsNullOrWhiteSpace(lyrics);
             var wordFallback = preferWord && hasLyrics && details?.HasWordLyrics != true;
+            var hasTranslation = bilingual && details?.HasTranslation == true;
             if (hasLyrics)
             {
                 Lyrics = lyrics!;
@@ -273,7 +287,17 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             var detailParts = new List<string>();
             if (hasLyrics)
             {
-                detailParts.Add(wordFallback ? "逐行歌词（该来源无逐字）" : preferWord && details!.HasWordLyrics ? "逐字歌词" : "逐行歌词");
+                var formatLabel = preferWord
+                    ? wordFallback ? "逐行歌词（该来源无逐字）" : "逐字歌词"
+                    : "逐行歌词";
+                if (bilingual)
+                {
+                    formatLabel = hasTranslation
+                        ? "双语" + formatLabel
+                        : formatLabel + "（该来源无翻译）";
+                }
+
+                detailParts.Add(formatLabel);
             }
             else
             {

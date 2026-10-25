@@ -54,12 +54,34 @@ public sealed record OnlineSongDetails(
     OnlineSongResult Song,
     string? LineLyrics,
     string? WordLyrics,
-    byte[]? CoverData = null)
+    byte[]? CoverData = null,
+    string? BilingualLineLyrics = null,
+    string? BilingualWordLyrics = null)
 {
-    /// <summary>按偏好选择逐字（增强 LRC）或逐行歌词；逐字不可用时自动回退逐行。</summary>
-    public string? GetLyrics(bool preferWord) => preferWord ? WordLyrics ?? LineLyrics : LineLyrics;
+    /// <summary>
+    /// 按偏好选择逐字（增强 LRC）或逐行歌词；逐字不可用时自动回退逐行。
+    /// <paramref name="bilingual"/> 为 true 时优先返回原文 + 翻译的双语版本。
+    /// </summary>
+    public string? GetLyrics(bool preferWord, bool bilingual)
+    {
+        if (bilingual)
+        {
+            var translated = preferWord
+                ? BilingualWordLyrics ?? BilingualLineLyrics
+                : BilingualLineLyrics;
+            if (!string.IsNullOrWhiteSpace(translated))
+            {
+                return translated;
+            }
+        }
+
+        return preferWord ? WordLyrics ?? LineLyrics : LineLyrics;
+    }
 
     public bool HasWordLyrics => !string.IsNullOrWhiteSpace(WordLyrics);
+
+    public bool HasTranslation =>
+        !string.IsNullOrWhiteSpace(BilingualLineLyrics) || !string.IsNullOrWhiteSpace(BilingualWordLyrics);
 }
 
 /// <summary>网易云 / QQ 音乐联网搜索与歌词读取。</summary>

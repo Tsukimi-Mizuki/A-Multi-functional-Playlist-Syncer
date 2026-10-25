@@ -57,7 +57,10 @@ public sealed class LyricParser : ILyricParser
     }
 
     /// <inheritdoc />
-    public string ToPlainLrc(LyricDocument document)
+    public string ToPlainLrc(LyricDocument document) => ToPlainLrc(document, includeTranslation: true);
+
+    /// <inheritdoc />
+    public string ToPlainLrc(LyricDocument document, bool includeTranslation)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (document.IsEmpty)
@@ -74,7 +77,7 @@ public sealed class LyricParser : ILyricParser
                 AppendLine(builder, timestamp + part.Trim());
             }
 
-            if (!string.IsNullOrWhiteSpace(line.Translation))
+            if (includeTranslation && !string.IsNullOrWhiteSpace(line.Translation))
             {
                 foreach (var part in SplitText(line.Translation))
                 {
@@ -87,7 +90,10 @@ public sealed class LyricParser : ILyricParser
     }
 
     /// <inheritdoc />
-    public string ToEnhancedLrc(LyricDocument document)
+    public string ToEnhancedLrc(LyricDocument document) => ToEnhancedLrc(document, includeTranslation: true);
+
+    /// <inheritdoc />
+    public string ToEnhancedLrc(LyricDocument document, bool includeTranslation)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (document.IsEmpty)
@@ -97,7 +103,7 @@ public sealed class LyricParser : ILyricParser
 
         if (!document.HasWordLevel)
         {
-            return ToPlainLrc(document);
+            return ToPlainLrc(document, includeTranslation);
         }
 
         var builder = new StringBuilder();
@@ -133,7 +139,7 @@ public sealed class LyricParser : ILyricParser
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(line.Translation))
+            if (includeTranslation && !string.IsNullOrWhiteSpace(line.Translation))
             {
                 foreach (var part in SplitText(line.Translation))
                 {

@@ -113,12 +113,23 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
 
         string? lineLyrics = null;
         string? wordLyrics = null;
+        string? bilingualLineLyrics = null;
+        string? bilingualWordLyrics = null;
         try
         {
             var raw = await _netease.GetLyricsAsync(songId, cancellationToken).ConfigureAwait(false);
             var parsed = _lyrics.Parse(raw);
-            lineLyrics = FirstNonBlank(raw.Lrc, _lyrics.ToPlainLrc(parsed));
-            wordLyrics = parsed.HasWordLevel ? _lyrics.ToEnhancedLrc(parsed) : null;
+            lineLyrics = _lyrics.ToPlainLrc(parsed, includeTranslation: false);
+            wordLyrics = parsed.HasWordLevel
+                ? _lyrics.ToEnhancedLrc(parsed, includeTranslation: false)
+                : null;
+            if (parsed.Translation is not null)
+            {
+                bilingualLineLyrics = _lyrics.ToPlainLrc(parsed, includeTranslation: true);
+                bilingualWordLyrics = parsed.HasWordLevel
+                    ? _lyrics.ToEnhancedLrc(parsed, includeTranslation: true)
+                    : null;
+            }
         }
         catch (NeteaseApiException)
         {
@@ -126,7 +137,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         }
 
         var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
-        return new OnlineSongDetails(song, lineLyrics, wordLyrics, cover);
+        return new OnlineSongDetails(song, lineLyrics, wordLyrics, cover, bilingualLineLyrics, bilingualWordLyrics);
     }
 
     private async Task<IReadOnlyList<OnlineSongResult>> SearchQqAsync(
@@ -222,12 +233,26 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
             }
 
             var lyrics = GetString(root, "lyric");
+            var translation = GetString(root, "trans");
             var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
-            return new OnlineSongDetails(
-                song,
-                string.IsNullOrWhiteSpace(lyrics) ? null : WebUtility.HtmlDecode(lyrics),
-                null,
-                cover);
+            if (string.IsNullOrWhiteSpace(lyrics))
+            {
+                return new OnlineSongDetails(song, null, null, cover);
+            }
+
+            var decodedLyrics = WebUtility.HtmlDecode(lyrics);
+            var decodedTranslation = string.IsNullOrWhiteSpace(translation)
+                ? null
+                : WebUtility.HtmlDecode(translation);
+            if (string.IsNullOrWhiteSpace(decodedTranslation))
+            {
+                return new OnlineSongDetails(song, decodedLyrics, null, cover);
+            }
+
+            var parsed = _lyrics.Parse(new RawLyrics(decodedLyrics, decodedTranslation));
+            var line = _lyrics.ToPlainLrc(parsed, includeTranslation: false);
+            var bilingual = _lyrics.ToPlainLrc(parsed, includeTranslation: true);
+            return new OnlineSongDetails(song, line, null, cover, bilingual, null);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
         {
