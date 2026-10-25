@@ -76,8 +76,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isSidebarExpanded = true;
 
     public string SidebarToggleToolTip => IsSidebarExpanded ? "收起歌单列表 (Ctrl+B)" : "展开歌单列表 (Ctrl+B)";
+    public bool IsSidebarCollapsed => !IsSidebarExpanded;
+    public double SidebarWidth => IsSidebarExpanded ? 272 : 56;
+    public double SidebarExpandedOpacity => IsSidebarExpanded ? 1 : 0;
+    public double SidebarCollapsedOpacity => IsSidebarExpanded ? 0 : 1;
 
-    partial void OnIsSidebarExpandedChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleToolTip));
+    partial void OnIsSidebarExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SidebarToggleToolTip));
+        OnPropertyChanged(nameof(IsSidebarCollapsed));
+        OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(SidebarExpandedOpacity));
+        OnPropertyChanged(nameof(SidebarCollapsedOpacity));
+    }
 
     [RelayCommand]
     private void ToggleSidebar() => IsSidebarExpanded = !IsSidebarExpanded;

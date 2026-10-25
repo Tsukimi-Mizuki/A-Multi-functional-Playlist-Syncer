@@ -181,6 +181,23 @@
       <Setter Property="Padding" Value="11,3" />
     </Style>
 
+    <!-- 交互反馈的过渡动画 -->
+    <Style Selector="Button /template/ ContentPresenter">
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.16" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.playlists ListBoxItem /template/ ContentPresenter">
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.18" />
+          <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+        </Transitions>
+      </Setter>
+    </Style>
+
     <!-- ===== Salt UI cards ===== -->
     <Style Selector="Border.salt-card">
       <Setter Property="Background" Value="{StaticResource PanelBrush}" />

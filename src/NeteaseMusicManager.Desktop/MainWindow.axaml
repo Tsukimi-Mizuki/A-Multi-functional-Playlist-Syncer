@@ -62,13 +62,25 @@
 
     <!-- ========== 主体（Salt UI 风格圆角卡片） ========== -->
     <Grid Grid.Row="1" ColumnDefinitions="Auto,12,*" Margin="12,12,12,12">
-      <!-- 歌单侧栏（可收起；Auto 列在 Border 隐藏后宽度归零） -->
-      <Border Grid.Column="0" Width="272"
-              IsVisible="{Binding IsSidebarExpanded}"
+      <!-- 歌单侧栏：宽度动画 + 内容淡出，收起后显示歌单图标 -->
+      <Border Grid.Column="0" Width="{Binding SidebarWidth}"
               Background="{StaticResource PanelBrush}"
               BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
               CornerRadius="10" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.24" Easing="CubicEaseOut" />
+          </Transitions>
+        </Border.Transitions>
+        <Panel>
+        <Grid RowDefinitions="Auto,*,Auto"
+              Opacity="{Binding SidebarExpandedOpacity}"
+              IsHitTestVisible="{Binding IsSidebarExpanded}">
+          <Grid.Transitions>
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+            </Transitions>
+          </Grid.Transitions>
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="18,16,12,8">
             <StackPanel Spacing="3" VerticalAlignment="Center">
               <TextBlock Text="我的歌单" FontSize="12.5" FontWeight="SemiBold"
@@ -135,6 +147,28 @@
             </StackPanel>
           </Border>
         </Grid>
+
+        <!-- 收起状态：一个可点击的歌单图标 -->
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,18,0,0" Spacing="6"
+                    Opacity="{Binding SidebarCollapsedOpacity}"
+                    IsHitTestVisible="{Binding IsSidebarCollapsed}">
+          <StackPanel.Transitions>
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+            </Transitions>
+          </StackPanel.Transitions>
+          <Button Classes="ghost" Width="40" Height="40" Padding="0"
+                  Command="{Binding ToggleSidebarCommand}"
+                  ToolTip.Tip="展开歌单"
+                  AutomationProperties.Name="展开歌单"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+            <PathIcon Width="20" Height="20"
+                      Data="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" />
+          </Button>
+          <TextBlock Text="歌单" FontSize="10.5" HorizontalAlignment="Center"
+                     Foreground="{StaticResource TextTertiaryBrush}" />
+        </StackPanel>
+        </Panel>
       </Border>
 
       <!-- 主内容区卡片（侧栏收起后自动占满剩余宽度） -->
