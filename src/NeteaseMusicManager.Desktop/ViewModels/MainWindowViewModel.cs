@@ -744,6 +744,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool CanSelectMissing() => !IsBusy && Songs.Count > 0;
 
+    private bool CanClearSelection() => !IsBusy && Songs.Count > 0;
+
     private bool CanRunAction() => !IsBusy;
 
     /// <summary>根据当前歌单歌曲 + 最新本地曲库重建表格（保留已勾选状态）。</summary>
@@ -817,6 +819,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string BuildSummaryText() =>
         $"共 {Songs.Count} 首 · 本地已存在 {_presentCount} · NCM 待解密 {_ncmCount} · 需下载 {_missingCount} · 已选 {SelectedCount}";
 
+    [RelayCommand(CanExecute = nameof(CanClearSelection))]
     private void ClearSelection()
     {
         _bulkSelectionChange = true;
@@ -834,6 +837,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         SelectedCount = 0;
         SummaryText = BuildSummaryText();
+        LogInfo("已取消全部选择");
     }
 
     // ===== 同步 / 下载 =====
@@ -1138,6 +1142,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ScanLibraryCommand.NotifyCanExecuteChanged();
         RecomputeDiffCommand.NotifyCanExecuteChanged();
         SelectMissingCommand.NotifyCanExecuteChanged();
+        ClearSelectionCommand.NotifyCanExecuteChanged();
         SyncSelectedCommand.NotifyCanExecuteChanged();
         ImportNcmCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();

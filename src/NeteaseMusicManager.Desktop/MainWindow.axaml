@@ -256,6 +256,7 @@
               <Button Content="扫描曲库" Command="{Binding ScanLibraryCommand}" ToolTip.Tip="扫描本地曲库" Margin="0,0,6,6" />
               <Button Content="重新对比" Command="{Binding RecomputeDiffCommand}" Margin="0,0,6,6" />
               <Button Content="全选缺失" Command="{Binding SelectMissingCommand}" Margin="0,0,6,6" />
+              <Button Content="取消选择" Command="{Binding ClearSelectionCommand}" Margin="0,0,6,6" />
               <Button Classes="primary" Content="同步选中" Command="{Binding SyncSelectedCommand}" Margin="0,0,6,6" />
               <Button Content="导入 NCM" Command="{Binding ImportNcmCommand}" ToolTip.Tip="导入/解密 NCM" Margin="0,0,6,6" />
               <Button Content="歌词编辑" Command="{Binding OpenLyricsEditorCommand}" Margin="0,0,6,6" />
