@@ -100,9 +100,13 @@ dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.
 
 ## 数据与隐私
 
-- 登录 Cookie：`%LOCALAPPDATA%\NeteaseMusicManager\session.dat`（Windows DPAPI 当前用户加密）。
-- 应用设置：`%LOCALAPPDATA%\NeteaseMusicManager\settings.json`。
+- 登录 Cookie：标准路径 `%LOCALAPPDATA%\NeteaseMusicManager\session.dat`（Windows DPAPI 当前用户加密）。
+- 应用设置：标准路径 `%LOCALAPPDATA%\NeteaseMusicManager\settings.json`。
 - 下载/解密文件：默认位于 `用户\音乐\NeteaseMusicManager`，可在设置中修改。
+- **受限环境自动降级**：若进程没有权限写入 AppData/音乐目录（企业策略、沙箱、精简用户配置等），
+  客户端会自动把数据目录切换到程序目录下的 `data`（便携模式），并在运行日志中提示；
+  下载/曲库默认目录同时切换到 `data\Music`。也可用环境变量
+  `NETEASE_MUSIC_MANAGER_DATA_DIR` 指定数据目录。
 - 程序不收集、不上传任何账号信息；所有网络请求直接发往网易云音乐官方域名。
 
 ## 已知限制
@@ -122,7 +126,8 @@ dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.
 - Core 单元测试 **170/170 通过**（API 61、NCM/歌词/标签 40、本地扫描/下载/同步 60、存储/设置/文件名 9）。
 - 真实网络冒烟：匿名 weapi 歌单/详情/歌词/取链、二维码出码与轮询 801，以及一首免费歌曲的
   320k 下载 + 中文标签 + 封面 + 逐字歌词写入/读回全部通过。
-- Avalonia 客户端已启动验证并截图（上方）；二维码确认登录需要用户本人手机扫码，无法在无人环境中自动完成。
+- Avalonia 客户端已启动验证并截图（上方）；真实扫码登录已完成验证，且重启客户端后能自动恢复账号与歌单。
+- 受限环境下自动切换到程序目录 `data` 的便携数据目录已验证，可正常保存登录 Cookie 和设置。
 - NCM 解密使用合成 NCM 样本完成往返测试；未使用真实账号文件做版权内容验证。
 
 详见 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)。

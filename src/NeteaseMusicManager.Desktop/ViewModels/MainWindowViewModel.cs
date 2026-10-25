@@ -183,6 +183,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             _settings = await _services.SettingsStore.LoadAsync(token).ConfigureAwait(true);
+            LogInfo($"数据目录：{AppPaths.DataDirectory}");
+            var standardDataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                AppPaths.AppName);
+            if (!string.Equals(
+                    Path.GetFullPath(AppPaths.DataDirectory),
+                    Path.GetFullPath(standardDataDir),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                LogWarning("系统数据目录不可写，已切换到便携数据目录：" + AppPaths.DataDirectory);
+            }
+
             LogInfo($"设置已加载，下载目录：{_settings.DownloadDirectory}");
             LogInfo($"曲库目录：{_settings.LibraryDirectory}");
         }
