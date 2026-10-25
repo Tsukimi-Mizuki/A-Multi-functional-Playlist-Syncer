@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Netease;
 
@@ -17,15 +18,18 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
 
     private readonly INeteaseApiClient _netease;
     private readonly HttpClient _http;
+    private readonly ILyricParser _lyrics;
     private readonly TimeSpan _requestTimeout;
 
     public OnlineMusicSearchService(
         INeteaseApiClient netease,
         HttpClient http,
+        ILyricParser lyrics,
         TimeSpan? requestTimeout = null)
     {
         _netease = netease ?? throw new ArgumentNullException(nameof(netease));
         _http = http ?? throw new ArgumentNullException(nameof(http));
+        _lyrics = lyrics ?? throw new ArgumentNullException(nameof(lyrics));
         _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(20);
     }
 
@@ -107,18 +111,22 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 summary.Composer,
                 string.IsNullOrWhiteSpace(detail.CoverUrl) ? summary.CoverUrl : detail.CoverUrl);
 
-        string? lyrics = null;
+        string? lineLyrics = null;
+        string? wordLyrics = null;
         try
         {
             var raw = await _netease.GetLyricsAsync(songId, cancellationToken).ConfigureAwait(false);
-            lyrics = FirstNonBlank(raw.Lrc, raw.Yrc, raw.TranslatedLrc);
+            var parsed = _lyrics.Parse(raw);
+            lineLyrics = FirstNonBlank(raw.Lrc, _lyrics.ToPlainLrc(parsed));
+            wordLyrics = parsed.HasWordLevel ? _lyrics.ToEnhancedLrc(parsed) : null;
         }
         catch (NeteaseApiException)
         {
-            // 没有歌词权限/数据时仍可应用标签。
+            // 没有歌词权限/数据时仍可应用标签和封面。
         }
 
-        return new OnlineSongDetails(song, lyrics);
+        var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
+        return new OnlineSongDetails(song, lineLyrics, wordLyrics, cover);
     }
 
     private async Task<IReadOnlyList<OnlineSongResult>> SearchQqAsync(
@@ -210,15 +218,57 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 retcode.TryGetInt32(out var retcodeValue) &&
                 retcodeValue != 0)
             {
-                return new OnlineSongDetails(song, null);
+                return new OnlineSongDetails(song, null, null, await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false));
             }
 
             var lyrics = GetString(root, "lyric");
-            return new OnlineSongDetails(song, string.IsNullOrWhiteSpace(lyrics) ? null : WebUtility.HtmlDecode(lyrics));
+            var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
+            return new OnlineSongDetails(
+                song,
+                string.IsNullOrWhiteSpace(lyrics) ? null : WebUtility.HtmlDecode(lyrics),
+                null,
+                cover);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
         {
-            return new OnlineSongDetails(song, null);
+            var cover = await TryDownloadCoverAsync(song.CoverUrl, cancellationToken).ConfigureAwait(false);
+            return new OnlineSongDetails(song, null, null, cover);
+        }
+    }
+
+    private async Task<byte[]?> TryDownloadCoverAsync(string? coverUrl, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(coverUrl))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(_requestTimeout);
+            using var request = new HttpRequestMessage(HttpMethod.Get, coverUrl);
+            request.Headers.TryAddWithoutValidation("User-Agent", QqUserAgent);
+            request.Headers.TryAddWithoutValidation("Referer", "https://y.qq.com/");
+            using var response = await _http
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            if (response.Content.Headers.ContentLength is > 10 * 1024 * 1024)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(timeout.Token).ConfigureAwait(false);
+            return bytes.Length is > 0 and <= 10 * 1024 * 1024 ? bytes : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            return null;
         }
     }
 

@@ -50,7 +50,17 @@ public sealed record OnlineSongResult(
     }
 }
 
-public sealed record OnlineSongDetails(OnlineSongResult Song, string? Lyrics);
+public sealed record OnlineSongDetails(
+    OnlineSongResult Song,
+    string? LineLyrics,
+    string? WordLyrics,
+    byte[]? CoverData = null)
+{
+    /// <summary>按偏好选择逐字（增强 LRC）或逐行歌词；逐字不可用时自动回退逐行。</summary>
+    public string? GetLyrics(bool preferWord) => preferWord ? WordLyrics ?? LineLyrics : LineLyrics;
+
+    public bool HasWordLyrics => !string.IsNullOrWhiteSpace(WordLyrics);
+}
 
 /// <summary>网易云 / QQ 音乐联网搜索与歌词读取。</summary>
 public interface IOnlineMusicSearchService

@@ -95,7 +95,7 @@ public sealed class AppServices : IDisposable
         var sessionStore = new ProtectedSessionStore();
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);
-        var onlineSearch = new OnlineMusicSearchService(api, http);
+        var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
 
         return new AppServices(
             http,

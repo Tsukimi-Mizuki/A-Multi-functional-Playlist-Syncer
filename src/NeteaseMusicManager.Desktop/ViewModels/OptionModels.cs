@@ -41,3 +41,9 @@ public sealed record OnlineSourceOption(OnlineMusicSource Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>在线搜索歌词格式选项。</summary>
+public sealed record OnlineLyricModeOption(bool PreferWord, string Label)
+{
+    public override string ToString() => Label;
+}
+

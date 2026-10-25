@@ -31,6 +31,12 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             new(OnlineMusicSource.QQMusic, "QQ 音乐"),
         ];
         _selectedSearchSource = SearchSources[0];
+        SearchLyricModeOptions =
+        [
+            new(false, "逐行歌词"),
+            new(true, "逐字歌词（有则优先）"),
+        ];
+        _selectedSearchLyricMode = SearchLyricModeOptions[0];
     }
 
     public async Task InitializeAsync(string? initialPath)
@@ -99,8 +105,13 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
     public IReadOnlyList<OnlineSourceOption> SearchSources { get; }
 
+    public IReadOnlyList<OnlineLyricModeOption> SearchLyricModeOptions { get; }
+
     [ObservableProperty]
     private OnlineSourceOption _selectedSearchSource;
+
+    [ObservableProperty]
+    private OnlineLyricModeOption _selectedSearchLyricMode;
 
     [ObservableProperty]
     private string _searchKeyword = string.Empty;
@@ -161,6 +172,14 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         if (value is not null)
         {
             _ = ApplyOnlineSongAsync(value);
+        }
+    }
+
+    partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
+    {
+        if (SelectedSearchResult is { } result)
+        {
+            _ = ApplyOnlineSongAsync(result);
         }
     }
 
@@ -235,15 +254,37 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
                 Composer = song.Composer;
             }
 
-            var hasLyrics = !string.IsNullOrWhiteSpace(details?.Lyrics);
+            var preferWord = SelectedSearchLyricMode.PreferWord;
+            var lyrics = details?.GetLyrics(preferWord);
+            var hasLyrics = !string.IsNullOrWhiteSpace(lyrics);
+            var wordFallback = preferWord && hasLyrics && details?.HasWordLyrics != true;
             if (hasLyrics)
             {
-                Lyrics = details!.Lyrics!;
+                Lyrics = lyrics!;
             }
 
-            SearchStatus = hasLyrics
-                ? $"已载入{summary.SourceLabel}的标签与歌词，请确认后保存。"
-                : $"已载入{summary.SourceLabel}的标签；未获取到歌词。";
+            var hasCover = details?.CoverData is { Length: > 0 };
+            if (hasCover)
+            {
+                SetCover(details!.CoverData);
+            }
+
+            var detailParts = new List<string>();
+            if (hasLyrics)
+            {
+                detailParts.Add(wordFallback ? "逐行歌词（该来源无逐字）" : preferWord && details!.HasWordLyrics ? "逐字歌词" : "逐行歌词");
+            }
+            else
+            {
+                detailParts.Add("未获取到歌词");
+            }
+
+            if (hasCover)
+            {
+                detailParts.Add("封面");
+            }
+
+            SearchStatus = $"已载入{summary.SourceLabel}的标签{string.Join("、", detailParts)}，请确认后保存。";
         }
         catch (Exception ex)
         {
