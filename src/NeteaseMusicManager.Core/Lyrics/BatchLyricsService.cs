@@ -13,9 +13,7 @@ public enum BatchLyricsSourcePreference
 
 public sealed record BatchLyricsOptions(
     BatchLyricsSourcePreference Source = BatchLyricsSourcePreference.Auto,
-    bool PreferWordLyrics = false,
-    bool OverwriteExisting = false,
-    bool WriteLrcFile = false);
+    bool OverwriteExisting = false);
 
 public sealed record BatchLyricsResult(
     string FilePath,
@@ -41,8 +39,9 @@ public interface IBatchLyricsService
 }
 
 /// <summary>
-/// 批量歌词：扫描本地音频，用标签/文件名搜索网易云或 QQ 音乐，按标题、歌手和时长选最佳匹配，
-/// 再把双语歌词写回标签（可选同时生成 .lrc）。匹配逻辑参考 LDDC 的本地歌曲精确匹配思路。
+/// 批量标签与封面：扫描本地音频，用标签/文件名搜索网易云或 QQ 音乐，按标题、歌手和时长选最佳匹配，
+/// 再把标题、歌手、专辑、年份、音轨/碟号、风格、作曲家和封面写回标签；
+/// 不读取/修改歌词。匹配逻辑参考 LDDC 的本地歌曲精确匹配思路。
 /// </summary>
 public sealed class BatchLyricsService : IBatchLyricsService
 {
@@ -99,11 +98,6 @@ public sealed class BatchLyricsService : IBatchLyricsService
             return Fail(filePath, "无法读取音频标签");
         }
 
-        if (!options.OverwriteExisting && !string.IsNullOrWhiteSpace(info.Lyrics))
-        {
-            return new BatchLyricsResult(filePath, false, true, "已有歌词，跳过");
-        }
-
         var (localTitle, localArtist) = ResolveLocalInfo(filePath, info);
         if (string.IsNullOrWhiteSpace(localTitle))
         {
@@ -157,63 +151,84 @@ public sealed class BatchLyricsService : IBatchLyricsService
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            return Fail(filePath, "在线歌词请求失败");
+            return Fail(filePath, "在线信息请求失败");
         }
 
-        var lyrics = details?.GetLyrics(options.PreferWordLyrics, bilingual: true);
-        if (string.IsNullOrWhiteSpace(lyrics))
+        var song = details?.Song ?? matched;
+        var artists = SplitArtists(song.Artist);
+        var cover = details?.CoverData;
+        var replace = options.OverwriteExisting;
+
+        var tagData = new AudioTagData
+        {
+            Title = replace || string.IsNullOrWhiteSpace(info.Title) ? NullIfBlank(song.Title) : null,
+            Artists = replace || string.IsNullOrWhiteSpace(info.Artist) ? artists : Array.Empty<string>(),
+            Album = replace || string.IsNullOrWhiteSpace(info.Album) ? NullIfBlank(song.Album) : null,
+            Year = replace || info.Year is null ? song.Year : null,
+            TrackNumber = replace || info.TrackNumber is null ? song.TrackNumber : null,
+            DiscNumber = replace || info.DiscNumber is null ? song.DiscNumber : null,
+            Genre = replace || string.IsNullOrWhiteSpace(info.Genre) ? NullIfBlank(song.Genre) : null,
+            Composer = replace || string.IsNullOrWhiteSpace(info.Composer) ? NullIfBlank(song.Composer) : null,
+            CoverData = replace || !info.HasCover ? cover : null,
+        };
+
+        var writesTags =
+            tagData.Title is not null ||
+            tagData.Artists.Count > 0 ||
+            tagData.Album is not null ||
+            tagData.Year is not null ||
+            tagData.TrackNumber is not null ||
+            tagData.DiscNumber is not null ||
+            tagData.Genre is not null ||
+            tagData.Composer is not null;
+        var writesCover = tagData.CoverData is { Length: > 0 };
+        if (!writesTags && !writesCover)
         {
             return new BatchLyricsResult(
                 filePath,
                 false,
-                false,
-                "匹配成功，但该来源没有歌词",
+                true,
+                "标签与封面已完整，跳过",
                 matched.Title,
                 matched.Artist,
                 matched.SourceLabel);
         }
 
-        var useWord = options.PreferWordLyrics && details?.HasWordLyrics == true;
-        var format = useWord
-            ? details!.HasTranslation ? "逐字双语" : "逐字"
-            : details?.HasTranslation == true ? "逐行双语" : "逐行";
+        await _tags.WriteAsync(filePath, tagData, cancellationToken).ConfigureAwait(false);
 
-        await _tags.WriteAsync(
-            filePath,
-            new AudioTagData
-            {
-                PlainLyrics = useWord ? null : lyrics,
-                WordLyrics = useWord ? lyrics : null,
-            },
-            cancellationToken).ConfigureAwait(false);
-
-        var lrcWarning = string.Empty;
-        if (options.WriteLrcFile)
+        var parts = new List<string>();
+        if (writesTags)
         {
-            try
-            {
-                var lrcPath = Path.ChangeExtension(filePath, ".lrc");
-                await File.WriteAllTextAsync(lrcPath, lyrics, new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                lrcWarning = "（.lrc 写入失败）";
-            }
+            parts.Add("标签");
+        }
+
+        if (writesCover)
+        {
+            parts.Add("封面");
         }
 
         return new BatchLyricsResult(
             filePath,
             true,
             false,
-            $"已写入{format}歌词{lrcWarning}",
+            "已写入" + string.Join("、", parts),
             matched.Title,
             matched.Artist,
-            matched.SourceLabel,
-            format);
+            matched.SourceLabel);
     }
 
     private static BatchLyricsResult Fail(string path, string message) =>
         new(path, false, false, message);
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static IReadOnlyList<string> SplitArtists(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? Array.Empty<string>()
+            : value
+                .Split(new[] { '/', ';', '；', '、' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToArray();
 
     private static (string Title, string Artist) ResolveLocalInfo(string path, AudioTagInfo info)
     {

@@ -24,18 +24,11 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
             new(BatchLyricsSourcePreference.QQMusic, "仅 QQ 音乐"),
         ];
         _selectedSource = SourceOptions[0];
-        LyricModeOptions =
-        [
-            new(false, "逐行歌词"),
-            new(true, "逐字歌词（有则优先）"),
-        ];
-        _selectedLyricMode = LyricModeOptions[0];
     }
 
     public ObservableCollection<BatchLyricsItemViewModel> Items { get; } = [];
 
     public IReadOnlyList<BatchLyricsSourceOption> SourceOptions { get; }
-    public IReadOnlyList<OnlineLyricModeOption> LyricModeOptions { get; }
 
     [ObservableProperty]
     private string _folderPath = string.Empty;
@@ -44,22 +37,16 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
     private BatchLyricsSourceOption _selectedSource;
 
     [ObservableProperty]
-    private OnlineLyricModeOption _selectedLyricMode;
-
-    [ObservableProperty]
-    private bool _overwriteExisting;
+    private bool _overwriteExisting = true;
 
     [ObservableProperty]
     private bool _recursive = true;
 
     [ObservableProperty]
-    private bool _writeLrcFile;
-
-    [ObservableProperty]
     private bool _isRunning;
 
     [ObservableProperty]
-    private string _statusText = "选择目录后开始批量匹配歌词。";
+    private string _statusText = "选择目录后开始批量获取标签与封面。";
 
     [ObservableProperty]
     private double _progressPercent;
@@ -103,7 +90,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var folder = await _ui.PickFolderAsync("选择要批量匹配歌词的目录").ConfigureAwait(true);
+            var folder = await _ui.PickFolderAsync("选择要批量匹配标签与封面的目录").ConfigureAwait(true);
             if (!string.IsNullOrWhiteSpace(folder))
             {
                 FolderPath = folder;
@@ -161,9 +148,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
 
             var options = new BatchLyricsOptions(
                 SelectedSource.Value,
-                SelectedLyricMode.PreferWord,
-                OverwriteExisting,
-                WriteLrcFile);
+                OverwriteExisting);
 
             IProgress<BatchLyricsResult> progress = new Progress<BatchLyricsResult>(result =>
             {
@@ -213,19 +198,19 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
                 }
             });
 
-            StatusText = "正在批量匹配歌词...";
+            StatusText = "正在批量获取标签与封面...";
             await Task.WhenAll(tasks).ConfigureAwait(true);
             StatusText = token.IsCancellationRequested
-                ? "已取消批量歌词获取。"
+                ? "已取消批量标签获取。"
                 : $"完成：成功 {SuccessCount}，跳过 {SkippedCount}，失败 {FailedCount}。";
         }
         catch (OperationCanceledException)
         {
-            StatusText = "已取消批量歌词获取。";
+            StatusText = "已取消批量标签获取。";
         }
         catch (Exception ex)
         {
-            StatusText = "批量歌词失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+            StatusText = "批量标签获取失败：" + ErrorFormatter.ToFriendlyMessage(ex);
         }
         finally
         {

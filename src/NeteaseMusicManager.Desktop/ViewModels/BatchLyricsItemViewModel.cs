@@ -3,7 +3,7 @@ using NeteaseMusicManager.Core.Lyrics;
 
 namespace NeteaseMusicManager.Desktop.ViewModels;
 
-/// <summary>批量歌词结果列表中的一行。</summary>
+/// <summary>批量标签/封面结果列表中的一行。</summary>
 public sealed partial class BatchLyricsItemViewModel : ObservableObject
 {
     public BatchLyricsItemViewModel(string filePath)

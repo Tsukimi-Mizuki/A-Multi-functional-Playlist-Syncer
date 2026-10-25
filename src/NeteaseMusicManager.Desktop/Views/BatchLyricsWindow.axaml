@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NeteaseMusicManager.Desktop.Views.BatchLyricsWindow"
-        Title="批量获取歌词"
+        Title="批量获取标签与封面"
         Width="1180" Height="820"
         MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterOwner">
@@ -9,12 +9,12 @@
     <!-- 顶栏 -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="10">
       <StackPanel Spacing="2" VerticalAlignment="Center">
-        <TextBlock Text="批量获取歌词" FontSize="20" FontWeight="Bold" />
-        <TextBlock Text="扫描本地音频，按标签/文件名从网易云或 QQ 音乐匹配最佳歌词；默认写入双语歌词。"
+        <TextBlock Text="批量获取标签与封面" FontSize="20" FontWeight="Bold" />
+        <TextBlock Text="扫描本地音频，按标签/文件名从网易云或 QQ 音乐匹配歌曲，批量写入标签和封面；不修改歌词。"
                    FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
       </StackPanel>
       <Button Grid.Column="1" Content="关闭" Click="OnCloseClick" Padding="20,7"
-              AutomationProperties.Name="关闭批量歌词" />
+              AutomationProperties.Name="关闭批量标签窗口" />
     </Grid>
 
     <!-- 设置 -->
@@ -43,24 +43,9 @@
               </ComboBox.ItemTemplate>
             </ComboBox>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,14,6">
-            <TextBlock Text="歌词格式" VerticalAlignment="Center" FontSize="11"
-                       Foreground="{StaticResource TextTertiaryBrush}" />
-            <ComboBox ItemsSource="{Binding LyricModeOptions}"
-                      SelectedItem="{Binding SelectedLyricMode, Mode=TwoWay}"
-                      MinWidth="160" Height="32">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Label}" FontSize="12" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </StackPanel>
-          <CheckBox Content="覆盖已有歌词" IsChecked="{Binding OverwriteExisting, Mode=TwoWay}"
+          <CheckBox Content="覆盖已有标签" IsChecked="{Binding OverwriteExisting, Mode=TwoWay}"
                     VerticalAlignment="Center" Margin="0,0,14,6" />
           <CheckBox Content="包含子文件夹" IsChecked="{Binding Recursive, Mode=TwoWay}"
-                    VerticalAlignment="Center" Margin="0,0,14,6" />
-          <CheckBox Content="同时保存 .lrc 文件" IsChecked="{Binding WriteLrcFile, Mode=TwoWay}"
                     VerticalAlignment="Center" Margin="0,0,14,6" />
         </WrapPanel>
       </Grid>
@@ -74,8 +59,7 @@
           <DataGridTextColumn Header="文件" Binding="{Binding FileName}" Width="2*" />
           <DataGridTextColumn Header="匹配歌曲" Binding="{Binding MatchedText}" Width="2*" />
           <DataGridTextColumn Header="来源" Binding="{Binding SourceText}" Width="110" />
-          <DataGridTextColumn Header="格式" Binding="{Binding FormatText}" Width="90" />
-          <DataGridTemplateColumn Header="状态" Width="2*">
+          <DataGridTemplateColumn Header="状态" Width="3*">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <TextBlock Text="{Binding StatusText}" FontSize="11.5"
@@ -96,7 +80,7 @@
         <Button Grid.Column="1" Classes="primary" Content="开始批量获取"
                 Command="{Binding StartCommand}"
                 IsEnabled="{Binding CanStart}"
-                Padding="20,7" AutomationProperties.Name="开始批量获取歌词" />
+                Padding="20,7" AutomationProperties.Name="开始批量获取标签与封面" />
         <Button Grid.Column="2" Content="取消" Command="{Binding CancelCommand}"
                 IsEnabled="{Binding IsRunning}" Padding="20,7" />
       </Grid>
