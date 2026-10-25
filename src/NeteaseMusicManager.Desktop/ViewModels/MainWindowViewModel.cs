@@ -189,7 +189,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-    partial void OnSelectedCountChanged(int value) => SyncSelectedCommand.NotifyCanExecuteChanged();
+    public bool HasSelection => SelectedCount > 0;
+
+    partial void OnSelectedCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasSelection));
+        SyncSelectedCommand.NotifyCanExecuteChanged();
+        ClearSelectionCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnSelectedPlaylistChanged(PlaylistItemViewModel? value)
     {
