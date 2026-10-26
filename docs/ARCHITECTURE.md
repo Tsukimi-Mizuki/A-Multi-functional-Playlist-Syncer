@@ -64,6 +64,9 @@ Core
   再逐个调用 `IBatchLyricsService.FetchForFileAsync` 按设置中的来源优先级在线匹配，
   写回标题/歌手/专辑/封面与双语歌词；匹配失败不影响解密结果，逐文件状态通过
   `NcmDecryptResult.EnrichmentMessage` 展示在导入窗口。
+- 导入窗口的输入文件夹列表与输出目录默认自动记忆（无开关）：打开时从 `AppSettings.NcmImportFolders` /
+  `NcmImportOutputDirectory` 恢复并重新扫描；添加文件夹、开始解密和关闭窗口时写回设置文件，
+  输出目录为空时回退到下载目录；设置窗口保存时原样携带这两个字段。
 
 ## 外观与窗口效果（单一磨砂玻璃）
 

@@ -9,12 +9,17 @@ namespace NeteaseMusicManager.Desktop.ViewModels;
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsStore _settingsStore;
+    // NCM 导入记忆不属于设置界面字段，保存其他设置时必须原样带到新对象，避免丢失。
+    private readonly List<string> _ncmImportFolders;
+    private readonly string _ncmImportOutputDirectory;
     private bool _syncingExclusiveFlags;
     private bool _syncingFileNameTemplate;
 
     public SettingsViewModel(AppSettings current, ISettingsStore settingsStore)
     {
         _settingsStore = settingsStore;
+        _ncmImportFolders = current.NcmImportFolders;
+        _ncmImportOutputDirectory = current.NcmImportOutputDirectory;
         _syncingFileNameTemplate = true;
 
         DownloadDirectory = current.DownloadDirectory;
@@ -274,6 +279,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 RenderFrameRate = SelectedRenderFrameRate.Value,
                 TagSourcePriority = SelectedTagSourcePriority.Value,
                 LyricsSourcePriority = SelectedLyricsSourcePriority.Value,
+                NcmImportFolders = new List<string>(_ncmImportFolders),
+                NcmImportOutputDirectory = _ncmImportOutputDirectory,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

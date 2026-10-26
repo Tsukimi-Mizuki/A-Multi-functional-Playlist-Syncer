@@ -51,17 +51,65 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
 {
     private readonly INcmImportService _importService;
     private readonly AppSettings _settings;
+    private readonly ISettingsStore? _settingsStore;
     private readonly List<string> _ncmFiles = [];
     private CancellationTokenSource? _cts;
     private bool _disposed;
 
-    public NcmImportViewModel(INcmImportService importService, AppSettings settings)
+    public NcmImportViewModel(INcmImportService importService, AppSettings settings, ISettingsStore? settingsStore = null)
     {
         _importService = importService;
         _settings = settings;
-        OutputDirectory = settings.DownloadDirectory;
+        _settingsStore = settingsStore;
+
+        // 记忆输入/输出文件夹：默认启用，无开关。
+        foreach (var folder in settings.NcmImportFolders)
+        {
+            if (!string.IsNullOrWhiteSpace(folder) &&
+                !Folders.Any(f => string.Equals(f, folder, StringComparison.OrdinalIgnoreCase)))
+            {
+                Folders.Add(folder.Trim());
+            }
+        }
+
+        if (Folders.Count > 0)
+        {
+            OnPropertyChanged(nameof(HasFolders));
+        }
+
+        OutputDirectory = !string.IsNullOrWhiteSpace(settings.NcmImportOutputDirectory)
+            ? settings.NcmImportOutputDirectory
+            : settings.DownloadDirectory;
         AutoMatchHintText =
             $"在线匹配来源：标签 {PriorityLabel(settings.TagSourcePriority)} · 歌词 {PriorityLabel(settings.LyricsSourcePriority)}（可在「设置」中调整）";
+    }
+
+    /// <summary>打开窗口时恢复上次记住的文件夹并重新扫描。</summary>
+    public Task InitializeAsync() =>
+        Folders.Count > 0 ? DiscoverFilesAsync() : Task.CompletedTask;
+
+    /// <summary>把当前输入文件夹列表与输出目录写回设置文件（保存失败静默，不影响导入）。</summary>
+    public async Task PersistStateAsync()
+    {
+        if (_settingsStore is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _settings.NcmImportFolders = Folders
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .Select(f => f.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _settings.NcmImportOutputDirectory = (OutputDirectory ?? string.Empty).Trim();
+            await _settingsStore.SaveAsync(_settings, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // 记忆属于便利功能，写入失败不打断导入流程。
+        }
     }
 
     /// <summary>当前设置的在线来源优先级说明。</summary>
@@ -141,6 +189,7 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(HasFolders));
             await DiscoverFilesAsync().ConfigureAwait(true);
+            await PersistStateAsync().ConfigureAwait(true);
         }
     }
 
@@ -239,6 +288,9 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
             StatusText = "输出目录不可用：" + ErrorFormatter.ToFriendlyMessage(ex);
             return;
         }
+
+        // 记住本次实际使用的输出目录。
+        await PersistStateAsync().ConfigureAwait(true);
 
         if (_disposed)
         {

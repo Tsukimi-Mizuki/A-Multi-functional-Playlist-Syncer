@@ -968,9 +968,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanRunAction))]
     private async Task ImportNcmAsync()
     {
-        var dialogVm = new NcmImportViewModel(_services.NcmImport, _settings);
+        var dialogVm = new NcmImportViewModel(_services.NcmImport, _settings, _services.SettingsStore);
         try
         {
+            await dialogVm.InitializeAsync().ConfigureAwait(true);
             await _ui.ShowNcmImportAsync(dialogVm).ConfigureAwait(true);
             if (dialogVm.ImportedCount > 0)
             {
@@ -1012,6 +1013,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         finally
         {
+            // 输入文件夹与输出目录自动记忆（默认开启，无开关）。
+            await dialogVm.PersistStateAsync().ConfigureAwait(true);
             dialogVm.Dispose();
         }
     }

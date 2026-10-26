@@ -16,6 +16,10 @@ public sealed class AppSettings
     public bool AutoMatchLocal { get; set; } = true;
     public OnlineSourcePriority TagSourcePriority { get; set; } = OnlineSourcePriority.NeteaseFirst;
     public OnlineSourcePriority LyricsSourcePriority { get; set; } = OnlineSourcePriority.NeteaseFirst;
+    /// <summary>NCM 导入窗口记住的输入文件夹列表（按添加顺序，自动去重）。</summary>
+    public List<string> NcmImportFolders { get; set; } = [];
+    /// <summary>NCM 导入窗口记住的输出目录；为空时回退到下载目录。</summary>
+    public string NcmImportOutputDirectory { get; set; } = string.Empty;
     public RenderFrameRateMode RenderFrameRate { get; set; } = RenderFrameRateMode.VSync;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -44,6 +48,20 @@ public sealed class AppSettings
         {
             LyricsSourcePriority = OnlineSourcePriority.NeteaseFirst;
         }
+
+        NcmImportOutputDirectory = (NcmImportOutputDirectory ?? string.Empty).Trim();
+        var rememberedFolders = new List<string>();
+        var seenFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var folder in NcmImportFolders ?? [])
+        {
+            var trimmed = folder?.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed) && seenFolders.Add(trimmed))
+            {
+                rememberedFolders.Add(trimmed);
+            }
+        }
+
+        NcmImportFolders = rememberedFolders;
 
         return this;
     }

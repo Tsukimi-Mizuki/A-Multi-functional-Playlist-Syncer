@@ -19,6 +19,26 @@ public sealed class JsonSettingsStoreTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(settings.DownloadDirectory));
         Assert.InRange(settings.MaxConcurrency, 1, 8);
         Assert.Equal("{artist} - {title}", settings.FileNameTemplate);
+        Assert.Empty(settings.NcmImportFolders);
+        Assert.Equal(string.Empty, settings.NcmImportOutputDirectory);
+    }
+
+    [Fact]
+    public async Task SaveLoad_NormalizesAndPreservesNcmImportMemory()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        var settings = new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            NcmImportFolders = new List<string> { @"  D:\ncm-a  ", @"D:\ncm-b", @"d:\NCM-A", string.Empty, null! },
+            NcmImportOutputDirectory = @" D:\ncm-out ",
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(new[] { @"D:\ncm-a", @"D:\ncm-b" }, loaded.NcmImportFolders);
+        Assert.Equal(@"D:\ncm-out", loaded.NcmImportOutputDirectory);
     }
 
     [Fact]
