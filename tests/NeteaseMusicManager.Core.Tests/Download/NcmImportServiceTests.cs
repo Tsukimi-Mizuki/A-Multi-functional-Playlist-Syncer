@@ -1,4 +1,6 @@
 using NeteaseMusicManager.Core.Download;
+using NeteaseMusicManager.Core.Lyrics;
+using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Ncm;
 using Xunit;
 
@@ -203,5 +205,124 @@ public sealed class NcmImportServiceTests
         var results = await service.ImportAsync(Array.Empty<string>(), workspace.Root);
 
         Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task ImportAsync_AutoMatchEnabled_EnrichesDecryptedFile()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var ncmPath = workspace.WriteFile("Lemon.ncm", NcmContent());
+        var decoder = new FakeNcmDecoderForDownload
+        {
+            Metadata = new NcmMetadata("Lemon", "米津玄師", "Lemon", "mp3", 320_000, 253_000, 12345),
+        };
+        var batch = new FakeBatchLyricsForImport();
+        var progress = new ImmediateProgressForDownload<NcmImportProgress>();
+        var service = new NcmImportService(decoder, new RecordingTagServiceForDownload(), batch);
+
+        var results = await service.ImportAsync(
+            new[] { ncmPath },
+            workspace.Root,
+            progress: progress,
+            options: new NcmImportOptions(AutoMatchOnline: true));
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        var call = Assert.Single(batch.FetchCalls);
+        Assert.Equal(result.OutputPath, call, ignoreCase: true);
+
+        // 默认匹配选项：强制覆盖、获取歌词。
+        var usedOptions = Assert.Single(batch.FetchOptions);
+        Assert.True(usedOptions.OverwriteExisting);
+        Assert.True(usedOptions.FetchLyrics);
+
+        Assert.NotNull(result.EnrichmentMessage);
+        Assert.Contains("已写入标签", result.EnrichmentMessage, StringComparison.Ordinal);
+        Assert.Contains("Lemon", result.EnrichmentMessage, StringComparison.Ordinal);
+        Assert.Contains("QQ 音乐", result.EnrichmentMessage, StringComparison.Ordinal);
+        Assert.Contains("完成 ·", progress.Snapshot()[^1].Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ImportAsync_AutoMatchDisabled_DoesNotFetchOnline()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var ncmPath = workspace.WriteFile("song.ncm", NcmContent());
+        var batch = new FakeBatchLyricsForImport();
+        var service = new NcmImportService(new FakeNcmDecoderForDownload(), new RecordingTagServiceForDownload(), batch);
+
+        var results = await service.ImportAsync(
+            new[] { ncmPath },
+            workspace.Root,
+            options: new NcmImportOptions(AutoMatchOnline: false));
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        Assert.Null(result.EnrichmentMessage);
+        Assert.Empty(batch.FetchCalls);
+    }
+
+    [Fact]
+    public async Task ImportAsync_AutoMatchFailure_KeepsDecryptedSuccess()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var ncmPath = workspace.WriteFile("song.ncm", NcmContent());
+        var batch = new FakeBatchLyricsForImport
+        {
+            Handler = (path, _, _) => Task.FromResult(new BatchLyricsResult(path, false, false, "未找到匹配度足够的在线歌曲")),
+        };
+        var service = new NcmImportService(new FakeNcmDecoderForDownload(), new RecordingTagServiceForDownload(), batch);
+
+        var results = await service.ImportAsync(
+            new[] { ncmPath },
+            workspace.Root,
+            options: new NcmImportOptions(AutoMatchOnline: true));
+
+        var result = Assert.Single(results);
+        Assert.True(result.Success);
+        Assert.NotNull(result.EnrichmentMessage);
+        Assert.Contains("在线匹配失败", result.EnrichmentMessage, StringComparison.Ordinal);
+        Assert.Contains("未找到匹配度足够的在线歌曲", result.EnrichmentMessage, StringComparison.Ordinal);
+    }
+
+    private sealed class FakeBatchLyricsForImport : IBatchLyricsService
+    {
+        public List<string> FetchCalls { get; } = [];
+        public List<BatchLyricsOptions> FetchOptions { get; } = [];
+
+        public Func<string, BatchLyricsOptions, CancellationToken, Task<BatchLyricsResult>>? Handler { get; set; }
+
+        public Task<IReadOnlyList<string>> ScanAudioFilesAsync(
+            string directory,
+            bool recursive,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
+        public async Task<BatchLyricsResult> FetchForFileAsync(
+            string filePath,
+            BatchLyricsOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            lock (FetchCalls)
+            {
+                FetchCalls.Add(filePath);
+                FetchOptions.Add(options);
+            }
+
+            if (Handler is not null)
+            {
+                return await Handler(filePath, options, cancellationToken).ConfigureAwait(false);
+            }
+
+            return new BatchLyricsResult(
+                filePath,
+                true,
+                false,
+                "已写入标签、封面、双语逐行歌词",
+                MatchedTitle: "Lemon",
+                MatchedArtist: "米津玄師",
+                SourceLabel: "QQ 音乐",
+                LyricsFormat: "双语逐行歌词");
+        }
     }
 }

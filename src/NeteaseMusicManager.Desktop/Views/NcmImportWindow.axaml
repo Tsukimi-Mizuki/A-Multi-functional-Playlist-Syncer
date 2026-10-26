@@ -9,7 +9,7 @@
   <Grid RowDefinitions="Auto,*,Auto" Margin="26,20,26,20">
     <StackPanel Grid.Row="0" Spacing="3">
       <TextBlock Text="导入并解密 NCM" FontSize="20" FontWeight="Bold" />
-      <TextBlock Text="递归查找本地的 .ncm 文件，解密为 MP3/FLAC 并写入文件内自带的标签与封面"
+      <TextBlock Text="递归查找本地的 .ncm 文件，解密为 MP3/FLAC，写入文件内自带标签与封面；可选自动在线匹配标签、封面与歌词"
                  FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" />
     </StackPanel>
 
@@ -60,6 +60,16 @@
             <Button Grid.Column="1" Content="浏览…" Click="OnBrowseOutputClick" />
           </Grid>
           <CheckBox Content="覆盖已存在的解密文件" IsChecked="{Binding Overwrite, Mode=TwoWay}" />
+        </StackPanel>
+
+        <!-- 在线匹配 -->
+        <StackPanel Spacing="4">
+          <CheckBox Content="解密后自动获取在线标签、封面与歌词"
+                    IsChecked="{Binding AutoMatchOnline, Mode=TwoWay}"
+                    AutomationProperties.Name="解密后自动获取在线标签、封面与歌词" />
+          <TextBlock Text="{Binding AutoMatchHintText}" FontSize="10.5" TextWrapping="Wrap"
+                     IsVisible="{Binding AutoMatchOnline}"
+                     Foreground="{StaticResource TextTertiaryBrush}" />
         </StackPanel>
 
         <!-- 进度 -->

@@ -59,6 +59,11 @@ Core
 
 - AES-128-ECB 解出 RC4 密钥盒与元数据；按 32 KB 分块流式 XOR 解密音频。
 - 输出格式由首块内容判断（ID3 => mp3，fLaC => flac）。
+- `NcmImportService` 解密成功后先写回内嵌元数据/封面/网易云 ID；导入窗口开启
+  “解密后自动获取在线标签、封面与歌词”（默认开启，对应 `NcmImportOptions.AutoMatchOnline`）时，
+  再逐个调用 `IBatchLyricsService.FetchForFileAsync` 按设置中的来源优先级在线匹配，
+  写回标题/歌手/专辑/封面与双语歌词；匹配失败不影响解密结果，逐文件状态通过
+  `NcmDecryptResult.EnrichmentMessage` 展示在导入窗口。
 
 ## 外观与窗口效果（单一磨砂玻璃）
 

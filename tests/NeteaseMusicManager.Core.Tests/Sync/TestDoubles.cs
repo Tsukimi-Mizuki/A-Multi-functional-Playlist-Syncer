@@ -276,7 +276,8 @@ internal sealed class FakeImporterForSync : INcmImportService
         string outputDirectory,
         bool overwrite = false,
         IProgress<NcmImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        NcmImportOptions? options = null)
     {
         lock (Calls)
         {

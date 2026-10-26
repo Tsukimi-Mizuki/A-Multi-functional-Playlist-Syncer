@@ -93,13 +93,14 @@ public sealed class AppServices : IDisposable
         var library = new LocalLibraryService(ncmDecoder, tags);
         var matcher = new SongMatcher();
         var downloader = new DownloadService(api, tags, lyrics, ncmDecoder, http);
-        var ncmImporter = new NcmImportService(ncmDecoder, tags);
+        var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
+        var batchLyrics = new BatchLyricsService(tags, onlineSearch);
+        // 解密成功后可自动在线匹配标签/封面/歌词，因此导入器依赖批量匹配服务。
+        var ncmImporter = new NcmImportService(ncmDecoder, tags, batchLyrics);
         var sync = new MusicSyncService(api, ncmDecoder, tags, lyrics, ncmImporter, downloader, http);
         var sessionStore = new ProtectedSessionStore();
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);
-        var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
-        var batchLyrics = new BatchLyricsService(tags, onlineSearch);
 
         return new AppServices(
             http,

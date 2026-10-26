@@ -1,3 +1,4 @@
+using NeteaseMusicManager.Core.Lyrics;
 using NeteaseMusicManager.Core.Ncm;
 using NeteaseMusicManager.Core.Tags;
 
@@ -5,17 +6,19 @@ namespace NeteaseMusicManager.Core.Download;
 
 /// <summary>
 /// 批量导入本地 .ncm：解密为 mp3/flac，并把 NCM 内嵌元数据（标题/歌手/专辑）、封面与网易云 ID
-/// 自动写入音频标签。单个文件失败不会中断整批。
+/// 自动写入音频标签；可选在解锁成功后自动在线匹配标签、封面与歌词。单个文件失败不会中断整批。
 /// </summary>
 public sealed class NcmImportService : INcmImportService
 {
     private readonly INcmDecoder _ncmDecoder;
     private readonly IAudioTagService _tagService;
+    private readonly IBatchLyricsService? _batchLyrics;
 
-    public NcmImportService(INcmDecoder ncmDecoder, IAudioTagService tagService)
+    public NcmImportService(INcmDecoder ncmDecoder, IAudioTagService tagService, IBatchLyricsService? batchLyrics = null)
     {
         _ncmDecoder = ncmDecoder ?? throw new ArgumentNullException(nameof(ncmDecoder));
         _tagService = tagService ?? throw new ArgumentNullException(nameof(tagService));
+        _batchLyrics = batchLyrics;
     }
 
     /// <inheritdoc />
@@ -24,8 +27,11 @@ public sealed class NcmImportService : INcmImportService
         string outputDirectory,
         bool overwrite = false,
         IProgress<NcmImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        NcmImportOptions? options = null)
     {
+        options ??= new NcmImportOptions();
+        var matchOptions = options.MatchOptions ?? new BatchLyricsOptions(OverwriteExisting: true);
         ArgumentNullException.ThrowIfNull(ncmPaths);
         if (string.IsNullOrWhiteSpace(outputDirectory))
         {
@@ -87,15 +93,52 @@ public sealed class NcmImportService : INcmImportService
                 result = new NcmDecryptResult(path, null, false, ErrorMessage: $"导入失败：{ex.Message}");
             }
 
+            if (result.Success &&
+                options.AutoMatchOnline &&
+                _batchLyrics is not null &&
+                result.OutputPath is { } decryptedAudio &&
+                File.Exists(decryptedAudio))
+            {
+                progress?.Report(new NcmImportProgress(index, total, displayPath, "正在匹配在线标签、封面与歌词…"));
+                try
+                {
+                    var match = await _batchLyrics
+                        .FetchForFileAsync(decryptedAudio, matchOptions, cancellationToken)
+                        .ConfigureAwait(false);
+                    result = result with { EnrichmentMessage = DescribeMatch(match) };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result = result with { EnrichmentMessage = $"在线匹配失败：{ex.Message}" };
+                }
+            }
+
             results.Add(result);
             progress?.Report(new NcmImportProgress(
                 index + 1,
                 total,
                 displayPath,
-                result.Success ? "完成" : result.ErrorMessage ?? "失败"));
+                result.Success
+                    ? result.EnrichmentMessage is null ? "完成" : $"完成 · {result.EnrichmentMessage}"
+                    : result.ErrorMessage ?? "失败"));
         }
 
         return results;
+    }
+
+    private static string DescribeMatch(BatchLyricsResult match)
+    {
+        var source = string.IsNullOrWhiteSpace(match.SourceLabel) ? string.Empty : $"（{match.SourceLabel}）";
+        var song = string.IsNullOrWhiteSpace(match.MatchedTitle)
+            ? string.Empty
+            : $"匹配「{match.MatchedTitle}{(string.IsNullOrWhiteSpace(match.MatchedArtist) ? string.Empty : $" - {match.MatchedArtist}")}」：";
+        return match.Success || match.Skipped
+            ? $"{song}{match.Message}{source}"
+            : $"{song}在线匹配失败：{match.Message}{source}";
     }
 
     private async Task<NcmDecryptResult> ImportOneAsync(

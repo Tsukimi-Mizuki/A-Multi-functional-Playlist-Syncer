@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NeteaseMusicManager.Core.Download;
+using NeteaseMusicManager.Core.Lyrics;
+using NeteaseMusicManager.Core.Models;
 using NeteaseMusicManager.Core.Ncm;
 using NeteaseMusicManager.Core.Settings;
 using NeteaseMusicManager.Desktop.Services;
@@ -18,6 +20,7 @@ public sealed class NcmImportResultRow
         Success = result.Success;
         OutputPath = result.OutputPath;
         ErrorMessage = result.ErrorMessage;
+        EnrichmentMessage = result.EnrichmentMessage;
         Format = result.Format;
     }
 
@@ -26,20 +29,28 @@ public sealed class NcmImportResultRow
     public bool Success { get; }
     public string? OutputPath { get; }
     public string? ErrorMessage { get; }
+    public string? EnrichmentMessage { get; }
     public string? Format { get; }
 
     public string StatusText => Success
-        ? $"已解密{(string.IsNullOrWhiteSpace(Format) ? string.Empty : $" · {Format.ToUpperInvariant()}")} → {Path.GetFileName(OutputPath ?? string.Empty)}"
+        ? $"已解密{(string.IsNullOrWhiteSpace(Format) ? string.Empty : $" · {Format.ToUpperInvariant()}")} → {Path.GetFileName(OutputPath ?? string.Empty)}" +
+          (string.IsNullOrWhiteSpace(EnrichmentMessage) ? string.Empty : $" · {EnrichmentMessage}")
         : $"失败：{ErrorMessage ?? "未知错误"}";
 
     public string StatusKey => Success ? "success" : "error";
-    public string ToolTipText => Success ? OutputPath ?? string.Empty : ErrorMessage ?? string.Empty;
+
+    public string ToolTipText => Success
+        ? string.IsNullOrWhiteSpace(EnrichmentMessage)
+            ? OutputPath ?? string.Empty
+            : $"{OutputPath}{Environment.NewLine}{EnrichmentMessage}"
+        : ErrorMessage ?? string.Empty;
 }
 
 /// <summary>NCM 批量导入对话框：选择文件夹、递归发现 .ncm、批量解密并展示结果。</summary>
 public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
 {
     private readonly INcmImportService _importService;
+    private readonly AppSettings _settings;
     private readonly List<string> _ncmFiles = [];
     private CancellationTokenSource? _cts;
     private bool _disposed;
@@ -47,8 +58,23 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
     public NcmImportViewModel(INcmImportService importService, AppSettings settings)
     {
         _importService = importService;
+        _settings = settings;
         OutputDirectory = settings.DownloadDirectory;
+        AutoMatchHintText =
+            $"在线匹配来源：标签 {PriorityLabel(settings.TagSourcePriority)} · 歌词 {PriorityLabel(settings.LyricsSourcePriority)}（可在「设置」中调整）";
     }
+
+    /// <summary>当前设置的在线来源优先级说明。</summary>
+    public string AutoMatchHintText { get; }
+
+    private static string PriorityLabel(OnlineSourcePriority priority) =>
+        priority switch
+        {
+            OnlineSourcePriority.QQMusicFirst => "QQ 音乐优先",
+            OnlineSourcePriority.NeteaseOnly => "仅网易云音乐",
+            OnlineSourcePriority.QQMusicOnly => "仅 QQ 音乐",
+            _ => "网易云音乐优先",
+        };
 
     public ObservableCollection<string> Folders { get; } = [];
     public ObservableCollection<NcmImportResultRow> Results { get; } = [];
@@ -62,6 +88,10 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _overwrite;
+
+    /// <summary>解密成功后自动在线匹配并写入标签、封面与歌词。</summary>
+    [ObservableProperty]
+    private bool _autoMatchOnline = true;
 
     [ObservableProperty]
     private string _statusText = "请选择包含 .ncm 文件的文件夹";
@@ -236,11 +266,26 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
                     ProgressValue = Math.Min(100, p.Completed * 100.0 / p.Total);
                 }
 
-                StatusText = $"正在解密 {p.Completed}/{p.Total}：{Path.GetFileName(p.CurrentFile)}";
+                var position = Math.Min(p.Completed + 1, Math.Max(p.Total, 1));
+                var stage = string.IsNullOrWhiteSpace(p.Message) ? "正在解密 NCM…" : p.Message;
+                StatusText = $"正在处理 {position}/{p.Total}：{Path.GetFileName(p.CurrentFile)} · {stage}";
             });
 
+            var matchOptions = new BatchLyricsOptions(
+                _settings.TagSourcePriority,
+                _settings.LyricsSourcePriority,
+                OverwriteExisting: true,
+                FetchLyrics: _settings.LyricsMode != LyricsWriteMode.None,
+                PreferWordLyrics: _settings.LyricsMode == LyricsWriteMode.Word);
+
             var results = await _importService
-                .ImportAsync(files, output, Overwrite, progress, token)
+                .ImportAsync(
+                    files,
+                    output,
+                    Overwrite,
+                    progress,
+                    token,
+                    new NcmImportOptions(AutoMatchOnline: AutoMatchOnline, MatchOptions: matchOptions))
                 .ConfigureAwait(true);
 
             foreach (var result in results)
@@ -256,6 +301,15 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
 
             var failed = TotalCount - ImportedCount;
             SummaryText = $"解密完成：成功 {ImportedCount} 个，失败 {failed} 个（共 {TotalCount} 个）";
+            if (AutoMatchOnline)
+            {
+                var matched = results.Count(r => r.Success &&
+                    r.EnrichmentMessage is not null &&
+                    (r.EnrichmentMessage.Contains("已写入", StringComparison.Ordinal) ||
+                     r.EnrichmentMessage.Contains("已完整", StringComparison.Ordinal)));
+                SummaryText += $" · 在线匹配 {matched} 个";
+            }
+
             StatusText = SummaryText;
         }
         catch (OperationCanceledException)

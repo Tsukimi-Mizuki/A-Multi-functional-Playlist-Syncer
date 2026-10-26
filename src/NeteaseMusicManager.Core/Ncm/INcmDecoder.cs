@@ -26,7 +26,9 @@ public sealed record NcmDecryptResult(
     string? Format = null,
     NcmMetadata? Metadata = null,
     byte[]? CoverData = null,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    // 解锁后自动匹配在线标签/封面/歌词的结果说明（未开启或无在线服务时为 null）。
+    string? EnrichmentMessage = null);
 
 public sealed record NcmImportProgress(int Completed, int Total, string CurrentFile, string? Message = null);
 
