@@ -36,6 +36,7 @@ internal static class VisualThemeManager
                 WindowTransparencyLevel.None,
             };
             window.Background = Brushes.Transparent;
+            window.Opened += (_, _) => ScheduleClamp(window);
             Refresh(window);
         }
         catch (Exception ex)
@@ -57,6 +58,7 @@ internal static class VisualThemeManager
                 WindowTransparencyLevel.Blur,
                 WindowTransparencyLevel.None,
             };
+            window.Opened += (_, _) => ScheduleClamp(window);
             Refresh(window);
         }
         catch (Exception ex)
@@ -88,6 +90,72 @@ internal static class VisualThemeManager
 
         var text = ToColorRef(ResolveColor("TextPrimaryBrush", dark ? "#F4F7FB" : "#151A22"));
         DwmSetWindowAttribute(handle, DwmTextColor, ref text, sizeof(int));
+    }
+
+    /// <summary>
+    /// 窗口显示后再夹取位置：Owner 居中定位可能在 Opened 之后才生效，所以延后一轮调度。
+    /// </summary>
+    private static void ScheduleClamp(Window window)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => ClampToWorkingArea(window),
+            Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 高 DPI 下固定尺寸的窗口可能超出屏幕工作区（例如 125% 缩放时设置窗口高 950 物理像素），
+    /// 这里按工作区裁到可容纳的尺寸，超出的长条内容由窗口内的 ScrollViewer 滚动。
+    /// </summary>
+    private static void ClampToWorkingArea(Window window)
+    {
+        try
+        {
+            var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
+            if (screen is null)
+            {
+                return;
+            }
+
+            var scale = window.RenderScaling > 0 ? window.RenderScaling : 1d;
+            var area = screen.WorkingArea;
+            var maxWidth = area.Width / scale - 24;
+            var maxHeight = area.Height / scale - 24;
+            if (maxWidth <= 0 || maxHeight <= 0)
+            {
+                return;
+            }
+
+            var width = double.IsNaN(window.Width) ? maxWidth : Math.Min(window.Width, maxWidth);
+            var height = double.IsNaN(window.Height) ? maxHeight : Math.Min(window.Height, maxHeight);
+            var resized = Math.Abs(width - window.Width) > 0.5 || Math.Abs(height - window.Height) > 0.5;
+
+            var widthPx = (int)Math.Round(width * scale);
+            var heightPx = (int)Math.Round(height * scale);
+            var current = window.Position;
+            // 以原中心点重新摆放，再夹回工作区。
+            var left = current.X + ((int)Math.Round((double.IsNaN(window.Width) ? width : window.Width) * scale) - widthPx) / 2;
+            var top = current.Y + ((int)Math.Round((double.IsNaN(window.Height) ? height : window.Height) * scale) - heightPx) / 2;
+            left = Math.Clamp(left, area.X, Math.Max(area.X, area.Right - widthPx));
+            top = Math.Clamp(top, area.Y, Math.Max(area.Y, area.Bottom - heightPx));
+            var moved = left != current.X || top != current.Y;
+
+            if (!resized && !moved)
+            {
+                return;
+            }
+
+            if (resized)
+            {
+                window.Width = width;
+                window.Height = height;
+            }
+
+            window.Position = new PixelPoint(left, top);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Clamp window to working area failed: {ex}");
+        }
     }
 
     private static Color ResolveColor(string key, string fallback)

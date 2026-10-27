@@ -55,15 +55,7 @@
           </LinearGradientBrush>
           <!-- 主窗口压暗遮罩（弹出对话框/面板时覆盖内容区） -->
           <SolidColorBrush x:Key="WindowVeilBrush" Color="#3305080D" />
-          <!-- 列表上下渐隐与内容衬底 -->
-          <LinearGradientBrush x:Key="PanelFadeDownBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#CC151A23" Offset="0" />
-            <GradientStop Color="#00151A23" Offset="1" />
-          </LinearGradientBrush>
-          <LinearGradientBrush x:Key="PanelFadeUpBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#00151A23" Offset="0" />
-            <GradientStop Color="#CC151A23" Offset="1" />
-          </LinearGradientBrush>
+          <!-- 内容衬底 -->
           <LinearGradientBrush x:Key="ContentScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
             <GradientStop Color="#40080B12" Offset="0" />
             <GradientStop Color="#66080B12" Offset="1" />
@@ -81,12 +73,12 @@
 
           <!-- 浅色玻璃：白底半透明，让 AcrylicBlur 的明亮模糊透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F6FB" />
-          <SolidColorBrush x:Key="DialogGlassBrush" Color="#B8F5F7FB" />
-          <SolidColorBrush x:Key="HeaderBrush" Color="#B8FFFFFF" />
-          <SolidColorBrush x:Key="PanelBrush" Color="#A8FFFFFF" />
-          <SolidColorBrush x:Key="PanelAltBrush" Color="#C0F6F8FC" />
-          <SolidColorBrush x:Key="PanelHoverBrush" Color="#D9E4E9F1" />
-          <SolidColorBrush x:Key="InputBrush" Color="#CCFFFFFF" />
+          <SolidColorBrush x:Key="DialogGlassBrush" Color="#DCF2F5FA" />
+          <SolidColorBrush x:Key="HeaderBrush" Color="#C6FFFFFF" />
+          <SolidColorBrush x:Key="PanelBrush" Color="#C2FFFFFF" />
+          <SolidColorBrush x:Key="PanelAltBrush" Color="#D2F6F8FC" />
+          <SolidColorBrush x:Key="PanelHoverBrush" Color="#E0E4E9F1" />
+          <SolidColorBrush x:Key="InputBrush" Color="#E6FFFFFF" />
           <SolidColorBrush x:Key="ControlBrush" Color="#14000000" />
           <SolidColorBrush x:Key="ControlHoverBrush" Color="#1F000000" />
           <SolidColorBrush x:Key="ControlPressedBrush" Color="#29000000" />
@@ -112,18 +104,11 @@
             <GradientStop Color="#F05263" Offset="0" />
             <GradientStop Color="#C42B39" Offset="1" />
           </LinearGradientBrush>
-          <SolidColorBrush x:Key="WindowVeilBrush" Color="#26020609" />
-          <LinearGradientBrush x:Key="PanelFadeDownBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#E6F8FAFD" Offset="0" />
-            <GradientStop Color="#00F8FAFD" Offset="1" />
-          </LinearGradientBrush>
-          <LinearGradientBrush x:Key="PanelFadeUpBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#00F8FAFD" Offset="0" />
-            <GradientStop Color="#E6F8FAFD" Offset="1" />
-          </LinearGradientBrush>
+          <!-- 浅色遮罩：把背后（可能是深色）的桌面模糊提亮，避免与近白的卡片割裂 -->
+          <SolidColorBrush x:Key="WindowVeilBrush" Color="#CCF3F6FB" />
           <LinearGradientBrush x:Key="ContentScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#40FFFFFF" Offset="0" />
-            <GradientStop Color="#66FFFFFF" Offset="1" />
+            <GradientStop Color="#10FFFFFF" Offset="0" />
+            <GradientStop Color="#24FFFFFF" Offset="1" />
           </LinearGradientBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>

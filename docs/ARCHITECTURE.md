@@ -88,22 +88,30 @@ Core
 - 主窗口设置 `WindowTransparencyLevel.AcrylicBlur`（回退到 Blur），
   `Background = Transparent`，因此窗口后面的桌面、网页、视频和游戏会被 Windows 实时模糊透出，
   背景内容变化时窗口材质同步变化，不使用静态壁纸或内部模拟光斑。
-- 半透明调色板集中在 `App.axaml`：Header/Panel 为 60%–70% 明度遮罩，
-  内容区增加一层轻量衬底保证表格可读（深色用暗色 `ContentScrimBrush`，浅色用白色蒙版）；
+- 半透明调色板集中在 `App.axaml`：Header/Panel 为 60%–80% 明度遮罩，
+  内容区增加一层轻量衬底保证表格可读（深色用暗色 `ContentScrimBrush`，浅色用极淡的白色蒙版）；
+  浅色主题的 `WindowVeilBrush` 是**亮色**（#CCF3F6FB）而不是深色：Acrylic 会把桌面（常见深色壁纸）
+  模糊进来，若再叠深色遮罩，近白卡片与灰蓝背景之间会出现明显“割裂感”，改用高不透明度亮色遮罩后
+  主窗口间隔区约 203、面板约 217、内容卡片约 250，层次连续；
   标题栏由 DWM 跟随主题切换明暗（`VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、
   `DwmCaptionColor`、`DwmTextColor`）。
 - 所有二级窗口（设置、歌词与标签编辑器、批量获取、NCM 导入、扫码登录、提示框）走同一套材质：
   `VisualThemeManager.ApplyDialog` 设置 `WindowTransparencyLevel.AcrylicBlur`（回退 Blur/None），
-  窗口 `Background` 由 XAML 的 `DialogGlassBrush`（深色 #A8080D15 / 浅色 #B8F5F7FB，半透明）提供；代码侧不再覆盖
+  窗口 `Background` 由 XAML 的 `DialogGlassBrush`（深色 #A8080D15 / 浅色 #DCF2F5FA，半透明）提供；代码侧不再覆盖
   窗口背景，否则会盖掉模糊层。已用 UI 自动化读取 `ActualTransparencyLevel`，确认设置窗口、
   歌词编辑器、批量获取窗口和 NCM 导入窗口实际都是 AcrylicBlur。
-- 主窗口里原本硬编码的 5 处渐变（压暗 veil、歌单栏与歌曲列表的上下渐隐、表格衬底）改为
-  `WindowVeilBrush` / `PanelFadeDownBrush` / `PanelFadeUpBrush` / `ContentScrimBrush`，两套主题各一份；
-  只剩 `#00FFFFFF` 透明度遮罩（OpacityMask）与主题无关，保持硬编码。
+- 主窗口里原本硬编码的渐变（压暗 veil、表格衬底）改为
+  `WindowVeilBrush` / `ContentScrimBrush`，两套主题各一份；
+  歌单栏与歌曲列表顶部/底部曾经各叠了一条渐变色带（`PanelFadeDownBrush` / `PanelFadeUpBrush`），
+  与列表自身的 `OpacityMask` 渐隐功能重复：深色下像柔和阴影，浅色下则是比面板更亮的硬边白条
+  （面板 #A8FFFFFF 之上再叠 #E6F8FAFD），因此删除这 4 条 overlay 与对应画刷，只保留与主题无关的
+  `#00FFFFFF` 透明度遮罩（OpacityMask）。
+- 二级窗口在 `Opened` 后由 `VisualThemeManager.ScheduleClamp` 夹回屏幕工作区：
+  `CenterOwner` 定位在高 DPI/小屏下可能把设置窗口底部推出屏幕，超出部分按工作区缩放后再居中。
 - 侧栏通过 `Width` 过渡动画从 272px 收缩到 88px，同时交叉淡化列表内容与封面栏；
   原“我的歌单”文字替换为单个歌单图标按钮，最左上角不再有独立菜单按钮。收起后的封面栏
   使用第二个 ListBox 绑定同一 `Playlists/SelectedPlaylist`，纵向显示所有歌单封面；点击封面
-  即切换当前歌单并触发加载。展开和收起状态的列表都使用上下渐变遮罩 + 渐变边缘，图标
+  即切换当前歌单并触发加载。展开和收起状态的列表都用 `OpacityMask` 在上下边缘渐隐，图标
   滚入/滚出与状态切换时淡入淡出；顶部展开箭头和 Ctrl+B 恢复完整侧栏。
 - 受限环境（远程桌面、关闭透明效果、无 DWM）下 Acrylic 不可用时窗口退回当前主题的不透明玻璃背景。
 - 设置窗口不再显示「界面与性能 → 帧率上限」，`AppSettings.RenderFrameRate` 继续保留并生效
