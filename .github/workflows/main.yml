@@ -1,0 +1,47 @@
+name: Build and Release .NET App
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送类似 v1.0.0 的标签时触发
+
+# 必须赋予写入权限，否则无法创建 Release
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest # 因为是桌面应用，Windows 环境打包通常最稳
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 安装 .NET 环境
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' # 根据你的项目修改，比如 7.0.x 或 6.0.x
+
+    - name: 获取 Tag 作为版本号
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+      shell: bash
+
+    - name: 还原依赖
+      run: dotnet restore
+
+    - name: 编译并发布 (单文件打包)
+      # 这里以 Windows 64位 为例，如果你需要跨平台，可以写成一个 matrix 矩阵
+      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
+
+    - name: 压缩打包
+      run: Compress-Archive -Path ./publish/* -DestinationPath ./DSH-Win64-v${{ env.VERSION }}.zip
+
+    - name: 创建并发布 Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ./DSH-Win64-v${{ env.VERSION }}.zip
+        name: Release v${{ env.VERSION }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true # 自动生成更新日志
