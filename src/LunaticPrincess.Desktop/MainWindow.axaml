@@ -421,7 +421,7 @@
         </Grid>
 
         <!-- 底部：进度 + 日志 -->
-        <Border Grid.Row="4" Background="{DynamicResource ChromeBarBrush}"
+        <Border Grid.Row="4" Background="{DynamicResource ChromeGlassBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                 Padding="20,12">
           <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
