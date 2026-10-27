@@ -27,12 +27,16 @@ jobs:
       shell: bash
       run: |
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG="${GITHUB_REF#refs/tags/}"
         else
-          VERSION="0.0.1-manual"
+          TAG="v0.0.1-manual"
         fi
+        # 兼容 v1.0.0、v.1.0.0、V1.0.0：去掉前缀 v/V 与多余的前导点，得到合法程序集版本
+        VERSION="${TAG#[vV]}"
+        VERSION="${VERSION#.}"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "当前构建的版本号是: $VERSION"
+        echo "TAG=$TAG" >> $GITHUB_ENV
+        echo "当前构建的版本号是: $VERSION (tag: $TAG)"
 
     - name: 编译并发布 (自动查找桌面项目)
       shell: pwsh
@@ -51,7 +55,7 @@ jobs:
     - name: 创建并发布 Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ env.VERSION }}
+        tag_name: ${{ env.TAG }}
         files: "Lunatic Princess-v${{ env.VERSION }}.zip"
         name: Lunatic Princess v${{ env.VERSION }}
         draft: false
