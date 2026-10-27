@@ -21,15 +21,16 @@
 
           <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
-      <!-- 标题栏：DWM 标题栏只能填纯色，这里直接取顶栏/底栏的 ChromeBarBrush 色值，
-           让原生标题栏、账号栏、窗口底栏三处是同一个背景色 -->
+      <!-- 标题栏 CaptionBrush：与底部「进度 / 日志」栏同色；无边框窗口下 DWM 标题栏不绘制，保留以备回退 -->
       <SolidColorBrush x:Key="CaptionBrush" Color="#151A23" />
           <!-- 二级窗口（设置/编辑器/导入等）同样使用 AcrylicBlur，这里给出半透明底，让真实模糊透出。 -->
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#A8080D15" />
-          <!-- 顶栏（账号信息）与底部「进度 / 日志」栏共用同一个背景色，窗口上下外框保持一致。
-               用不透明色是为了让两条栏的颜色固定下来：半透明时会随玻璃背景明暗漂移，顶栏与底栏
-               会差出 3~5 个亮度单位，看起来不是同一个色。标题栏 CaptionBrush 取同一个值。 -->
+          <!-- 底部「进度 / 日志」栏用不透明色，保证日志文字在任何壁纸上都清晰、不随玻璃背景漂移。
+               标题栏 CaptionBrush 取同一个值（无边框窗口下 DWM 标题栏实际不绘制）。 -->
           <SolidColorBrush x:Key="ChromeBarBrush" Color="#FF151A23" />
+          <!-- 顶栏（项目名称 + 账号信息 + 窗口按钮，即自定义标题栏）改用液态玻璃：
+               半透明深色，让窗口背后的 Acrylic 模糊真实透出来，随背景内容轻微变化。 -->
+          <SolidColorBrush x:Key="ChromeGlassBrush" Color="#A6151A23" />
           <!-- 自定义标题栏的窗口按钮：悬停/按下是低对比半透明覆盖，关闭按钮用系统红 -->
           <SolidColorBrush x:Key="CaptionButtonHoverBrush" Color="#33FFFFFF" />
           <SolidColorBrush x:Key="CaptionButtonPressedBrush" Color="#4DFFFFFF" />
@@ -83,12 +84,13 @@
 
           <!-- 浅色玻璃：白底半透明，让 AcrylicBlur 的明亮模糊透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F6FB" />
-      <!-- 标题栏：与顶栏/底栏同一个色值，三处完全一致 -->
+      <!-- 标题栏 CaptionBrush：与底部「进度 / 日志」栏同色；无边框窗口下不绘制 -->
       <SolidColorBrush x:Key="CaptionBrush" Color="#FEFEFE" />
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#DCF2F5FA" />
-          <!-- 顶栏（账号信息）与底部「进度 / 日志」栏共用同一个背景色；用不透明色固定下来，
-               不受玻璃背景明暗影响，标题栏 CaptionBrush 取同一个值 -->
+          <!-- 底部「进度 / 日志」栏用不透明色，保证日志文字清晰、不受玻璃背景明暗影响 -->
           <SolidColorBrush x:Key="ChromeBarBrush" Color="#FFFEFEFE" />
+          <!-- 顶栏（项目名称 + 账号信息 + 窗口按钮）改用液态玻璃：半透明白，透出背后的模糊 -->
+          <SolidColorBrush x:Key="ChromeGlassBrush" Color="#D0FEFEFE" />
           <!-- 自定义标题栏的窗口按钮：浅色下用淡淡的黑色覆盖，关闭按钮同样是系统红 -->
           <SolidColorBrush x:Key="CaptionButtonHoverBrush" Color="#17000000" />
           <SolidColorBrush x:Key="CaptionButtonPressedBrush" Color="#29000000" />
