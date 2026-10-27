@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*' # 当推送类似 v1.0.0 的标签时触发
+  workflow_dispatch:  #  允许手动触发    
 
 # 必须赋予写入权限，否则无法创建 Release
 permissions:
