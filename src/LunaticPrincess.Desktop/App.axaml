@@ -21,11 +21,15 @@
 
           <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
-      <!-- 标题栏：DWM 标题栏只能填纯色，取与客户区顶部玻璃带一致的实色，避免出现一条异色横条 -->
-      <SolidColorBrush x:Key="CaptionBrush" Color="#191C23" />
+      <!-- 标题栏：DWM 标题栏只能填纯色，这里直接取顶栏/底栏的 ChromeBarBrush 色值，
+           让原生标题栏、账号栏、窗口底栏三处是同一个背景色 -->
+      <SolidColorBrush x:Key="CaptionBrush" Color="#151A23" />
           <!-- 二级窗口（设置/编辑器/导入等）同样使用 AcrylicBlur，这里给出半透明底，让真实模糊透出。 -->
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#A8080D15" />
-          <SolidColorBrush x:Key="HeaderBrush" Color="#B3151B24" />
+          <!-- 顶栏（账号信息）与底部「进度 / 日志」栏共用同一个背景色，窗口上下外框保持一致。
+               用不透明色是为了让两条栏的颜色固定下来：半透明时会随玻璃背景明暗漂移，顶栏与底栏
+               会差出 3~5 个亮度单位，看起来不是同一个色。标题栏 CaptionBrush 取同一个值。 -->
+          <SolidColorBrush x:Key="ChromeBarBrush" Color="#FF151A23" />
           <SolidColorBrush x:Key="PanelBrush" Color="#A3151A23" />
           <SolidColorBrush x:Key="PanelAltBrush" Color="#BF1D242F" />
           <SolidColorBrush x:Key="PanelHoverBrush" Color="#D92B3442" />
@@ -75,9 +79,12 @@
 
           <!-- 浅色玻璃：白底半透明，让 AcrylicBlur 的明亮模糊透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F6FB" />
-      <SolidColorBrush x:Key="CaptionBrush" Color="#EFF3F8" />
+      <!-- 标题栏：与顶栏/底栏同一个色值，三处完全一致 -->
+      <SolidColorBrush x:Key="CaptionBrush" Color="#FEFEFE" />
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#DCF2F5FA" />
-          <SolidColorBrush x:Key="HeaderBrush" Color="#C6FFFFFF" />
+          <!-- 顶栏（账号信息）与底部「进度 / 日志」栏共用同一个背景色；用不透明色固定下来，
+               不受玻璃背景明暗影响，标题栏 CaptionBrush 取同一个值 -->
+          <SolidColorBrush x:Key="ChromeBarBrush" Color="#FFFEFEFE" />
           <SolidColorBrush x:Key="PanelBrush" Color="#C2FFFFFF" />
           <SolidColorBrush x:Key="PanelAltBrush" Color="#D2F6F8FC" />
           <SolidColorBrush x:Key="PanelHoverBrush" Color="#E0E4E9F1" />

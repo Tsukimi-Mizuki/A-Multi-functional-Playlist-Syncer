@@ -12,7 +12,7 @@
     <!-- 唯一的磨砂玻璃：真实动态背景由窗口 AcrylicBlur 提供，这里仅做轻微压暗。 -->
     <Border Grid.RowSpan="2" IsHitTestVisible="False" Background="{DynamicResource WindowVeilBrush}" />
     <!-- ========== 顶栏 ========== -->
-    <Border Grid.Row="0" Height="68" Background="{DynamicResource HeaderBrush}"
+    <Border Grid.Row="0" Height="68" Background="{DynamicResource ChromeBarBrush}"
             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto" Margin="20,0" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="10">
@@ -390,7 +390,7 @@
         </Grid>
 
         <!-- 底部：进度 + 日志 -->
-        <Border Grid.Row="4" Background="{DynamicResource PanelBrush}"
+        <Border Grid.Row="4" Background="{DynamicResource ChromeBarBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                 Padding="20,12">
           <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
