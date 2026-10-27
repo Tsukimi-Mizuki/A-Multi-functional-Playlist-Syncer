@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # 允许网页手动触发
+  workflow_dispatch: 
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ jobs:
     - name: 安装 .NET 环境
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # 请确保版本正确
+        dotnet-version: '8.0.x' 
 
     - name: 获取版本号
       id: get_version
@@ -37,17 +37,12 @@ jobs:
     - name: 编译并发布 (自动查找桌面项目)
       shell: pwsh
       run: |
-        # 自动在 src 目录下寻找名字包含 Desktop 的 .csproj 文件
         $projectFile = (Get-ChildItem -Path src -Recurse -Filter "*Desktop.csproj").FullName
-        
         if (-not $projectFile) {
-          Write-Error "未找到 Desktop 项目文件！请检查 src 目录下是否有 exe 启动项目。"
+          Write-Error "未找到 Desktop 项目文件！"
           exit 1
         }
-        
         Write-Host "成功找到项目文件: $projectFile"
-        
-        # 使用找到的准确路径进行发布
         dotnet publish $projectFile -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
 
     - name: 压缩打包
@@ -56,6 +51,7 @@ jobs:
     - name: 创建并发布 Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: v${{ env.VERSION }} # <--- 关键点：自动创建 Tag
         files: ./DSH-Win64-v${{ env.VERSION }}.zip
         name: Release v${{ env.VERSION }}
         draft: false
