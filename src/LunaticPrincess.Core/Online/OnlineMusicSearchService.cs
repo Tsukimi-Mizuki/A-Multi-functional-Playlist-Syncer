@@ -14,8 +14,11 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
     private const string QqUserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-    private static readonly Uri QqSearchBase = new("https://c.y.qq.com/soso/fcgi-bin/client_search_cp");
-    private static readonly Uri QqLyricBase = new("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg");
+    private const string QqLegacySearchPath = "/soso/fcgi-bin/client_search_cp";
+    private const string QqLegacyLyricPath = "/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
+
+    // c.y.qq.com 会整站返回 HTTP 500，依次回退到可用镜像域名。
+    private static readonly string[] QqLegacyHosts = { "https://c.y.qq.com", "https://c6.y.qq.com" };
     private static readonly Uri QqPlayLyricUri = new("https://u.y.qq.com/cgi-bin/musicu.fcg");
 
     private readonly INeteaseApiClient _netease;
@@ -148,10 +151,9 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         CancellationToken cancellationToken)
     {
         var safeLimit = Math.Clamp(limit, 1, 30).ToString(CultureInfo.InvariantCulture);
-        var uri = new Uri(
-            QqSearchBase,
-            $"?p=1&n={safeLimit}&w={Uri.EscapeDataString(keyword)}&format=json&cr=1&new_json=1");
-        var body = await SendStringAsync(uri, "https://y.qq.com/", cancellationToken).ConfigureAwait(false);
+        var body = await SendQqLegacyAsync(
+            $"{QqLegacySearchPath}?p=1&n={safeLimit}&w={Uri.EscapeDataString(keyword)}&format=json&cr=1&new_json=1",
+            cancellationToken).ConfigureAwait(false);
 
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
@@ -229,7 +231,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
             var playLyric = await TryGetQqPlayLyricInfoAsync(song, cancellationToken).ConfigureAwait(false);
             if (playLyric is { } info)
             {
-                return new OnlineSongDetails(song, info.Line, null, cover, info.Bilingual, null);
+                return new OnlineSongDetails(song, info.Line, info.Word, cover, info.Bilingual, info.BilingualWord);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException or FormatException)
@@ -239,10 +241,9 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
 
         try
         {
-            var uri = new Uri(
-                QqLyricBase,
-                $"?songmid={Uri.EscapeDataString(song.SourceId)}&format=json&nobase64=1&g_tk=5381&trans=1&trans_t=0");
-            var body = await SendStringAsync(uri, "https://y.qq.com/", cancellationToken).ConfigureAwait(false);
+            var body = await SendQqLegacyAsync(
+                $"{QqLegacyLyricPath}?songmid={Uri.EscapeDataString(song.SourceId)}&format=json&nobase64=1&g_tk=5381&trans=1&trans_t=0",
+                cancellationToken).ConfigureAwait(false);
             using var document = JsonDocument.Parse(body);
             var root = document.RootElement;
             if (root.TryGetProperty("retcode", out var retcode) &&
@@ -279,7 +280,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         }
     }
 
-    private async Task<(string Line, string? Bilingual)?> TryGetQqPlayLyricInfoAsync(
+    private async Task<(string? Line, string? Word, string? Bilingual, string? BilingualWord)?> TryGetQqPlayLyricInfoAsync(
         OnlineSongResult song,
         CancellationToken cancellationToken)
     {
@@ -310,14 +311,15 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 param = new
                 {
                     albumName = ToBase64(song.Album),
-                    crypt = 0,
+                    // crypt=1 + qrc=1：返回加密的逐字歌词（QRC），解密后可得到逐字时间轴。
+                    crypt = 1,
                     ct = 19,
                     cv = 2111,
                     interval,
                     lrc_t = 0,
-                    qrc = 0,
+                    qrc = 1,
                     qrc_t = 0,
-                    roma = 0,
+                    roma = 1,
                     roma_t = 0,
                     singerName = ToBase64(song.Artist),
                     songID = songId,
@@ -362,22 +364,49 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
             return null;
         }
 
-        var line = DecodeBase64(GetString(data, "lyric"));
-        if (string.IsNullOrWhiteSpace(line))
+        // crypt=1 时 lyric 字段是十六进制密文（3DES + zlib 压缩的 QRC）；
+        // 没有逐字资源时仍是 base64 的普通 LRC 文本，两种都兼容。
+        var lyricField = GetString(data, "lyric");
+        var wordText = QrcDecryptor.TryDecrypt(lyricField);
+        var lineText = wordText is null ? DecodeBase64(lyricField) : null;
+        if (string.IsNullOrWhiteSpace(wordText) && string.IsNullOrWhiteSpace(lineText))
         {
             return null;
         }
 
-        var translation = DecodeBase64(GetString(data, "trans"));
-        if (string.IsNullOrWhiteSpace(translation))
-        {
-            return (line, null);
-        }
-
-        var parsed = _lyrics.Parse(new RawLyrics(line, translation));
+        var translation = DecodeQqLyricField(GetString(data, "trans"));
+        var romanization = DecodeQqLyricField(GetString(data, "roma"));
+        var parsed = _lyrics.Parse(new RawLyrics(lineText, translation, romanization, Qrc: wordText));
         var original = _lyrics.ToPlainLrc(parsed, includeTranslation: false);
         var bilingual = _lyrics.ToPlainLrc(parsed, includeTranslation: true);
-        return (original, bilingual);
+        if (!parsed.HasWordLevel)
+        {
+            return (original, null, bilingual, null);
+        }
+
+        var word = _lyrics.ToEnhancedLrc(parsed, includeTranslation: false);
+        var bilingualWord = _lyrics.ToEnhancedLrc(parsed, includeTranslation: true);
+        return (original, word, bilingual, bilingualWord);
+    }
+
+    /// <summary>解码 QQ 音乐的歌词字段：加密的 QRC 先解密再转成逐行 LRC，否则按 base64 文本解码。</summary>
+    private string? DecodeQqLyricField(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var decrypted = QrcDecryptor.TryDecrypt(value);
+        if (decrypted is not null)
+        {
+            var converted = _lyrics.ToPlainLrc(
+                _lyrics.Parse(new RawLyrics(Lrc: null, Qrc: decrypted)),
+                includeTranslation: false);
+            return string.IsNullOrWhiteSpace(converted) ? null : converted;
+        }
+
+        return DecodeBase64(value);
     }
 
     private static string ToBase64(string? value) =>
@@ -434,6 +463,25 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         {
             return null;
         }
+    }
+
+    /// <summary>QQ 旧版 fcg 接口：按顺序尝试各镜像域名，全部失败才抛出异常。</summary>
+    private async Task<string> SendQqLegacyAsync(string pathAndQuery, CancellationToken cancellationToken)
+    {
+        HttpRequestException? lastError = null;
+        foreach (var host in QqLegacyHosts)
+        {
+            try
+            {
+                return await SendStringAsync(new Uri(host + pathAndQuery), "https://y.qq.com/", cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw lastError ?? new HttpRequestException("QQ 音乐接口不可用。");
     }
 
     private async Task<string> SendStringAsync(Uri uri, string referer, CancellationToken cancellationToken)

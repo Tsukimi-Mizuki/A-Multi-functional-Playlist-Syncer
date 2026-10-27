@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -33,12 +34,22 @@ public sealed class LyricParser : ILyricParser
         @"^\[(?<start>\d{1,10}),(?<duration>\d{1,10})\]",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex QrcLineHeaderPattern = new(
+        @"^\[(?<start>\d{1,10}),(?<duration>\d{1,10})\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex QrcEnvelopePattern = new(
+        @"<Lyric_1\b[^>]*?LyricContent=""(?<content>.*?)""\s*/>",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
     /// <inheritdoc />
     public LyricDocument Parse(RawLyrics rawLyrics)
     {
         ArgumentNullException.ThrowIfNull(rawLyrics);
 
-        var yrcLines = ParseYrc(rawLyrics.Yrc);
+        // 逐字优先级：QRC（QQ 音乐）> YRC（网易云）> 普通/增强 LRC。
+        var qrcLines = ParseQrc(rawLyrics.Qrc);
+        var yrcLines = qrcLines.Count > 0 ? qrcLines : ParseYrc(rawLyrics.Yrc);
         var primary = yrcLines.Count > 0 ? yrcLines : ParseLrc(rawLyrics.Lrc);
         var lines = BuildLines(primary);
 
@@ -114,19 +125,30 @@ public sealed class LyricParser : ILyricParser
             if (line.HasWordTiming)
             {
                 var lineBuilder = new StringBuilder(timestamp);
+                var lastEndText = FormatTime(line.StartMs);
+                var wroteWord = false;
                 foreach (var word in line.Words)
                 {
-                    if (word.Text.Length == 0)
+                    var text = SanitizeWordText(word.Text);
+                    if (text.Length == 0)
                     {
                         continue;
                     }
 
+                    // 与 LDDC 一致：只有词起始时间与上一个词的结束时间不同时才写起始标签，
+                    // 结束标签总是写出，播放器据此把高亮精确到字。
                     var wordStart = Math.Max(line.StartMs, word.StartMs);
-                    lineBuilder
-                        .Append('<')
-                        .Append(FormatTime(wordStart))
-                        .Append('>')
-                        .Append(SanitizeWordText(word.Text));
+                    var startText = FormatTime(wordStart);
+                    if (!wroteWord || startText != lastEndText)
+                    {
+                        lineBuilder.Append('<').Append(startText).Append('>');
+                    }
+
+                    lineBuilder.Append(text);
+                    var wordEnd = Math.Max(wordStart, word.EndMs);
+                    lastEndText = FormatTime(wordEnd);
+                    lineBuilder.Append('<').Append(lastEndText).Append('>');
+                    wroteWord = true;
                 }
 
                 AppendLine(builder, lineBuilder.ToString());
@@ -256,45 +278,229 @@ public sealed class LyricParser : ILyricParser
             return lines;
         }
 
-        var used = new bool[translated.Count];
+        var mapping = MatchByClosestTime(lines, translated);
         var merged = new List<LyricLine>(lines.Count);
-        foreach (var line in lines)
+        for (var index = 0; index < lines.Count; index++)
         {
-            string? translation = FindNearestTranslation(line.StartMs, translated, used);
-            merged.Add(translation is null ? line : line with { Translation = translation });
+            var target = mapping[index];
+            if (target < 0)
+            {
+                merged.Add(lines[index]);
+                continue;
+            }
+
+            var text = translated[target].Text.Trim();
+            // QQ/网易云用 // 表示该行没有翻译或为纯音乐，不写入双语歌词。
+            if (text.Length == 0 || text.All(ch => ch == '/'))
+            {
+                merged.Add(lines[index]);
+                continue;
+            }
+
+            merged.Add(lines[index] with { Translation = text });
         }
 
         return merged;
     }
 
-    private static string? FindNearestTranslation(int startMs, IReadOnlyList<LyricLine> translated, bool[] used)
+    /// <summary>
+    /// 按时间差升序做全局贪心配对（LDDC 的 find_closest_match 思路）：
+    /// 先把所有“原文行 × 翻译行”按时间差排序，再依次占用，避免逐行最近邻互相抢走对方的翻译。
+    /// </summary>
+    private static int[] MatchByClosestTime(IReadOnlyList<LyricLine> origin, IReadOnlyList<LyricLine> other)
     {
-        var bestIndex = -1;
-        var bestDistance = int.MaxValue;
-        for (var index = 0; index < translated.Count; index++)
+        var mapping = new int[origin.Count];
+        Array.Fill(mapping, -1);
+        var used = new bool[other.Count];
+
+        var pairs = new List<(int Distance, int Index, int Other)>();
+        for (var index = 0; index < origin.Count; index++)
         {
-            if (used[index])
+            for (var candidate = 0; candidate < other.Count; candidate++)
+            {
+                var distance = Math.Abs(other[candidate].StartMs - origin[index].StartMs);
+                if (distance <= TranslationToleranceMs)
+                {
+                    pairs.Add((distance, index, candidate));
+                }
+            }
+        }
+
+        pairs.Sort(static (left, right) =>
+        {
+            var byDistance = left.Distance.CompareTo(right.Distance);
+            if (byDistance != 0)
+            {
+                return byDistance;
+            }
+
+            var byIndex = left.Index.CompareTo(right.Index);
+            return byIndex != 0 ? byIndex : left.Other.CompareTo(right.Other);
+        });
+
+        foreach (var pair in pairs)
+        {
+            if (mapping[pair.Index] >= 0 || used[pair.Other])
             {
                 continue;
             }
 
-            var distance = Math.Abs(translated[index].StartMs - startMs);
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                bestIndex = index;
-            }
+            mapping[pair.Index] = pair.Other;
+            used[pair.Other] = true;
         }
 
-        if (bestIndex < 0 || bestDistance > TranslationToleranceMs)
+        return mapping;
+    }
+
+
+    /// <summary>解析 QQ 音乐 QRC 逐字歌词：行 <c>[行起始,行时长]</c>，词为“文本在前、(词起始,词时长) 在后”。</summary>
+    private static List<RawLyricLine> ParseQrc(string? qrc)
+    {
+        var result = new List<RawLyricLine>();
+        if (string.IsNullOrWhiteSpace(qrc))
         {
-            return null;
+            return result;
         }
 
-        used[bestIndex] = true;
-        var text = translated[bestIndex].Text.Trim();
-        // QQ/网易云用 // 表示该行没有翻译或为纯音乐，不写入双语歌词。
-        return text.Length == 0 || text.All(ch => ch == '/') ? null : text;
+        var text = UnwrapQrcEnvelope(qrc);
+        foreach (var physicalLine in SplitPhysicalLines(text))
+        {
+            if (string.IsNullOrWhiteSpace(physicalLine))
+            {
+                continue;
+            }
+
+            var line = physicalLine.Trim();
+            if (TryParseQrcLine(line, out var qrcLine))
+            {
+                result.Add(qrcLine);
+                continue;
+            }
+
+            // 容错：QRC 里混入了普通 LRC 行或 [ti:]/[ar:] 之类的元数据标签。
+            result.AddRange(ParseLrcPhysicalLine(physicalLine, offsetMs: 0));
+        }
+
+        return result;
+    }
+
+    /// <summary>去掉 QRC 的 &lt;Lyric_1 LyricContent="..."/&gt; 外壳并还原 XML 实体。</summary>
+    private static string UnwrapQrcEnvelope(string value)
+    {
+        var trimmed = value.Trim();
+        if (!trimmed.Contains("<Lyric_1", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var match = QrcEnvelopePattern.Match(trimmed);
+        return match.Success ? WebUtility.HtmlDecode(match.Groups["content"].Value) : trimmed;
+    }
+
+    private static bool TryParseQrcLine(string line, out RawLyricLine parsed)
+    {
+        parsed = default!;
+        var match = QrcLineHeaderPattern.Match(line);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        if (!int.TryParse(match.Groups["start"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var startMs))
+        {
+            return false;
+        }
+
+        _ = int.TryParse(match.Groups["duration"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMs);
+
+        var rest = line[match.Length..];
+        var words = ParseQrcWords(rest);
+        var text = words.Count > 0
+            ? string.Concat(words.Select(word => word.Text))
+            : StripQrcWordTags(rest);
+
+        parsed = new RawLyricLine(startMs, durationMs, text, words);
+        return true;
+    }
+
+    private static List<RawWord> ParseQrcWords(string rest)
+    {
+        var words = new List<RawWord>();
+        var index = 0;
+        while (index < rest.Length)
+        {
+            var open = rest.IndexOf('(', index);
+            if (open < 0)
+            {
+                break;
+            }
+
+            // 部分 QRC 会在每个词前再写一次 [词起始,词时长]，直接跳过。
+            if (rest[index] == '[')
+            {
+                var bracketClose = rest.IndexOf(']', index + 1);
+                if (bracketClose > index && TryParseQrcPair(rest[(index + 1)..bracketClose], out _, out _))
+                {
+                    index = bracketClose + 1;
+                }
+            }
+
+            var close = rest.IndexOf(')', open + 1);
+            if (close < 0)
+            {
+                break;
+            }
+
+            if (!TryParseQrcPair(rest[(open + 1)..close], out var wordStart, out var wordDuration))
+            {
+                index = close + 1;
+                continue;
+            }
+
+            words.Add(new RawWord(wordStart, Math.Max(0, wordDuration), rest[index..open]));
+            index = close + 1;
+        }
+
+        return words;
+    }
+
+    /// <summary>把 QRC 行内残留的 (起始,时长) 与 [起始,时长] 标签去掉，只保留文本。</summary>
+    private static string StripQrcWordTags(string rest)
+    {
+        var builder = new StringBuilder(rest.Length);
+        var index = 0;
+        while (index < rest.Length)
+        {
+            if (rest[index] is '(' or '[')
+            {
+                var closing = rest[index] == '(' ? ')' : ']';
+                var close = rest.IndexOf(closing, index + 1);
+                if (close > 0 && TryParseQrcPair(rest[(index + 1)..close], out _, out _))
+                {
+                    index = close + 1;
+                    continue;
+                }
+            }
+
+            builder.Append(rest[index]);
+            index++;
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool TryParseQrcPair(string content, out int start, out int duration)
+    {
+        start = 0;
+        duration = 0;
+        var comma = content.IndexOf(',');
+        if (comma <= 0)
+        {
+            return false;
+        }
+
+        return int.TryParse(content[..comma].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out start)
+            && int.TryParse(content[(comma + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out duration);
     }
 
     /// <summary>解析网易云 YRC（v0 明文行或 v1 JSON 风格行，二者可混合出现）。</summary>

@@ -80,7 +80,8 @@ public sealed record RawLyrics(
     string? Lrc,
     string? TranslatedLrc = null,
     string? RomanizedLrc = null,
-    string? Yrc = null);
+    string? Yrc = null,
+    string? Qrc = null);
 
 public enum QrLoginState
 {

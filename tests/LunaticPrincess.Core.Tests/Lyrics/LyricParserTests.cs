@@ -8,6 +8,9 @@ public sealed class LyricParserTests
 {
     private readonly LyricParser _parser = new();
 
+    /// <summary>按 \n 拼接期望文本，避免 raw string 随源文件换行符（CRLF/LF）变化而失效。</summary>
+    private static string Lines(params string[] lines) => string.Join("\n", lines);
+
     [Fact]
     public void Parse_PlainLrc_AppliesOffsetAndMultipleTimestamps()
     {
@@ -32,12 +35,11 @@ public sealed class LyricParserTests
 
         var plain = _parser.ToPlainLrc(document);
         Assert.Equal(
-            """
-            [00:00.90]第一行
-            [00:02.40]重复行
-            [00:02.90]第三行
-            [00:09.90]重复行
-            """,
+            Lines(
+                "[00:00.90]第一行",
+                "[00:02.40]重复行",
+                "[00:02.90]第三行",
+                "[00:09.90]重复行"),
             plain);
     }
 
@@ -117,18 +119,17 @@ public sealed class LyricParserTests
         Assert.Equal(" world", first.Words[1].Text);
         Assert.False(document.Lines[1].HasWordTiming);
 
+        // 与 LDDC 一致：结束标签总是写出，重复的起始标签省略，行尾补行结束标签。
         Assert.Equal(
-            """
-            [00:01.00]<00:01.00>Hello<00:02.00> world
-            [00:05.00]plain line
-            """,
+            Lines(
+                "[00:01.00]<00:01.00>Hello<00:02.00> world<00:05.00>",
+                "[00:05.00]plain line"),
             _parser.ToEnhancedLrc(document));
 
         Assert.Equal(
-            """
-            [00:01.00]Hello world
-            [00:05.00]plain line
-            """,
+            Lines(
+                "[00:01.00]Hello world",
+                "[00:05.00]plain line"),
             _parser.ToPlainLrc(document));
     }
 
@@ -218,11 +219,10 @@ public sealed class LyricParserTests
         Assert.Single(document.Lines[2].Words);
 
         Assert.Equal(
-            """
-            [00:00.00]作词: 张国祥
-            [00:01.00]作曲: 汤小康
-            [00:12.58]难
-            """,
+            Lines(
+                "[00:00.00]作词: 张国祥",
+                "[00:01.00]作曲: 汤小康",
+                "[00:12.58]难"),
             _parser.ToPlainLrc(document));
     }
 
@@ -264,10 +264,9 @@ public sealed class LyricParserTests
 
         var enhanced = _parser.ToEnhancedLrc(document);
         Assert.Equal(
-            """
-            [00:12.58]<00:12.58>难<00:12.83>以
-            [00:12.58]Hard to
-            """,
+            Lines(
+                "[00:12.58]<00:12.58>难<00:12.83>以<00:13.13>",
+                "[00:12.58]Hard to"),
             enhanced);
     }
 

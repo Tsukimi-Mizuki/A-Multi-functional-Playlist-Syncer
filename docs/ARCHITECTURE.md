@@ -99,8 +99,12 @@ Core
   - 搜索结果只读取公开元数据、封面和歌词，不下载音频。
 - 歌词格式支持“逐行”和“逐字优先”，并默认生成双语歌词：
   - 网易云同时提供 LRC、翻译与 YRC；逐字模式会转成增强 LRC；
-  - QQ 音乐通过 `music.musichallSong.PlayLyricInfo` 获取 LRC 和翻译（旧 fcg 接口作为回退），
-    逐字模式自动回退逐行；
+  - QQ 音乐通过 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`）获取 LRC 和翻译
+    （旧 fcg 接口作为回退）；`lyric` 字段是 QRC 密文时由 `QrcDecryptor`/`QqTripleDes` 解密：
+    QQ 的 3DES 变体位/字节编号与标准 DES 不同（已知向量 key=`133457799BBCDFF1`、
+    plain=`0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），
+    因此按 LDDC 的参考实现移植，密文按 8 字节块 ECB 解密后 zlib 解压得到 `<Lyric_1 LyricContent="…"/>`，
+    再按 QRC 行/词时间戳解析；因此 QQ 也能产出逐字（QRC）歌词。
   - 双语输出使用 `ILyricParser.ToPlainLrc/ToEnhancedLrc(document, includeTranslation)`，
     把翻译行追加在原文同一时间戳下；`//` 等占位翻译不写入，无翻译时使用原文。
 - 编辑器中的搜索结果列表点击后自动填入标签、封面与对应格式歌词，用户确认后再写入本地音频标签。
