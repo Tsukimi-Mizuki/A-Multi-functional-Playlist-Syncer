@@ -1066,6 +1066,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var libraryChanged = !string.Equals(saved.LibraryDirectory, _settings.LibraryDirectory, StringComparison.OrdinalIgnoreCase);
         _settings = saved;
+        // 设置窗口里已即时预览；保存后按持久化的值再应用一次（含“跟随系统”）。
+        ThemeService.Apply(saved.Theme);
         UpdatePathTexts();
         LogSuccess("设置已保存");
         RefreshCommandStates();

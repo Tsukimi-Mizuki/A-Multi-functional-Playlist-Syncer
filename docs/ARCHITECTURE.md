@@ -72,25 +72,40 @@ Core
   `NcmImportOutputDirectory` 恢复并重新扫描；添加文件夹、开始解密和关闭窗口时写回设置文件，
   输出目录为空时回退到下载目录；设置窗口保存时原样携带这两个字段。
 
-## 外观与窗口效果（单一磨砂玻璃）
+## 外观与窗口效果（液态玻璃，深色 / 浅色）
 
-- 只有一套外观：**磨砂玻璃**，基于 Salt UI 的卡片/胶囊按钮/紧凑 Item 结构，不再有主题选择器。
+- 两套配色共享同一套**液态磨砂玻璃**材质，基于 Salt UI 的卡片/胶囊按钮/紧凑 Item 结构。
+  `App.axaml` 的 `Application.Resources` 用 `ResourceDictionary.ThemeDictionaries` 提供 `Default`（深色）
+  与 `Light`（浅色）两个字典；界面里的调色板一律用 `{DynamicResource *Brush}` 引用（全 Desktop 共
+  170 处替换），主题切换时自动重绘；转换器类资源必须继续用 `StaticResource`。
+- 主题由 `ThemeService.Apply(ThemeMode)` 统一切换：设置 `Application.RequestedThemeVariant`
+  （`Dark` / `Light` / `Default` 即跟随系统），刷新 `ThemeBrushes`，并在下一帧
+  （`DispatcherPriority.Loaded`）再次刷新窗口标题栏。`ThemeBrushes` 持有 7 个可变 `SolidColorBrush`
+  给状态标签、日志级别等转换器复用——Binding 不会因主题切换重新求值，只能改实例 `Color` 触发重绘。
+- 启动时 `App.axaml.cs` 在创建主窗口前同步读取 `settings.Theme` 并应用，避免闪一下深色；
+  设置窗口「外观」下拉即时预览，点取消调用 `RevertThemePreview()` 回退，点保存把
+  `theme`（`Dark` / `Light` / `System`，默认 `Dark`，未知值归一为 `Dark`）写入 `settings.json`。
 - 主窗口设置 `WindowTransparencyLevel.AcrylicBlur`（回退到 Blur），
   `Background = Transparent`，因此窗口后面的桌面、网页、视频和游戏会被 Windows 实时模糊透出，
   背景内容变化时窗口材质同步变化，不使用静态壁纸或内部模拟光斑。
 - 半透明调色板集中在 `App.axaml`：Header/Panel 为 60%–70% 明度遮罩，
-  内容区增加一层轻量暗色衬底保证表格可读；标题栏通过 DWM 固定为深色。
+  内容区增加一层轻量衬底保证表格可读（深色用暗色 `ContentScrimBrush`，浅色用白色蒙版）；
+  标题栏由 DWM 跟随主题切换明暗（`VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、
+  `DwmCaptionColor`、`DwmTextColor`）。
 - 所有二级窗口（设置、歌词与标签编辑器、批量获取、NCM 导入、扫码登录、提示框）走同一套材质：
   `VisualThemeManager.ApplyDialog` 设置 `WindowTransparencyLevel.AcrylicBlur`（回退 Blur/None），
-  窗口 `Background` 由 XAML 的 `DialogGlassBrush`（#A8080D15，半透明）提供；代码侧不再覆盖
+  窗口 `Background` 由 XAML 的 `DialogGlassBrush`（深色 #A8080D15 / 浅色 #B8F5F7FB，半透明）提供；代码侧不再覆盖
   窗口背景，否则会盖掉模糊层。已用 UI 自动化读取 `ActualTransparencyLevel`，确认设置窗口、
   歌词编辑器、批量获取窗口和 NCM 导入窗口实际都是 AcrylicBlur。
+- 主窗口里原本硬编码的 5 处渐变（压暗 veil、歌单栏与歌曲列表的上下渐隐、表格衬底）改为
+  `WindowVeilBrush` / `PanelFadeDownBrush` / `PanelFadeUpBrush` / `ContentScrimBrush`，两套主题各一份；
+  只剩 `#00FFFFFF` 透明度遮罩（OpacityMask）与主题无关，保持硬编码。
 - 侧栏通过 `Width` 过渡动画从 272px 收缩到 88px，同时交叉淡化列表内容与封面栏；
   原“我的歌单”文字替换为单个歌单图标按钮，最左上角不再有独立菜单按钮。收起后的封面栏
   使用第二个 ListBox 绑定同一 `Playlists/SelectedPlaylist`，纵向显示所有歌单封面；点击封面
   即切换当前歌单并触发加载。展开和收起状态的列表都使用上下渐变遮罩 + 渐变边缘，图标
   滚入/滚出与状态切换时淡入淡出；顶部展开箭头和 Ctrl+B 恢复完整侧栏。
-- 受限环境（远程桌面、关闭透明效果、无 DWM）下 Acrylic 不可用时窗口退回深色玻璃背景。
+- 受限环境（远程桌面、关闭透明效果、无 DWM）下 Acrylic 不可用时窗口退回当前主题的不透明玻璃背景。
 - 设置窗口不再显示「界面与性能 → 帧率上限」，`AppSettings.RenderFrameRate` 继续保留并生效
   （默认垂直同步，已有配置原样沿用）。帧率上限由 `RenderTimerInstaller` 在 Avalonia 初始化后接管 Win32 渲染计时器：
   - WinUI Composition 后端本身由 DWM 垂直同步驱动，垂直同步模式直接使用原生 Tick；

@@ -1,6 +1,7 @@
 using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
+using LunaticPrincess.Core.Settings;
 
 namespace LunaticPrincess.Desktop.ViewModels;
 
@@ -50,6 +51,12 @@ public sealed record OnlineLyricModeOption(bool PreferWord, string Label)
 
 /// <summary>在线来源优先级选项。</summary>
 public sealed record OnlinePriorityOption(OnlineSourcePriority Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>界面主题选项：深色/浅色液态玻璃与跟随系统。</summary>
+public sealed record ThemeOption(ThemeMode Value, string Label)
 {
     public override string ToString() => Label;
 }

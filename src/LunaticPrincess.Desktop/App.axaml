@@ -4,56 +4,137 @@
              x:Class="LunaticPrincess.Desktop.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <!-- 唯一主题：磨砂玻璃。高亮色取 Salt UI 风格的玫红。 -->
-    <Color x:Key="SystemAccentColor">#FF6B7D</Color>
-    <Color x:Key="SystemAccentColorLight1">#FF8A99</Color>
-    <Color x:Key="SystemAccentColorLight2">#FF9EAC</Color>
-    <Color x:Key="SystemAccentColorLight3">#FFB3BE</Color>
-    <Color x:Key="SystemAccentColorDark1">#E05569</Color>
-    <Color x:Key="SystemAccentColorDark2">#C74658</Color>
-    <Color x:Key="SystemAccentColorDark3">#AD3748</Color>
+    <ResourceDictionary>
+      <!-- 液态玻璃双主题：Default = 深色（跟随系统深色时同样生效），Light = 浅色。
+           两个字典使用同名的 *Brush 键；样式与视图全部用 DynamicResource 引用，
+           因此切换 RequestedThemeVariant 时界面（含已打开的二级窗口）立即跟随。
+           高亮色取 Salt UI 风格的玫红。 -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+          <Color x:Key="SystemAccentColor">#FF6B7D</Color>
+          <Color x:Key="SystemAccentColorLight1">#FF8A99</Color>
+          <Color x:Key="SystemAccentColorLight2">#FF9EAC</Color>
+          <Color x:Key="SystemAccentColorLight3">#FFB3BE</Color>
+          <Color x:Key="SystemAccentColorDark1">#E05569</Color>
+          <Color x:Key="SystemAccentColorDark2">#C74658</Color>
+          <Color x:Key="SystemAccentColorDark3">#AD3748</Color>
 
-    <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
-    <!-- 二级窗口（设置/编辑器/导入等）同样使用 AcrylicBlur，这里给出半透明底，让真实模糊透出。 -->
-    <SolidColorBrush x:Key="DialogGlassBrush" Color="#A8080D15" />
-    <SolidColorBrush x:Key="HeaderBrush" Color="#B3151B24" />
-    <SolidColorBrush x:Key="PanelBrush" Color="#A3151A23" />
-    <SolidColorBrush x:Key="PanelAltBrush" Color="#BF1D242F" />
-    <SolidColorBrush x:Key="PanelHoverBrush" Color="#D92B3442" />
-    <SolidColorBrush x:Key="InputBrush" Color="#CC10151D" />
-    <SolidColorBrush x:Key="ControlBrush" Color="#1AFFFFFF" />
-    <SolidColorBrush x:Key="ControlHoverBrush" Color="#2BFFFFFF" />
-    <SolidColorBrush x:Key="ControlPressedBrush" Color="#3DFFFFFF" />
-    <SolidColorBrush x:Key="RowHoverBrush" Color="#14FFFFFF" />
-    <SolidColorBrush x:Key="DangerBorderBrush" Color="#66FF7D7D" />
-    <SolidColorBrush x:Key="BorderBrush" Color="#33FFFFFF" />
-    <SolidColorBrush x:Key="BorderStrongBrush" Color="#59FFFFFF" />
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F4F7FB" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#C2CBD7" />
-    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#96A1B0" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#FF6B7D" />
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF8A99" />
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="#E05569" />
-    <SolidColorBrush x:Key="AccentSoftBrush" Color="#33EC4141" />
-    <SolidColorBrush x:Key="AccentBorderBrush" Color="#66FF7A7A" />
-    <SolidColorBrush x:Key="SuccessBrush" Color="#5BDB95" />
-    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#1E3428" />
-    <SolidColorBrush x:Key="WarningBrush" Color="#F0B64D" />
-    <SolidColorBrush x:Key="WarningSoftBrush" Color="#332917" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#FF7D7D" />
-    <SolidColorBrush x:Key="DangerSoftBrush" Color="#3B1C20" />
-    <LinearGradientBrush x:Key="AccentGradientBrush">
-      <GradientStop Color="#FF7259" Offset="0" />
-      <GradientStop Color="#E03131" Offset="1" />
-    </LinearGradientBrush>
+          <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
+          <!-- 二级窗口（设置/编辑器/导入等）同样使用 AcrylicBlur，这里给出半透明底，让真实模糊透出。 -->
+          <SolidColorBrush x:Key="DialogGlassBrush" Color="#A8080D15" />
+          <SolidColorBrush x:Key="HeaderBrush" Color="#B3151B24" />
+          <SolidColorBrush x:Key="PanelBrush" Color="#A3151A23" />
+          <SolidColorBrush x:Key="PanelAltBrush" Color="#BF1D242F" />
+          <SolidColorBrush x:Key="PanelHoverBrush" Color="#D92B3442" />
+          <SolidColorBrush x:Key="InputBrush" Color="#CC10151D" />
+          <SolidColorBrush x:Key="ControlBrush" Color="#1AFFFFFF" />
+          <SolidColorBrush x:Key="ControlHoverBrush" Color="#2BFFFFFF" />
+          <SolidColorBrush x:Key="ControlPressedBrush" Color="#3DFFFFFF" />
+          <SolidColorBrush x:Key="RowHoverBrush" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="DangerBorderBrush" Color="#66FF7D7D" />
+          <SolidColorBrush x:Key="BorderBrush" Color="#33FFFFFF" />
+          <SolidColorBrush x:Key="BorderStrongBrush" Color="#59FFFFFF" />
+          <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F4F7FB" />
+          <SolidColorBrush x:Key="TextSecondaryBrush" Color="#C2CBD7" />
+          <SolidColorBrush x:Key="TextTertiaryBrush" Color="#96A1B0" />
+          <SolidColorBrush x:Key="AccentBrush" Color="#FF6B7D" />
+          <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF8A99" />
+          <SolidColorBrush x:Key="AccentPressedBrush" Color="#E05569" />
+          <SolidColorBrush x:Key="AccentSoftBrush" Color="#33EC4141" />
+          <SolidColorBrush x:Key="AccentBorderBrush" Color="#66FF7A7A" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#5BDB95" />
+          <SolidColorBrush x:Key="SuccessSoftBrush" Color="#1E3428" />
+          <SolidColorBrush x:Key="WarningBrush" Color="#F0B64D" />
+          <SolidColorBrush x:Key="WarningSoftBrush" Color="#332917" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#FF7D7D" />
+          <SolidColorBrush x:Key="DangerSoftBrush" Color="#3B1C20" />
+          <LinearGradientBrush x:Key="AccentGradientBrush">
+            <GradientStop Color="#FF7259" Offset="0" />
+            <GradientStop Color="#E03131" Offset="1" />
+          </LinearGradientBrush>
+          <!-- 主窗口压暗遮罩（弹出对话框/面板时覆盖内容区） -->
+          <SolidColorBrush x:Key="WindowVeilBrush" Color="#3305080D" />
+          <!-- 列表上下渐隐与内容衬底 -->
+          <LinearGradientBrush x:Key="PanelFadeDownBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#CC151A23" Offset="0" />
+            <GradientStop Color="#00151A23" Offset="1" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="PanelFadeUpBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#00151A23" Offset="0" />
+            <GradientStop Color="#CC151A23" Offset="1" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="ContentScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#40080B12" Offset="0" />
+            <GradientStop Color="#66080B12" Offset="1" />
+          </LinearGradientBrush>
+        </ResourceDictionary>
 
-    <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeBackgroundConverter" Mode="Background" />
-    <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeForegroundConverter" Mode="Foreground" />
-    <conv:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
-    <conv:StatusKindToBrushConverter x:Key="StatusKindBrushConverter" />
-    <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
-    <conv:NotEmptyStringConverter x:Key="NotEmptyStringConverter" />
+        <ResourceDictionary x:Key="Light">
+          <Color x:Key="SystemAccentColor">#E0354A</Color>
+          <Color x:Key="SystemAccentColorLight1">#EC4A5E</Color>
+          <Color x:Key="SystemAccentColorLight2">#F26374</Color>
+          <Color x:Key="SystemAccentColorLight3">#F57C8B</Color>
+          <Color x:Key="SystemAccentColorDark1">#C22839</Color>
+          <Color x:Key="SystemAccentColorDark2">#A61F2E</Color>
+          <Color x:Key="SystemAccentColorDark3">#8A1826</Color>
+
+          <!-- 浅色玻璃：白底半透明，让 AcrylicBlur 的明亮模糊透出 -->
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F6FB" />
+          <SolidColorBrush x:Key="DialogGlassBrush" Color="#B8F5F7FB" />
+          <SolidColorBrush x:Key="HeaderBrush" Color="#B8FFFFFF" />
+          <SolidColorBrush x:Key="PanelBrush" Color="#A8FFFFFF" />
+          <SolidColorBrush x:Key="PanelAltBrush" Color="#C0F6F8FC" />
+          <SolidColorBrush x:Key="PanelHoverBrush" Color="#D9E4E9F1" />
+          <SolidColorBrush x:Key="InputBrush" Color="#CCFFFFFF" />
+          <SolidColorBrush x:Key="ControlBrush" Color="#14000000" />
+          <SolidColorBrush x:Key="ControlHoverBrush" Color="#1F000000" />
+          <SolidColorBrush x:Key="ControlPressedBrush" Color="#29000000" />
+          <SolidColorBrush x:Key="RowHoverBrush" Color="#12000000" />
+          <SolidColorBrush x:Key="DangerBorderBrush" Color="#66C62828" />
+          <SolidColorBrush x:Key="BorderBrush" Color="#26000000" />
+          <SolidColorBrush x:Key="BorderStrongBrush" Color="#3D000000" />
+          <SolidColorBrush x:Key="TextPrimaryBrush" Color="#151A22" />
+          <SolidColorBrush x:Key="TextSecondaryBrush" Color="#454E5C" />
+          <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6E7787" />
+          <SolidColorBrush x:Key="AccentBrush" Color="#E0354A" />
+          <SolidColorBrush x:Key="AccentHoverBrush" Color="#EC4A5E" />
+          <SolidColorBrush x:Key="AccentPressedBrush" Color="#C22839" />
+          <SolidColorBrush x:Key="AccentSoftBrush" Color="#1FEC4141" />
+          <SolidColorBrush x:Key="AccentBorderBrush" Color="#66E0354A" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#1B8A57" />
+          <SolidColorBrush x:Key="SuccessSoftBrush" Color="#E1F4EA" />
+          <SolidColorBrush x:Key="WarningBrush" Color="#A26800" />
+          <SolidColorBrush x:Key="WarningSoftBrush" Color="#FBEFD9" />
+          <SolidColorBrush x:Key="DangerBrush" Color="#C62828" />
+          <SolidColorBrush x:Key="DangerSoftBrush" Color="#FBE6E6" />
+          <LinearGradientBrush x:Key="AccentGradientBrush">
+            <GradientStop Color="#F05263" Offset="0" />
+            <GradientStop Color="#C42B39" Offset="1" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="WindowVeilBrush" Color="#26020609" />
+          <LinearGradientBrush x:Key="PanelFadeDownBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#E6F8FAFD" Offset="0" />
+            <GradientStop Color="#00F8FAFD" Offset="1" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="PanelFadeUpBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#00F8FAFD" Offset="0" />
+            <GradientStop Color="#E6F8FAFD" Offset="1" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="ContentScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#40FFFFFF" Offset="0" />
+            <GradientStop Color="#66FFFFFF" Offset="1" />
+          </LinearGradientBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeBackgroundConverter" Mode="Background" />
+      <conv:LocalAvailabilityToBrushConverter x:Key="StateBadgeForegroundConverter" Mode="Foreground" />
+      <conv:LogLevelToBrushConverter x:Key="LogLevelBrushConverter" />
+      <conv:StatusKindToBrushConverter x:Key="StatusKindBrushConverter" />
+      <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+      <conv:NotEmptyStringConverter x:Key="NotEmptyStringConverter" />
+    </ResourceDictionary>
   </Application.Resources>
 
   <Application.Styles>
@@ -61,8 +142,8 @@
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
     <Style Selector="Window">
-      <Setter Property="Background" Value="{StaticResource AppBackgroundBrush}" />
-      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="FontFamily" Value="Microsoft YaHei UI, Microsoft YaHei UI Light, Microsoft YaHei, Segoe UI, Inter" />
       <Setter Property="FontSize" Value="13" />
     </Style>
@@ -74,57 +155,57 @@
       <Setter Property="Padding" Value="16,5" />
       <Setter Property="CornerRadius" Value="999" />
       <Setter Property="FontSize" Value="13" />
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
       <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="Button:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource ControlPressedBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlPressedBrush}" />
     </Style>
     <Style Selector="Button:disabled">
       <Setter Property="Opacity" Value="0.42" />
     </Style>
 
     <Style Selector="Button.primary">
-      <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
       <Setter Property="Foreground" Value="#FFFFFF" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
     </Style>
     <Style Selector="Button.primary:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource AccentPressedBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource AccentPressedBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentPressedBrush}" />
     </Style>
 
     <Style Selector="Button.ghost">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="MinHeight" Value="28" />
       <Setter Property="Padding" Value="8,3" />
       <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
     </Style>
     <Style Selector="Button.ghost:pointerover">
-      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
     <Style Selector="Button.link">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
       <Setter Property="MinHeight" Value="24" />
       <Setter Property="Padding" Value="2,0" />
     </Style>
@@ -132,26 +213,26 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.link:pointerover">
-      <Setter Property="Foreground" Value="{StaticResource AccentHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}" />
     </Style>
 
     <!-- ===== Inputs ===== -->
     <Style Selector="TextBox">
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="11,7" />
       <Setter Property="MinHeight" Value="32" />
-      <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
-      <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector="ComboBox">
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="11,4" />
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="CheckBox">
@@ -163,21 +244,21 @@
     <Style Selector="ProgressBar">
       <Setter Property="Height" Value="6" />
       <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Background" Value="{StaticResource BorderBrush}" />
-      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector="ToolTip">
-      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
-      <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+      <Setter Property="Background" Value="{DynamicResource PanelHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="FontSize" Value="12" />
     </Style>
 
     <!-- ===== Chips / badges ===== -->
     <Style Selector="Border.chip">
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ControlBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="999" />
       <Setter Property="Padding" Value="11,3" />
@@ -210,14 +291,14 @@
 
     <!-- ===== Salt UI cards ===== -->
     <Style Selector="Border.salt-card">
-      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Padding" Value="18,16" />
     </Style>
     <Style Selector="TextBlock.salt-card-title">
-      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -235,13 +316,13 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="ListBox.playlists ListBoxItem:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource PanelHoverBrush}" />
     </Style>
     <Style Selector="ListBox.playlists ListBoxItem:selected /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
     </Style>
     <Style Selector="ListBox.playlists ListBoxItem:selected">
-      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
     </Style>
 
     <!-- 收起后的歌单封面栏 -->
@@ -262,10 +343,10 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="ListBox.playlist-rail ListBoxItem:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource PanelHoverBrush}" />
     </Style>
     <Style Selector="ListBox.playlist-rail ListBoxItem:selected /template/ ContentPresenter">
-      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
     </Style>
 
     <!-- ===== DataGrid ===== -->
@@ -284,22 +365,22 @@
     </Style>
     <Style Selector="DataGridColumnHeader">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Padding" Value="10,0" />
       <Setter Property="BorderThickness" Value="0,0,0,1" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     </Style>
     <Style Selector="DataGridRow">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="MinHeight" Value="56" />
     </Style>
     <Style Selector="DataGridRow:pointerover /template/ Border#BackgroundRectangle">
-      <Setter Property="Background" Value="{StaticResource RowHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
     </Style>
     <Style Selector="DataGridRow:selected /template/ Border#BackgroundRectangle">
-      <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
     </Style>
     <Style Selector="DataGridCell">
       <Setter Property="Padding" Value="10,0" />

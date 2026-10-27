@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="LunaticPrincess.Desktop.Views.QrLoginWindow"
         Title="扫码登录"
-        Background="{StaticResource DialogGlassBrush}"
+        Background="{DynamicResource DialogGlassBrush}"
         Width="432" Height="596"
         CanResize="False"
         ShowInTaskbar="False"
@@ -11,7 +11,7 @@
     <StackPanel Grid.Row="0" Spacing="3">
       <TextBlock Text="扫码登录" FontSize="20" FontWeight="Bold" />
       <TextBlock Text="登录状态会加密保存在本机，不会上传" FontSize="11"
-                 Foreground="{StaticResource TextTertiaryBrush}" />
+                 Foreground="{DynamicResource TextTertiaryBrush}" />
     </StackPanel>
 
     <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="20">
@@ -33,7 +33,7 @@
                    Foreground="{Binding StatusKind, Converter={StaticResource StatusKindBrushConverter}}" />
         <TextBlock Text="{Binding HintText}" FontSize="11.5" TextWrapping="Wrap"
                    TextAlignment="Center" MaxWidth="330"
-                   Foreground="{StaticResource TextSecondaryBrush}" />
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
       </StackPanel>
     </StackPanel>
 

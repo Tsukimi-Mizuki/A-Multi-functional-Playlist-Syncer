@@ -16,8 +16,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly OnlineMusicSource _lyricsEditorSearchSource;
     private readonly bool _lyricsEditorPreferWordLyrics;
     private readonly double _matchThreshold;
+    private readonly ThemeMode _initialTheme;
     private bool _syncingExclusiveFlags;
     private bool _syncingFileNameTemplate;
+    private bool _syncingTheme;
 
     public SettingsViewModel(AppSettings current, ISettingsStore settingsStore)
     {
@@ -27,6 +29,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _lyricsEditorSearchSource = current.LyricsEditorSearchSource;
         _lyricsEditorPreferWordLyrics = current.LyricsEditorPreferWordLyrics;
         _matchThreshold = current.MatchThreshold;
+        _initialTheme = current.Theme;
         _syncingFileNameTemplate = true;
 
         DownloadDirectory = current.DownloadDirectory;
@@ -95,6 +98,16 @@ public sealed partial class SettingsViewModel : ObservableObject
             .FirstOrDefault(o => o.Value == current.TagSourcePriority) ?? OnlinePriorityOptions[0];
         SelectedLyricsSourcePriority = OnlinePriorityOptions
             .FirstOrDefault(o => o.Value == current.LyricsSourcePriority) ?? OnlinePriorityOptions[0];
+
+        ThemeOptions =
+        [
+            new(ThemeMode.System, "跟随系统"),
+            new(ThemeMode.Dark, "深色（液态玻璃）"),
+            new(ThemeMode.Light, "浅色（液态玻璃）"),
+        ];
+        _syncingTheme = true;
+        SelectedTheme = ThemeOptions.FirstOrDefault(o => o.Value == current.Theme) ?? ThemeOptions[1];
+        _syncingTheme = false;
     }
 
     public IReadOnlyList<QualityOption> QualityOptions { get; }
@@ -103,6 +116,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<FileNameTemplateOption> FileNameTemplateOptions { get; }
     public IReadOnlyList<RenderFrameRateOption> RenderFrameRateOptions { get; }
     public IReadOnlyList<OnlinePriorityOption> OnlinePriorityOptions { get; }
+    public IReadOnlyList<ThemeOption> ThemeOptions { get; }
 
     [ObservableProperty]
     private string _downloadDirectory = string.Empty;
@@ -147,6 +161,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private OnlinePriorityOption _selectedLyricsSourcePriority = null!;
 
     [ObservableProperty]
+    private ThemeOption _selectedTheme = null!;
+
+    [ObservableProperty]
     private string? _validationMessage;
 
     [ObservableProperty]
@@ -160,6 +177,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnValidationMessageChanged(string? value) => OnPropertyChanged(nameof(HasValidationMessage));
 
     partial void OnSelectedConcurrencyChanged(ConcurrencyOption value) => MaxConcurrency = value.Value;
+
+    /// <summary>切换主题下拉时立即预览（尚未保存），取消设置时由 <see cref="RevertThemePreview"/> 回退。</summary>
+    partial void OnSelectedThemeChanged(ThemeOption value)
+    {
+        if (_syncingTheme || value is null)
+        {
+            return;
+        }
+
+        ThemeService.Apply(value.Value);
+    }
+
+    /// <summary>取消设置时把预览中的主题恢复为进入设置前的值。</summary>
+    public void RevertThemePreview() => ThemeService.Apply(_initialTheme);
 
     partial void OnSelectedFileNameTemplateChanged(FileNameTemplateOption value)
     {
@@ -296,6 +327,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LyricsEditorSearchSource = _lyricsEditorSearchSource,
                 LyricsEditorPreferWordLyrics = _lyricsEditorPreferWordLyrics,
                 MatchThreshold = _matchThreshold,
+                Theme = SelectedTheme.Value,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

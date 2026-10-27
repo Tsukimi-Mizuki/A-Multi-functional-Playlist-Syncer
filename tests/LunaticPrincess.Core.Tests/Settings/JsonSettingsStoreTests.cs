@@ -88,6 +88,32 @@ public sealed class JsonSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveLoad_PersistsThemeWithDarkDefault()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        Assert.Equal(ThemeMode.Dark, (await store.LoadAsync()).Theme);
+
+        await store.SaveAsync(new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            Theme = ThemeMode.Light,
+        });
+        Assert.Equal(ThemeMode.Light, (await store.LoadAsync()).Theme);
+    }
+
+    [Fact]
+    public async Task Load_UnknownTheme_FallsBackToDark()
+    {
+        await File.WriteAllTextAsync(
+            SettingsPath,
+            "{\"downloadDirectory\":\"D:\\\\music\",\"theme\":99}");
+
+        var loaded = await new JsonSettingsStore(SettingsPath).LoadAsync();
+
+        Assert.Equal(ThemeMode.Dark, loaded.Theme);
+    }
+
+    [Fact]
     public async Task Load_UnknownLyricsEditorSource_FallsBackToNetease()
     {
         Directory.CreateDirectory(_directory);

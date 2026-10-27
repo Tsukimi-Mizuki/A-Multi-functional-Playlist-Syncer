@@ -24,6 +24,7 @@ public partial class App : Application
             try
             {
                 _services = AppServices.Create();
+                ApplyStartupTheme(_services);
                 var uiService = new DesktopUiService();
                 _mainViewModel = new MainWindowViewModel(_services, uiService);
                 var mainWindow = new MainWindow(_mainViewModel);
@@ -67,5 +68,22 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// 在创建任何窗口之前读取已保存的主题，避免启动时先闪一下默认配色。
+    /// 设置文件的读取是 ConfigureAwait(false) 的，这里同步等待不会造成死锁。
+    /// </summary>
+    private static void ApplyStartupTheme(AppServices services)
+    {
+        try
+        {
+            var settings = services.SettingsStore.LoadAsync().GetAwaiter().GetResult();
+            ThemeService.Apply(settings.Theme);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Apply startup theme failed: {ex}");
+        }
     }
 }

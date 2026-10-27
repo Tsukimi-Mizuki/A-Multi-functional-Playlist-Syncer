@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Styling;
 
 namespace LunaticPrincess.Desktop.Services;
 
@@ -9,18 +10,20 @@ namespace LunaticPrincess.Desktop.Services;
 /// 唯一的窗口材质：液态磨砂玻璃。
 /// 主窗口与所有二级窗口都使用 Windows 11 AcrylicBlur，让窗口后面的真实内容
 /// （动态视频、网页、桌面等）实时模糊透出；二级窗口再用半透明的
-/// <c>DialogGlassBrush</c> 作为窗口底色，保证文字可读，并使用统一的深色标题栏。
+/// <c>DialogGlassBrush</c> 作为窗口底色，保证文字可读。
+/// 标题栏颜色跟随当前主题（深色/浅色），主题切换时通过 <see cref="Refresh"/> 更新已打开窗口。
 /// </summary>
 internal static class VisualThemeManager
 {
-    private const string FallbackBackground = "#0E131C";
-
     private const int DwmUseImmersiveDarkMode = 20;
     private const int DwmCaptionColor = 35;
     private const int DwmTextColor = 36;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    /// <summary>当前是否深色主题（跟随系统时取解析后的实际主题）。</summary>
+    private static bool IsDarkTheme => Application.Current?.ActualThemeVariant != ThemeVariant.Light;
 
     public static void ApplyMainWindow(Window window)
     {
@@ -33,7 +36,7 @@ internal static class VisualThemeManager
                 WindowTransparencyLevel.None,
             };
             window.Background = Brushes.Transparent;
-            ApplyDarkTitleBar(window, "#0A0F17", "#F4F7FB");
+            Refresh(window);
         }
         catch (Exception ex)
         {
@@ -54,7 +57,7 @@ internal static class VisualThemeManager
                 WindowTransparencyLevel.Blur,
                 WindowTransparencyLevel.None,
             };
-            ApplyDarkTitleBar(window, FallbackBackground, "#F4F7FB");
+            Refresh(window);
         }
         catch (Exception ex)
         {
@@ -62,7 +65,8 @@ internal static class VisualThemeManager
         }
     }
 
-    private static void ApplyDarkTitleBar(Window window, string backgroundHex, string textHex)
+    /// <summary>按当前主题刷新标题栏（深色/浅色、标题色、文字色）。</summary>
+    public static void Refresh(Window window)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
@@ -75,14 +79,26 @@ internal static class VisualThemeManager
             return;
         }
 
-        var dark = 1;
-        DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref dark, sizeof(int));
+        var dark = IsDarkTheme;
+        var darkMode = dark ? 1 : 0;
+        DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref darkMode, sizeof(int));
 
-        var caption = ToColorRef(Color.Parse(backgroundHex));
+        var caption = ToColorRef(ResolveColor("AppBackgroundBrush", dark ? "#0A0F17" : "#F3F6FB"));
         DwmSetWindowAttribute(handle, DwmCaptionColor, ref caption, sizeof(int));
 
-        var text = ToColorRef(Color.Parse(textHex));
+        var text = ToColorRef(ResolveColor("TextPrimaryBrush", dark ? "#F4F7FB" : "#151A22"));
         DwmSetWindowAttribute(handle, DwmTextColor, ref text, sizeof(int));
+    }
+
+    private static Color ResolveColor(string key, string fallback)
+    {
+        var app = Application.Current;
+        if (app is not null && app.TryGetResource(key, app.ActualThemeVariant, out var value) && value is ISolidColorBrush brush)
+        {
+            return brush.Color;
+        }
+
+        return Color.Parse(fallback);
     }
 
     private static int ToColorRef(Color color) => color.R | (color.G << 8) | (color.B << 16);

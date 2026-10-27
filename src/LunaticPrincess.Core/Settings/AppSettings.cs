@@ -28,6 +28,8 @@ public sealed class AppSettings
     public bool LyricsEditorPreferWordLyrics { get; set; }
     /// <summary>在线匹配度阈值（0.30-1.00）：同时影响歌词编辑器搜索排序与批量获取的精度。</summary>
     public double MatchThreshold { get; set; } = LyricsMatchScorer.DefaultMinScore;
+    /// <summary>界面主题：深色/浅色液态玻璃，或跟随系统。</summary>
+    public ThemeMode Theme { get; set; } = ThemeMode.Dark;
     public RenderFrameRateMode RenderFrameRate { get; set; } = RenderFrameRateMode.VSync;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -42,6 +44,11 @@ public sealed class AppSettings
         }
 
         MaxConcurrency = Math.Clamp(MaxConcurrency, 1, 8);
+        if (!Enum.IsDefined(typeof(ThemeMode), Theme))
+        {
+            Theme = ThemeMode.Dark;
+        }
+
         if (!Enum.IsDefined(typeof(RenderFrameRateMode), RenderFrameRate))
         {
             RenderFrameRate = RenderFrameRateMode.VSync;

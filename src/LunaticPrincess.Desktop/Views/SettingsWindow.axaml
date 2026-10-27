@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="LunaticPrincess.Desktop.Views.SettingsWindow"
         Title="设置"
-        Background="{StaticResource DialogGlassBrush}"
+        Background="{DynamicResource DialogGlassBrush}"
         Width="680" Height="760"
         CanResize="False"
         ShowInTaskbar="False"
@@ -11,7 +11,7 @@
     <StackPanel Grid.Row="0" Spacing="3">
       <TextBlock Text="设置" FontSize="20" FontWeight="Bold" />
       <TextBlock Text="下载目录、本地曲库、音质与歌词标签选项" FontSize="11"
-                 Foreground="{StaticResource TextTertiaryBrush}" />
+                 Foreground="{DynamicResource TextTertiaryBrush}" />
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto"
@@ -23,13 +23,13 @@
             <TextBlock Classes="salt-card-title" Text="目录" />
             <Grid ColumnDefinitions="96,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="10">
               <TextBlock Text="下载目录" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <TextBox Text="{Binding DownloadDirectory, Mode=TwoWay}" />
                 <Button Grid.Column="1" Content="浏览…" Click="OnBrowseDownloadClick" />
               </Grid>
               <TextBlock Grid.Row="1" Text="曲库目录" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <TextBox Text="{Binding LibraryDirectory, Mode=TwoWay}" />
                 <Button Grid.Column="1" Content="浏览…" Click="OnBrowseLibraryClick" />
@@ -37,7 +37,7 @@
             </Grid>
             <TextBlock Text="「同步」会把歌曲下载到下载目录；扫描本地曲库时读取曲库目录（两者可以相同）。"
                        FontSize="10.5" TextWrapping="Wrap"
-                       Foreground="{StaticResource TextTertiaryBrush}" />
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
           </StackPanel>
         </Border>
 
@@ -48,7 +48,7 @@
             <Grid ColumnDefinitions="96,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                   RowSpacing="14" ColumnSpacing="10">
               <TextBlock Text="下载音质" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ComboBox Grid.Column="1" ItemsSource="{Binding QualityOptions}"
                         SelectedItem="{Binding SelectedQuality, Mode=TwoWay}"
                         HorizontalAlignment="Left" MinWidth="230">
@@ -60,7 +60,7 @@
               </ComboBox>
 
               <TextBlock Grid.Row="1" Text="歌词写入" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
                 <ComboBox ItemsSource="{Binding LyricModeOptions}"
                           SelectedItem="{Binding SelectedLyricMode, Mode=TwoWay}"
@@ -73,11 +73,11 @@
                 </ComboBox>
                 <TextBlock Text="{Binding SelectedLyricMode.Description}" FontSize="10.5"
                            TextWrapping="Wrap" MaxWidth="440"
-                           Foreground="{StaticResource TextTertiaryBrush}" />
+                           Foreground="{DynamicResource TextTertiaryBrush}" />
               </StackPanel>
 
               <TextBlock Grid.Row="2" Text="并发任务" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ConcurrencyOptions}"
                         SelectedItem="{Binding SelectedConcurrency, Mode=TwoWay}"
                         HorizontalAlignment="Left" MinWidth="230">
@@ -89,12 +89,12 @@
               </ComboBox>
 
               <TextBlock Grid.Row="3" Text="写入封面" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ToggleSwitch Grid.Row="3" Grid.Column="1" IsChecked="{Binding WriteCover, Mode=TwoWay}"
                             OnContent="写入封面" OffContent="不写入封面" HorizontalAlignment="Left" />
 
               <TextBlock Grid.Row="4" Text="已存在文件" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="20"
                           VerticalAlignment="Center">
                 <RadioButton GroupName="ExistingPolicy" Content="跳过，不重复下载"
@@ -112,7 +112,7 @@
             <TextBlock Classes="salt-card-title" Text="文件名模板" />
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
               <TextBlock Text="预设" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ComboBox Grid.Column="1" ItemsSource="{Binding FileNameTemplateOptions}"
                         SelectedItem="{Binding SelectedFileNameTemplate, Mode=TwoWay}"
                         HorizontalAlignment="Left" MinWidth="260"
@@ -129,7 +129,31 @@
                      AutomationProperties.Name="自定义文件名模板" />
             <TextBlock Text="选择预设即可直接生效；选择「自定义」后会在这里出现输入框，可自由编辑。可用占位符：{title} {artist} {album} {track} {year} {id}。"
                        FontSize="10.5" TextWrapping="Wrap"
-                       Foreground="{StaticResource TextTertiaryBrush}" />
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
+          </StackPanel>
+        </Border>
+
+        <!-- 外观 -->
+        <Border Classes="salt-card">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="salt-card-title" Text="外观" />
+            <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
+              <TextBlock Text="主题" VerticalAlignment="Center" FontSize="12"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}"
+                        SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                        HorizontalAlignment="Left" MinWidth="260"
+                        AutomationProperties.Name="界面主题">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Label}" FontSize="12" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
+            <TextBlock Text="浅色与深色都使用液态玻璃材质；选择后立即预览，点击保存才会记住。"
+                       FontSize="10.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
           </StackPanel>
         </Border>
 
@@ -139,7 +163,7 @@
             <TextBlock Classes="salt-card-title" Text="在线获取优先级" />
             <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
               <TextBlock Text="标签与封面来源" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ComboBox Grid.Column="1" ItemsSource="{Binding OnlinePriorityOptions}"
                         SelectedItem="{Binding SelectedTagSourcePriority, Mode=TwoWay}"
                         HorizontalAlignment="Left" MinWidth="260"
@@ -153,7 +177,7 @@
             </Grid>
             <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
               <TextBlock Text="歌词来源" VerticalAlignment="Center" FontSize="12"
-                         Foreground="{StaticResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
               <ComboBox Grid.Column="1" ItemsSource="{Binding OnlinePriorityOptions}"
                         SelectedItem="{Binding SelectedLyricsSourcePriority, Mode=TwoWay}"
                         HorizontalAlignment="Left" MinWidth="260"
@@ -167,22 +191,22 @@
             </Grid>
             <TextBlock Text="批量标签/封面和批量歌词会分别按这里的来源顺序尝试；网易云优先时会自动回退 QQ，只有“仅”选项才不切换来源。"
                        FontSize="10.5" TextWrapping="Wrap"
-                       Foreground="{StaticResource TextTertiaryBrush}" />
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
           </StackPanel>
         </Border>
 
         <Border IsVisible="{Binding HasValidationMessage}"
-                Background="{StaticResource DangerSoftBrush}" BorderBrush="{StaticResource DangerBorderBrush}"
+                Background="{DynamicResource DangerSoftBrush}" BorderBrush="{DynamicResource DangerBorderBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="14,10">
           <TextBlock Text="{Binding ValidationMessage}" FontSize="11.5" TextWrapping="Wrap"
-                     Foreground="{StaticResource DangerBrush}" />
+                     Foreground="{DynamicResource DangerBrush}" />
         </Border>
       </StackPanel>
     </ScrollViewer>
 
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,16,0,0">
       <TextBlock Text="所有设置保存在本机应用数据目录" FontSize="10.5"
-                 VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+                 VerticalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}" />
       <Button Grid.Column="1" Content="取消" Click="OnCancelClick" Padding="24,7" />
       <Button Grid.Column="2" x:Name="SaveButton" Classes="primary" Content="保存设置"
               Click="OnSaveClick" Padding="24,7" />

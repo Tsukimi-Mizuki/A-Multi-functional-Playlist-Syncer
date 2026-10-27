@@ -85,5 +85,10 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
+    {
+        // 主题是即时预览的，取消时回退到打开设置前的主题。
+        ViewModel?.RevertThemePreview();
+        Close(null);
+    }
 }

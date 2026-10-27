@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="LunaticPrincess.Desktop.Views.LyricsEditorWindow"
         Title="歌词与标签编辑器"
-        Background="{StaticResource DialogGlassBrush}"
+        Background="{DynamicResource DialogGlassBrush}"
         Width="1240" Height="900"
         MinWidth="1040" MinHeight="760"
         WindowStartupLocation="CenterOwner">
@@ -12,7 +12,7 @@
       <StackPanel Spacing="2" VerticalAlignment="Center">
         <TextBlock Text="歌词与标签编辑" FontSize="20" FontWeight="Bold" />
         <TextBlock Text="{Binding FileName}" FontSize="11"
-                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    MaxLines="1" TextTrimming="CharacterEllipsis" />
       </StackPanel>
       <Button Grid.Column="1" Content="打开音频文件" Command="{Binding OpenFileCommand}"
@@ -58,12 +58,12 @@
                   Padding="20,7" AutomationProperties.Name="在线搜索" />
         </Grid>
         <TextBlock Grid.Row="1" Text="{Binding SearchStatus}" FontSize="10.5"
-                   Foreground="{StaticResource TextTertiaryBrush}"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
                    IsVisible="{Binding SearchStatus, Converter={StaticResource NotEmptyStringConverter}}"
                    TextTrimming="CharacterEllipsis" />
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,6,0,0">
           <TextBlock Text="匹配度" FontSize="11" VerticalAlignment="Center"
-                     Foreground="{StaticResource TextSecondaryBrush}" />
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
           <Slider Grid.Column="1" Minimum="0.3" Maximum="1" SmallChange="0.01" LargeChange="0.05"
                   Value="{Binding MatchThreshold, Mode=TwoWay}"
                   VerticalAlignment="Center" Height="24"
@@ -85,15 +85,15 @@
                   <TextBlock Text="{Binding DisplayTitle}" FontSize="12.5" FontWeight="SemiBold"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
                   <TextBlock Text="{Binding Subtitle}" FontSize="10.5"
-                             Foreground="{StaticResource TextTertiaryBrush}"
+                             Foreground="{DynamicResource TextTertiaryBrush}"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <TextBlock Grid.Column="1" Text="{Binding MatchText}" FontSize="10.5"
-                           VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}"
+                           VerticalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}"
                            ToolTip.Tip="{Binding ScoreToolTip}"
                            IsVisible="{Binding HasScore}" />
                 <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="10.5"
-                           VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+                           VerticalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -109,12 +109,12 @@
           <StackPanel Spacing="8">
             <TextBlock Classes="salt-card-title" Text="标签信息" />
             <Border Width="120" Height="120" CornerRadius="8" ClipToBounds="True"
-                    Background="{StaticResource PanelHoverBrush}"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    Background="{DynamicResource PanelHoverBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                     HorizontalAlignment="Left">
               <Panel>
                 <TextBlock Text="♪" FontSize="34" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource TextTertiaryBrush}" />
+                           Foreground="{DynamicResource TextTertiaryBrush}" />
                 <Image Source="{Binding CoverImage}" Stretch="UniformToFill" />
               </Panel>
             </Border>
@@ -124,45 +124,45 @@
                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="10" Margin="0,0,8,0">
               <StackPanel Spacing="3">
-                <TextBlock Text="标题" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+                <TextBlock Text="标题" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
                 <TextBox Text="{Binding Title, Mode=TwoWay}" />
               </StackPanel>
             <StackPanel Spacing="3">
-              <TextBlock Text="艺术家（多个用 / 分隔）" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="艺术家（多个用 / 分隔）" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding Artist, Mode=TwoWay}" />
             </StackPanel>
             <StackPanel Spacing="3">
-              <TextBlock Text="专辑" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="专辑" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding Album, Mode=TwoWay}" />
             </StackPanel>
             <StackPanel Spacing="3">
-              <TextBlock Text="专辑艺术家" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="专辑艺术家" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding AlbumArtist, Mode=TwoWay}" />
             </StackPanel>
             <Grid ColumnDefinitions="*,8,*,8,*" ColumnSpacing="0">
               <StackPanel Grid.Column="0" Spacing="3">
-                <TextBlock Text="年份" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+                <TextBlock Text="年份" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
                 <TextBox Text="{Binding Year, Mode=TwoWay}" />
               </StackPanel>
               <StackPanel Grid.Column="2" Spacing="3">
-                <TextBlock Text="音轨号" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+                <TextBlock Text="音轨号" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
                 <TextBox Text="{Binding TrackNumber, Mode=TwoWay}" />
               </StackPanel>
               <StackPanel Grid.Column="4" Spacing="3">
-                <TextBlock Text="碟号" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+                <TextBlock Text="碟号" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
                 <TextBox Text="{Binding DiscNumber, Mode=TwoWay}" />
               </StackPanel>
             </Grid>
             <StackPanel Spacing="3">
-              <TextBlock Text="风格" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="风格" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding Genre, Mode=TwoWay}" />
             </StackPanel>
             <StackPanel Spacing="3">
-              <TextBlock Text="作曲家（多个用 / 分隔）" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="作曲家（多个用 / 分隔）" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding Composer, Mode=TwoWay}" />
             </StackPanel>
             <StackPanel Spacing="3">
-              <TextBlock Text="注释" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+              <TextBlock Text="注释" FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
               <TextBox Text="{Binding Comment, Mode=TwoWay}" />
               </StackPanel>
             </StackPanel>
@@ -175,12 +175,12 @@
           <Grid Margin="16,14,16,8" ColumnDefinitions="*,Auto">
             <StackPanel Spacing="2">
               <TextBlock Text="歌词" FontSize="14" FontWeight="SemiBold"
-                         Foreground="{StaticResource AccentBrush}" />
+                         Foreground="{DynamicResource AccentBrush}" />
               <TextBlock Text="直接编辑并写入音频标签；支持 LRC / 逐字歌词文本。"
-                         FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}" />
+                         FontSize="10.5" Foreground="{DynamicResource TextTertiaryBrush}" />
             </StackPanel>
             <TextBlock Grid.Column="1" Text="{Binding LyricsLengthText}" FontSize="10.5"
-                       VerticalAlignment="Bottom" Foreground="{StaticResource TextTertiaryBrush}" />
+                       VerticalAlignment="Bottom" Foreground="{DynamicResource TextTertiaryBrush}" />
           </Grid>
           <TextBox Grid.Row="1" Margin="12,0,12,12"
                    Text="{Binding Lyrics, Mode=TwoWay}"
@@ -200,10 +200,10 @@
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,14,0,0">
       <StackPanel Spacing="2" VerticalAlignment="Center">
         <TextBlock Text="{Binding FileInfoText}" FontSize="10.5"
-                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    MaxLines="1" TextTrimming="CharacterEllipsis" />
         <TextBlock Text="{Binding StatusText}" FontSize="11"
-                   Foreground="{StaticResource TextTertiaryBrush}"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
                    MaxLines="1" TextTrimming="CharacterEllipsis" />
       </StackPanel>
       <Button Grid.Column="1" Classes="primary" Content="保存标签与歌词"

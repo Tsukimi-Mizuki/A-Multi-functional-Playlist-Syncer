@@ -14,18 +14,18 @@
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出；导入窗口可选解锁后自动在线匹配标签/封面/歌词 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；唯一磨砂玻璃主题；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器 |
+| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器 |
 | Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
 
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**233 / 233 通过，0 skipped**。
+- `dotnet test`：**235 / 235 通过，0 skipped**。
   - Netease API：61
   - NCM / Lyrics / Tags：93
   - Library / Download / Sync：63
-  - Storage / Settings / Filename：13
+  - Storage / Settings / Filename：15
   - Online 搜索：3
 - Debug 与 Release 全解决方案构建均 0 warning / 0 error。
 
@@ -114,6 +114,12 @@
   收起为 88px 封面栏，纵向展示全部歌单并可点击切换；
   按钮和列表项也增加了轻量颜色过渡。
 - Salt UI 风格控件（卡片、胶囊按钮、紧凑 Item）保留；设置窗口同步改为卡片式布局。
+- 主题：新增深色 / 浅色 / 跟随系统三套选择（默认深色），`App.axaml` 用 `ThemeDictionaries` 提供两套
+  调色板，界面统一改为 `DynamicResource`；启动前应用 `settings.Theme` 避免闪烁，设置窗口下拉即时预览、
+  取消回退、保存写入 `settings.json` 的 `theme`。GUI 实测（截图像素亮度均值，同一区域）：深色 30.2、
+  浅色 201.4、从深色切回浅色 201.4；选择「跟随系统」保存为 `System`，取消预览后亮度回到 201.3
+  且 `settings.json` 仍为 `Light`；删除设置值重启后按 `Light` 启动（190.2），歌词编辑器等二级窗口
+  在浅色下正常渲染（233.5）。
 - 发布改为轻量框架依赖模式：发布目录约 29MB、zip 约 11.7MB；
   需要独立运行时可用 -SelfContained 切换回自包含模式；发布目录约 27MB、zip 约 11MB。
 
