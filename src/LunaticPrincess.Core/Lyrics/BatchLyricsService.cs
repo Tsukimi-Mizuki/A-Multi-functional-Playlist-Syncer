@@ -47,6 +47,20 @@ public sealed class BatchLyricsService : IBatchLyricsService
         ".mp3", ".flac", ".m4a", ".ogg", ".wav", ".aac", ".wma", ".opus",
     ];
 
+    /// <summary>标题里的并列分隔符（MusicTag 的 [\/&amp;,] 思路，另外补上全角与中文写法）。</summary>
+    private static readonly char[] TitleSeparators = ['/', '&', ',', '，', '、', ';', '；', '·', '|'];
+
+    /// <summary>歌手里常见的多值分隔符。</summary>
+    private static readonly char[] ArtistSeparators = ['/', '&', ',', '，', '、', ';', '；', '·', '・', '×', '|', '+'];
+
+    /// <summary>歌手字段里的连接词，与分隔符等价。</summary>
+    private static readonly string[] ArtistKeywords = ["feat.", "ft.", "featuring", "cv:", "vs."];
+
+    /// <summary>多值字段切段用的内部占位符（不会是真实字符）。</summary>
+    private const char MultiValueMarker = '\u0001';
+
+    private const string MultiValueMarkerText = "\u0001";
+
     private readonly IAudioTagService _tags;
     private readonly IOnlineMusicSearchService _online;
 
@@ -364,6 +378,30 @@ public sealed class BatchLyricsService : IBatchLyricsService
             return 0;
         }
 
+        var best = a == b ? 1 : Compare(a, b);
+
+        // MusicTag 桌面端思路：标题常写成 “A / B”“A & B” 这类并列形式，
+        // 按分隔符切段后逐段比较取最佳，命中某一段时轻微降权（0.99）作为惩罚。
+        foreach (var segment in SplitMultiValue(localTitle, TitleSeparators, Array.Empty<string>()))
+        {
+            var normalized = Normalize(segment);
+            if (normalized.Length < 2)
+            {
+                continue;
+            }
+
+            var score = normalized == b ? 0.99 : Compare(normalized, b) * 0.98;
+            if (score > best)
+            {
+                best = score;
+            }
+        }
+
+        return best;
+    }
+
+    private static double Compare(string a, string b)
+    {
         if (a == b)
         {
             return 1;
@@ -386,12 +424,65 @@ public sealed class BatchLyricsService : IBatchLyricsService
             return 0.5;
         }
 
-        if (a == b || a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal))
+        var best = a == b || a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal)
+            ? 1
+            : Similarity(a, b);
+
+        // 歌手段位常是 “A/B”“A feat. B”“A · B”“张三 CV:李四” 这类多值写法
+        // （LDDC 的 artist_str2list 与 MusicTag 的多歌手处理），切段后两两比较取最佳。
+        foreach (var left in SplitMultiValue(localArtist, ArtistSeparators, ArtistKeywords))
         {
-            return 1;
+            var l = Normalize(left);
+            if (l.Length == 0)
+            {
+                continue;
+            }
+
+            foreach (var right in SplitMultiValue(resultArtist, ArtistSeparators, ArtistKeywords))
+            {
+                var r = Normalize(right);
+                if (r.Length == 0)
+                {
+                    continue;
+                }
+
+                var score = l == r
+                    ? 0.98
+                    : l.Contains(r, StringComparison.Ordinal) || r.Contains(l, StringComparison.Ordinal)
+                        ? 0.9
+                        : Similarity(l, r) * 0.97;
+                if (score > best)
+                {
+                    best = score;
+                }
+            }
         }
 
-        return Similarity(a, b);
+        return best;
+    }
+
+    /// <summary>把 “A/B”“A &amp; B”“A feat. B” 之类的多值字段切成若干片段。</summary>
+    private static IReadOnlyList<string> SplitMultiValue(string value, char[] separators, string[] keywords)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Array.Empty<string>();
+        }
+
+        var hasSeparator = value.IndexOfAny(separators) >= 0 || keywords.Any(keyword => value.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+        if (!hasSeparator)
+        {
+            return Array.Empty<string>();
+        }
+
+        var working = value;
+        foreach (var keyword in keywords)
+        {
+            working = working.Replace(keyword, MultiValueMarkerText, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return working
+            .Split(separators.Append(MultiValueMarker).ToArray(), StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private static double DurationScore(long localMs, long resultMs)

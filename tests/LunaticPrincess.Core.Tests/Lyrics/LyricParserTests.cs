@@ -87,9 +87,10 @@ public sealed class LyricParserTests
 
         var plain = _parser.ToPlainLrc(document);
         Assert.Contains("[00:01.00]Hello", plain);
-        Assert.Contains("[00:01.00]你好", plain);
+        // 译文行顺延 10ms，避免按时间戳去重的播放器把译文吞掉。
+        Assert.Contains("[00:01.01]你好", plain);
         Assert.Contains("[00:05.00]World", plain);
-        Assert.Contains("[00:05.00]世界", plain);
+        Assert.Contains("[00:05.01]世界", plain);
         Assert.Contains("[00:09.00]No translation line", plain);
         Assert.DoesNotContain("[00:09.00]世界", plain);
     }
@@ -266,7 +267,7 @@ public sealed class LyricParserTests
         Assert.Equal(
             Lines(
                 "[00:12.58]<00:12.58>难<00:12.83>以<00:13.13>",
-                "[00:12.58]Hard to"),
+                "[00:12.59]Hard to"),
             enhanced);
     }
 

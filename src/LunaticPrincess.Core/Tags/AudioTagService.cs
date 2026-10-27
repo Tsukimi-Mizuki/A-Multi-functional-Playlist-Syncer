@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using LunaticPrincess.Core.Ncm;
 using TagLibFile = TagLib.File;
 
 namespace LunaticPrincess.Core.Tags;
@@ -297,18 +298,20 @@ public sealed class AudioTagService : IAudioTagService
         }
 
         var match = NeteaseIdPattern.Match(comment);
-        if (!match.Success)
+        if (match.Success)
         {
-            return null;
+            return long.TryParse(
+                match.Groups["id"].Value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var id)
+                ? id
+                : null;
         }
 
-        return long.TryParse(
-            match.Groups["id"].Value,
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out var id)
-            ? id
-            : null;
+        // 网易云客户端下载/解密出来的文件没有本程序的标记，但注释里保留了
+        // “163 key(Don't modify):” 加密元数据；能解出 musicId 时同样按 ID 精确匹配。
+        return NeteaseClientComment.TryReadMusicId(comment);
     }
 
     private static string CleanComment(string value) =>

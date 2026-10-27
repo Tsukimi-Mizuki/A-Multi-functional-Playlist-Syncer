@@ -90,9 +90,10 @@ public sealed class LyricParser : ILyricParser
 
             if (includeTranslation && !string.IsNullOrWhiteSpace(line.Translation))
             {
+                var translationTimestamp = FormatTimestamp(TranslationTimestamp(line.StartMs));
                 foreach (var part in SplitText(line.Translation))
                 {
-                    AppendLine(builder, timestamp + part.Trim());
+                    AppendLine(builder, translationTimestamp + part.Trim());
                 }
             }
         }
@@ -163,9 +164,10 @@ public sealed class LyricParser : ILyricParser
 
             if (includeTranslation && !string.IsNullOrWhiteSpace(line.Translation))
             {
+                var translationTimestamp = FormatTimestamp(TranslationTimestamp(line.StartMs));
                 foreach (var part in SplitText(line.Translation))
                 {
-                    AppendLine(builder, timestamp + part.Trim());
+                    AppendLine(builder, translationTimestamp + part.Trim());
                 }
             }
         }
@@ -875,6 +877,15 @@ public sealed class LyricParser : ILyricParser
     private static string? NormalizeRaw(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static string FormatTimestamp(int milliseconds) => "[" + FormatTime(milliseconds) + "]";
+
+    /// <summary>
+    /// 译文行的起始时间。MusicTag 桌面端在“同刻两行”时把后写的一行顺延，避免按时间戳去重的
+    /// 播放器把译文行吞掉；这里沿用同一规则（原文在前，译文紧随其后）。
+    /// LRC 时间戳只精确到 10ms，因此顺延 10ms，保证渲染出来的时间戳一定不同。
+    /// </summary>
+    private static int TranslationTimestamp(int lineStartMs) => Math.Max(0, lineStartMs) + TranslationTimestampShiftMs;
+
+    private const int TranslationTimestampShiftMs = 10;
 
     private static string FormatTime(int milliseconds)
     {

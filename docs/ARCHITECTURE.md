@@ -45,6 +45,10 @@ Core
 
 1. 扫描目录：普通音频读 TagLib 标签，NCM 读文件内嵌加密元数据。
 2. 匹配优先级：标签内的网易云 ID > 标题/歌手/时长模糊评分 > 文件名猜测。
+   网易云 ID 有两个来源：本程序写入的 `LunaticPrincess:<id>` 注释，以及客户端文件注释里的
+   `163 key(Don't modify):<base64>`（AES-128-ECB 解出 `music:{...}` 后取 `musicId`，
+   见 `NeteaseClientComment`；思路同 MusicTag / 音樂標籤），因此客户端下载或解密出来的
+   文件也能按 ID 精确命中。
 3. 每首本地曲最多匹配一首歌单曲；低于阈值标记为缺失。
 
 ### 下载与标签
@@ -106,7 +110,9 @@ Core
     因此按 LDDC 的参考实现移植，密文按 8 字节块 ECB 解密后 zlib 解压得到 `<Lyric_1 LyricContent="…"/>`，
     再按 QRC 行/词时间戳解析；因此 QQ 也能产出逐字（QRC）歌词。
   - 双语输出使用 `ILyricParser.ToPlainLrc/ToEnhancedLrc(document, includeTranslation)`，
-    把翻译行追加在原文同一时间戳下；`//` 等占位翻译不写入，无翻译时使用原文。
+    把翻译行追加在原文之后，时间戳顺延 10ms（MusicTag 的“同刻两行顺延”思路，LRC 的 2 位
+    百分秒精度下顺延 10ms 才能保证渲染出的时间戳不同，避免去重播放器把译文吞掉）；
+    `//` 等占位翻译不写入，无翻译时使用原文。
 - 编辑器中的搜索结果列表点击后自动填入标签、封面与对应格式歌词，用户确认后再写入本地音频标签。
 - 打开/重新读取本地文件后，以去掉扩展名（并清理常见音轨前缀）的文件名作为关键词，
   自动向当前选中的在线来源搜索一次；不会自动应用结果，仍由用户点击确认。
@@ -120,6 +126,8 @@ Core
 - 标签/封面和歌词分别按 `AppSettings.TagSourcePriority` / `LyricsSourcePriority` 的
   来源顺序尝试（网易云优先、QQ 优先或仅单一来源），以标题、歌手和时长相似度评分选择最佳结果，
   低于阈值不会被强行写入。
+- 打分参考 MusicTag 桌面端与 LDDC：标题里的 “A / B”“A & B” 按分隔符切段后取最佳段（0.99 降权），
+  歌手字段的 “A/B”“A feat. B”“A · B”“CV:” 同样切成多值后两两比较，避免并列写法被整串相似度拖低。
 - 对最佳结果获取标签/封面与歌词后，更新 Title/Artists/Album/Year/Track/Disc/Genre/Composer/Cover
   以及 Lyrics/WordLyrics；歌词按逐行或逐字（有则优先）写入双语内容。
 - 可选择覆盖已有标签与歌词；未开启时只补缺失字段、缺失封面和缺失歌词。
