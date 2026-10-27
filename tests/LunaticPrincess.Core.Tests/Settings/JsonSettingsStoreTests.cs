@@ -1,3 +1,4 @@
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
 using LunaticPrincess.Core.Settings;
@@ -58,6 +59,32 @@ public sealed class JsonSettingsStoreTests : IDisposable
 
         Assert.Equal(OnlineMusicSource.QQMusic, loaded.LyricsEditorSearchSource);
         Assert.True(loaded.LyricsEditorPreferWordLyrics);
+    }
+
+    [Fact]
+    public async Task SaveLoad_ClampsAndPersistsMatchThreshold()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        await store.SaveAsync(new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            MatchThreshold = 0.78,
+        });
+        Assert.Equal(0.78, (await store.LoadAsync()).MatchThreshold, 3);
+
+        await store.SaveAsync(new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            MatchThreshold = 5,
+        });
+        Assert.Equal(LyricsMatchScorer.MaxThreshold, (await store.LoadAsync()).MatchThreshold, 3);
+
+        await store.SaveAsync(new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            MatchThreshold = double.NaN,
+        });
+        Assert.Equal(LyricsMatchScorer.DefaultMinScore, (await store.LoadAsync()).MatchThreshold, 3);
     }
 
     [Fact]

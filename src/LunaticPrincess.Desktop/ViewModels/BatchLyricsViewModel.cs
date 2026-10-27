@@ -13,6 +13,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
     private readonly IDesktopUiService _ui;
     private readonly OnlineSourcePriority _tagPriority;
     private readonly OnlineSourcePriority _lyricsPriority;
+    private readonly double _minScore;
     private CancellationTokenSource? _cts;
 
     public BatchLyricsViewModel(
@@ -20,15 +21,21 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
         IDesktopUiService ui,
         string? initialDirectory,
         OnlineSourcePriority tagPriority,
-        OnlineSourcePriority lyricsPriority)
+        OnlineSourcePriority lyricsPriority,
+        double minScore = LyricsMatchScorer.DefaultMinScore)
     {
         _batch = batch;
         _ui = ui;
         _tagPriority = tagPriority;
         _lyricsPriority = lyricsPriority;
+        _minScore = Math.Clamp(
+            Math.Round(minScore, 2),
+            LyricsMatchScorer.MinThreshold,
+            LyricsMatchScorer.MaxThreshold);
         FolderPath = Directory.Exists(initialDirectory) ? initialDirectory! : string.Empty;
         TagPriorityText = PriorityLabel(tagPriority);
         LyricsPriorityText = PriorityLabel(lyricsPriority);
+        MatchThresholdText = $"匹配度阈值 {_minScore * 100:0}%（在「歌词编辑」窗口调整，低于该值的歌曲会被跳过）";
         LyricModeOptions =
         [
             new(false, "逐行歌词"),
@@ -43,6 +50,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
 
     public string TagPriorityText { get; }
     public string LyricsPriorityText { get; }
+    public string MatchThresholdText { get; }
 
     [ObservableProperty]
     private string _folderPath = string.Empty;
@@ -168,7 +176,8 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
                 _lyricsPriority,
                 OverwriteExisting,
                 FetchLyrics,
-                SelectedLyricMode.PreferWord);
+                SelectedLyricMode.PreferWord,
+                _minScore);
 
             IProgress<BatchLyricsResult> progress = new Progress<BatchLyricsResult>(result =>
             {

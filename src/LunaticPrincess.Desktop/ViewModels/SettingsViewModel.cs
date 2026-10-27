@@ -15,6 +15,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly string _ncmImportOutputDirectory;
     private readonly OnlineMusicSource _lyricsEditorSearchSource;
     private readonly bool _lyricsEditorPreferWordLyrics;
+    private readonly double _matchThreshold;
     private bool _syncingExclusiveFlags;
     private bool _syncingFileNameTemplate;
 
@@ -25,6 +26,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ncmImportOutputDirectory = current.NcmImportOutputDirectory;
         _lyricsEditorSearchSource = current.LyricsEditorSearchSource;
         _lyricsEditorPreferWordLyrics = current.LyricsEditorPreferWordLyrics;
+        _matchThreshold = current.MatchThreshold;
         _syncingFileNameTemplate = true;
 
         DownloadDirectory = current.DownloadDirectory;
@@ -288,6 +290,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 NcmImportOutputDirectory = _ncmImportOutputDirectory,
                 LyricsEditorSearchSource = _lyricsEditorSearchSource,
                 LyricsEditorPreferWordLyrics = _lyricsEditorPreferWordLyrics,
+                MatchThreshold = _matchThreshold,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);

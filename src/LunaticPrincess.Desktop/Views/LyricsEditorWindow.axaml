@@ -24,7 +24,7 @@
 
     <!-- 在线搜索 -->
     <Border Grid.Row="1" Classes="salt-card" Padding="12,10" Margin="0,12,0,0">
-      <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+      <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
         <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
           <ComboBox ItemsSource="{Binding SearchSources}"
                     SelectedItem="{Binding SelectedSearchSource, Mode=TwoWay}"
@@ -60,6 +60,17 @@
                    Foreground="{StaticResource TextTertiaryBrush}"
                    IsVisible="{Binding SearchStatus, Converter={StaticResource NotEmptyStringConverter}}"
                    TextTrimming="CharacterEllipsis" />
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,6,0,0">
+          <TextBlock Text="匹配度" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{StaticResource TextSecondaryBrush}" />
+          <Slider Grid.Column="1" Minimum="0.3" Maximum="1" SmallChange="0.01" LargeChange="0.05"
+                  Value="{Binding MatchThreshold, Mode=TwoWay}"
+                  VerticalAlignment="Center" Height="24"
+                  ToolTip.Tip="低于该匹配度的在线搜索结果视为不可用；批量获取标签、封面与歌词也使用同一阈值"
+                  AutomationProperties.Name="匹配度阈值" />
+          <TextBlock Grid.Column="2" Text="{Binding MatchThresholdText}" FontSize="11.5" FontWeight="SemiBold"
+                     VerticalAlignment="Center" MinWidth="44" TextAlignment="Right" />
+        </Grid>
         <ListBox Grid.Row="1" ItemsSource="{Binding SearchResults}"
                  SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}"
                  IsVisible="{Binding HasSearchResults}"
@@ -68,7 +79,7 @@
                  AutomationProperties.Name="在线搜索结果">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                 <StackPanel Spacing="1">
                   <TextBlock Text="{Binding DisplayTitle}" FontSize="12.5" FontWeight="SemiBold"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
@@ -76,7 +87,11 @@
                              Foreground="{StaticResource TextTertiaryBrush}"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding DurationText}" FontSize="10.5"
+                <TextBlock Grid.Column="1" Text="{Binding MatchText}" FontSize="10.5"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}"
+                           ToolTip.Tip="{Binding ScoreToolTip}"
+                           IsVisible="{Binding HasScore}" />
+                <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="10.5"
                            VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
               </Grid>
             </DataTemplate>

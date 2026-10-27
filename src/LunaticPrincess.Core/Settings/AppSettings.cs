@@ -1,3 +1,4 @@
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
 
@@ -25,6 +26,8 @@ public sealed class AppSettings
     public OnlineMusicSource LyricsEditorSearchSource { get; set; } = OnlineMusicSource.Netease;
     /// <summary>歌词编辑窗口记住的在线歌词格式：true 表示优先逐字歌词。</summary>
     public bool LyricsEditorPreferWordLyrics { get; set; }
+    /// <summary>在线匹配度阈值（0.30-1.00）：同时影响歌词编辑器搜索排序与批量获取的精度。</summary>
+    public double MatchThreshold { get; set; } = LyricsMatchScorer.DefaultMinScore;
     public RenderFrameRateMode RenderFrameRate { get; set; } = RenderFrameRateMode.VSync;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -58,6 +61,16 @@ public sealed class AppSettings
         {
             LyricsEditorSearchSource = OnlineMusicSource.Netease;
         }
+
+        if (double.IsNaN(MatchThreshold) || double.IsInfinity(MatchThreshold) || MatchThreshold <= 0)
+        {
+            MatchThreshold = LyricsMatchScorer.DefaultMinScore;
+        }
+
+        MatchThreshold = Math.Clamp(
+            Math.Round(MatchThreshold, 2),
+            LyricsMatchScorer.MinThreshold,
+            LyricsMatchScorer.MaxThreshold);
 
         NcmImportOutputDirectory = (NcmImportOutputDirectory ?? string.Empty).Trim();
         var rememberedFolders = new List<string>();

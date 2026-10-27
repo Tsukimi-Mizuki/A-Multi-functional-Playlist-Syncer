@@ -80,8 +80,11 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
         OutputDirectory = !string.IsNullOrWhiteSpace(settings.NcmImportOutputDirectory)
             ? settings.NcmImportOutputDirectory
             : settings.DownloadDirectory;
+        var thresholdPercent = Math.Round(
+            Math.Clamp(settings.MatchThreshold, LyricsMatchScorer.MinThreshold, LyricsMatchScorer.MaxThreshold) * 100);
         AutoMatchHintText =
-            $"在线匹配来源：标签 {PriorityLabel(settings.TagSourcePriority)} · 歌词 {PriorityLabel(settings.LyricsSourcePriority)}（可在「设置」中调整）";
+            $"在线匹配来源：标签 {PriorityLabel(settings.TagSourcePriority)} · 歌词 {PriorityLabel(settings.LyricsSourcePriority)}" +
+            $" · 匹配度 {thresholdPercent:0}%（可在「设置」与「歌词编辑」中调整）";
     }
 
     /// <summary>打开窗口时恢复上次记住的文件夹并重新扫描。</summary>
@@ -328,7 +331,8 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
                 _settings.LyricsSourcePriority,
                 OverwriteExisting: true,
                 FetchLyrics: _settings.LyricsMode != LyricsWriteMode.None,
-                PreferWordLyrics: _settings.LyricsMode == LyricsWriteMode.Word);
+                PreferWordLyrics: _settings.LyricsMode == LyricsWriteMode.Word,
+                MinScore: _settings.MatchThreshold);
 
             var results = await _importService
                 .ImportAsync(

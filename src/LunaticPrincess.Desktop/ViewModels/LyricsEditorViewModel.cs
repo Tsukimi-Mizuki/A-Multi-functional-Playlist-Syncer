@@ -25,6 +25,11 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private readonly ISettingsStore? _settingsStore;
     private byte[]? _coverData;
     private long? _neteaseId;
+    // 用于匹配度打分的本地原始信息（应用在线结果后 Title/Artist 会变，打分仍以文件为准）。
+    private string _localTitle = string.Empty;
+    private string _localArtist = string.Empty;
+    private string _localAlbum = string.Empty;
+    private long _localDurationMs;
 
     public LyricsEditorViewModel(
         IAudioTagService tags,
@@ -44,6 +49,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         _lyricsPriority = lyricsPriority;
         _settings = settings;
         _settingsStore = settingsStore;
+        _matchThreshold = settings?.MatchThreshold ?? LyricsMatchScorer.DefaultMinScore;
         SearchSources =
         [
             new(OnlineMusicSource.Netease, "网易云音乐"),
@@ -79,7 +85,8 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             _ui,
             directory,
             _tagPriority,
-            _lyricsPriority);
+            _lyricsPriority,
+            MatchThreshold);
     }
 
     [ObservableProperty]
@@ -161,10 +168,17 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private bool _hasSearchResults;
 
     [ObservableProperty]
-    private IReadOnlyList<OnlineSongResult> _searchResults = Array.Empty<OnlineSongResult>();
+    private IReadOnlyList<OnlineSearchResultItem> _searchResults = Array.Empty<OnlineSearchResultItem>();
 
+    /// <summary>在线搜索结果的当前选中项（带匹配度打分）。</summary>
     [ObservableProperty]
-    private OnlineSongResult? _selectedSearchResult;
+    private OnlineSearchResultItem? _selectedSearchResult;
+
+    /// <summary>匹配度阈值：低于该分数的搜索结果视为不可用，同时影响批量获取的精度。</summary>
+    [ObservableProperty]
+    private double _matchThreshold = LyricsMatchScorer.DefaultMinScore;
+
+    public string MatchThresholdText => $"{Math.Round(MatchThreshold * 100):0}%";
 
     public bool HasFile => !string.IsNullOrWhiteSpace(FilePath);
 
@@ -202,12 +216,29 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
     partial void OnIsSearchingChanged(bool value) => SearchOnlineCommand.NotifyCanExecuteChanged();
 
-    partial void OnSelectedSearchResultChanged(OnlineSongResult? value)
+    partial void OnSelectedSearchResultChanged(OnlineSearchResultItem? value)
     {
         if (value is not null)
         {
-            _ = ApplyOnlineSongAsync(value);
+            _ = ApplyOnlineSongAsync(value.Song);
         }
+    }
+
+    partial void OnMatchThresholdChanged(double value)
+    {
+        var clamped = Math.Clamp(
+            Math.Round(value, 2),
+            LyricsMatchScorer.MinThreshold,
+            LyricsMatchScorer.MaxThreshold);
+        if (Math.Abs(clamped - value) > 0.0001)
+        {
+            MatchThreshold = clamped;
+            return;
+        }
+
+        OnPropertyChanged(nameof(MatchThresholdText));
+        // RememberThreshold 会顺带刷新每个结果的“低于阈值”标注。
+        RememberThreshold();
     }
 
     partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
@@ -215,11 +246,35 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         RememberOptions();
         if (SelectedSearchResult is { } result)
         {
-            _ = ApplyOnlineSongAsync(result);
+            _ = ApplyOnlineSongAsync(result.Song);
         }
     }
 
     partial void OnSelectedSearchSourceChanged(OnlineSourceOption value) => RememberOptions();
+
+    /// <summary>匹配度阈值改动后只更新内存，真正落盘在搜索时与关闭窗口时做（避免拖动滑块频繁写盘）。</summary>
+    private void RememberThreshold()
+    {
+        if (_settings is not null)
+        {
+            _settings.MatchThreshold = Math.Round(MatchThreshold, 2);
+        }
+
+        foreach (var item in SearchResults)
+        {
+            item.UpdateThreshold(MatchThreshold);
+        }
+    }
+
+    private async Task PersistThresholdAsync()
+    {
+        if (_settings is null || _settingsStore is null)
+        {
+            return;
+        }
+
+        await PersistOptionsAsync(_settingsStore, _settings).ConfigureAwait(true);
+    }
 
     /// <summary>把在线搜索来源与歌词格式记到设置里（默认开启，无界面开关）。</summary>
     private void RememberOptions()
@@ -264,19 +319,35 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
         IsSearching = true;
         HasSearchResults = false;
-        SearchResults = Array.Empty<OnlineSongResult>();
+        SearchResults = Array.Empty<OnlineSearchResultItem>();
         SelectedSearchResult = null;
         SearchStatus = "正在搜索...";
+        await PersistThresholdAsync().ConfigureAwait(true);
         try
         {
             var results = await _onlineSearch
                 .SearchAsync(SelectedSearchSource.Value, SearchKeyword.Trim())
                 .ConfigureAwait(true);
-            SearchResults = results;
-            HasSearchResults = results.Count > 0;
-            SearchStatus = results.Count == 0
-                ? "没有找到匹配歌曲，换个关键词试试。"
-                : $"找到 {results.Count} 首歌曲，点击结果即可载入标签和歌词。";
+            var items = BuildScoredResults(results);
+            SearchResults = items;
+            HasSearchResults = items.Count > 0;
+            if (items.Count == 0)
+            {
+                SearchStatus = "没有找到匹配歌曲，换个关键词试试。";
+            }
+            else
+            {
+                // 有本地文件时按匹配度排序，并自动选中第一个达到阈值的结果。
+                var acceptable = HasFile ? items.FirstOrDefault(item => !item.BelowThreshold) : null;
+                if (acceptable is not null)
+                {
+                    SelectedSearchResult = acceptable;
+                }
+
+                SearchStatus = HasFile
+                    ? $"找到 {items.Count} 首歌曲，按匹配度从高到低排序（低于 {MatchThresholdText} 的已标注）。"
+                    : $"找到 {items.Count} 首歌曲，点击结果即可载入标签和歌词。";
+            }
         }
         catch (Exception ex)
         {
@@ -472,6 +543,10 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             Artist = info.Artist ?? string.Empty;
             Album = info.Album ?? string.Empty;
             AlbumArtist = info.AlbumArtist ?? string.Empty;
+            _localTitle = info.Title?.Trim() ?? string.Empty;
+            _localArtist = info.Artist?.Trim() ?? string.Empty;
+            _localAlbum = info.Album?.Trim() ?? string.Empty;
+            _localDurationMs = info.DurationMs;
             Year = info.Year is uint y ? y.ToString(CultureInfo.InvariantCulture) : string.Empty;
             TrackNumber = info.TrackNumber is uint t ? t.ToString(CultureInfo.InvariantCulture) : string.Empty;
             DiscNumber = info.DiscNumber is uint d ? d.ToString(CultureInfo.InvariantCulture) : string.Empty;
@@ -506,6 +581,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
         if (loaded)
         {
+            RefreshSearchScores();
             await AutoSearchOpenedFileAsync(path).ConfigureAwait(true);
         }
     }
@@ -520,6 +596,61 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
         SearchKeyword = keyword;
         await SearchOnlineAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>把在线搜索结果按匹配度打分重排；没有打开本地文件时不做打分（没有可比对的本地信息）。</summary>
+    private IReadOnlyList<OnlineSearchResultItem> BuildScoredResults(IReadOnlyList<OnlineSongResult> results)
+    {
+        if (results.Count == 0)
+        {
+            return Array.Empty<OnlineSearchResultItem>();
+        }
+
+        if (!HasFile)
+        {
+            return results.Select(song => new OnlineSearchResultItem(song, null, belowThreshold: false)).ToList();
+        }
+
+        var threshold = MatchThreshold;
+        return results
+            .Select(song =>
+            {
+                var score = ScoreCandidate(song);
+                return new OnlineSearchResultItem(song, score, score.Total < threshold);
+            })
+            .OrderByDescending(item => item.Score?.Total ?? 0)
+            .ToList();
+    }
+
+    private LyricsMatchScore ScoreCandidate(OnlineSongResult song)
+    {
+        var title = !string.IsNullOrWhiteSpace(_localTitle)
+            ? _localTitle
+            : HasFile && FilePath is { Length: > 0 } path
+                ? BuildSearchKeywordFromFileName(path)
+                : SearchKeyword;
+
+        return LyricsMatchScorer.Score(
+            title,
+            _localArtist,
+            _localAlbum,
+            _localDurationMs,
+            song.Title,
+            song.Artist,
+            song.Album,
+            song.DurationMs);
+    }
+
+    /// <summary>换了本地文件后重新给已有搜索结果打分。</summary>
+    private void RefreshSearchScores()
+    {
+        if (SearchResults.Count == 0)
+        {
+            return;
+        }
+
+        SearchResults = BuildScoredResults(SearchResults.Select(item => item.Song).ToList());
+        SelectedSearchResult = null;
     }
 
     private static string BuildSearchKeywordFromFileName(string path)
@@ -607,5 +738,13 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         return $"{size:0.#} {units[order]}";
     }
 
-    public void Dispose() => CoverImage?.Dispose();
+    public void Dispose()
+    {
+        CoverImage?.Dispose();
+        // 阈值拖动过程中只改内存，关闭窗口时补一次落盘（失败不影响关闭）。
+        if (_settings is not null && _settingsStore is not null)
+        {
+            _ = PersistThresholdAsync();
+        }
+    }
 }
