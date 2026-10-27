@@ -1,7 +1,11 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-
-
-
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
+![Windows](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows)
+![Avalonia](https://img.shields.io/badge/Avalonia-11-8A2BE2)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer/main.yml)
+![GitHub last commit](https://img.shields.io/github/last-commit/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer)
+![GitHub repo size](https://img.shields.io/github/repo-size/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer)
 
 
 # Lunatic Princess
