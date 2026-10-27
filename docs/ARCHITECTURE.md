@@ -3,7 +3,7 @@
 ## 目标
 
 1. 桌面端（Windows/Avalonia）先把完整业务跑通。
-2. 业务逻辑集中在 `NeteaseMusicManager.Core`，不依赖 Avalonia 或 Windows UI。
+2. 业务逻辑集中在 `LunaticPrincess.Core`，不依赖 Avalonia 或 Windows UI。
 3. 为 Android 复用预留边界：网络、存储、设置、选择器均通过接口注入。
 
 ## 分层
@@ -23,7 +23,7 @@ Core
   └─ Storage/Settings (ISessionStore / ISettingsStore)
 ```
 
-组合根位于 `src/NeteaseMusicManager.Desktop/Services/AppServices.cs`，负责创建 HttpClient、
+组合根位于 `src/LunaticPrincess.Desktop/Services/AppServices.cs`，负责创建 HttpClient、
 各 Core 服务实例以及登录态/设置存储；ViewModel 只接收接口。
 
 ## 关键流程

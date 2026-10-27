@@ -1,4 +1,4 @@
-# 网易云音乐管理器（NeteaseMusicManager）
+# Lunatic Princess
 
 一个面向 Windows 的网易云音乐桌面工具：扫码登录后长期保持登录态，读取账号歌单，扫描本地曲库，
 自动对比歌单与本地文件差异，按选定音质下载缺失歌曲，解密本地 NCM 文件，并把标题、歌手、专辑、
@@ -81,9 +81,9 @@
 ## 目录结构
 
 ```
-NeteaseMusicManager.sln
+LunaticPrincess.sln
 src/
-  NeteaseMusicManager.Core/        # 可复用的平台无关业务层（未来 Android 直接引用）
+  LunaticPrincess.Core/        # 可复用的平台无关业务层（未来 Android 直接引用）
     Netease/                       # 登录、weapi 加密、歌单/歌曲/歌词 API
     Ncm/                           # NCM 解密
     Lyrics/                        # LRC / 增强 LRC / YRC 解析与序列化
@@ -92,9 +92,9 @@ src/
     Download/                      # 下载、NCM 导入
     Sync/                          # 一键同步编排
     Storage/ Settings/ Models/     # 登录态、设置、领域模型
-  NeteaseMusicManager.Desktop/     # Avalonia Windows 界面
+  LunaticPrincess.Desktop/     # Avalonia Windows 界面
 tests/
-  NeteaseMusicManager.Core.Tests/  # 单元测试（不依赖网络）
+  LunaticPrincess.Core.Tests/  # 单元测试（不依赖网络）
 ```
 
 更详细的设计与后续 Android 复用说明见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
@@ -108,15 +108,15 @@ tests/
 .\build.ps1
 
 # 运行
-.\src\NeteaseMusicManager.Desktop\bin\Debug\net8.0\NeteaseMusicManager.exe
+.\src\LunaticPrincess.Desktop\bin\Debug\net8.0\LunaticPrincess.exe
 
 # 单元测试
 .\build.ps1 -Test
 
 # 发布 Windows x64（默认轻量框架依赖包）
 .\build.ps1 -Publish
-# 输出：publish\win-x64\NeteaseMusicManager.exe
-# 发布包：publish\NeteaseMusicManager-win-x64.zip
+# 输出：publish\win-x64\LunaticPrincess.exe
+# 发布包：publish\LunaticPrincess-win-x64.zip
 
 # 如需不依赖本机 .NET 的自包含版（体积更大）
 .\build.ps1 -Publish -SelfContained
@@ -128,20 +128,22 @@ tests/
 如果使用系统安装的 .NET 8 SDK，也可以：
 
 ```powershell
-dotnet restore NeteaseMusicManager.sln
-dotnet build NeteaseMusicManager.sln -c Release
-dotnet test tests/NeteaseMusicManager.Core.Tests/NeteaseMusicManager.Core.Tests.csproj
+dotnet restore LunaticPrincess.sln
+dotnet build LunaticPrincess.sln -c Release
+dotnet test tests/LunaticPrincess.Core.Tests/LunaticPrincess.Core.Tests.csproj
 ```
 
 ## 数据与隐私
 
-- 登录 Cookie：标准路径 `%LOCALAPPDATA%\NeteaseMusicManager\session.dat`（Windows DPAPI 当前用户加密）。
-- 应用设置：标准路径 `%LOCALAPPDATA%\NeteaseMusicManager\settings.json`。
-- 下载/解密文件：默认位于 `用户\音乐\NeteaseMusicManager`，可在设置中修改。
+- 登录 Cookie：标准路径 `%LOCALAPPDATA%\LunaticPrincess\session.dat`（Windows DPAPI 当前用户加密）。
+- 应用设置：标准路径 `%LOCALAPPDATA%\LunaticPrincess\settings.json`。
+- 下载/解密文件：默认位于 `用户\音乐\LunaticPrincess`，可在设置中修改。
 - **受限环境自动降级**：若进程没有权限写入 AppData/音乐目录（企业策略、沙箱、精简用户配置等），
   客户端会自动把数据目录切换到程序目录下的 `data`（便携模式），并在运行日志中提示；
   下载/曲库默认目录同时切换到 `data\Music`。也可用环境变量
-  `NETEASE_MUSIC_MANAGER_DATA_DIR` 指定数据目录。
+  `LUNATIC_PRINCESS_DATA_DIR` 指定数据目录（旧名 `NETEASE_MUSIC_MANAGER_DATA_DIR` 仍兼容）。
+- 从旧名称 `NeteaseMusicManager` 升级时，`%LOCALAPPDATA%\NeteaseMusicManager` 会**自动迁移**到
+  `%LOCALAPPDATA%\LunaticPrincess`；便携模式的 `data` 目录名不变，登录态与设置直接延续。
 - 便携模式一旦启用（程序目录存在 `data`）会保持稳定，之后无论怎样启动都使用该目录；
   发布 zip **不包含** `data`，升级时保留/备份该目录即可保留登录态与设置。
 - 程序不收集、不上传任何账号信息；所有网络请求直接发往网易云音乐官方域名。

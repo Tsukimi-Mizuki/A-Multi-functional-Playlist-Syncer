@@ -1,0 +1,102 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LunaticPrincess.Desktop.Views.BatchLyricsWindow"
+        Title="批量获取标签、封面与歌词"
+        Width="1180" Height="820"
+        MinWidth="980" MinHeight="680"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="18">
+    <!-- 顶栏 -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+      <StackPanel Spacing="2" VerticalAlignment="Center">
+        <TextBlock Text="批量获取标签、封面与歌词" FontSize="20" FontWeight="Bold" />
+        <TextBlock Text="扫描本地音频，按标签/文件名从网易云或 QQ 音乐匹配歌曲，批量写入标签、封面和歌词；来源顺序由设置中的优先级决定。"
+                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+      </StackPanel>
+      <Button Grid.Column="1" Content="关闭" Click="OnCloseClick" Padding="20,7"
+              AutomationProperties.Name="关闭批量标签窗口" />
+    </Grid>
+
+    <!-- 设置 -->
+    <Border Grid.Row="1" Classes="salt-card" Padding="14,12" Margin="0,12,0,0">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <TextBlock Text="音乐目录" VerticalAlignment="Center" FontSize="12"
+                     Foreground="{StaticResource TextSecondaryBrush}" />
+          <TextBox Grid.Column="1" Text="{Binding FolderPath}" IsReadOnly="True"
+                   Watermark="选择包含音频文件的目录" />
+          <Button Grid.Column="2" Content="浏览..." Command="{Binding PickFolderCommand}"
+                  IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                  Padding="16,6" />
+        </Grid>
+        <WrapPanel Grid.Row="1" Orientation="Horizontal">
+          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,6">
+            <TextBlock Text="来源优先级" VerticalAlignment="Center" FontSize="11"
+                       Foreground="{StaticResource TextTertiaryBrush}" />
+            <TextBlock Text="{Binding TagPriorityText, StringFormat=标签 {0}}" FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+            <TextBlock Text="·" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                       VerticalAlignment="Center" />
+            <TextBlock Text="{Binding LyricsPriorityText, StringFormat=歌词 {0}}" FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+          </StackPanel>
+          <CheckBox Content="覆盖已有标签与歌词" IsChecked="{Binding OverwriteExisting, Mode=TwoWay}"
+                    VerticalAlignment="Center" Margin="0,0,14,6" />
+          <CheckBox Content="同时获取歌词" IsChecked="{Binding FetchLyrics, Mode=TwoWay}"
+                    VerticalAlignment="Center" Margin="0,0,8,6" />
+          <ComboBox ItemsSource="{Binding LyricModeOptions}"
+                    SelectedItem="{Binding SelectedLyricMode, Mode=TwoWay}"
+                    IsEnabled="{Binding FetchLyrics}"
+                    MinWidth="160" Height="32" Margin="0,0,14,6">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" FontSize="12" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <CheckBox Content="包含子文件夹" IsChecked="{Binding Recursive, Mode=TwoWay}"
+                    VerticalAlignment="Center" Margin="0,0,14,6" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+
+    <!-- 结果列表 -->
+    <Border Grid.Row="2" Classes="salt-card" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
+      <DataGrid ItemsSource="{Binding Items}" IsReadOnly="True" AutoGenerateColumns="False"
+                CanUserSortColumns="False" CanUserResizeColumns="True">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="文件" Binding="{Binding FileName}" Width="2*" />
+          <DataGridTextColumn Header="匹配歌曲" Binding="{Binding MatchedText}" Width="2*" />
+          <DataGridTextColumn Header="来源" Binding="{Binding SourceText}" Width="110" />
+          <DataGridTemplateColumn Header="状态" Width="3*">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding StatusText}" FontSize="11.5"
+                           Foreground="{Binding StatusColor}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+
+    <!-- 进度与操作 -->
+    <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="8" Margin="0,12,0,0">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+        <TextBlock Text="{Binding ProgressText}" FontSize="11"
+                   Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="primary" Content="开始批量获取"
+                Command="{Binding StartCommand}"
+                IsEnabled="{Binding CanStart}"
+                Padding="20,7" AutomationProperties.Name="开始批量获取标签、封面与歌词" />
+        <Button Grid.Column="2" Content="取消" Command="{Binding CancelCommand}"
+                IsEnabled="{Binding IsRunning}" Padding="20,7" />
+      </Grid>
+      <ProgressBar Grid.Row="1" Height="6" Minimum="0" Maximum="100"
+                   Value="{Binding ProgressPercent}" />
+      <TextBlock Grid.Row="1" Text="{Binding StatusText}" FontSize="11" Margin="0,10,0,0"
+                 Foreground="{StaticResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+    </Grid>
+  </Grid>
+</Window>

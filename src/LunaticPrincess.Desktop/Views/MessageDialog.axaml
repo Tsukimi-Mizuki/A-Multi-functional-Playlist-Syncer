@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LunaticPrincess.Desktop.Views.MessageDialog"
+        Title="提示"
+        Width="460"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="26,22" Spacing="12">
+    <TextBlock x:Name="TitleText" Text="提示" FontSize="16" FontWeight="Bold"
+               TextWrapping="Wrap" />
+    <TextBlock x:Name="MessageText" Text="" FontSize="12.5" TextWrapping="Wrap"
+               Foreground="{StaticResource TextSecondaryBrush}" MaxWidth="440" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
+      <Button x:Name="CancelButton" Content="取消" Click="OnCancelClick" IsVisible="False"
+              Padding="20,6" />
+      <Button x:Name="OkButton" Classes="primary" Content="确定" Click="OnOkClick"
+              Padding="20,6" />
+    </StackPanel>
+  </StackPanel>
+</Window>
