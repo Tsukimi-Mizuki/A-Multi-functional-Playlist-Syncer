@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="LunaticPrincess.Desktop.Views.NcmImportWindow"
         Title="导入并解密 NCM"
+        Background="{StaticResource DialogGlassBrush}"
         Width="820" Height="700"
         MinWidth="720" MinHeight="560"
         ShowInTaskbar="False"

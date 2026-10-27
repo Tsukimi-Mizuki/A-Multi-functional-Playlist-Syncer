@@ -6,9 +6,10 @@ using Avalonia.Media;
 namespace LunaticPrincess.Desktop.Services;
 
 /// <summary>
-/// 唯一的窗口材质：磨砂玻璃。
-/// 主窗口使用 Windows 11 AcrylicBlur，让窗口后面的真实内容（动态视频、网页、桌面等）
-/// 实时模糊透出；对话框保持可读的实色深色背景，但使用相同的深色标题栏。
+/// 唯一的窗口材质：液态磨砂玻璃。
+/// 主窗口与所有二级窗口都使用 Windows 11 AcrylicBlur，让窗口后面的真实内容
+/// （动态视频、网页、桌面等）实时模糊透出；二级窗口再用半透明的
+/// <c>DialogGlassBrush</c> 作为窗口底色，保证文字可读，并使用统一的深色标题栏。
 /// </summary>
 internal static class VisualThemeManager
 {
@@ -44,8 +45,15 @@ internal static class VisualThemeManager
     {
         try
         {
-            window.TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
-            window.Background = new SolidColorBrush(Color.Parse(FallbackBackground));
+            // 与主窗口一致的 AcrylicBlur：不支持时依次降级到 Blur、None。
+            // 底色由各窗口 XAML 的 DialogGlassBrush（半透明）提供，这里不覆盖 Background，
+            // 否则会盖掉模糊层。
+            window.TransparencyLevelHint = new[]
+            {
+                WindowTransparencyLevel.AcrylicBlur,
+                WindowTransparencyLevel.Blur,
+                WindowTransparencyLevel.None,
+            };
             ApplyDarkTitleBar(window, FallbackBackground, "#F4F7FB");
         }
         catch (Exception ex)

@@ -154,12 +154,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool HasValidationMessage => !string.IsNullOrWhiteSpace(ValidationMessage);
 
+    /// <summary>文件名模板为「自定义」时才显示输入框；选择预设时模板值自动带入，无需手填。</summary>
+    public bool IsCustomFileNameTemplate => SelectedFileNameTemplate is null || SelectedFileNameTemplate.Value.Length == 0;
+
     partial void OnValidationMessageChanged(string? value) => OnPropertyChanged(nameof(HasValidationMessage));
 
     partial void OnSelectedConcurrencyChanged(ConcurrencyOption value) => MaxConcurrency = value.Value;
 
     partial void OnSelectedFileNameTemplateChanged(FileNameTemplateOption value)
     {
+        OnPropertyChanged(nameof(IsCustomFileNameTemplate));
+
         if (_syncingFileNameTemplate || value is null || value.Value.Length == 0)
         {
             return;
