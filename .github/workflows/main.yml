@@ -20,7 +20,7 @@ jobs:
     - name: 安装 .NET 环境
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # 如果你的项目是 .NET 6 或 7，请修改这里
+        dotnet-version: '8.0.x' # 确保版本正确
 
     - name: 获取版本号
       id: get_version
@@ -34,12 +34,10 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "当前构建的版本号是: $VERSION"
 
-    - name: 还原依赖
-      # 还原整个解决方案的依赖，保证所有项目都能正常编译
-      run: dotnet restore NeateaseMusicManager.sln
+    # 注意：删除了之前的 "还原依赖" 步骤
 
-    - name: 编译并发布 (指定桌面项目)
-      # 【关键修改】直接指定启动项目的 .csproj 路径，而不是 .sln
+    - name: 编译并发布 (直接指定桌面项目)
+      # 直接对具体负责启动的 Desktop 项目进行发布，内部会自动还原所需依赖
       run: dotnet publish src/NeateaseMusicManager.Desktop/NeateaseMusicManager.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
 
     - name: 压缩打包
