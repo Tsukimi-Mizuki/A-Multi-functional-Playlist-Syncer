@@ -20,7 +20,7 @@ jobs:
     - name: 安装 .NET 环境
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # 如果你的项目是 .NET 6 或 7，请修改这里
+        dotnet-version: '8.0.x' # 如果你的项目是 .NET 6 或 7，请修改这里（如 '6.0.x'）
 
     - name: 获取版本号
       id: get_version
@@ -30,17 +30,22 @@ jobs:
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
           VERSION=${GITHUB_REF#refs/tags/v}
         else
-          # 如果是手动触发的，给一个默认版本号，防止报错
+          # 如果是手动触发的，给一个默认版本号
           VERSION="0.0.1-manual"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "当前构建的版本号是: $VERSION"
 
+    - name: 侦查当前目录文件 (调试用)
+      run: dir
+
     - name: 还原依赖
-      run: dotnet restore NeateaseMusicManager.sln
+      # 不加文件名，让 dotnet 自动寻找当前目录下的 .sln 或 .csproj
+      run: dotnet restore
 
     - name: 编译并发布 (单文件打包)
-      run: dotnet publish NeateaseMusicManager.sln -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
+      # 同样不加文件名，自动寻找项目
+      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
 
     - name: 压缩打包
       run: Compress-Archive -Path ./publish/* -DestinationPath ./DSH-Win64-v${{ env.VERSION }}.zip
