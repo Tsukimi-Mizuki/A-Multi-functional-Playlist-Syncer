@@ -21,11 +21,12 @@
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**211 / 211 通过，0 skipped**。
+- `dotnet test`：**216 / 216 通过，0 skipped**。
   - Netease API：61
   - NCM / Lyrics / Tags：77
   - Library / Download / Sync：63
-  - Storage / Settings / Filename：10
+  - Storage / Settings / Filename：12
+  - Online 搜索：3
 - Debug 与 Release 全解决方案构建均 0 warning / 0 error。
 
 ### 真实网络冒烟（匿名，官方域名）
@@ -72,6 +73,16 @@
   “A/B”“A feat. B”“A · B”“CV:” 都按分隔符切段后取最佳组合，避免并列写法拖低相似度；
   本地文件注释里的客户端 `163 key(Don't modify)` 元数据可解出 `musicId`，网易云客户端
   下载/解密出来的文件也能按 ID 精确匹配（`NeteaseClientComment`，已单测覆盖）。
+- QQ 音乐搜索修复（对照 LDDC 排查）：旧的 `client_search_cp` 已被 QQ 下线（`c.y.qq.com`、`c6.y.qq.com`
+  都返回 HTTP 500），搜索必然抛网络异常，界面只显示“网络连接失败”。改用 `/soso/fcgi-bin/search_cp`
+  + `new_json=1` 解析 `songname/songmid/albumname/albummid/songid/pubtime/interval/singer`，年份由
+  `pubtime` 折算；`c.y.qq.com` 失败自动切 `c6.y.qq.com`，都失败才提示“QQ 音乐搜索接口不可用”。
+  实网验证：编辑器里选 QQ 音乐搜索 “Lemon” 返回 Lemon / Lemon (Live) / Lemon (国语)，详情可取
+  逐行 1235 字符、逐字（QRC）7923 字符、双语 2306 字符与 13.5KB 封面。
+- 歌词编辑窗口的记忆：在线搜索来源（网易云 / QQ 音乐）与歌词格式（逐行 / 逐字优先）跟随上次选择，
+  默认开启、无开关；保存在 `settings.json` 的 `lyricsEditorSearchSource` / `lyricsEditorPreferWordLyrics`，
+  设置窗口保存其他设置时会原样带回这两个字段。已验证：预置 QQ + 逐字重启后窗口即显示 QQ 音乐 /
+  逐字歌词（有则优先），改回网易云后 `settings.json` 立刻写成 `Netease`。
 - 编辑器新增网易云音乐 / QQ 音乐联网搜索：点击搜索结果可同时载入标签、封面与歌词；
   歌词格式可选逐行或逐字（网易云 YRC、QQ QRC 逐字均可用），默认生成双语歌词（原文 + 翻译）。
   已验证两个来源的实际搜索结果、封面下载、两种歌词格式切换，以及日文歌曲原文 + 中文翻译的

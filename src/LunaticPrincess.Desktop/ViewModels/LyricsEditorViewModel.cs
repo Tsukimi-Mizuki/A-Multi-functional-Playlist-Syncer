@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
+using LunaticPrincess.Core.Settings;
 using LunaticPrincess.Core.Tags;
 using LunaticPrincess.Desktop.Services;
 
@@ -20,6 +21,8 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private readonly IBatchLyricsService _batchLyrics;
     private readonly OnlineSourcePriority _tagPriority;
     private readonly OnlineSourcePriority _lyricsPriority;
+    private readonly AppSettings? _settings;
+    private readonly ISettingsStore? _settingsStore;
     private byte[]? _coverData;
     private long? _neteaseId;
 
@@ -29,7 +32,9 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         IOnlineMusicSearchService onlineSearch,
         IBatchLyricsService batchLyrics,
         OnlineSourcePriority tagPriority,
-        OnlineSourcePriority lyricsPriority)
+        OnlineSourcePriority lyricsPriority,
+        AppSettings? settings = null,
+        ISettingsStore? settingsStore = null)
     {
         _tags = tags;
         _ui = ui;
@@ -37,18 +42,24 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         _batchLyrics = batchLyrics;
         _tagPriority = tagPriority;
         _lyricsPriority = lyricsPriority;
+        _settings = settings;
+        _settingsStore = settingsStore;
         SearchSources =
         [
             new(OnlineMusicSource.Netease, "网易云音乐"),
             new(OnlineMusicSource.QQMusic, "QQ 音乐"),
         ];
-        _selectedSearchSource = SearchSources[0];
+        // 在线搜索来源与歌词格式跟随上次使用（记忆在 settings.json，无开关）。
+        var rememberedSource = settings?.LyricsEditorSearchSource ?? OnlineMusicSource.Netease;
+        _selectedSearchSource = SearchSources.FirstOrDefault(option => option.Value == rememberedSource) ?? SearchSources[0];
         SearchLyricModeOptions =
         [
             new(false, "逐行歌词"),
             new(true, "逐字歌词（有则优先）"),
         ];
-        _selectedSearchLyricMode = SearchLyricModeOptions[0];
+        var rememberedWordLyrics = settings?.LyricsEditorPreferWordLyrics ?? false;
+        _selectedSearchLyricMode = SearchLyricModeOptions.FirstOrDefault(option => option.PreferWord == rememberedWordLyrics)
+            ?? SearchLyricModeOptions[0];
     }
 
     public async Task InitializeAsync(string? initialPath)
@@ -201,9 +212,44 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
     partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
     {
+        RememberOptions();
         if (SelectedSearchResult is { } result)
         {
             _ = ApplyOnlineSongAsync(result);
+        }
+    }
+
+    partial void OnSelectedSearchSourceChanged(OnlineSourceOption value) => RememberOptions();
+
+    /// <summary>把在线搜索来源与歌词格式记到设置里（默认开启，无界面开关）。</summary>
+    private void RememberOptions()
+    {
+        if (_settings is null || _settingsStore is null)
+        {
+            return;
+        }
+
+        var source = SelectedSearchSource.Value;
+        var preferWord = SelectedSearchLyricMode.PreferWord;
+        if (_settings.LyricsEditorSearchSource == source && _settings.LyricsEditorPreferWordLyrics == preferWord)
+        {
+            return;
+        }
+
+        _settings.LyricsEditorSearchSource = source;
+        _settings.LyricsEditorPreferWordLyrics = preferWord;
+        _ = PersistOptionsAsync(_settingsStore, _settings);
+    }
+
+    private static async Task PersistOptionsAsync(ISettingsStore settingsStore, AppSettings settings)
+    {
+        try
+        {
+            await settingsStore.SaveAsync(settings, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // 记忆失败不影响编辑；下次改选项会再试。
         }
     }
 

@@ -1,4 +1,5 @@
 using LunaticPrincess.Core.Models;
+using LunaticPrincess.Core.Online;
 using LunaticPrincess.Core.Settings;
 using Xunit;
 
@@ -39,6 +40,38 @@ public sealed class JsonSettingsStoreTests : IDisposable
 
         Assert.Equal(new[] { @"D:\ncm-a", @"D:\ncm-b" }, loaded.NcmImportFolders);
         Assert.Equal(@"D:\ncm-out", loaded.NcmImportOutputDirectory);
+    }
+
+    [Fact]
+    public async Task SaveLoad_PreservesLyricsEditorOptionMemory()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        var settings = new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            LyricsEditorSearchSource = OnlineMusicSource.QQMusic,
+            LyricsEditorPreferWordLyrics = true,
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(OnlineMusicSource.QQMusic, loaded.LyricsEditorSearchSource);
+        Assert.True(loaded.LyricsEditorPreferWordLyrics);
+    }
+
+    [Fact]
+    public async Task Load_UnknownLyricsEditorSource_FallsBackToNetease()
+    {
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            SettingsPath,
+            "{\"downloadDirectory\":\"D:\\\\music\",\"lyricsEditorSearchSource\":42}");
+
+        var store = new JsonSettingsStore(SettingsPath);
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(OnlineMusicSource.Netease, loaded.LyricsEditorSearchSource);
     }
 
     [Fact]

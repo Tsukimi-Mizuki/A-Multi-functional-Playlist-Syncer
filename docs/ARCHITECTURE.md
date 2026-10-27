@@ -97,8 +97,11 @@ Core
 
 - `OnlineMusicSearchService` 同时支持网易云音乐和 QQ 音乐：
   - 网易云使用公开搜索接口 `/api/search/get/web`，详情、封面与歌词复用 `INeteaseApiClient`；
-  - QQ 音乐使用公开搜索接口 `client_search_cp` 读取标题、歌手、专辑、年份、音轨/碟号、时长和
-    专辑 mid（用于封面），歌词使用 `fcg_query_lyric_new` 接口；
+  - QQ 音乐使用公开搜索接口 `/soso/fcgi-bin/search_cp`（`new_json=1`，老接口 `client_search_cp`
+    已被 QQ 下线、两个镜像域名都直接返回 HTTP 500，界面原本只会显示“网络连接失败”）读取标题、
+    歌手、专辑、年份（`pubtime` 折算）、音轨/碟号、时长和专辑 mid（用于封面），歌词使用
+    `fcg_query_lyric_new` 接口；`c.y.qq.com` 失败时自动换 `c6.y.qq.com` 重试，两个都失败才报
+    “QQ 音乐搜索接口不可用”，不再误报成网络问题；
   - 两个来源都用独立超时与错误提示；封面通过 CDN 下载，限制大小，失败时保留本地封面；
   - 搜索结果只读取公开元数据、封面和歌词，不下载音频。
 - 歌词格式支持“逐行”和“逐字优先”，并默认生成双语歌词：

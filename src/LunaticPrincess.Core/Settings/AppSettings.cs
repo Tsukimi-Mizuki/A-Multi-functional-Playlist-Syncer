@@ -1,4 +1,5 @@
 using LunaticPrincess.Core.Models;
+using LunaticPrincess.Core.Online;
 
 namespace LunaticPrincess.Core.Settings;
 
@@ -20,6 +21,10 @@ public sealed class AppSettings
     public List<string> NcmImportFolders { get; set; } = [];
     /// <summary>NCM 导入窗口记住的输出目录；为空时回退到下载目录。</summary>
     public string NcmImportOutputDirectory { get; set; } = string.Empty;
+    /// <summary>歌词编辑窗口记住的在线搜索来源。</summary>
+    public OnlineMusicSource LyricsEditorSearchSource { get; set; } = OnlineMusicSource.Netease;
+    /// <summary>歌词编辑窗口记住的在线歌词格式：true 表示优先逐字歌词。</summary>
+    public bool LyricsEditorPreferWordLyrics { get; set; }
     public RenderFrameRateMode RenderFrameRate { get; set; } = RenderFrameRateMode.VSync;
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -47,6 +52,11 @@ public sealed class AppSettings
         if (!Enum.IsDefined(typeof(OnlineSourcePriority), LyricsSourcePriority))
         {
             LyricsSourcePriority = OnlineSourcePriority.NeteaseFirst;
+        }
+
+        if (!Enum.IsDefined(typeof(OnlineMusicSource), LyricsEditorSearchSource))
+        {
+            LyricsEditorSearchSource = OnlineMusicSource.Netease;
         }
 
         NcmImportOutputDirectory = (NcmImportOutputDirectory ?? string.Empty).Trim();

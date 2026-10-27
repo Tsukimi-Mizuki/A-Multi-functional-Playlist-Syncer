@@ -14,7 +14,10 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
     private const string QqUserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-    private const string QqLegacySearchPath = "/soso/fcgi-bin/client_search_cp";
+    // QQ 已下线 /soso/fcgi-bin/client_search_cp：c.y.qq.com 与 c6.y.qq.com 上该路径恒返回 HTTP 500，
+    // 两个镜像全部失败后旧实现只会抛出 HttpRequestException（界面显示“网络连接失败”）。
+    // 同目录的 search_cp 仍可用，new_json=1 时返回完整歌曲信息，因此改用它。
+    private const string QqLegacySearchPath = "/soso/fcgi-bin/search_cp";
     private const string QqLegacyLyricPath = "/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
 
     // c.y.qq.com 会整站返回 HTTP 500，依次回退到可用镜像域名。
@@ -151,9 +154,18 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         CancellationToken cancellationToken)
     {
         var safeLimit = Math.Clamp(limit, 1, 30).ToString(CultureInfo.InvariantCulture);
-        var body = await SendQqLegacyAsync(
-            $"{QqLegacySearchPath}?p=1&n={safeLimit}&w={Uri.EscapeDataString(keyword)}&format=json&cr=1&new_json=1",
-            cancellationToken).ConfigureAwait(false);
+        string body;
+        try
+        {
+            body = await SendQqLegacyAsync(
+                $"{QqLegacySearchPath}?w={Uri.EscapeDataString(keyword)}&format=json&p=1&n={safeLimit}&cr=1&new_json=1&g_tk=5381",
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            // 两个镜像域名都失败时给出可定位的原因，而不是笼统的“网络连接失败”。
+            throw new InvalidOperationException($"QQ 音乐搜索接口不可用（{ex.Message}），请稍后重试或改用网易云音乐", ex);
+        }
 
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
@@ -173,25 +185,29 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
         var results = new List<OnlineSongResult>();
         foreach (var item in list.EnumerateArray())
         {
-            var title = GetString(item, "title") ?? GetString(item, "name");
-            var mid = GetString(item, "mid");
+            // search_cp（new_json=1）返回 songname/songmid/albumname/albummid/songid/pubtime，
+            // 旧 client_search_cp 返回 title/mid/album{...}/id，两种字段名都兼容。
+            var title = FirstNonBlank(GetString(item, "songname"), GetString(item, "title"), GetString(item, "name"));
+            var mid = FirstNonBlank(GetString(item, "songmid"), GetString(item, "mid"));
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(mid))
             {
                 continue;
             }
 
             var artist = ReadQqSingers(item);
-            var albumName = string.Empty;
-            var albumMid = string.Empty;
+            var albumName = GetString(item, "albumname") ?? string.Empty;
+            var albumMid = GetString(item, "albummid") ?? string.Empty;
             var release = string.Empty;
             if (item.TryGetProperty("album", out var album) && album.ValueKind == JsonValueKind.Object)
             {
-                albumName = GetString(album, "name") ?? string.Empty;
-                albumMid = GetString(album, "mid") ?? string.Empty;
+                albumName = FirstNonBlank(albumName, GetString(album, "name")) ?? string.Empty;
+                albumMid = FirstNonBlank(albumMid, GetString(album, "mid")) ?? string.Empty;
                 release = GetString(album, "time_public") ?? string.Empty;
             }
 
-            var year = ParseYear(release) ?? ParseYear(GetString(item, "time_public"));
+            var year = ParseYear(release)
+                       ?? ParseYear(GetString(item, "time_public"))
+                       ?? ParseYearFromUnix(GetLong(item, "pubtime"));
             var track = GetUInt(item, "index_album");
             var disc = GetUInt(item, "index_cd");
             var duration = GetLong(item, "interval");
@@ -199,7 +215,7 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                 ? null
                 : $"https://y.gtimg.cn/music/photo_new/T002R300x300M000{albumMid}.jpg";
 
-            var numericId = GetLong(item, "id");
+            var numericId = GetLong(item, "songid") is var playedId and > 0 ? playedId : GetLong(item, "id");
             results.Add(new OnlineSongResult(
                 OnlineMusicSource.QQMusic,
                 mid,
@@ -562,6 +578,17 @@ public sealed class OnlineMusicSearchService : IOnlineMusicSearchService
                year is > 0 and < 3000
             ? year
             : null;
+    }
+
+    private static uint? ParseYearFromUnix(long seconds)
+    {
+        if (seconds <= 0)
+        {
+            return null;
+        }
+
+        var year = DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime.Year;
+        return year is > 0 and < 3000 ? (uint)year : null;
     }
 
     private static string? FirstNonBlank(params string?[] values) =>

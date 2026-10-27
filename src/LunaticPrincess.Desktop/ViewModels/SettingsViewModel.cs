@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using LunaticPrincess.Core.Models;
+using LunaticPrincess.Core.Online;
 using LunaticPrincess.Core.Settings;
 using LunaticPrincess.Desktop.Services;
 
@@ -12,6 +13,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     // NCM 导入记忆不属于设置界面字段，保存其他设置时必须原样带到新对象，避免丢失。
     private readonly List<string> _ncmImportFolders;
     private readonly string _ncmImportOutputDirectory;
+    private readonly OnlineMusicSource _lyricsEditorSearchSource;
+    private readonly bool _lyricsEditorPreferWordLyrics;
     private bool _syncingExclusiveFlags;
     private bool _syncingFileNameTemplate;
 
@@ -20,6 +23,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settingsStore = settingsStore;
         _ncmImportFolders = current.NcmImportFolders;
         _ncmImportOutputDirectory = current.NcmImportOutputDirectory;
+        _lyricsEditorSearchSource = current.LyricsEditorSearchSource;
+        _lyricsEditorPreferWordLyrics = current.LyricsEditorPreferWordLyrics;
         _syncingFileNameTemplate = true;
 
         DownloadDirectory = current.DownloadDirectory;
@@ -281,6 +286,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LyricsSourcePriority = SelectedLyricsSourcePriority.Value,
                 NcmImportFolders = new List<string>(_ncmImportFolders),
                 NcmImportOutputDirectory = _ncmImportOutputDirectory,
+                LyricsEditorSearchSource = _lyricsEditorSearchSource,
+                LyricsEditorPreferWordLyrics = _lyricsEditorPreferWordLyrics,
             };
 
             await _settingsStore.SaveAsync(settings, cancellationToken).ConfigureAwait(true);
