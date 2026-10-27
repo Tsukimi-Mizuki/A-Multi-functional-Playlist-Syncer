@@ -11,7 +11,9 @@ namespace LunaticPrincess.Desktop.Services;
 /// 主窗口与所有二级窗口都使用 Windows 11 AcrylicBlur，让窗口后面的真实内容
 /// （动态视频、网页、桌面等）实时模糊透出；二级窗口再用半透明的
 /// <c>DialogGlassBrush</c> 作为窗口底色，保证文字可读。
-/// 标题栏颜色跟随当前主题（深色/浅色），主题切换时通过 <see cref="Refresh"/> 更新已打开窗口。
+/// 标题栏用主题里单独校准过的 <c>CaptionBrush</c>（纯色，与客户区顶部玻璃带同亮度），
+/// 深色/浅色同时切换沉浸式深色标志、标题底色与标题文字色；
+/// 主题切换时通过 <see cref="Refresh"/> 更新已打开窗口。
 /// </summary>
 internal static class VisualThemeManager
 {
@@ -85,7 +87,11 @@ internal static class VisualThemeManager
         var darkMode = dark ? 1 : 0;
         DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref darkMode, sizeof(int));
 
-        var caption = ToColorRef(ResolveColor("AppBackgroundBrush", dark ? "#0A0F17" : "#F3F6FB"));
+        // 标题栏只能是纯色（DWM 不支持半透明标题栏），所以取主题里单独校准过的
+        // CaptionBrush：它与客户区顶部的玻璃带同亮度，视觉上连成一体。
+        // 不用 COLOR_NONE 让系统材质画标题栏：Acrylic 会按系统主题着色，深色下比客户区更亮、
+        // 浅色下明显发灰（实测 84 / 152，客户区为 38 / 241），反而更割裂。
+        var caption = ToColorRef(ResolveColor("CaptionBrush", dark ? "#191C23" : "#EFF3F8"));
         DwmSetWindowAttribute(handle, DwmCaptionColor, ref caption, sizeof(int));
 
         var text = ToColorRef(ResolveColor("TextPrimaryBrush", dark ? "#F4F7FB" : "#151A22"));

@@ -93,8 +93,13 @@ Core
   浅色主题的 `WindowVeilBrush` 是**亮色**（#CCF3F6FB）而不是深色：Acrylic 会把桌面（常见深色壁纸）
   模糊进来，若再叠深色遮罩，近白卡片与灰蓝背景之间会出现明显“割裂感”，改用高不透明度亮色遮罩后
   主窗口间隔区约 203、面板约 217、内容卡片约 250，层次连续；
-  标题栏由 DWM 跟随主题切换明暗（`VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、
-  `DwmCaptionColor`、`DwmTextColor`）。
+  标题栏由 `VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、`DwmCaptionColor`、`DwmTextColor`。
+  标题栏只能用纯色（DWM 不支持半透明标题栏），所以主题里单独校准了一个 `CaptionBrush`：
+  深色 #191C23、浅色 #EFF3F8，使其亮度等于客户区顶部玻璃带（实测深色 27.9 vs 相邻 27.8/25.1，
+  浅色 242.4 vs 243.3/242.8），标题栏与窗口连成一体。
+  曾试过把 `DwmCaptionColor` 设成 `DWMWA_COLOR_NONE` 让系统 Acrylic 材质来画标题栏，
+  但系统材质按**系统**主题着色，与 App 主题无关：深色下标题栏 84（客户区 27–38，偏亮），
+  浅色下 152（客户区 241，明显发灰），反而更割裂，因此保留校准过的纯色方案。
 - 所有二级窗口（设置、歌词与标签编辑器、批量获取、NCM 导入、扫码登录、提示框）走同一套材质：
   `VisualThemeManager.ApplyDialog` 设置 `WindowTransparencyLevel.AcrylicBlur`（回退 Blur/None），
   窗口 `Background` 由 XAML 的 `DialogGlassBrush`（深色 #A8080D15 / 浅色 #DCF2F5FA，半透明）提供；代码侧不再覆盖

@@ -21,6 +21,8 @@
 
           <!-- 半透明颜色让窗口背后的真实内容持续透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0F17" />
+      <!-- 标题栏：DWM 标题栏只能填纯色，取与客户区顶部玻璃带一致的实色，避免出现一条异色横条 -->
+      <SolidColorBrush x:Key="CaptionBrush" Color="#191C23" />
           <!-- 二级窗口（设置/编辑器/导入等）同样使用 AcrylicBlur，这里给出半透明底，让真实模糊透出。 -->
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#A8080D15" />
           <SolidColorBrush x:Key="HeaderBrush" Color="#B3151B24" />
@@ -73,6 +75,7 @@
 
           <!-- 浅色玻璃：白底半透明，让 AcrylicBlur 的明亮模糊透出 -->
           <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F6FB" />
+      <SolidColorBrush x:Key="CaptionBrush" Color="#EFF3F8" />
           <SolidColorBrush x:Key="DialogGlassBrush" Color="#DCF2F5FA" />
           <SolidColorBrush x:Key="HeaderBrush" Color="#C6FFFFFF" />
           <SolidColorBrush x:Key="PanelBrush" Color="#C2FFFFFF" />
