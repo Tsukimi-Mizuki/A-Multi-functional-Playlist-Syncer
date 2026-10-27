@@ -3,16 +3,15 @@ name: Build and Release .NET App
 on:
   push:
     tags:
-      - 'v*' # 当推送类似 v1.0.0 的标签时触发
-  workflow_dispatch:  #  允许手动触发    
+      - 'v*'
+  workflow_dispatch: # 允许网页手动触发
 
-# 必须赋予写入权限，否则无法创建 Release
 permissions:
   contents: write
 
 jobs:
   build-and-release:
-    runs-on: windows-latest # 因为是桌面应用，Windows 环境打包通常最稳
+    runs-on: windows-latest
 
     steps:
     - name: 检出代码
@@ -21,19 +20,27 @@ jobs:
     - name: 安装 .NET 环境
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # 根据你的项目修改，比如 7.0.x 或 6.0.x
+        dotnet-version: '8.0.x' # 如果你的项目是 .NET 6 或 7，请修改这里
 
-    - name: 获取 Tag 作为版本号
+    - name: 获取版本号
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
       shell: bash
+      run: |
+        # 如果是打 Tag 触发的，提取 Tag 名（去掉 v）
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          # 如果是手动触发的，给一个默认版本号，防止报错
+          VERSION="0.0.1-manual"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "当前构建的版本号是: $VERSION"
 
     - name: 还原依赖
-      run: dotnet restore
+      run: dotnet restore NeateaseMusicManager.sln
 
     - name: 编译并发布 (单文件打包)
-      # 这里以 Windows 64位 为例，如果你需要跨平台，可以写成一个 matrix 矩阵
-      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
+      run: dotnet publish NeateaseMusicManager.sln -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
 
     - name: 压缩打包
       run: Compress-Archive -Path ./publish/* -DestinationPath ./DSH-Win64-v${{ env.VERSION }}.zip
@@ -45,4 +52,4 @@ jobs:
         name: Release v${{ env.VERSION }}
         draft: false
         prerelease: false
-        generate_release_notes: true # 自动生成更新日志
+        generate_release_notes: true
