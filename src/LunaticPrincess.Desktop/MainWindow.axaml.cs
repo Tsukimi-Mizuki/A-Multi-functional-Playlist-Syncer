@@ -1,8 +1,10 @@
 using System.Collections.Specialized;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LunaticPrincess.Desktop.Services;
@@ -12,14 +14,25 @@ namespace LunaticPrincess.Desktop;
 
 public partial class MainWindow : Window
 {
+    // 自绘标题栏里最大化按钮的两种图标：普通窗口显示“最大化”，最大化后显示“还原”。
+    private static readonly Geometry MaximizeIconGeometry = Geometry.Parse("M0.5,0.5 H9.5 V9.5 H0.5 Z");
+    private static readonly Geometry RestoreIconGeometry = Geometry.Parse("M0.5,2.5 H7.5 V9.5 H0.5 Z M2.5,0.5 H9.5 V7.5");
+
+    /// <summary>标题栏按下后移动超过这个距离（DIP）才算拖动。</summary>
+    private const double TitleBarDragThreshold = 4;
+
     private readonly DispatcherTimer _longPressTimer;
     private MainWindowViewModel? _viewModel;
+    private PointerPressedEventArgs? _titleBarPressArgs;
+    private Point _titleBarPressPoint;
 
     public MainWindow()
     {
         InitializeComponent();
         UiAssets.ApplyWindowIcon(this);
         VisualThemeManager.ApplyMainWindow(this);
+        PropertyChanged += OnWindowPropertyChanged;
+        UpdateCaptionButtons();
 
         _longPressTimer = new DispatcherTimer
         {
@@ -53,6 +66,106 @@ public partial class MainWindow : Window
         viewModel.LogEntries.CollectionChanged += OnLogEntriesChanged;
         Opened += OnWindowOpened;
         Closed += OnWindowClosed;
+    }
+
+    // ===== 自绘标题栏：拖动、双击最大化、窗口按钮 =====
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        // 双击标题栏切换最大化；三击及以上忽略，避免和系统的双击节流打架。
+        if (e.ClickCount >= 2)
+        {
+            _titleBarPressArgs = null;
+            ToggleWindowState();
+            e.Handled = true;
+            return;
+        }
+
+        // 先只记下按下位置，等指针真正移动了再开始拖动。
+        // BeginMoveDrag 会进入系统的移动循环，把随后的第二次按下吞掉，
+        // 那样双击标题栏永远不会收到 ClickCount == 2。
+        _titleBarPressArgs = e;
+        _titleBarPressPoint = e.GetPosition(this);
+    }
+
+    private void OnTitleBarPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_titleBarPressArgs is null)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _titleBarPressArgs = null;
+            return;
+        }
+
+        var position = e.GetPosition(this);
+        if (Math.Abs(position.X - _titleBarPressPoint.X) < TitleBarDragThreshold
+            && Math.Abs(position.Y - _titleBarPressPoint.Y) < TitleBarDragThreshold)
+        {
+            return;
+        }
+
+        var pressArgs = _titleBarPressArgs;
+        _titleBarPressArgs = null;
+        // 交给系统做窗口移动：最大化时 Windows 会自动先还原再跟随拖动，顺带保留贴边贴顶。
+        BeginMoveDrag(pressArgs);
+    }
+
+    private void OnTitleBarPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _titleBarPressArgs = null;
+    }
+
+    private void OnTitleBarPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _titleBarPressArgs = null;
+    }
+
+    private void OnMinimizeClick(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void OnMaximizeClick(object? sender, RoutedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void OnCloseClick(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void ToggleWindowState()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == WindowStateProperty)
+        {
+            UpdateCaptionButtons();
+        }
+    }
+
+    /// <summary>最大化/还原按钮的图标、提示与无障碍名称跟随窗口状态切换。</summary>
+    private void UpdateCaptionButtons()
+    {
+        var maximized = WindowState == WindowState.Maximized;
+        MaximizeGlyph.Data = maximized ? RestoreIconGeometry : MaximizeIconGeometry;
+        ToolTip.SetTip(MaximizeButton, maximized ? "还原" : "最大化");
+        AutomationProperties.SetName(MaximizeButton, maximized ? "还原窗口" : "最大化窗口");
     }
 
     private void OnWindowOpened(object? sender, EventArgs e)

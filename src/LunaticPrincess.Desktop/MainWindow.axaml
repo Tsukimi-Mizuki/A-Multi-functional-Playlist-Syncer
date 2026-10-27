@@ -4,18 +4,32 @@
         Title="Lunatic Princess"
         Width="1320" Height="860"
         MinWidth="1120" MinHeight="720"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        CanResize="True">
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}" />
   </Window.KeyBindings>
-  <Grid RowDefinitions="Auto,*">
+  <!-- 无边框窗口：客户端区域延伸进标题栏（NoChrome 不画系统按钮），
+       最大化时系统边框被推到屏幕外，用 OffScreenMargin 把内容让开那段不可见区域。 -->
+  <Grid RowDefinitions="Auto,*" Margin="{Binding $parent[Window].OffScreenMargin}">
     <!-- 唯一的磨砂玻璃：真实动态背景由窗口 AcrylicBlur 提供，这里仅做轻微压暗。 -->
     <Border Grid.RowSpan="2" IsHitTestVisible="False" Background="{DynamicResource WindowVeilBrush}" />
-    <!-- ========== 顶栏 ========== -->
+    <!-- ========== 顶栏（同时是自定义标题栏） ========== -->
+    <!-- 整条空白处都可拖动窗口；双击切换最大化。右侧贴边是自绘的最小化/最大化/关闭按钮。 -->
     <Border Grid.Row="0" Height="68" Background="{DynamicResource ChromeBarBrush}"
-            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto" Margin="20,0" VerticalAlignment="Center">
-        <StackPanel Orientation="Horizontal" Spacing="10">
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+            PointerPressed="OnTitleBarPointerPressed"
+            PointerMoved="OnTitleBarPointerMoved"
+            PointerReleased="OnTitleBarPointerReleased"
+            PointerCaptureLost="OnTitleBarPointerCaptureLost">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="20,0,0,0"
+                    VerticalAlignment="Center">
+          <Image Source="avares://LunaticPrincess/Assets/logo.png" Width="24" Height="24"
+                 VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
           <StackPanel VerticalAlignment="Center" Spacing="1">
             <TextBlock Text="Lunatic Princess" FontSize="17" FontWeight="Bold" />
             <TextBlock Text="本地曲库同步 · NCM 解密 · 歌词标签" FontSize="11"
@@ -42,6 +56,23 @@
                          Foreground="{DynamicResource TextTertiaryBrush}" />
             </StackPanel>
             <Button Classes="ghost" Content="退出" Command="{Binding LogoutCommand}" />
+          </StackPanel>
+
+          <!-- 窗口按钮：与系统标题栏同高、贴右上角，是最右侧的一列 -->
+          <Border Width="1" Height="22" Background="{DynamicResource BorderBrush}" />
+          <StackPanel Orientation="Horizontal" Spacing="0" Margin="0,0,6,0">
+            <Button Classes="caption" Click="OnMinimizeClick" ToolTip.Tip="最小化"
+                    AutomationProperties.Name="最小化窗口">
+              <Path Classes="caption-glyph" Data="M0,5.5 H10" />
+            </Button>
+            <Button x:Name="MaximizeButton" Classes="caption" Click="OnMaximizeClick" ToolTip.Tip="最大化"
+                    AutomationProperties.Name="最大化窗口">
+              <Path x:Name="MaximizeGlyph" Classes="caption-glyph" Data="M0.5,0.5 H9.5 V9.5 H0.5 Z" />
+            </Button>
+            <Button Classes="caption close" Click="OnCloseClick" ToolTip.Tip="关闭"
+                    AutomationProperties.Name="关闭窗口">
+              <Path Classes="caption-glyph" Data="M0.5,0.5 L9.5,9.5 M9.5,0.5 L0.5,9.5" />
+            </Button>
           </StackPanel>
         </StackPanel>
       </Grid>

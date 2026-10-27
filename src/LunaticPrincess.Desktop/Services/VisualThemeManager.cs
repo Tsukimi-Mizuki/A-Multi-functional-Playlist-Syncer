@@ -18,8 +18,12 @@ namespace LunaticPrincess.Desktop.Services;
 internal static class VisualThemeManager
 {
     private const int DwmUseImmersiveDarkMode = 20;
+    private const int DwmBorderColor = 34;
     private const int DwmCaptionColor = 35;
     private const int DwmTextColor = 36;
+
+    /// <summary>DWMWA_COLOR_NONE：让 DWM 不画那条 1px 边框（自绘标题栏时用）。</summary>
+    private const int DwmColorNone = unchecked((int)0xFFFFFFFE);
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
@@ -96,6 +100,14 @@ internal static class VisualThemeManager
 
         var text = ToColorRef(ResolveColor("TextPrimaryBrush", dark ? "#F4F7FB" : "#151A22"));
         DwmSetWindowAttribute(handle, DwmTextColor, ref text, sizeof(int));
+
+        // 自绘标题栏的窗口（主窗口）不让 DWM 画那圈浅灰色的 1px 边框，
+        // 否则深色标题栏最外沿会有一道亮线，看着不像融进界面。
+        if (window.ExtendClientAreaToDecorationsHint)
+        {
+            var border = DwmColorNone;
+            DwmSetWindowAttribute(handle, DwmBorderColor, ref border, sizeof(int));
+        }
     }
 
     /// <summary>

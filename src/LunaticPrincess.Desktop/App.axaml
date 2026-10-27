@@ -30,6 +30,10 @@
                用不透明色是为了让两条栏的颜色固定下来：半透明时会随玻璃背景明暗漂移，顶栏与底栏
                会差出 3~5 个亮度单位，看起来不是同一个色。标题栏 CaptionBrush 取同一个值。 -->
           <SolidColorBrush x:Key="ChromeBarBrush" Color="#FF151A23" />
+          <!-- 自定义标题栏的窗口按钮：悬停/按下是低对比半透明覆盖，关闭按钮用系统红 -->
+          <SolidColorBrush x:Key="CaptionButtonHoverBrush" Color="#33FFFFFF" />
+          <SolidColorBrush x:Key="CaptionButtonPressedBrush" Color="#4DFFFFFF" />
+          <SolidColorBrush x:Key="CaptionCloseHoverBrush" Color="#E81123" />
           <SolidColorBrush x:Key="PanelBrush" Color="#A3151A23" />
           <SolidColorBrush x:Key="PanelAltBrush" Color="#BF1D242F" />
           <SolidColorBrush x:Key="PanelHoverBrush" Color="#D92B3442" />
@@ -85,6 +89,10 @@
           <!-- 顶栏（账号信息）与底部「进度 / 日志」栏共用同一个背景色；用不透明色固定下来，
                不受玻璃背景明暗影响，标题栏 CaptionBrush 取同一个值 -->
           <SolidColorBrush x:Key="ChromeBarBrush" Color="#FFFEFEFE" />
+          <!-- 自定义标题栏的窗口按钮：浅色下用淡淡的黑色覆盖，关闭按钮同样是系统红 -->
+          <SolidColorBrush x:Key="CaptionButtonHoverBrush" Color="#17000000" />
+          <SolidColorBrush x:Key="CaptionButtonPressedBrush" Color="#29000000" />
+          <SolidColorBrush x:Key="CaptionCloseHoverBrush" Color="#E81123" />
           <SolidColorBrush x:Key="PanelBrush" Color="#C2FFFFFF" />
           <SolidColorBrush x:Key="PanelAltBrush" Color="#D2F6F8FC" />
           <SolidColorBrush x:Key="PanelHoverBrush" Color="#E0E4E9F1" />
@@ -141,6 +149,45 @@
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
       <Setter Property="FontFamily" Value="Microsoft YaHei UI, Microsoft YaHei UI Light, Microsoft YaHei, Segoe UI, Inter" />
       <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- ===== 自定义标题栏的窗口按钮 ===== -->
+    <!-- 直角、无圆角、贴窗口右上角，悬停/按下用半透明覆盖，行为与系统标题栏按钮一致。 -->
+    <Style Selector="Button.caption">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.caption /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CaptionButtonHoverBrush}" />
+    </Style>
+    <Style Selector="Button.caption:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CaptionButtonPressedBrush}" />
+    </Style>
+    <Style Selector="Button.caption Path.caption-glyph">
+      <Setter Property="Stroke" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="StrokeThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.caption:pointerover Path.caption-glyph">
+      <Setter Property="Stroke" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <!-- 关闭按钮：悬停是系统红底白叉 -->
+    <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CaptionCloseHoverBrush}" />
+    </Style>
+    <Style Selector="Button.caption.close:pointerover Path.caption-glyph">
+      <Setter Property="Stroke" Value="#FFFFFFFF" />
     </Style>
 
     <!-- ===== Buttons ===== -->

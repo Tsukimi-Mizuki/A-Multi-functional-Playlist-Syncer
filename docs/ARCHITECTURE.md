@@ -93,8 +93,8 @@ Core
   浅色主题的 `WindowVeilBrush` 是**亮色**（#CCF3F6FB）而不是深色：Acrylic 会把桌面（常见深色壁纸）
   模糊进来，若再叠深色遮罩，近白卡片与灰蓝背景之间会出现明显“割裂感”，改用高不透明度亮色遮罩后
   主窗口间隔区约 203、面板约 217、内容卡片约 250，层次连续；
-  标题栏由 `VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、`DwmCaptionColor`、`DwmTextColor`。
-  原生标题栏、账号栏（顶栏）和底部「进度 / 日志」栏共用同一个背景色，主题里用 `ChromeBarBrush` 表示：
+  窗口深浅色与 DWM 客户区标题栏颜色仍由 `VisualThemeManager.Refresh` 写 `DwmUseImmersiveDarkMode`、
+  `DwmCaptionColor`、`DwmTextColor`。  自绘标题栏（顶栏）、账号区和底部「进度 / 日志」栏共用同一个背景色，主题里用 `ChromeBarBrush` 表示：
   深色 #151A23、浅色 #FEFEFE，并且**故意做成不透明**——半透明时三条栏会随玻璃背景漂移
   （实测深色顶栏与底栏差 3~5 个亮度单位，浅色顶栏 242.7 对底栏 252.1，肉眼是两层色），
   固定成实色后实测标题栏/顶栏/底栏在两种主题下逐像素相同（深色均为 #151A23，浅色均为 #FEFEFE）。
@@ -103,6 +103,23 @@ Core
   `AppBackgroundBrush`，深色下比客户区暗 24 个亮度单位），
   但系统材质按**系统**主题着色，与 App 主题无关：深色下标题栏 84（客户区 27–38，偏亮），
   浅色下 152（客户区 241，明显发灰），反而更割裂，因此保留校准过的纯色方案。
+- 主窗口使用**无边框自绘标题栏**（`ExtendClientAreaToDecorationsHint="True"`、
+  `ExtendClientAreaChromeHints="NoChrome"`、`ExtendClientAreaTitleBarHeightHint="-1"`，
+  保留 `CanResize` 以继续拥有 `WS_THICKFRAME`，缩放/贴边不受影响）：
+  - 根 `Grid` 的 `Margin="{Binding $parent[Window].OffScreenMargin}"` 让内容避开 Win11 最大化时
+    伸到屏幕外的边框：实测最大化窗口 rect 为 -9,-9 / 2578x1398（工作区 0,0 / 2560x1380），
+    屏幕 y=0..3 的最上面几行像素仍是 #151A23，内容没有被推出屏幕。
+  - 68px 顶栏本身就是标题栏（`OnTitleBarPointerPressed/Moved/Released/CaptureLost`）：
+    按下时只记录位置，指针移动超过 4 DIP 才调用 `BeginMoveDrag`——按下即拖动会进入系统移动
+    循环并吞掉随后的第二次按下，`ClickCount == 2` 永远收不到；双击改在按下事件里调用
+    `ToggleWindowState()`（实测普通 322,12 1650x1075 → 最大化 -9,-9 2578x1398 → 双击还原）。
+  - 右侧三个 `Classes="caption"` 按钮（46x32、直角、透明底、10x10 `Path` 图标）替代系统按钮，
+    `AutomationProperties.Name` 为「最小化窗口 / 最大化窗口 / 关闭窗口」，最大化后图标切成双框、
+    名称变「还原窗口」；hover/pressed 用 `CaptionButtonHoverBrush` / `CaptionButtonPressedBrush`，
+    关闭按钮 hover 为 `CaptionCloseHoverBrush`（#E81123）红底白叉。
+  - `VisualThemeManager.Refresh` 对启用 `ExtendClientAreaToDecorationsHint` 的窗口写
+    `DwmBorderColor = DWMWA_COLOR_NONE (0xFFFFFFFE)`，否则 DWM 会在自绘标题栏外沿画一圈
+    #3C3C3C 的 1px 浅灰边框（深色主题下像贴了道亮线）。
 - 所有二级窗口（设置、歌词与标签编辑器、批量获取、NCM 导入、扫码登录、提示框）走同一套材质：
   `VisualThemeManager.ApplyDialog` 设置 `WindowTransparencyLevel.AcrylicBlur`（回退 Blur/None），
   窗口 `Background` 由 XAML 的 `DialogGlassBrush`（深色 #A8080D15 / 浅色 #DCF2F5FA，半透明）提供；代码侧不再覆盖
