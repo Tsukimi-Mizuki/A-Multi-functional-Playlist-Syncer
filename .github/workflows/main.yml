@@ -46,14 +46,14 @@ jobs:
         dotnet publish $projectFile -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=${{ env.VERSION }} -o ./publish
 
     - name: 压缩打包
-      run: Compress-Archive -Path ./publish/* -DestinationPath ./DSH-Win64-v${{ env.VERSION }}.zip
+      run: Compress-Archive -Path ./publish/* -DestinationPath "Lunatic Princess-v${{ env.VERSION }}.zip"
 
     - name: 创建并发布 Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ env.VERSION }} # <--- 关键点：自动创建 Tag
-        files: ./DSH-Win64-v${{ env.VERSION }}.zip
-        name: Release v${{ env.VERSION }}
+        tag_name: v${{ env.VERSION }}
+        files: "Lunatic Princess-v${{ env.VERSION }}.zip"
+        name: Lunatic Princess v${{ env.VERSION }}
         draft: false
         prerelease: false
         generate_release_notes: true
