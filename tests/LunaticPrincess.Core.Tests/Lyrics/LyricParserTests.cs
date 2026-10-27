@@ -36,10 +36,10 @@ public sealed class LyricParserTests
         var plain = _parser.ToPlainLrc(document);
         Assert.Equal(
             Lines(
-                "[00:00.90]第一行",
-                "[00:02.40]重复行",
-                "[00:02.90]第三行",
-                "[00:09.90]重复行"),
+                "[00:00.900]第一行",
+                "[00:02.400]重复行",
+                "[00:02.900]第三行",
+                "[00:09.900]重复行"),
             plain);
     }
 
@@ -86,13 +86,13 @@ public sealed class LyricParserTests
         Assert.Equal(translated, document.Translation);
 
         var plain = _parser.ToPlainLrc(document);
-        Assert.Contains("[00:01.00]Hello", plain);
-        // 译文行顺延 10ms，避免按时间戳去重的播放器把译文吞掉。
-        Assert.Contains("[00:01.01]你好", plain);
-        Assert.Contains("[00:05.00]World", plain);
-        Assert.Contains("[00:05.01]世界", plain);
-        Assert.Contains("[00:09.00]No translation line", plain);
-        Assert.DoesNotContain("[00:09.00]世界", plain);
+        // 时间戳保留到毫秒，译文行与原文行使用同一时间戳，不再人为顺延。
+        Assert.Contains("[00:01.000]Hello", plain);
+        Assert.Contains("[00:01.000]你好", plain);
+        Assert.Contains("[00:05.000]World", plain);
+        Assert.Contains("[00:05.000]世界", plain);
+        Assert.Contains("[00:09.000]No translation line", plain);
+        Assert.DoesNotContain("[00:09.000]世界", plain);
     }
 
     [Fact]
@@ -123,14 +123,14 @@ public sealed class LyricParserTests
         // 与 LDDC 一致：结束标签总是写出，重复的起始标签省略，行尾补行结束标签。
         Assert.Equal(
             Lines(
-                "[00:01.00]<00:01.00>Hello<00:02.00> world<00:05.00>",
-                "[00:05.00]plain line"),
+                "[00:01.000]<00:01.000>Hello<00:02.000> world<00:05.000>",
+                "[00:05.000]plain line"),
             _parser.ToEnhancedLrc(document));
 
         Assert.Equal(
             Lines(
-                "[00:01.00]Hello world",
-                "[00:05.00]plain line"),
+                "[00:01.000]Hello world",
+                "[00:05.000]plain line"),
             _parser.ToPlainLrc(document));
     }
 
@@ -171,14 +171,14 @@ public sealed class LyricParserTests
         Assert.Equal("一双迷人的眼睛", document.Lines[2].Text);
 
         var plain = _parser.ToPlainLrc(document);
-        Assert.Contains("[00:00.00]作词 : 张国祥", plain);
-        Assert.Contains("[00:12.58]难以忘记初次见你", plain);
-        Assert.Contains("[00:16.96]一双迷人的眼睛", plain);
+        Assert.Contains("[00:00.000]作词 : 张国祥", plain);
+        Assert.Contains("[00:12.580]难以忘记初次见你", plain);
+        Assert.Contains("[00:16.960]一双迷人的眼睛", plain);
 
         var enhanced = _parser.ToEnhancedLrc(document);
-        Assert.Contains("[00:12.58]<00:12.58>难<00:12.83>以<00:13.13>忘", enhanced);
-        Assert.Contains("<00:15.08>你", enhanced);
-        Assert.Contains("[00:00.00]<00:00.00> 作词 : 张国祥", enhanced);
+        Assert.Contains("[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘", enhanced);
+        Assert.Contains("<00:15.080>你", enhanced);
+        Assert.Contains("[00:00.000]<00:00.000> 作词 : 张国祥", enhanced);
     }
 
     [Fact]
@@ -221,9 +221,9 @@ public sealed class LyricParserTests
 
         Assert.Equal(
             Lines(
-                "[00:00.00]作词: 张国祥",
-                "[00:01.00]作曲: 汤小康",
-                "[00:12.58]难"),
+                "[00:00.000]作词: 张国祥",
+                "[00:01.000]作曲: 汤小康",
+                "[00:12.580]难"),
             _parser.ToPlainLrc(document));
     }
 
@@ -266,8 +266,8 @@ public sealed class LyricParserTests
         var enhanced = _parser.ToEnhancedLrc(document);
         Assert.Equal(
             Lines(
-                "[00:12.58]<00:12.58>难<00:12.83>以<00:13.13>",
-                "[00:12.59]Hard to"),
+                "[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>",
+                "[00:12.580]Hard to"),
             enhanced);
     }
 
@@ -299,8 +299,8 @@ public sealed class LyricParserTests
         Assert.Contains("翻译一", bilingual);
         Assert.DoesNotContain("翻译一", original);
         Assert.DoesNotContain("//", bilingual);
-        Assert.Contains("[00:02.00]line two", bilingual);
-        Assert.DoesNotContain("[00:02.00]//", bilingual);
+        Assert.Contains("[00:02.000]line two", bilingual);
+        Assert.DoesNotContain("[00:02.000]//", bilingual);
     }
 
     [Fact]
