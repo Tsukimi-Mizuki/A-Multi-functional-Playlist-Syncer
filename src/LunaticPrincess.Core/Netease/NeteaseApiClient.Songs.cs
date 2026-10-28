@@ -121,7 +121,8 @@ public sealed partial class NeteaseApiClient
                     "/weapi/song/enhance/player/url/v1",
                     payload,
                     $"获取播放地址（{quality.ToDisplayName()}）",
-                    cancellationToken)
+                    cancellationToken,
+                    usePlaybackCookie: true)
                 .ConfigureAwait(false);
             var info = NeteaseMappers.MapPlaybackInfo(document.RootElement, songId);
             if (info.IsSuccess)
@@ -150,7 +151,8 @@ public sealed partial class NeteaseApiClient
                 "/weapi/song/enhance/player/url",
                 payload,
                 $"获取播放地址（{quality.ToDisplayName()}）",
-                cancellationToken)
+                cancellationToken,
+                usePlaybackCookie: true)
             .ConfigureAwait(false);
         return NeteaseMappers.MapPlaybackInfo(document.RootElement, songId);
     }

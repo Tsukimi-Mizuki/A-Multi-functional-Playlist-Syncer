@@ -29,6 +29,13 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     /// <summary>匿名请求的固定基础 Cookie（社区惯例，非必需）。</summary>
     internal const string AnonymousCookie = "os=pc; appver=8.9.70";
 
+    /// <summary>
+    /// 播放/下载地址接口必须带上桌面客户端 Cookie（os/appver/deviceId），
+    /// 否则服务端会按网页端策略把 Hi-Res 及以上档位静默标成 lossless。
+    /// </summary>
+    internal const string PlaybackCookieSuffix =
+        "os=pc; appver=2.10.6; osver=Microsoft-Windows-10-Professional-build-19045-64bit; deviceId=LunaticPrincessPc; channel=netease";
+
     /// <summary>二维码有效期约 180 秒。</summary>
     internal static readonly TimeSpan QrLifetime = TimeSpan.FromSeconds(180);
 
@@ -88,6 +95,12 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         return string.IsNullOrWhiteSpace(session?.Cookie) ? AnonymousCookie : session!.Cookie;
     }
 
+    /// <summary>播放/下载接口使用的 Cookie 头：登录态 + 桌面客户端标识。</summary>
+    internal static string BuildPlaybackCookieHeader(NeteaseSession? session)
+    {
+        return BuildCookieHeader(session) + "; " + PlaybackCookieSuffix;
+    }
+
     /// <summary>构造 weapi 业务 JSON：原样 payload + 来自 cookie 的 csrf_token。</summary>
     internal static string BuildBusinessJson(JsonObject payload, string? csrfToken)
     {
@@ -102,7 +115,8 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         string path,
         JsonObject payload,
         string operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool usePlaybackCookie = false)
     {
         var session = Session;
         var secret = _secretFactory();
@@ -118,7 +132,7 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         {
             Content = content,
         };
-        ApplyHeaders(request, session, BrowserUserAgent);
+        ApplyHeaders(request, session, BrowserUserAgent, usePlaybackCookie);
 
         var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
         var document = ParseJsonOrThrow(response, operation);
@@ -237,13 +251,19 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         }
     }
 
-    private static void ApplyHeaders(HttpRequestMessage request, NeteaseSession? session, string userAgent)
+    private static void ApplyHeaders(
+        HttpRequestMessage request,
+        NeteaseSession? session,
+        string userAgent,
+        bool usePlaybackCookie = false)
     {
         request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
         request.Headers.TryAddWithoutValidation("Referer", Referer);
         request.Headers.TryAddWithoutValidation("Accept", "*/*");
         request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-        request.Headers.TryAddWithoutValidation("Cookie", BuildCookieHeader(session));
+        request.Headers.TryAddWithoutValidation(
+            "Cookie",
+            usePlaybackCookie ? BuildPlaybackCookieHeader(session) : BuildCookieHeader(session));
     }
 
     private void UpdateSessionFromUser(NeteaseUser user)

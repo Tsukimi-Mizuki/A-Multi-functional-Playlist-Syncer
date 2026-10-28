@@ -10,7 +10,7 @@
 | 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复登录态 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 我的歌单分页、大歌单 trackIds 按 500/批补齐、保持顺序 |
 | 本地扫描与歌单差异匹配 | ✅ 完成 | 标签/文件名/NCM 元数据、网易云 ID 精确匹配、模糊匹配、一对一 |
-| 音质选择下载 | ✅ 完成 | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 (SpatialAudio) / 沉浸环绕声 (Surround Audio) / 超清母带 (Master) / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；映射 level 见 ARCHITECTURE.md，不可用时自动降档并提示实际音质；旧设置 "Higher" 迁移为 ExHigh；试听片段拒收 |
+| 音质选择下载 | ✅ 完成 | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 (SpatialAudio) / 沉浸环绕声 (Surround Audio) / 超清母带 (Master) / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；映射 level 见 ARCHITECTURE.md，不可用时自动降档并提示实际音质；取链请求带桌面客户端 Cookie，Hi-Res 实际返回 24bit/48–96kHz FLAC；旧设置 "Higher" 迁移为 ExHigh；试听片段拒收 |
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出；导入窗口可选解锁后自动在线匹配标签/封面/歌词 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
@@ -21,10 +21,10 @@
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**270 / 270 通过，0 skipped**。
-  - Netease API：61
+- `dotnet test`：**273 / 273 通过，0 skipped**。
+  - Netease API：63
   - NCM / Lyrics / Tags：93
-  - Library / Download / Sync：65
+  - Library / Download / Sync：66
   - Storage / Settings / Filename：18
   - 音质映射（Models）：30
   - Online 搜索：3

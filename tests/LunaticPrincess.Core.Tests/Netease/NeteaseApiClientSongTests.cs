@@ -162,6 +162,52 @@ public sealed class NeteaseApiClientSongTests
         Assert.Equal("[33894312]", payload.RootElement.GetProperty("ids").GetString());
         Assert.Equal("exhigh", payload.RootElement.GetProperty("level").GetString());
         Assert.Equal("flac", payload.RootElement.GetProperty("encodeType").GetString());
+
+        // 播放接口必须带桌面客户端 Cookie，否则服务端会把高音质档位静默降成 lossless。
+        var cookie = request.CookieHeader;
+        Assert.NotNull(cookie);
+        Assert.Contains("os=pc", cookie);
+        Assert.Contains("appver=2.10.6", cookie);
+        Assert.Contains("deviceId=LunaticPrincessPc", cookie);
+    }
+
+    [Fact]
+    public async Task GetSongPlaybackInfoAsync_KeepsSessionCookieAndAddsClientFlags()
+    {
+        var handler = new FakeHttpMessageHandler().EnqueueJson("""
+            {
+              "code": 200,
+              "data": [ { "id": 33894312, "url": "https://m701.music.126.net/song.flac", "br": 1785265, "type": "flac", "level": "hires", "code": 200 } ]
+            }
+            """);
+        var client = TestHttp.CreateClient(handler, FixedSecret);
+        client.SetSession(new NeteaseSession { Cookie = "MUSIC_U=session123; __csrf=csrfabc" });
+
+        var info = await client.GetSongPlaybackInfoAsync(33894312, AudioQuality.HiRes);
+
+        Assert.True(info.IsSuccess);
+        var cookie = Assert.Single(handler.Requests).CookieHeader;
+        Assert.NotNull(cookie);
+        Assert.Contains("MUSIC_U=session123", cookie);
+        Assert.Contains("__csrf=csrfabc", cookie);
+        Assert.Contains("os=pc", cookie);
+        Assert.Contains("deviceId=LunaticPrincessPc", cookie);
+    }
+
+    [Fact]
+    public async Task GetSongDetailsAsync_DoesNotSendPlaybackClientCookie()
+    {
+        var handler = new FakeHttpMessageHandler().EnqueueJson(FullSongJson);
+        var client = TestHttp.CreateClient(handler, FixedSecret);
+        client.SetSession(new NeteaseSession { Cookie = "MUSIC_U=session123" });
+
+        await client.GetSongDetailsAsync([186016L]);
+
+        var cookie = Assert.Single(handler.Requests).CookieHeader;
+        Assert.NotNull(cookie);
+        Assert.Contains("MUSIC_U=session123", cookie);
+        Assert.DoesNotContain("deviceId=", cookie);
+        Assert.DoesNotContain("appver=2.10.6", cookie);
     }
 
     [Fact]
@@ -184,6 +230,7 @@ public sealed class NeteaseApiClientSongTests
         Assert.Equal(2, handler.Requests.Count);
         Assert.Equal("/weapi/song/enhance/player/url/v1", handler.Requests[0].Uri.AbsolutePath);
         Assert.Equal("/weapi/song/enhance/player/url", handler.Requests[1].Uri.AbsolutePath);
+        Assert.Contains("deviceId=LunaticPrincessPc", handler.Requests[1].CookieHeader!);
         using var payload = JsonDocument.Parse(TestHttp.DecryptBusinessJson(handler.Requests[1], FixedSecret));
         Assert.Equal(320000, payload.RootElement.GetProperty("br").GetInt32());
     }

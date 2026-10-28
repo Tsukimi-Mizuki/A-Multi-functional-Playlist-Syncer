@@ -56,6 +56,9 @@ Core
 1. 音质档位映射为网易云 level：标准 `standard`、极高 `exhigh`、无损 `lossless`、Hi-Res `hires`、高清臻音 `jyeffect`、沉浸环绕声 `sky`、超清母带 `jymaster`、臻音全景声 `audio_vivid`（回退别名 `vivid`）、杜比全景声 `dolby`；`/api/song/enhance/player/url/v1` 逐档请求，
    服务端无对应特权时静默降档，`AudioQualityExtensions.FromApiLevel()` 解析实际 level 并在进度中提示
    “实际音质：…（… 不可用，已自动降级）”。设置文件里的旧值 `Higher` 在加载时迁移为 `ExHigh`。
+   取链请求额外附带桌面客户端 Cookie（`os=pc; appver=2.10.6; osver=…; deviceId=LunaticPrincessPc; channel=netease`，
+   见 `NeteaseApiClient.BuildPlaybackCookieHeader`，只有播放/下载接口使用）：缺少这些字段时服务端按网页端策略
+   把 Hi-Res 及以上档位静默标成 `lossless`（文件实际仍是 24bit，只是 level 被降级）。
 2. 受会员/版权限制：取链失败或仅试听时明确失败，不绕过版权限制。
 3. 下载到临时文件；若文件头是 NCM 则自动解密。
 4. 拉取歌词、翻译、封面、歌曲/专辑元数据。

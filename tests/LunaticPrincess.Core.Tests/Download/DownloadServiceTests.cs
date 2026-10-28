@@ -204,6 +204,42 @@ public sealed class DownloadServiceTests
     }
 
     [Fact]
+    public async Task DownloadAsync_DoesNotReportDowngrade_ForHiresLevel()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.flac",
+                Format = "flac",
+                Level = "hires",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics(null)),
+        };
+        var tags = new RecordingTagServiceForDownload();
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/9.flac"] = FlacBytes() },
+            out _);
+        var progress = new ImmediateProgressForDownload<DownloadProgress>();
+
+        var summary = await CreateService(api, tags, new FakeLyricParserForDownload(), new FakeNcmDecoderForDownload(), client)
+            .DownloadAsync(
+                new[] { CreateSong(9, coverUrl: null) },
+                new DownloadOptions
+                {
+                    TargetDirectory = workspace.Root,
+                    Quality = AudioQuality.HiRes,
+                    WriteCover = false,
+                },
+                progress);
+
+        Assert.Equal(1, summary.SuccessCount);
+        Assert.DoesNotContain(progress.Snapshot(), r => r.Message is not null && r.Message.Contains("已自动降级"));
+    }
+
+    [Fact]
     public async Task DownloadAsync_WordLyricsMode_WritesEnhancedLyrics()
     {
         using var workspace = new TempWorkspaceForDownload();
