@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Debug',
     [switch]$Test,
