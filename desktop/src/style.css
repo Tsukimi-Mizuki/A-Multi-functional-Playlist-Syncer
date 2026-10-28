@@ -1,0 +1,275 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.16 0.02 285);
+  --foreground: oklch(0.96 0.01 285);
+  --card: oklch(0.21 0.025 285);
+  --card-foreground: oklch(0.96 0.01 285);
+  --popover: oklch(0.19 0.025 285);
+  --popover-foreground: oklch(0.96 0.01 285);
+  --primary: oklch(0.72 0.16 300);
+  --primary-foreground: oklch(0.15 0.02 285);
+  --secondary: oklch(0.27 0.03 285);
+  --secondary-foreground: oklch(0.95 0.01 285);
+  --muted: oklch(0.25 0.02 285);
+  --muted-foreground: oklch(0.72 0.02 285);
+  --accent: oklch(0.3 0.04 300);
+  --accent-foreground: oklch(0.97 0.01 285);
+  --destructive: oklch(0.62 0.21 25);
+  --destructive-foreground: oklch(0.98 0.005 285);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.72 0.16 300 / 60%);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.18 0.02 285);
+  --sidebar-foreground: oklch(0.95 0.01 285);
+  --sidebar-accent: oklch(0.28 0.035 295);
+  --sidebar-accent-foreground: oklch(0.97 0.01 285);
+  --sidebar-border: oklch(1 0 0 / 8%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body, #app {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    background: transparent;
+    color: var(--color-foreground);
+    font-family: "Segoe UI Variable Text", "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  ::selection {
+    background: oklch(0.72 0.16 300 / 35%);
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 12%);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(1 0 0 / 22%); background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+@utility glass {
+  background: oklch(0.21 0.025 285 / 72%);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid oklch(1 0 0 / 9%);
+}
+
+@utility drag-region {
+  -webkit-app-region: drag;
+}
+
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------- 应用背景：深紫液态玻璃 + 模糊光晕 ---------- */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(1100px 720px at 8% -12%, oklch(0.36 0.13 300 / 55%), transparent 62%),
+    radial-gradient(980px 660px at 92% -6%, oklch(0.33 0.11 265 / 48%), transparent 58%),
+    radial-gradient(900px 700px at 50% 118%, oklch(0.3 0.1 330 / 38%), transparent 62%),
+    linear-gradient(160deg, oklch(0.17 0.025 285), oklch(0.13 0.02 280));
+}
+
+.app-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.app-glow-a {
+  top: -12%;
+  left: -6%;
+  width: 34rem;
+  height: 34rem;
+  background: oklch(0.55 0.2 300 / 42%);
+  animation: glow-drift-a 30s ease-in-out infinite alternate;
+}
+
+.app-glow-b {
+  top: 18%;
+  right: -10%;
+  width: 30rem;
+  height: 30rem;
+  background: oklch(0.5 0.16 265 / 36%);
+  animation: glow-drift-b 36s ease-in-out infinite alternate;
+}
+
+.app-glow-c {
+  bottom: -18%;
+  left: 32%;
+  width: 32rem;
+  height: 32rem;
+  background: oklch(0.52 0.17 330 / 30%);
+  animation: glow-drift-c 42s ease-in-out infinite alternate;
+}
+
+@keyframes glow-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(4rem, 3rem, 0) scale(1.12); }
+}
+
+@keyframes glow-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to { transform: translate3d(-4rem, 4rem, 0) scale(0.94); }
+}
+
+@keyframes glow-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(0.96); }
+  to { transform: translate3d(3rem, -3rem, 0) scale(1.1); }
+}
+
+/* ---------- 页面切换 ---------- */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 180ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ---------- 折叠面板（日志） ---------- */
+.collapse-enter-active,
+.collapse-leave-active {
+  overflow: hidden;
+  transition: max-height 240ms ease, opacity 200ms ease;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.collapse-enter-to,
+.collapse-leave-from {
+  max-height: 15rem;
+  opacity: 1;
+}
+
+/* ---------- 自定义标题栏按钮 ---------- */
+.titlebar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn:hover {
+  background: oklch(1 0 0 / 10%);
+  color: var(--foreground);
+}
+
+.titlebar-btn-close:hover {
+  background: oklch(0.62 0.21 25);
+  color: white;
+}
+
+/* ---------- 浅色主题（液态玻璃） ---------- */
+html.light {
+  --background: oklch(0.97 0.012 290);
+  --foreground: oklch(0.24 0.03 290);
+  --card: oklch(0.99 0.006 290 / 78%);
+  --card-foreground: oklch(0.24 0.03 290);
+  --popover: oklch(0.99 0.005 290);
+  --popover-foreground: oklch(0.24 0.03 290);
+  --primary: oklch(0.55 0.2 295);
+  --primary-foreground: oklch(0.99 0.005 290);
+  --secondary: oklch(0.92 0.015 290);
+  --secondary-foreground: oklch(0.28 0.03 290);
+  --muted: oklch(0.93 0.012 290);
+  --muted-foreground: oklch(0.48 0.02 290);
+  --accent: oklch(0.9 0.03 295);
+  --accent-foreground: oklch(0.25 0.03 290);
+  --destructive: oklch(0.55 0.21 25);
+  --destructive-foreground: oklch(0.99 0.005 290);
+  --border: oklch(0.3 0.04 290 / 14%);
+  --input: oklch(0.3 0.04 290 / 16%);
+  --ring: oklch(0.55 0.2 295 / 45%);
+  --sidebar: oklch(0.99 0.006 290 / 70%);
+  --sidebar-foreground: oklch(0.24 0.03 290);
+  --sidebar-accent: oklch(0.9 0.03 295);
+  --sidebar-accent-foreground: oklch(0.25 0.03 290);
+  --sidebar-border: oklch(0.3 0.04 290 / 12%);
+}
+
+html.light .glass {
+  background: oklch(1 0 0 / 62%);
+  border-color: oklch(0.3 0.04 290 / 12%);
+}
+
+html.light .app-backdrop {
+  background:
+    radial-gradient(1100px 720px at 8% -12%, oklch(0.82 0.08 300 / 65%), transparent 62%),
+    radial-gradient(980px 660px at 92% -6%, oklch(0.84 0.06 265 / 60%), transparent 58%),
+    radial-gradient(900px 700px at 50% 118%, oklch(0.86 0.07 330 / 55%), transparent 62%),
+    linear-gradient(160deg, oklch(0.98 0.01 290), oklch(0.93 0.015 290));
+}
+
+html.light .app-glow {
+  opacity: 0.4;
+}
+
+html.light .titlebar-btn:hover {
+  background: oklch(0.4 0.04 290 / 10%);
+}
+

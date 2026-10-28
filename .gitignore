@@ -16,3 +16,19 @@ artifacts/
 publish/
 .idea/
 .vs/
+# Tauri / Vue desktop
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+
+# Rust toolchain installed into the workspace
+.rustup/
+.cargo-home/
+.cargo-target/
+
+# Local browser preview scratch (screenshots, chromium profiles)
+desktop/.preview/
+
+# Python caches (probe scripts)
+__pycache__/
