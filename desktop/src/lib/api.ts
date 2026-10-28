@@ -70,6 +70,26 @@ export function initApiBase(): Promise<string> {
   return initPromise;
 }
 
+/**
+ * 等待 sidecar 地址真正可用：Tauri 注入/命令返回之前 `apiBase()` 只是占位默认值。
+ * 浏览器与已注入场景立即返回；超时后也返回当前值，交给调用方做重试。
+ */
+export function whenApiBaseReady(timeoutMs = 10_000): Promise<string> {
+  if (typeof window === "undefined" || window.__LPP_API_BASE__) return Promise.resolve(apiBase());
+  return new Promise<string>((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("lpp-api-ready", finish);
+      resolve(apiBase());
+    };
+    window.addEventListener("lpp-api-ready", finish);
+    void initApiBase().then(finish);
+    window.setTimeout(finish, timeoutMs);
+  });
+}
+
 async function resolveApiBase(): Promise<string> {
   if (typeof window !== "undefined") {
     window.addEventListener("lpp-api-ready", (event: Event) => {

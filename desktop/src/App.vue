@@ -8,7 +8,7 @@ import TitleBar from "@/components/layout/TitleBar.vue";
 import SettingsDialog from "@/components/settings/SettingsDialog.vue";
 import Toaster from "@/components/ui/Toaster.vue";
 import Spinner from "@/components/ui/Spinner.vue";
-import { initApiBase } from "@/lib/api";
+import { initApiBase, whenApiBaseReady } from "@/lib/api";
 import { useLogsStore } from "@/stores/logs";
 import { usePlaylistsStore } from "@/stores/playlists";
 import { useSessionStore } from "@/stores/session";
@@ -25,10 +25,40 @@ const booted = ref(false);
 const isLogin = computed(() => route.name === "login");
 const chromeVisible = computed(() => !isLogin.value);
 
+const BOOT_REFRESH_ATTEMPTS = 5;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+/** sidecar 冷启动较慢时会连不上：连接类错误按退避重试，明确“未登录”则不再重试。 */
+async function refreshSessionWithRetry(): Promise<boolean> {
+  for (let attempt = 0; attempt < BOOT_REFRESH_ATTEMPTS; attempt += 1) {
+    if (await session.refresh()) return true;
+    if (!session.error) return false;
+    await delay(300 * (attempt + 1));
+  }
+  return session.loggedIn;
+}
+
+/** sidecar 地址晚于首屏注入时（冷启动慢），恢复一次登录态并纠正路由。 */
+function recoverSessionWhenApiReady(): void {
+  window.addEventListener("lpp-api-ready", () => {
+    if (session.loggedIn) return;
+    void (async () => {
+      if (!(await session.refresh())) return;
+      void playlists.loadPlaylists();
+      if (route.name === "login") await router.replace("/");
+    })();
+  });
+}
+
 onMounted(async () => {
   await initApiBase();
+  await whenApiBaseReady();
   await settings.load();
-  const loggedIn = await session.refresh();
+  recoverSessionWhenApiReady();
+  const loggedIn = await refreshSessionWithRetry();
   if (!loggedIn) {
     if (route.name !== "login") await router.replace("/login");
   } else {

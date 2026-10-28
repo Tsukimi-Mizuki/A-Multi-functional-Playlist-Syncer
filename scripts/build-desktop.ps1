@@ -34,6 +34,16 @@ if (-not (Test-Path $pnpmJs)) { $pnpmJs = 'pnpm' }
 
 function Write-Step([string]$message) { Write-Host "==> $message" -ForegroundColor Cyan }
 
+# Native tools (dotnet/cargo/node) report progress on stderr; under
+# $ErrorActionPreference = 'Stop' PowerShell 5.1 turns that into a terminating
+# NativeCommandError (e.g. cargo printing 'Compiling ...'). Run them with
+# 'Continue' and judge success by the exit code instead.
+function Invoke-Native([string]$exe, [string[]]$arguments) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $exe @arguments } finally { $ErrorActionPreference = $previous }
+}
+
 # Rust environment: homes live at ASCII paths, target dir stays inside the workspace.
 $rustHome = 'D:\lpp-rust\rustup'
 $asciiRoot = 'D:\lpp'
@@ -113,7 +123,8 @@ if (-not $SkipServer) {
     Write-Step 'publishing sidecar (LunaticPrincess.Server)'
     $serverOut = Join-Path $asciiRoot '.tmp\server-publish'
     if (Test-Path $serverOut) { Remove-Item $serverOut -Recurse -Force }
-    & $dotnet publish (Join-Path $root 'src\LunaticPrincess.Server\LunaticPrincess.Server.csproj') -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=none -o $serverOut
+    $serverProject = Join-Path $root 'src\LunaticPrincess.Server\LunaticPrincess.Server.csproj'
+    Invoke-Native $dotnet @('publish', $serverProject, '-c', $Configuration, '-r', 'win-x64', '--self-contained', 'true', '-p:PublishSingleFile=true', '-p:DebugType=none', '-o', $serverOut)
     if ($LASTEXITCODE -ne 0) { throw 'sidecar publish failed' }
 
     $binDir = Join-Path $root 'desktop\src-tauri\binaries'
@@ -130,7 +141,7 @@ if (-not $SkipInstall) {
     Write-Step 'installing npm dependencies'
     Push-Location $desktop
     try {
-        & $nodeExe $pnpmJs install
+        Invoke-Native $nodeExe @($pnpmJs, 'install')
         if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed' }
     } finally { Pop-Location }
 }
@@ -139,7 +150,15 @@ if (-not $SkipFrontend) {
     Write-Step 'building Vue frontend'
     Push-Location $desktop
     try {
-        & $nodeExe $pnpmJs run build
+        # Call the local bins directly: 'pnpm run build' triggers its dependency
+        # verification step, which tries to reinstall and fails in offline/restricted hosts.
+        $vueTsc = Join-Path $desktop 'node_modules\vue-tsc\bin\vue-tsc.js'
+        $viteBin = Join-Path $desktop 'node_modules\vite\bin\vite.js'
+        if (Test-Path $vueTsc) {
+            Invoke-Native $nodeExe @($vueTsc, '--noEmit')
+            if ($LASTEXITCODE -ne 0) { throw 'vue-tsc failed' }
+        }
+        Invoke-Native $nodeExe @($viteBin, 'build')
         if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
     } finally { Pop-Location }
 }
@@ -150,12 +169,12 @@ if (-not $SkipRust) {
     try {
         $cargoArgs = @('build')
         if ($Configuration -eq 'Release') { $cargoArgs += '--release' }
-        & $cargo @cargoArgs
+        Invoke-Native $cargo $cargoArgs
         if ($LASTEXITCODE -ne 0) { throw 'cargo build failed' }
 
         if ($Bundle) {
             Write-Step 'tauri build (installer)'
-            & $nodeExe $pnpmJs tauri build
+            Invoke-Native $nodeExe @($pnpmJs, 'tauri', 'build')
             if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
         }
     } finally { Pop-Location }

@@ -62,6 +62,16 @@
   说明下载、解密、写标签在工作区外的真实路径上均无权限问题。
 - 踩坑记录：便携目录最初只复制了两个 exe，缺 `WebView2Loader.dll` 时壳进程直接以 `0xC0000135`
   （STATUS_DLL_NOT_FOUND）退出且没有任何日志；`scripts/build-desktop.ps1` 现已把三个文件一起复制。
+- 冷启动修复（同日复测通过）：全新便携目录首次启动时，前端会在 sidecar 地址注入前就查询会话，
+  导致首屏停在登录页（`#/login`），手动刷新后即恢复。现 `desktop/src/lib/api.ts` 提供
+  `whenApiBaseReady()`（等 `lpp-api-ready` 事件或 `initApiBase()` 完成，10 s 超时），
+  `desktop/src/App.vue` 在首查前等待该地址、连接类错误按 300 ms×(n+1) 退避重试至 5 次，
+  并在 `lpp-api-ready` 晚到时再补查一次会话。实测：带登录态的全新目录两次冷启动都直接进入主界面
+  （16 个歌单、`Tsukimi_Mizuki 黑胶 VIP`）；无 `data\` 的目录仍正确停在扫码登录页。
+- 构建脚本修坑：`$ErrorActionPreference='Stop'` 下 cargo 往 stderr 打 `Compiling ...` 会被 PowerShell 5.1
+  当成 NativeCommandError 中断构建，现统一经 `Invoke-Native` 以 `Continue` 执行并按退出码判定；
+  前端改为直接调用 `node_modules\vue-tsc\bin\vue-tsc.js --noEmit` 与 `node_modules\vite\bin\vite.js build`
+  （`pnpm run build` 会触发依赖校验重装而在受限主机上失败）。
 
 ### Avalonia（旧版界面）
 - 客户端真实启动成功、窗口响应、无 fatal 日志。

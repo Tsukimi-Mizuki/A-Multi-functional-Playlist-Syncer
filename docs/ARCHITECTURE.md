@@ -53,6 +53,10 @@ Tauri 侧要点：
   行后写 `ServerState`，对主窗口 `eval` 注入 `window.__LPP_API_BASE__` 并 dispatch `lpp-api-ready`；
   读不到就退回 `wait_until_ready(port)` 探测。窗口关闭时 kill 子进程。
   端口每次启动都不同，**前端不允许硬编码 18400**。
+- **前端启动时序**：首屏必须等地址就绪再查会话——`desktop/src/lib/api.ts` 的 `whenApiBaseReady()`
+  在 `window.__LPP_API_BASE__` 未注入时监听 `lpp-api-ready` / `initApiBase()` 完成（10 s 超时），
+  `desktop/src/App.vue` 的首查放在其后，连接类错误退避重试 5 次，`lpp-api-ready` 晚到时再补查一次；
+  否则 sidecar 冷启动稍慢就会把首屏错误地停在登录页。
 - **sidecar 查找**：`current_exe()` 同目录下的 `lunatic-princess-server.exe` / `LunaticPrincess.Server.exe`，
   开发布局再回溯到仓库 `publish\win-x64\`。
 - **窗口**：`tauri.conf.json` 的 `app.windows` 留空，改在 `setup` 里用 `WebviewWindowBuilder` 手动建窗
