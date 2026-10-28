@@ -137,7 +137,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _showSelectionCheckboxes;
 
     [ObservableProperty]
-    private string _qualityText = "音质 极高 320k";
+    private string _qualityText = "音质 " + AudioQuality.ExHigh.ToDisplayName();
 
     [ObservableProperty]
     private string _lyricsModeText = "歌词 逐行";

@@ -282,14 +282,25 @@ public sealed class NeteaseApiClientSongTests
     public void GetQualityFallbackChain_StartsAtRequestedAndDescendsToStandard()
     {
         Assert.Equal(
-            new[] { AudioQuality.HiRes, AudioQuality.Lossless, AudioQuality.ExHigh, AudioQuality.Higher, AudioQuality.Standard },
+            new[] { AudioQuality.HiRes, AudioQuality.Lossless, AudioQuality.ExHigh, AudioQuality.Standard },
             NeteaseApiClient.GetQualityFallbackChain(AudioQuality.HiRes));
         Assert.Equal(
-            new[] { AudioQuality.Lossless, AudioQuality.ExHigh, AudioQuality.Higher, AudioQuality.Standard },
+            new[] { AudioQuality.Lossless, AudioQuality.ExHigh, AudioQuality.Standard },
             NeteaseApiClient.GetQualityFallbackChain(AudioQuality.Lossless));
         Assert.Equal(new[] { AudioQuality.Standard }, NeteaseApiClient.GetQualityFallbackChain(AudioQuality.Standard));
         Assert.Equal(
-            new[] { AudioQuality.HiRes, AudioQuality.Lossless, AudioQuality.ExHigh, AudioQuality.Higher, AudioQuality.Standard },
+            new[]
+            {
+                AudioQuality.DolbyAtmos,
+                AudioQuality.AudioVivid,
+                AudioQuality.Master,
+                AudioQuality.SurroundAudio,
+                AudioQuality.SpatialAudio,
+                AudioQuality.HiRes,
+                AudioQuality.Lossless,
+                AudioQuality.ExHigh,
+                AudioQuality.Standard,
+            },
             NeteaseApiClient.GetQualityFallbackChain((AudioQuality)99));
     }
 }

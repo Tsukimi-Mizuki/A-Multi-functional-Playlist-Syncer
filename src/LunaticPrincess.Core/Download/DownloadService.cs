@@ -172,6 +172,15 @@ public sealed class DownloadService : IDownloadService
             return new DownloadItemResult(song.Id, songName, false, ErrorMessage: trialMessage);
         }
 
+        // 高档位音质需要对应会员：服务端不支持时会静默降档，这里如实提示实际拿到的音质。
+        if (playback.Level.FromApiLevel() is { } actualQuality && actualQuality != options.Quality)
+        {
+            Report(
+                "获取播放地址",
+                $"实际音质：{actualQuality.ToDisplayName()}（{options.Quality.ToDisplayName()} 不可用，已自动降级）",
+                0);
+        }
+
         var extension = MediaFileHelper.ResolveExtension(playback.Format, playback.Url);
         var downloadTemp = Path.Combine(targetDirectory, $".nmm-{Guid.NewGuid():N}.part");
         var ncmTemp = Path.ChangeExtension(downloadTemp, ".ncm");

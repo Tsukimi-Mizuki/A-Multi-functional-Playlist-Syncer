@@ -165,6 +165,51 @@ public sealed class JsonSettingsStoreTests : IDisposable
         Assert.NotNull(settings.DownloadDirectory);
     }
 
+    [Fact]
+    public async Task LoadAsync_LegacyHigherQuality_MigratesToExHighAndKeepsOtherSettings()
+    {
+        await File.WriteAllTextAsync(
+            SettingsPath,
+            "{\"downloadDirectory\":\"D:\\\\music\",\"quality\":\"Higher\",\"maxConcurrency\":5}");
+
+        var store = new JsonSettingsStore(SettingsPath);
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(AudioQuality.ExHigh, loaded.Quality);
+        Assert.Equal(@"D:\music", loaded.DownloadDirectory);
+        Assert.Equal(5, loaded.MaxConcurrency);
+    }
+
+    [Fact]
+    public async Task LoadAsync_UnknownQuality_FallsBackToDefaultButKeepsOtherSettings()
+    {
+        await File.WriteAllTextAsync(
+            SettingsPath,
+            "{\"downloadDirectory\":\"D:\\\\music\",\"quality\":\"Ultra\",\"maxConcurrency\":2}");
+
+        var store = new JsonSettingsStore(SettingsPath);
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(AudioQuality.ExHigh, loaded.Quality);
+        Assert.Equal(@"D:\music", loaded.DownloadDirectory);
+        Assert.Equal(2, loaded.MaxConcurrency);
+    }
+
+    [Fact]
+    public async Task SaveLoad_HighQualityTier_RoundTrips()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        await store.SaveAsync(new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            Quality = AudioQuality.DolbyAtmos,
+        });
+
+        var loaded = await store.LoadAsync();
+
+        Assert.Equal(AudioQuality.DolbyAtmos, loaded.Quality);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_directory, recursive: true); } catch { }

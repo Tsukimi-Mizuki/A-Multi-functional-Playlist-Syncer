@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using LunaticPrincess.Core.Models;
 
 namespace LunaticPrincess.Core.Settings;
 
@@ -33,8 +35,14 @@ public sealed class JsonSettingsStore : ISettingsStore
 
             await using var stream = new FileStream(
                 _filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, useAsync: true);
-            var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken)
-                .ConfigureAwait(false);
+            var node = await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (node is not JsonObject root)
+            {
+                return new AppSettings().Normalize();
+            }
+
+            MigrateLegacyValues(root);
+            var settings = root.Deserialize<AppSettings>(JsonOptions);
             return (settings ?? new AppSettings()).Normalize();
         }
         catch (JsonException)
@@ -48,6 +56,25 @@ public sealed class JsonSettingsStore : ISettingsStore
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <summary>兼容旧版设置文件：音质枚举改名/删档后旧名称仍可读回，避免整份设置被判为损坏而重置。</summary>
+    private static void MigrateLegacyValues(JsonObject root)
+    {
+        if (root["quality"] is not JsonValue qualityNode || !qualityNode.TryGetValue<string>(out var rawQuality))
+        {
+            return;
+        }
+
+        if (AudioQualityExtensions.TryParseSettingValue(rawQuality, out var quality))
+        {
+            root["quality"] = quality.ToString();
+        }
+        else
+        {
+            // 无法识别的值：丢弃该项让默认音质生效，其余设置保持原样。
+            root.Remove("quality");
         }
     }
 

@@ -44,6 +44,11 @@ public sealed class AppSettings
         }
 
         MaxConcurrency = Math.Clamp(MaxConcurrency, 1, 8);
+        if (!Enum.IsDefined(typeof(AudioQuality), Quality))
+        {
+            Quality = AudioQuality.ExHigh;
+        }
+
         if (!Enum.IsDefined(typeof(ThemeMode), Theme))
         {
             Theme = ThemeMode.Dark;

@@ -39,15 +39,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         OverwriteExisting = current.OverwriteExisting;
         SkipExisting = current.SkipExisting;
 
-        QualityOptions =
-        [
-            new(AudioQuality.Standard, AudioQuality.Standard.ToDisplayName()),
-            new(AudioQuality.Higher, AudioQuality.Higher.ToDisplayName()),
-            new(AudioQuality.ExHigh, AudioQuality.ExHigh.ToDisplayName()),
-            new(AudioQuality.Lossless, AudioQuality.Lossless.ToDisplayName()),
-            new(AudioQuality.HiRes, AudioQuality.HiRes.ToDisplayName()),
-        ];
-        SelectedQuality = QualityOptions.FirstOrDefault(o => o.Value == current.Quality) ?? QualityOptions[2];
+        // 与网易云客户端的音质档位一致（枚举顺序即由低到高）。
+        QualityOptions = Enum.GetValues<AudioQuality>()
+            .Select(quality => new QualityOption(quality, quality.ToDisplayName()))
+            .ToArray();
+        SelectedQuality = QualityOptions.FirstOrDefault(o => o.Value == current.Quality)
+                          ?? QualityOptions.First(o => o.Value == AudioQuality.ExHigh);
 
         LyricModeOptions =
         [

@@ -53,11 +53,14 @@ Core
 
 ### 下载与标签
 
-1. 受会员/版权限制：取链失败或仅试听时明确失败，不绕过版权限制。
-2. 下载到临时文件；若文件头是 NCM 则自动解密。
-3. 拉取歌词、翻译、封面、歌曲/专辑元数据。
-4. 按歌词模式选择普通 LRC 或增强 LRC（逐字）。
-5. TagLib 写入 MP3/FLAC/M4A/OGG 标签，原子移动到下载目录。
+1. 音质档位映射为网易云 level：标准 `standard`、极高 `exhigh`、无损 `lossless`、Hi-Res `hires`、高清臻音 `jyeffect`、沉浸环绕声 `sky`、超清母带 `jymaster`、臻音全景声 `audio_vivid`（回退别名 `vivid`）、杜比全景声 `dolby`；`/api/song/enhance/player/url/v1` 逐档请求，
+   服务端无对应特权时静默降档，`AudioQualityExtensions.FromApiLevel()` 解析实际 level 并在进度中提示
+   “实际音质：…（… 不可用，已自动降级）”。设置文件里的旧值 `Higher` 在加载时迁移为 `ExHigh`。
+2. 受会员/版权限制：取链失败或仅试听时明确失败，不绕过版权限制。
+3. 下载到临时文件；若文件头是 NCM 则自动解密。
+4. 拉取歌词、翻译、封面、歌曲/专辑元数据。
+5. 按歌词模式选择普通 LRC 或增强 LRC（逐字）。
+6. TagLib 写入 MP3/FLAC/M4A/OGG 标签，原子移动到下载目录。
 
 ### NCM 解密
 

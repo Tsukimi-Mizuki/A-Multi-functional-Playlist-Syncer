@@ -130,6 +130,80 @@ public sealed class DownloadServiceTests
     }
 
     [Fact]
+    public async Task DownloadAsync_ReportsQualityDowngrade_WhenServerReturnsLowerLevel()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var media = Mp3Bytes();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.mp3",
+                Format = "mp3",
+                Level = "lossless",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics(null)),
+        };
+        var tags = new RecordingTagServiceForDownload();
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/7.mp3"] = media },
+            out _);
+        var progress = new ImmediateProgressForDownload<DownloadProgress>();
+        var service = CreateService(api, tags, new FakeLyricParserForDownload(), new FakeNcmDecoderForDownload(), client);
+
+        var summary = await service.DownloadAsync(
+            new[] { CreateSong(7, coverUrl: null) },
+            new DownloadOptions
+            {
+                TargetDirectory = workspace.Root,
+                Quality = AudioQuality.DolbyAtmos,
+                WriteCover = false,
+            },
+            progress);
+
+        Assert.Equal(1, summary.SuccessCount);
+        var notice = progress.Snapshot().First(r => r.Message is not null && r.Message.Contains("已自动降级"));
+        Assert.Contains("实际音质：无损 (SQ)", notice.Message);
+        Assert.Contains("杜比全景声 (Dolby Atmos) 不可用，已自动降级", notice.Message);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_DoesNotReportDowngrade_WhenLevelMatchesRequest()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.mp3",
+                Format = "mp3",
+                Level = "exhigh",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics(null)),
+        };
+        var tags = new RecordingTagServiceForDownload();
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/8.mp3"] = Mp3Bytes() },
+            out _);
+        var progress = new ImmediateProgressForDownload<DownloadProgress>();
+
+        await CreateService(api, tags, new FakeLyricParserForDownload(), new FakeNcmDecoderForDownload(), client)
+            .DownloadAsync(
+                new[] { CreateSong(8, coverUrl: null) },
+                new DownloadOptions
+                {
+                    TargetDirectory = workspace.Root,
+                    Quality = AudioQuality.ExHigh,
+                    WriteCover = false,
+                },
+                progress);
+
+        Assert.DoesNotContain(progress.Snapshot(), r => r.Message is not null && r.Message.Contains("已自动降级"));
+    }
+
+    [Fact]
     public async Task DownloadAsync_WordLyricsMode_WritesEnhancedLyrics()
     {
         using var workspace = new TempWorkspaceForDownload();

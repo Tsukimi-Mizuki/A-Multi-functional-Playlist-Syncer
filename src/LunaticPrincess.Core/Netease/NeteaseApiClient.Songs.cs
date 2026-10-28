@@ -102,25 +102,37 @@ public sealed partial class NeteaseApiClient
             lastError);
     }
 
-    /// <summary>请求新接口 /weapi/song/enhance/player/url/v1。</summary>
+    /// <summary>请求新接口 /weapi/song/enhance/player/url/v1（同一档位有多种 level 写法时依次尝试）。</summary>
     private async Task<SongPlaybackInfo> RequestPlaybackUrlV1Async(
         long songId,
         AudioQuality quality,
         CancellationToken cancellationToken)
     {
-        var payload = new JsonObject
+        SongPlaybackInfo? lastInfo = null;
+        foreach (var level in quality.ToApiLevels())
         {
-            ["ids"] = "[" + songId.ToString(CultureInfo.InvariantCulture) + "]",
-            ["level"] = quality.ToApiLevel(),
-            ["encodeType"] = "flac",
-        };
-        using var document = await PostWeapiAsync(
-                "/weapi/song/enhance/player/url/v1",
-                payload,
-                $"获取播放地址（{quality.ToDisplayName()}）",
-                cancellationToken)
-            .ConfigureAwait(false);
-        return NeteaseMappers.MapPlaybackInfo(document.RootElement, songId);
+            var payload = new JsonObject
+            {
+                ["ids"] = "[" + songId.ToString(CultureInfo.InvariantCulture) + "]",
+                ["level"] = level,
+                ["encodeType"] = "flac",
+            };
+            using var document = await PostWeapiAsync(
+                    "/weapi/song/enhance/player/url/v1",
+                    payload,
+                    $"获取播放地址（{quality.ToDisplayName()}）",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var info = NeteaseMappers.MapPlaybackInfo(document.RootElement, songId);
+            if (info.IsSuccess)
+            {
+                return info;
+            }
+
+            lastInfo = info;
+        }
+
+        return lastInfo ?? new SongPlaybackInfo { SongId = songId, ErrorMessage = "接口未返回播放地址" };
     }
 
     /// <summary>请求经典接口 /weapi/song/enhance/player/url。</summary>
@@ -143,10 +155,10 @@ public sealed partial class NeteaseApiClient
         return NeteaseMappers.MapPlaybackInfo(document.RootElement, songId);
     }
 
-    /// <summary>从请求音质开始逐级降档（HiRes → Lossless → ExHigh → Higher → Standard）。</summary>
+    /// <summary>从请求音质开始逐级降档（杜比全景声 → … → 无损 → 极高 → 标准）。</summary>
     internal static AudioQuality[] GetQualityFallbackChain(AudioQuality quality)
     {
-        var highest = Math.Clamp((int)quality, (int)AudioQuality.Standard, (int)AudioQuality.HiRes);
+        var highest = Math.Clamp((int)quality, (int)AudioQuality.Standard, (int)AudioQuality.DolbyAtmos);
         var chain = new AudioQuality[highest + 1];
         for (var index = 0; index <= highest; index++)
         {
