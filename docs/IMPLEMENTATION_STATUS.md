@@ -1,6 +1,6 @@
 # 实现状态
 
-> 最后更新：2026-10-28。当前状态：**v1.0 桌面端功能完成，构建/单测/真实网络冒烟/UI 启动均通过**。
+> 最后更新：2026-10-28。当前状态：**Avalonia 版功能完成；Tauri 版（Rust 壳 + Vue 前端 + .NET sidecar）已真机跑通全部核心流程**。
 
 ## 模块
 
@@ -14,7 +14,9 @@
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出；导入窗口可选解锁后自动在线匹配标签/封面/歌词 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化） |
+| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化）。旧版界面保留，与新版并行开发 |
+| Sidecar HTTP API | ✅ 完成 | `src/LunaticPrincess.Server`：26 条路由覆盖健康检查/会话/设置/歌单/曲库/下载/同步/NCM/标签/歌词/批量/文件/日志；长任务返回 202 + `jobId`，进度走 SSE；契约见 [TAURI_API.md](TAURI_API.md) |
+| Tauri 桌面端（新） | 🚧 进行中 | Rust 壳在 `setup` 里手动建窗（`WebviewWindowBuilder` + 可覆盖的 WebView2 数据目录），随机端口拉起 sidecar，读 `LPP_SERVER_READY` 后注入 `window.__LPP_API_BASE__`；前端为 Vue 3 + shadcn-vue + Motion for Vue；已真机验证登录态/歌单/设置/NCM；构建入口 `scripts/build-desktop.ps1` |
 | Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
 
@@ -44,7 +46,17 @@
   输出全部为 3 位毫秒时间戳（`[mm:ss.fff]`，2 位为 0 条），双语行与原文行时间戳完全一致、
   无 10ms 偏移；逐字歌曲（网易云 YRC）写出 884 个 `<mm:ss.fff>` 词标签、同样无 2 位残留。
 
-### UI
+### Tauri 桌面端（真机，2026-10-28）
+- 进程模型：`lunatic-princess.exe`（Rust/Tauri 2 + WebView2）随机端口拉起 `lunatic-princess-server.exe`（.NET 8 自包含），
+  日志出现 `[lpp] sidecar ready at http://127.0.0.1:<port>`；关窗时 sidecar 一并退出。
+- 真实账号（黑胶 VIP）验证：登录态注入成功，侧栏 16 个真实歌单，点开后 1233 首曲目渲染正常；
+  设置对话框显示真实值（高解析度无损 (Hi-Res)、8 并发、跳过已存在）。
+- NCM 页：自动扫描到 `D:\音乐\中转` 的 1 个真实 .ncm（ハレの日に - Harenohini，4:37），
+  输入/输出目录从设置记忆恢复，来源优先级文案与实际设置一致。
+- 界面瑕疵修复：WebView2 数据目录跨启动复用旧磁盘缓存时会出现演示数据（假歌单/普通用户），
+  清缓存即正确；发布包不携带该目录。
+
+### Avalonia（旧版界面）
 - 客户端真实启动成功、窗口响应、无 fatal 日志。
 - 主界面截图：docs/screenshots/main-window.png。
 - 对话框（扫码/设置/NCM 导入）已实现并编译通过。
@@ -176,3 +188,8 @@
 4. FLAC 封面按 VorbisComment METADATA_BLOCK_PICTURE 写入（TagLibSharp 2.3.0 不支持原生 PICTURE block API），主流播放器兼容。
 5. 网易云接口为非公开接口，未来可能变更；相关端点集中在 Core/Netease 便于维护。
 6. 客户端暂未加入本地播放功能；当前定位为“歌单同步 / 下载 / 解密 / 标签管理”。
+7. Tauri 版依赖 **WebView2 Runtime**；便携目录必须同时放 `lunatic-princess.exe`、`lunatic-princess-server.exe`、
+   `WebView2Loader.dll` 三个文件（缺 DLL 会以 0xC0000135 立即退出）。且每次启动使用系统分配的空闲端口，不要写死端口或做端口转发。
+8. Tauri 的 NSIS 安装包需要 `tauri-cli`（`build-desktop.ps1 -Bundle`）；默认产物是可便携目录 + zip。
+9. 本仓库路径含中文时，mingw `windres` 无法读取图标路径，构建脚本会把图标暂存到 `D:\lpp-icons`
+   再通过 `TAURI_CONFIG` 覆盖（链路见 ARCHITECTURE.md）。

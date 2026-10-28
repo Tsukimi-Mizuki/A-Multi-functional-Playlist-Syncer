@@ -2,16 +2,24 @@
 
 ## 目标
 
-1. 桌面端（Windows/Avalonia）先把完整业务跑通。
-2. 业务逻辑集中在 `LunaticPrincess.Core`，不依赖 Avalonia 或 Windows UI。
+1. 桌面端先把完整业务跑通。界面有两种形态：Avalonia（`src/LunaticPrincess.Desktop`，保留）与
+   Tauri + Vue（`desktop`，新版）。
+2. 业务逻辑集中在 `LunaticPrincess.Core`，不依赖 Avalonia、Tauri 或 Windows UI。
 3. 为 Android 复用预留边界：网络、存储、设置、选择器均通过接口注入。
+4. Tauri 版通过 `LunaticPrincess.Server`（ASP.NET Core minimal API）把 Core 能力暴露为本地 HTTP 接口，
+   前端与 Rust 壳都不接触 Core 类型，只走 JSON 契约（见 [TAURI_API.md](TAURI_API.md)）。
 
 ## 分层
 
 ```
-Desktop (Avalonia + MVVM)
-    │ 依赖接口，不依赖具体实现细节
-    ▼
+Desktop (Avalonia + MVVM)        desktop (Tauri 2 壳 + Vue 3 + shadcn-vue)
+    │                                │ HTTP/JSON  ▲ window.__LPP_API_BASE__
+    │                                ▼           │
+    │                          Server (ASP.NET Core minimal API, 127.0.0.1:随机端口)
+    │                                │
+    └────────────┬───────────────────┘
+                 │ 依赖接口，不依赖具体实现细节
+                 ▼
 Core
   ├─ Netease (INeteaseApiClient)
   ├─ Ncm     (INcmDecoder)
@@ -24,7 +32,41 @@ Core
 ```
 
 组合根位于 `src/LunaticPrincess.Desktop/Services/AppServices.cs`，负责创建 HttpClient、
-各 Core 服务实例以及登录态/设置存储；ViewModel 只接收接口。
+各 Core 服务实例以及登录态/设置存储；ViewModel 只接收接口。Tauri 版的组合根是
+`src/LunaticPrincess.Server/ServerServices.cs`，同一个 Core 装配被包进 HTTP 端点。
+
+## 桌面端形态：Avalonia 与 Tauri + sidecar
+
+两个界面共用同一个 `LunaticPrincess.Core`，互不影响，可并行开发：
+
+| | Avalonia（旧，保留） | Tauri（新） |
+|---|---|---|
+| 进程 | 单进程 `LunaticPrincess.exe` | Rust 壳 `lunatic-princess.exe` + .NET sidecar `lunatic-princess-server.exe` |
+| 界面 | XAML + MVVM | Vue 3 + shadcn-vue + Motion for Vue，构建产物内嵌进 exe |
+| 通信 | 进程内接口调用 | 本地 HTTP/JSON + SSE（契约见 [TAURI_API.md](TAURI_API.md)） |
+| 数据目录 | `AppPaths`（便携 `data\` 或 `%LOCALAPPDATA%\LunaticPrincess`） | 同左，壳与 sidecar 共用 `data\` |
+
+Tauri 侧要点：
+
+- **sidecar 生命周期**：Rust `setup` 里 `pick_port()`（`TcpListener::bind(("127.0.0.1", 0))`）取空闲端口，
+  `Command::new(sidecar).env("LPP_SERVER_PORT", port)` 启动、stdout 走管道；读到 `LPP_SERVER_READY <url>`
+  行后写 `ServerState`，对主窗口 `eval` 注入 `window.__LPP_API_BASE__` 并 dispatch `lpp-api-ready`；
+  读不到就退回 `wait_until_ready(port)` 探测。窗口关闭时 kill 子进程。
+  端口每次启动都不同，**前端不允许硬编码 18400**。
+- **sidecar 查找**：`current_exe()` 同目录下的 `lunatic-princess-server.exe` / `LunaticPrincess.Server.exe`，
+  开发布局再回溯到仓库 `publish\win-x64\`。
+- **窗口**：`tauri.conf.json` 的 `app.windows` 留空，改在 `setup` 里用 `WebviewWindowBuilder` 手动建窗
+  （无边框、透明、居中、1320×860），这样才能 `.data_directory(...)` 指定 WebView2 用户数据目录；
+  不指定时 Tauri 强制用 `%LOCALAPPDATA%`，受限环境会以 `os error 5` 启动失败。
+  目录可用环境变量 `LPP_WEBVIEW_DATA_DIR` 覆盖。
+- **构建顺序**：先 `vite build` 生成 `desktop/dist`，再 `cargo build`（tauri-codegen 把 dist 内嵌进 exe），
+  顺序颠倒会打包上一个版本的前端。
+- **便携目录三件套**：`lunatic-princess.exe` + `lunatic-princess-server.exe` + `WebView2Loader.dll`。
+  最后一个由 cargo 输出目录（`target\<profile>\WebView2Loader.dll`，160 KB）提供，`scripts/build-desktop.ps1`
+  会连同 sidecar 一起复制到 `publish\desktop-<profile>\`；漏掉时壳进程启动即退出，退出码 `0xC0000135`（STATUS_DLL_NOT_FOUND），
+  且因为 GUI 子系统没有 stdout，日志同样是空的。
+- **构建入口**：`scripts/build-desktop.ps1`（发布 sidecar → 复制到 `src-tauri/binaries/<triple>.exe`
+  → 构建前端 → cargo build → 产物拷到 `publish\desktop-<profile>`）。
 
 ## 关键流程
 
