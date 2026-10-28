@@ -55,6 +55,13 @@
   输入/输出目录从设置记忆恢复，来源优先级文案与实际设置一致。
 - 界面瑕疵修复：WebView2 数据目录跨启动复用旧磁盘缓存时会出现演示数据（假歌单/普通用户），
   清缓存即正确；发布包不携带该目录。
+- **便携目录（exe + sidecar + `WebView2Loader.dll`）拷到工作区外的普通目录后实机复测**：主界面 16 个歌单、
+  设置与 NCM 页均正常；经 `POST /api/ncm/import` 把 `D:\音乐\中转` 里 53.5 MB 的真实 .ncm 解密到同一盘的
+  新目录，返回 `成功 1 / 失败 0`，enrichmentMessage=`匹配「ハレの日に - Harenohini - 汐れいら」：已写入标签、封面、双语逐字歌词（QQ 音乐）`；
+  解密出的 FLAC 56,120,666 B，读回标签 `title/artist/album/albumArtist/year=2025/track=1` 与封面全部正确，
+  说明下载、解密、写标签在工作区外的真实路径上均无权限问题。
+- 踩坑记录：便携目录最初只复制了两个 exe，缺 `WebView2Loader.dll` 时壳进程直接以 `0xC0000135`
+  （STATUS_DLL_NOT_FOUND）退出且没有任何日志；`scripts/build-desktop.ps1` 现已把三个文件一起复制。
 
 ### Avalonia（旧版界面）
 - 客户端真实启动成功、窗口响应、无 fatal 日志。
