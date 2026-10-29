@@ -221,6 +221,20 @@ public static class LyricsMatchScorer
         }
     }
 
+    /// <summary>
+    /// 时长是否相容：备用词源（酷狗 / LRCLIB）的硬性过滤，
+    /// 避免同名不同时长版本（现场版、剪辑版）把歌词写错。时长未知时放行。
+    /// </summary>
+    public static bool DurationMatches(long localMs, long resultMs, long toleranceMs = 8000)
+    {
+        if (localMs <= 0 || resultMs <= 0)
+        {
+            return true;
+        }
+
+        return Math.Abs(localMs - resultMs) <= toleranceMs;
+    }
+
     /// <summary>计算本地歌曲与一条在线搜索结果的匹配度。</summary>
     public static LyricsMatchScore Score(
         string? localTitle,

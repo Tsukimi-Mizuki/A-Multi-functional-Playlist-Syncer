@@ -40,6 +40,8 @@ public interface IBatchLyricsService
 /// 批量标签与封面：扫描本地音频，用标签/文件名搜索网易云或 QQ 音乐，
 /// 按 音樂標籤 的思路做多变体搜索与四路打分（标题/歌手/专辑/时长）重排，
 /// 用匹配度阈值筛选后把标题、歌手、专辑、年份、音轨/碟号、风格、作曲家和封面写回标签。
+/// 网易云 / QQ 都没有可用歌词时，再按顺序尝试备用词源（酷狗 KRC、LRCLIB），
+/// 让冷门曲目与同人音乐也能补上逐行/逐字歌词。
 /// </summary>
 public sealed class BatchLyricsService : IBatchLyricsService
 {
@@ -56,11 +58,16 @@ public sealed class BatchLyricsService : IBatchLyricsService
 
     private readonly IAudioTagService _tags;
     private readonly IOnlineMusicSearchService _online;
+    private readonly IReadOnlyList<ILyricsSource> _fallbackSources;
 
-    public BatchLyricsService(IAudioTagService tags, IOnlineMusicSearchService online)
+    public BatchLyricsService(
+        IAudioTagService tags,
+        IOnlineMusicSearchService online,
+        IReadOnlyList<ILyricsSource>? fallbackSources = null)
     {
         _tags = tags ?? throw new ArgumentNullException(nameof(tags));
         _online = online ?? throw new ArgumentNullException(nameof(online));
+        _fallbackSources = fallbackSources ?? Array.Empty<ILyricsSource>();
     }
 
     public Task<IReadOnlyList<string>> ScanAudioFilesAsync(
@@ -140,42 +147,70 @@ public sealed class BatchLyricsService : IBatchLyricsService
                 cancellationToken).ConfigureAwait(false)
             : null;
 
+        // 网易云 / QQ 都没有可用歌词时，再按顺序问备用词源（酷狗、LRCLIB）。
+        LyricsSourceCandidate? fallbackLyrics = null;
+        var onlineLyrics = lyricsDetails?.GetLyrics(options.PreferWordLyrics, bilingual: true);
+        if (shouldFetchLyrics && string.IsNullOrWhiteSpace(onlineLyrics) && _fallbackSources.Count > 0)
+        {
+            fallbackLyrics = await FindFallbackLyricsAsync(
+                queries,
+                localTitle,
+                localArtist,
+                localAlbum,
+                info.DurationMs,
+                options.PreferWordLyrics,
+                minScore,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         var metadataSource = tagDetails ?? lyricsDetails;
-        if (metadataSource is null)
+        if (metadataSource is null && fallbackLyrics is null)
         {
             return Fail(filePath, "未找到匹配度足够的在线歌曲");
         }
 
-        var tagSong = metadataSource.Song;
+        var tagSong = metadataSource?.Song;
+        var sourceLabel = tagSong?.SourceLabel ?? fallbackLyrics!.SourceLabel;
         var cover = tagDetails?.CoverData ?? lyricsDetails?.CoverData;
 
         string? lyrics = null;
         var lyricsFormat = string.Empty;
         var writesLyrics = false;
         var useWord = false;
-        if (shouldFetchLyrics && lyricsDetails is not null)
+        if (shouldFetchLyrics)
         {
-            lyrics = lyricsDetails.GetLyrics(options.PreferWordLyrics, bilingual: true);
-            if (!string.IsNullOrWhiteSpace(lyrics))
+            if (!string.IsNullOrWhiteSpace(onlineLyrics) && lyricsDetails is not null)
             {
+                lyrics = onlineLyrics;
                 useWord = options.PreferWordLyrics && lyricsDetails.HasWordLyrics;
                 writesLyrics = true;
-                lyricsFormat = useWord
-                    ? lyricsDetails.HasTranslation ? "双语逐字歌词" : "逐字歌词"
-                    : lyricsDetails.HasTranslation ? "双语逐行歌词" : "逐行歌词";
+                lyricsFormat = FormatLabel(useWord, lyricsDetails.HasTranslation);
+            }
+            else if (fallbackLyrics is not null)
+            {
+                lyrics = fallbackLyrics.GetLyrics(options.PreferWordLyrics, bilingual: true);
+                if (!string.IsNullOrWhiteSpace(lyrics))
+                {
+                    useWord = options.PreferWordLyrics && fallbackLyrics.HasWordLyrics;
+                    writesLyrics = true;
+                    lyricsFormat = FormatLabel(useWord, fallbackLyrics.HasTranslation);
+                }
             }
         }
 
+        var tagTitle = tagSong?.Title ?? fallbackLyrics?.Title;
+        var tagArtist = tagSong?.Artist ?? fallbackLyrics?.Artist;
+        var tagAlbum = tagSong?.Album ?? fallbackLyrics?.Album;
         var tagData = new AudioTagData
         {
-            Title = replace || string.IsNullOrWhiteSpace(info.Title) ? NullIfBlank(tagSong.Title) : null,
-            Artists = replace || string.IsNullOrWhiteSpace(info.Artist) ? SplitArtists(tagSong.Artist) : Array.Empty<string>(),
-            Album = replace || string.IsNullOrWhiteSpace(info.Album) ? NullIfBlank(tagSong.Album) : null,
-            Year = replace || info.Year is null ? tagSong.Year : null,
-            TrackNumber = replace || info.TrackNumber is null ? tagSong.TrackNumber : null,
-            DiscNumber = replace || info.DiscNumber is null ? tagSong.DiscNumber : null,
-            Genre = replace || string.IsNullOrWhiteSpace(info.Genre) ? NullIfBlank(tagSong.Genre) : null,
-            Composer = replace || string.IsNullOrWhiteSpace(info.Composer) ? NullIfBlank(tagSong.Composer) : null,
+            Title = replace || string.IsNullOrWhiteSpace(info.Title) ? NullIfBlank(tagTitle) : null,
+            Artists = replace || string.IsNullOrWhiteSpace(info.Artist) ? SplitArtists(tagArtist) : Array.Empty<string>(),
+            Album = replace || string.IsNullOrWhiteSpace(info.Album) ? NullIfBlank(tagAlbum) : null,
+            Year = replace || info.Year is null ? tagSong?.Year : null,
+            TrackNumber = replace || info.TrackNumber is null ? tagSong?.TrackNumber : null,
+            DiscNumber = replace || info.DiscNumber is null ? tagSong?.DiscNumber : null,
+            Genre = replace || string.IsNullOrWhiteSpace(info.Genre) ? NullIfBlank(tagSong?.Genre) : null,
+            Composer = replace || string.IsNullOrWhiteSpace(info.Composer) ? NullIfBlank(tagSong?.Composer) : null,
             CoverData = replace || !info.HasCover ? cover : null,
             PlainLyrics = writesLyrics && !useWord ? lyrics : null,
             WordLyrics = writesLyrics && useWord ? lyrics : null,
@@ -199,9 +234,9 @@ public sealed class BatchLyricsService : IBatchLyricsService
                 false,
                 true,
                 "标签、封面与歌词已完整，跳过",
-                tagSong.Title,
-                tagSong.Artist,
-                metadataSource.Song.SourceLabel,
+                tagTitle,
+                tagArtist,
+                sourceLabel,
                 lyricsFormat);
         }
 
@@ -224,6 +259,11 @@ public sealed class BatchLyricsService : IBatchLyricsService
         }
 
         var message = "已写入" + string.Join("、", parts);
+        if (writesLyrics && fallbackLyrics is not null)
+        {
+            message += $"（歌词来源：{fallbackLyrics.SourceLabel}）";
+        }
+
         if (shouldFetchLyrics && !writesLyrics)
         {
             message += "（未获取到歌词）";
@@ -234,11 +274,60 @@ public sealed class BatchLyricsService : IBatchLyricsService
             true,
             false,
             message,
-            tagSong.Title,
-            tagSong.Artist,
-            metadataSource.Song.SourceLabel,
+            tagTitle,
+            tagArtist,
+            sourceLabel,
             lyricsFormat);
     }
+
+    /// <summary>
+    /// 依次询问备用词源：某个源抛异常或没有可用歌词时继续下一个，全部失败返回 null。
+    /// 备用源只补歌词，不改写标签来源，因此不影响原有的标签/封面匹配逻辑。
+    /// </summary>
+    private async Task<LyricsSourceCandidate?> FindFallbackLyricsAsync(
+        IReadOnlyList<string> queries,
+        string localTitle,
+        string localArtist,
+        string? localAlbum,
+        long localDurationMs,
+        bool preferWord,
+        double minScore,
+        CancellationToken cancellationToken)
+    {
+        foreach (var source in _fallbackSources)
+        {
+            LyricsSourceCandidate? candidate;
+            try
+            {
+                candidate = await source.FetchAsync(
+                    queries,
+                    localTitle,
+                    localArtist,
+                    localAlbum,
+                    localDurationMs,
+                    minScore,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                continue;
+            }
+
+            if (candidate is null || string.IsNullOrWhiteSpace(candidate.GetLyrics(preferWord, bilingual: true)))
+            {
+                continue;
+            }
+
+            return candidate;
+        }
+
+        return null;
+    }
+
+    private static string FormatLabel(bool useWord, bool hasTranslation) =>
+        useWord
+            ? hasTranslation ? "双语逐字歌词" : "逐字歌词"
+            : hasTranslation ? "双语逐行歌词" : "逐行歌词";
 
     private async Task<OnlineSongDetails?> FindBestDetailsAsync(
         IReadOnlyList<string> queries,

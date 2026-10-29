@@ -110,6 +110,134 @@ public sealed class BatchLyricsServiceTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(tags.Written!.PlainLyrics));
     }
 
+    [Fact]
+    public async Task FetchForFileAsync_UsesFallbackLyricsWhenOnlineHasNoLyrics()
+    {
+        var path = CreateFile("fallback-lyrics.mp3");
+        var tags = new StubTagService(new AudioTagInfo(
+            Title: "Lemon",
+            Artist: "米津玄師",
+            Album: "Lemon",
+            AlbumArtist: null,
+            DurationMs: 255_000,
+            Bitrate: 320_000,
+            HasCover: true));
+        var online = new StubOnlineService(
+            new OnlineSongResult(
+                OnlineMusicSource.Netease,
+                "2051316826",
+                "Lemon",
+                "米津玄師",
+                "Lemon",
+                255_000,
+                2018,
+                1),
+            lyrics: null);
+        var fallback = new StubFallbackSource(
+            "LRCLIB",
+            new LyricsSourceCandidate(
+                "LRCLIB",
+                "Lemon",
+                "米津玄師",
+                "Lemon",
+                255_000,
+                LineLyrics: "[00:01.00]夢ならば"));
+        var service = new BatchLyricsService(tags, online, new[] { fallback });
+
+        var result = await service.FetchForFileAsync(
+            path,
+            new BatchLyricsOptions(OverwriteExisting: false, FetchLyrics: true));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("逐行歌词", result.Message);
+        Assert.Contains("歌词来源：LRCLIB", result.Message);
+        Assert.NotNull(tags.Written);
+        Assert.Equal("[00:01.00]夢ならば", tags.Written!.PlainLyrics);
+        Assert.NotEmpty(fallback.SearchedQueries);
+    }
+
+    [Fact]
+    public async Task FetchForFileAsync_UsesFallbackSourceWhenOnlineSearchMisses()
+    {
+        var path = CreateFile("fallback-only.mp3");
+        var tags = new StubTagService(new AudioTagInfo(
+            Title: "冷门曲子",
+            Artist: "同人歌手",
+            Album: null,
+            AlbumArtist: null,
+            DurationMs: 200_000,
+            Bitrate: 320_000));
+        var online = new StubOnlineService(
+            new OnlineSongResult(
+                OnlineMusicSource.Netease,
+                "186016",
+                "晴天",
+                "周杰伦",
+                "叶惠美",
+                269_500,
+                2003,
+                3),
+            lyrics: null);
+        var broken = new ThrowingFallbackSource();
+        var fallback = new StubFallbackSource(
+            "酷狗音乐",
+            new LyricsSourceCandidate(
+                "酷狗音乐",
+                "冷门曲子",
+                "同人歌手",
+                "同人专辑",
+                200_500,
+                WordLyrics: "[00:01.00]<00:01.00>冷<00:02.00>门"));
+        var service = new BatchLyricsService(tags, online, new ILyricsSource[] { broken, fallback });
+
+        var result = await service.FetchForFileAsync(
+            path,
+            new BatchLyricsOptions(FetchLyrics: true, PreferWordLyrics: true));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal("酷狗音乐", result.SourceLabel);
+        Assert.Equal("逐字歌词", result.LyricsFormat);
+        Assert.Contains("逐字歌词", result.Message);
+        Assert.NotNull(tags.Written);
+        Assert.Null(tags.Written!.Title);
+        Assert.Equal("同人专辑", tags.Written.Album);
+        Assert.Equal("[00:01.00]<00:01.00>冷<00:02.00>门", tags.Written.WordLyrics);
+    }
+
+    [Fact]
+    public async Task FetchForFileAsync_DoesNotConsultFallbackWhenOnlineLyricsExist()
+    {
+        var path = CreateFile("online-first.mp3");
+        var tags = new StubTagService(new AudioTagInfo(
+            Title: "晴天",
+            Artist: "周杰伦",
+            Album: "叶惠美",
+            AlbumArtist: null,
+            DurationMs: 269_000,
+            Bitrate: 320_000));
+        var online = new StubOnlineService(new OnlineSongResult(
+            OnlineMusicSource.Netease,
+            "186016",
+            "晴天",
+            "周杰伦",
+            "叶惠美",
+            269_500,
+            2003,
+            3));
+        var fallback = new StubFallbackSource(
+            "LRCLIB",
+            new LyricsSourceCandidate("LRCLIB", "晴天", "周杰伦", "叶惠美", 269_000, LineLyrics: "[00:01.00]别的歌词"));
+        var service = new BatchLyricsService(tags, online, new[] { fallback });
+
+        var result = await service.FetchForFileAsync(
+            path,
+            new BatchLyricsOptions(OverwriteExisting: true, FetchLyrics: true));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Empty(fallback.SearchedQueries);
+        Assert.Equal("[00:01.00]晴天", tags.Written!.PlainLyrics);
+    }
+
     private string CreateFile(string fileName)
     {
         var path = _temp.File(fileName);
@@ -138,8 +266,13 @@ public sealed class BatchLyricsServiceTests : IDisposable
     private sealed class StubOnlineService : IOnlineMusicSearchService
     {
         private readonly OnlineSongResult _song;
+        private readonly string? _lyrics;
 
-        public StubOnlineService(OnlineSongResult song) => _song = song;
+        public StubOnlineService(OnlineSongResult song, string? lyrics = "[00:01.00]晴天")
+        {
+            _song = song;
+            _lyrics = lyrics;
+        }
 
         public Task<IReadOnlyList<OnlineSongResult>> SearchAsync(
             OnlineMusicSource source,
@@ -151,6 +284,49 @@ public sealed class BatchLyricsServiceTests : IDisposable
         public Task<OnlineSongDetails?> GetDetailsAsync(
             OnlineSongResult song,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<OnlineSongDetails?>(new OnlineSongDetails(song, "[00:01.00]晴天", null));
+            Task.FromResult<OnlineSongDetails?>(new OnlineSongDetails(song, _lyrics, null));
+    }
+
+    private sealed class StubFallbackSource : ILyricsSource
+    {
+        private readonly LyricsSourceCandidate? _candidate;
+
+        public StubFallbackSource(string label, LyricsSourceCandidate? candidate)
+        {
+            Label = label;
+            _candidate = candidate;
+        }
+
+        public string Label { get; }
+
+        public List<string> SearchedQueries { get; } = new();
+
+        public Task<LyricsSourceCandidate?> FetchAsync(
+            IReadOnlyList<string> queries,
+            string title,
+            string artist,
+            string? album,
+            long durationMs,
+            double minScore,
+            CancellationToken cancellationToken = default)
+        {
+            SearchedQueries.AddRange(queries);
+            return Task.FromResult(_candidate);
+        }
+    }
+
+    private sealed class ThrowingFallbackSource : ILyricsSource
+    {
+        public string Label => "故障源";
+
+        public Task<LyricsSourceCandidate?> FetchAsync(
+            IReadOnlyList<string> queries,
+            string title,
+            string artist,
+            string? album,
+            long durationMs,
+            double minScore,
+            CancellationToken cancellationToken = default) =>
+            throw new HttpRequestException("模拟词源故障");
     }
 }

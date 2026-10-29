@@ -205,6 +205,18 @@ Core
   同时作用于批量匹配与 NCM 解锁后的自动匹配；低于阈值的候选只做标注，不会被自动选中或写入。
 - 对最佳结果获取标签/封面与歌词后，更新 Title/Artists/Album/Year/Track/Disc/Genre/Composer/Cover
   以及 Lyrics/WordLyrics；歌词按逐行或逐字（有则优先）写入双语内容。
+- 网易云 / QQ 都取不到歌词（或检索落空）时，按顺序尝试备用词源 `ILyricsSource`：
+  - 酷狗音乐（`KugouLyricsSource`）：KRC 逐字歌词 + 逐行译文。三段链路为
+    `mobilecdn.kugou.com/api/v3/search/song` 取 hash（可缺省）→ `krcs.kugou.com/search` 取
+    id/accesskey → `lyrics.kugou.com/download?fmt=krc` 取内容；base64 解码后前 4 字节明文魔数 `krc1`，
+    其后按 16 字节固定密钥 XOR、再 zlib 解压；`[language:<base64 JSON>]` 里 type=1 是逐行译文、
+    type=0 是逐字罗马音，`KrcLyricsParser` 统一转成 `LyricDocument`。
+  - LRCLIB（`LrclibLyricsSource`）：仅逐行 `syncedLyrics`。先用 `?q=` 全文检索（最多 3 个标题变体，
+    对超长/带修饰的日文标题命中率明显更高），全部落空再用 `?track_name=&artist_name=` 兜底；
+    服务端 429/503 属瞬时失败，退避后重试一次，避免整首歌词白白丢失。
+  - 备用词源命中的候选同样经 `LyricsMatchScorer` 打分并校验时长/伴奏标记，低于阈值的直接丢弃；
+    写回时消息追加「（歌词来源：酷狗音乐/LRCLIB）」。酷狗在本机偶发
+    `RemoteCertificateNameMismatch`，异常被吞掉后自动回落到下一个词源，不影响主流程。
 - 可选择覆盖已有标签与歌词；未开启时只补缺失字段、缺失封面和缺失歌词。
 - 批量任务使用 3 个并发请求、进度回报和取消令牌；界面为独立窗口，从歌词编辑窗口右上角的
   “批量获取”按钮以编辑器为 Owner 打开。

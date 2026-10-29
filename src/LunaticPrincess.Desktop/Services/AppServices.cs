@@ -94,7 +94,13 @@ public sealed class AppServices : IDisposable
         var matcher = new SongMatcher();
         var downloader = new DownloadService(api, tags, lyrics, ncmDecoder, http);
         var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
-        var batchLyrics = new BatchLyricsService(tags, onlineSearch);
+        // 网易云 / QQ 都没有歌词时，按顺序用酷狗 KRC、LRCLIB 兜底补歌词。
+        var fallbackLyrics = new ILyricsSource[]
+        {
+            new KugouLyricsSource(http, lyrics),
+            new LrclibLyricsSource(http, lyrics),
+        };
+        var batchLyrics = new BatchLyricsService(tags, onlineSearch, fallbackLyrics);
         // 解密成功后可自动在线匹配标签/封面/歌词，因此导入器依赖批量匹配服务。
         var ncmImporter = new NcmImportService(ncmDecoder, tags, batchLyrics);
         var sync = new MusicSyncService(api, ncmDecoder, tags, lyrics, ncmImporter, downloader, http);
