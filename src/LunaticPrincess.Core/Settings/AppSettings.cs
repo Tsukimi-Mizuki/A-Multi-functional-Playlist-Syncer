@@ -22,8 +22,12 @@ public sealed class AppSettings
     public List<string> NcmImportFolders { get; set; } = [];
     /// <summary>NCM 导入窗口记住的输出目录；为空时回退到下载目录。</summary>
     public string NcmImportOutputDirectory { get; set; } = string.Empty;
-    /// <summary>歌词编辑窗口记住的在线搜索来源。</summary>
-    public OnlineMusicSource LyricsEditorSearchSource { get; set; } = OnlineMusicSource.Netease;
+    /// <summary>歌词编辑窗口记住的在线搜索来源（主词源或备用词源）。</summary>
+    public LyricsSourceKind LyricsEditorSearchSource { get; set; } = LyricsSourceKind.Netease;
+    /// <summary>批量获取歌词时是否启用酷狗音乐备用词源（逐字 + 译文）。</summary>
+    public bool FallbackKugouLyrics { get; set; } = true;
+    /// <summary>批量获取歌词时是否启用 LRCLIB 备用词源（逐行）。</summary>
+    public bool FallbackLrclibLyrics { get; set; } = true;
     /// <summary>歌词编辑窗口记住的在线歌词格式：true 表示优先逐字歌词。</summary>
     public bool LyricsEditorPreferWordLyrics { get; set; }
     /// <summary>在线匹配度阈值（0.30-1.00）：同时影响歌词编辑器搜索排序与批量获取的精度。</summary>
@@ -69,9 +73,9 @@ public sealed class AppSettings
             LyricsSourcePriority = OnlineSourcePriority.NeteaseFirst;
         }
 
-        if (!Enum.IsDefined(typeof(OnlineMusicSource), LyricsEditorSearchSource))
+        if (!Enum.IsDefined(typeof(LyricsSourceKind), LyricsEditorSearchSource))
         {
-            LyricsEditorSearchSource = OnlineMusicSource.Netease;
+            LyricsEditorSearchSource = LyricsSourceKind.Netease;
         }
 
         if (double.IsNaN(MatchThreshold) || double.IsInfinity(MatchThreshold) || MatchThreshold <= 0)

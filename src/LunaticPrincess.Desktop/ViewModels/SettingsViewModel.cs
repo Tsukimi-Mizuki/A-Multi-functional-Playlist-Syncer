@@ -13,7 +13,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     // NCM 导入记忆不属于设置界面字段，保存其他设置时必须原样带到新对象，避免丢失。
     private readonly List<string> _ncmImportFolders;
     private readonly string _ncmImportOutputDirectory;
-    private readonly OnlineMusicSource _lyricsEditorSearchSource;
+    private readonly LyricsSourceKind _lyricsEditorSearchSource;
     private readonly bool _lyricsEditorPreferWordLyrics;
     private readonly double _matchThreshold;
     private readonly ThemeMode _initialTheme;
@@ -28,6 +28,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ncmImportOutputDirectory = current.NcmImportOutputDirectory;
         _lyricsEditorSearchSource = current.LyricsEditorSearchSource;
         _lyricsEditorPreferWordLyrics = current.LyricsEditorPreferWordLyrics;
+        FallbackKugouLyrics = current.FallbackKugouLyrics;
+        FallbackLrclibLyrics = current.FallbackLrclibLyrics;
         _matchThreshold = current.MatchThreshold;
         _initialTheme = current.Theme;
         _syncingFileNameTemplate = true;
@@ -156,6 +158,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private OnlinePriorityOption _selectedLyricsSourcePriority = null!;
+
+    /// <summary>批量获取歌词时是否使用酷狗音乐兜底（逐字 + 译文）。</summary>
+    [ObservableProperty]
+    private bool _fallbackKugouLyrics;
+
+    /// <summary>批量获取歌词时是否使用 LRCLIB 兜底（逐行）。</summary>
+    [ObservableProperty]
+    private bool _fallbackLrclibLyrics;
 
     [ObservableProperty]
     private ThemeOption _selectedTheme = null!;
@@ -323,6 +333,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 NcmImportOutputDirectory = _ncmImportOutputDirectory,
                 LyricsEditorSearchSource = _lyricsEditorSearchSource,
                 LyricsEditorPreferWordLyrics = _lyricsEditorPreferWordLyrics,
+                FallbackKugouLyrics = FallbackKugouLyrics,
+                FallbackLrclibLyrics = FallbackLrclibLyrics,
                 MatchThreshold = _matchThreshold,
                 Theme = SelectedTheme.Value,
             };

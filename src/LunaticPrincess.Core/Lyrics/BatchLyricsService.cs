@@ -70,6 +70,12 @@ public sealed class BatchLyricsService : IBatchLyricsService
         _fallbackSources = fallbackSources ?? Array.Empty<ILyricsSource>();
     }
 
+    /// <summary>
+    /// 运行期过滤备用词源：返回 false 时跳过该源（对应设置里的「备用词源」开关）。
+    /// 为 null 表示全部启用。
+    /// </summary>
+    public Func<ILyricsSource, bool>? FallbackSourceFilter { get; set; }
+
     public Task<IReadOnlyList<string>> ScanAudioFilesAsync(
         string directory,
         bool recursive,
@@ -296,6 +302,11 @@ public sealed class BatchLyricsService : IBatchLyricsService
     {
         foreach (var source in _fallbackSources)
         {
+            if (FallbackSourceFilter is { } filter && !filter(source))
+            {
+                continue;
+            }
+
             LyricsSourceCandidate? candidate;
             try
             {

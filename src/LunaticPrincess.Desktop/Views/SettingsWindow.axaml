@@ -195,6 +195,21 @@
           </StackPanel>
         </Border>
 
+        <!-- 备用词源（网易云 / QQ 没有歌词时兜底） -->
+        <Border Classes="salt-card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="salt-card-title" Text="备用词源" />
+            <CheckBox Content="酷狗音乐（逐字歌词 + 译文）"
+                      IsChecked="{Binding FallbackKugouLyrics, Mode=TwoWay}"
+                      AutomationProperties.Name="启用酷狗音乐备用词源" />
+            <CheckBox Content="LRCLIB（逐行歌词）"
+                      IsChecked="{Binding FallbackLrclibLyrics, Mode=TwoWay}"
+                      AutomationProperties.Name="启用 LRCLIB 备用词源" />
+            <TextBlock Text="网易云音乐 / QQ 音乐没有可用歌词时，按 酷狗音乐 → LRCLIB 的顺序兜底；批量获取标签、封面与歌词和 NCM 导入的自动匹配都受此控制。"
+                       FontSize="10.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
+          </StackPanel>
+        </Border>
         <Border IsVisible="{Binding HasValidationMessage}"
                 Background="{DynamicResource DangerSoftBrush}" BorderBrush="{DynamicResource DangerBorderBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="14,10">

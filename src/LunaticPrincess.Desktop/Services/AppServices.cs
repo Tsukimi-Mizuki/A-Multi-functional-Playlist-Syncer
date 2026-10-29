@@ -18,6 +18,8 @@ namespace LunaticPrincess.Desktop.Services;
 /// </summary>
 public sealed class AppServices : IDisposable
 {
+    private readonly BatchLyricsService _batchLyrics;
+
     private AppServices(
         HttpClient http,
         INeteaseApiClient api,
@@ -33,10 +35,13 @@ public sealed class AppServices : IDisposable
         ISettingsStore settingsStore,
         CoverImageService covers,
         IOnlineMusicSearchService onlineSearch,
-        IBatchLyricsService batchLyrics)
+        BatchLyricsService batchLyrics,
+        IReadOnlyList<ILyricsSource> fallbackLyricsSources)
     {
+        _batchLyrics = batchLyrics;
         OnlineSearch = onlineSearch;
         BatchLyrics = batchLyrics;
+        FallbackLyricsSources = fallbackLyricsSources;
         Http = http;
         Api = api;
         NcmDecoder = ncmDecoder;
@@ -68,6 +73,21 @@ public sealed class AppServices : IDisposable
     public IOnlineMusicSearchService OnlineSearch { get; }
     public IBatchLyricsService BatchLyrics { get; }
 
+    /// <summary>备用词源实例（酷狗音乐、LRCLIB），顺序即兜底尝试顺序。</summary>
+    public IReadOnlyList<ILyricsSource> FallbackLyricsSources { get; }
+
+    /// <summary>把设置里的备用词源开关应用到批量匹配服务（关掉的源在兜底时跳过）。</summary>
+    public void ApplyFallbackLyricsSettings(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _batchLyrics.FallbackSourceFilter = source => source.Label switch
+        {
+            KugouLyricsSource.LyricsSourceLabel => settings.FallbackKugouLyrics,
+            LrclibLyricsSource.LyricsSourceLabel => settings.FallbackLrclibLyrics,
+            _ => true,
+        };
+    }
+
     /// <summary>构造全部真实依赖。所有平台相关路径（设置、登录态）使用 Core 的 AppPaths 默认位置。</summary>
     public static AppServices Create()
     {
@@ -95,11 +115,11 @@ public sealed class AppServices : IDisposable
         var downloader = new DownloadService(api, tags, lyrics, ncmDecoder, http);
         var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
         // 网易云 / QQ 都没有歌词时，按顺序用酷狗 KRC、LRCLIB 兜底补歌词。
-        var fallbackLyrics = new ILyricsSource[]
-        {
+        ILyricsSource[] fallbackLyrics =
+        [
             new KugouLyricsSource(http, lyrics),
             new LrclibLyricsSource(http, lyrics),
-        };
+        ];
         var batchLyrics = new BatchLyricsService(tags, onlineSearch, fallbackLyrics);
         // 解密成功后可自动在线匹配标签/封面/歌词，因此导入器依赖批量匹配服务。
         var ncmImporter = new NcmImportService(ncmDecoder, tags, batchLyrics);
@@ -123,7 +143,8 @@ public sealed class AppServices : IDisposable
             settingsStore,
             covers,
             onlineSearch,
-            batchLyrics);
+            batchLyrics,
+            fallbackLyrics);
     }
 
     public void Dispose()

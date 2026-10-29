@@ -287,6 +287,76 @@ public sealed class BatchLyricsServiceTests : IDisposable
             Task.FromResult<OnlineSongDetails?>(new OnlineSongDetails(song, _lyrics, null));
     }
 
+
+    [Fact]
+    public async Task FetchForFileAsync_HonoursFallbackSourceFilter()
+    {
+        var path = CreateFile("filtered-fallback.mp3");
+        var tags = new StubTagService(new AudioTagInfo(
+            Title: "冷门曲子",
+            Artist: "同人歌手",
+            Album: null,
+            AlbumArtist: null,
+            DurationMs: 200_000,
+            Bitrate: 320_000));
+        var online = new StubOnlineService(
+            new OnlineSongResult(OnlineMusicSource.Netease, "1", "晴天", "周杰伦", "叶惠美", 269_500, 2003, 3),
+            lyrics: null);
+        var kugou = new StubFallbackSource(
+            "酷狗音乐",
+            new LyricsSourceCandidate("酷狗音乐", "冷门曲子", "同人歌手", "同人专辑", 200_000, WordLyrics: "[00:01.00]<00:01.00>冷"));
+        var lrclib = new StubFallbackSource(
+            "LRCLIB",
+            new LyricsSourceCandidate("LRCLIB", "冷门曲子", "同人歌手", "同人专辑", 200_000, LineLyrics: "[00:01.00]冷"));
+        var service = new BatchLyricsService(tags, online, new ILyricsSource[] { kugou, lrclib })
+        {
+            // 设置里关掉酷狗音乐后，兜底应直接跳到 LRCLIB。
+            FallbackSourceFilter = source => !string.Equals(source.Label, "酷狗音乐", StringComparison.Ordinal),
+        };
+
+        var result = await service.FetchForFileAsync(path, new BatchLyricsOptions(FetchLyrics: true));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("歌词来源：LRCLIB", result.Message);
+        Assert.Empty(kugou.SearchedQueries);
+        Assert.NotEmpty(lrclib.SearchedQueries);
+        Assert.Equal("[00:01.00]冷", tags.Written!.PlainLyrics);
+    }
+
+    [Fact]
+    public async Task FetchForFileAsync_WritesNoLyricsWhenEveryFallbackSourceDisabled()
+    {
+        var path = CreateFile("disabled-fallback.mp3");
+        var tags = new StubTagService(new AudioTagInfo(
+            Title: "冷门曲子",
+            Artist: "同人歌手",
+            Album: null,
+            AlbumArtist: null,
+            DurationMs: 200_000,
+            Bitrate: 320_000));
+        var online = new StubOnlineService(
+            new OnlineSongResult(OnlineMusicSource.Netease, "1", "冷门曲子", "同人歌手", "同人专辑", 200_000, 2020, 1),
+            lyrics: null);
+        var kugou = new StubFallbackSource(
+            "酷狗音乐",
+            new LyricsSourceCandidate("酷狗音乐", "冷门曲子", "同人歌手", "同人专辑", 200_000, WordLyrics: "[00:01.00]<00:01.00>冷"));
+        var lrclib = new StubFallbackSource(
+            "LRCLIB",
+            new LyricsSourceCandidate("LRCLIB", "冷门曲子", "同人歌手", "同人专辑", 200_000, LineLyrics: "[00:01.00]冷"));
+        var service = new BatchLyricsService(tags, online, new ILyricsSource[] { kugou, lrclib })
+        {
+            FallbackSourceFilter = _ => false,
+        };
+
+        var result = await service.FetchForFileAsync(path, new BatchLyricsOptions(FetchLyrics: true));
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("未获取到歌词", result.Message);
+        Assert.Empty(kugou.SearchedQueries);
+        Assert.Empty(lrclib.SearchedQueries);
+        Assert.Null(tags.Written!.PlainLyrics);
+    }
+
     private sealed class StubFallbackSource : ILyricsSource
     {
         private readonly LyricsSourceCandidate? _candidate;

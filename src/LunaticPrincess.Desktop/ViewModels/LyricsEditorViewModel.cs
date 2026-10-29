@@ -23,6 +23,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     private readonly OnlineSourcePriority _lyricsPriority;
     private readonly AppSettings? _settings;
     private readonly ISettingsStore? _settingsStore;
+    private readonly IReadOnlyList<ILyricsSource> _fallbackSources;
     private byte[]? _coverData;
     private long? _neteaseId;
     // 用于匹配度打分的本地原始信息（应用在线结果后 Title/Artist 会变，打分仍以文件为准）。
@@ -39,7 +40,8 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         OnlineSourcePriority tagPriority,
         OnlineSourcePriority lyricsPriority,
         AppSettings? settings = null,
-        ISettingsStore? settingsStore = null)
+        ISettingsStore? settingsStore = null,
+        IReadOnlyList<ILyricsSource>? fallbackSources = null)
     {
         _tags = tags;
         _ui = ui;
@@ -49,14 +51,18 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         _lyricsPriority = lyricsPriority;
         _settings = settings;
         _settingsStore = settingsStore;
+        _fallbackSources = fallbackSources ?? Array.Empty<ILyricsSource>();
         _matchThreshold = settings?.MatchThreshold ?? LyricsMatchScorer.DefaultMinScore;
+        // 主词源带标签与封面；酷狗 / LRCLIB 是备用词源，只提供歌词。
         SearchSources =
         [
-            new(OnlineMusicSource.Netease, "网易云音乐"),
-            new(OnlineMusicSource.QQMusic, "QQ 音乐"),
+            new(LyricsSourceKind.Netease, LyricsSourceKind.Netease.ToDisplayLabel()),
+            new(LyricsSourceKind.QQMusic, LyricsSourceKind.QQMusic.ToDisplayLabel()),
+            new(LyricsSourceKind.Kugou, LyricsSourceKind.Kugou.ToDisplayLabel()),
+            new(LyricsSourceKind.Lrclib, LyricsSourceKind.Lrclib.ToDisplayLabel()),
         ];
         // 在线搜索来源与歌词格式跟随上次使用（记忆在 settings.json，无开关）。
-        var rememberedSource = settings?.LyricsEditorSearchSource ?? OnlineMusicSource.Netease;
+        var rememberedSource = settings?.LyricsEditorSearchSource ?? LyricsSourceKind.Netease;
         _selectedSearchSource = SearchSources.FirstOrDefault(option => option.Value == rememberedSource) ?? SearchSources[0];
         SearchLyricModeOptions =
         [
@@ -145,12 +151,12 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
     // ===== 在线搜索 =====
 
-    public IReadOnlyList<OnlineSourceOption> SearchSources { get; }
+    public IReadOnlyList<LyricsSourceOption> SearchSources { get; }
 
     public IReadOnlyList<OnlineLyricModeOption> SearchLyricModeOptions { get; }
 
     [ObservableProperty]
-    private OnlineSourceOption _selectedSearchSource;
+    private LyricsSourceOption _selectedSearchSource;
 
     [ObservableProperty]
     private OnlineLyricModeOption _selectedSearchLyricMode;
@@ -218,9 +224,18 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
 
     partial void OnSelectedSearchResultChanged(OnlineSearchResultItem? value)
     {
-        if (value is not null)
+        if (value is null)
         {
-            _ = ApplyOnlineSongAsync(value.Song);
+            return;
+        }
+
+        if (value.Fallback is { } fallback)
+        {
+            ApplyFallbackLyrics(fallback);
+        }
+        else
+        {
+            _ = ApplyOnlineSongAsync(value.Song!);
         }
     }
 
@@ -244,13 +259,22 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
     {
         RememberOptions();
-        if (SelectedSearchResult is { } result)
+        if (SelectedSearchResult is not { } result)
         {
-            _ = ApplyOnlineSongAsync(result.Song);
+            return;
+        }
+
+        if (result.Fallback is { } fallback)
+        {
+            ApplyFallbackLyrics(fallback);
+        }
+        else
+        {
+            _ = ApplyOnlineSongAsync(result.Song!);
         }
     }
 
-    partial void OnSelectedSearchSourceChanged(OnlineSourceOption value) => RememberOptions();
+    partial void OnSelectedSearchSourceChanged(LyricsSourceOption value) => RememberOptions();
 
     /// <summary>匹配度阈值改动后只更新内存，真正落盘在搜索时与关闭窗口时做（避免拖动滑块频繁写盘）。</summary>
     private void RememberThreshold()
@@ -311,6 +335,13 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private async Task SearchOnlineAsync()
     {
+        // 备用词源按当前文件的标题/歌手/时长检索，不需要关键词。
+        if (SelectedSearchSource.Value.IsFallback())
+        {
+            await SearchFallbackLyricsAsync(SelectedSearchSource.Value).ConfigureAwait(true);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(SearchKeyword))
         {
             SearchStatus = "请输入要搜索的歌曲、歌手或专辑。";
@@ -326,7 +357,7 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         try
         {
             var results = await _onlineSearch
-                .SearchAsync(SelectedSearchSource.Value, SearchKeyword.Trim())
+                .SearchAsync(SelectedSearchSource.Value.ToMusicSource()!.Value, SearchKeyword.Trim())
                 .ConfigureAwait(true);
             var items = BuildScoredResults(results);
             SearchResults = items;
@@ -359,6 +390,101 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         }
     }
 
+    /// <summary>
+    /// 备用词源（酷狗音乐 / LRCLIB）：按当前文件的标题、歌手与时长检索一份歌词。
+    /// 备用源只提供歌词，所以结果只有一条，载入时也不改标签与封面。
+    /// </summary>
+    private async Task SearchFallbackLyricsAsync(LyricsSourceKind kind)
+    {
+        IsSearching = true;
+        HasSearchResults = false;
+        SearchResults = Array.Empty<OnlineSearchResultItem>();
+        SelectedSearchResult = null;
+        var label = kind.ToDisplayLabel();
+        SearchStatus = $"正在从{label}检索歌词...";
+        await PersistThresholdAsync().ConfigureAwait(true);
+        try
+        {
+            if (!HasFile)
+            {
+                SearchStatus = "备用词源按当前音频的标题、歌手和时长检索，请先打开要编辑的音频文件。";
+                return;
+            }
+
+            var source = FindFallbackSource(kind);
+            if (source is null)
+            {
+                SearchStatus = $"{label}不可用。";
+                return;
+            }
+
+            var queries = LyricsMatchScorer.BuildQueries(_localTitle, _localArtist);
+            var candidate = await source
+                .FetchAsync(queries, _localTitle, _localArtist, _localAlbum, _localDurationMs, MatchThreshold)
+                .ConfigureAwait(true);
+            if (candidate is null)
+            {
+                SearchStatus = $"没有在{label}找到匹配的歌词；可以改用网易云音乐 / QQ 音乐按关键词搜索。";
+                return;
+            }
+
+            var score = LyricsMatchScorer.Score(
+                _localTitle,
+                _localArtist,
+                _localAlbum,
+                _localDurationMs,
+                candidate.Title,
+                candidate.Artist,
+                candidate.Album,
+                candidate.DurationMs);
+            var item = new OnlineSearchResultItem(candidate, score, belowThreshold: false);
+            SearchResults = [item];
+            HasSearchResults = true;
+            SelectedSearchResult = item;
+        }
+        catch (Exception ex)
+        {
+            SearchStatus = $"{label}检索失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+        }
+        finally
+        {
+            IsSearching = false;
+        }
+    }
+
+    private ILyricsSource? FindFallbackSource(LyricsSourceKind kind)
+    {
+        var label = kind switch
+        {
+            LyricsSourceKind.Kugou => KugouLyricsSource.LyricsSourceLabel,
+            LyricsSourceKind.Lrclib => LrclibLyricsSource.LyricsSourceLabel,
+            _ => null,
+        };
+        return label is null
+            ? null
+            : _fallbackSources.FirstOrDefault(source => string.Equals(source.Label, label, StringComparison.Ordinal));
+    }
+
+    /// <summary>把备用词源命中的歌词填进编辑框（不动标签与封面）。</summary>
+    private void ApplyFallbackLyrics(LyricsSourceCandidate candidate)
+    {
+        var preferWord = SelectedSearchLyricMode.PreferWord;
+        var lyrics = candidate.GetLyrics(preferWord, bilingual: true);
+        if (string.IsNullOrWhiteSpace(lyrics))
+        {
+            SearchStatus = $"{candidate.SourceLabel}没有返回可用歌词。";
+            return;
+        }
+
+        Lyrics = lyrics!;
+        var formatLabel = preferWord
+            ? candidate.HasWordLyrics ? "逐字歌词" : "逐行歌词（该来源无逐字）"
+            : "逐行歌词";
+        formatLabel = candidate.HasTranslation
+            ? "双语" + formatLabel
+            : formatLabel + "（该来源无翻译）";
+        SearchStatus = $"已从{candidate.SourceLabel}载入{formatLabel}（仅歌词，标签与封面保持当前内容），请确认后保存。";
+    }
     private async Task ApplyOnlineSongAsync(OnlineSongResult summary)
     {
         try
@@ -649,7 +775,9 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
             return;
         }
 
-        SearchResults = BuildScoredResults(SearchResults.Select(item => item.Song).ToList());
+        // 备用词源结果没有标签信息，只对主词源的歌曲结果重新打分。
+        SearchResults = BuildScoredResults(
+            SearchResults.Where(item => item.Song is not null).Select(item => item.Song!).ToList());
         SelectedSearchResult = null;
     }
 

@@ -37,8 +37,8 @@ public sealed record RenderFrameRateOption(RenderFrameRateMode Value, string Lab
     public override string ToString() => Label;
 }
 
-/// <summary>在线搜索音乐源选项。</summary>
-public sealed record OnlineSourceOption(OnlineMusicSource Value, string Label)
+/// <summary>歌词检索来源选项：主词源（网易云 / QQ）或备用词源（酷狗 / LRCLIB）。</summary>
+public sealed record LyricsSourceOption(LyricsSourceKind Value, string Label)
 {
     public override string ToString() => Label;
 }

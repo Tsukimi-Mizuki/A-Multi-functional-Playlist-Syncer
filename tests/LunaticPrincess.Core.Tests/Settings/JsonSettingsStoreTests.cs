@@ -50,17 +50,53 @@ public sealed class JsonSettingsStoreTests : IDisposable
         var settings = new AppSettings
         {
             DownloadDirectory = Path.Combine(_directory, "music"),
-            LyricsEditorSearchSource = OnlineMusicSource.QQMusic,
+            LyricsEditorSearchSource = LyricsSourceKind.QQMusic,
             LyricsEditorPreferWordLyrics = true,
         };
 
         await store.SaveAsync(settings);
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(OnlineMusicSource.QQMusic, loaded.LyricsEditorSearchSource);
+        Assert.Equal(LyricsSourceKind.QQMusic, loaded.LyricsEditorSearchSource);
         Assert.True(loaded.LyricsEditorPreferWordLyrics);
     }
 
+
+    [Fact]
+    public async Task SaveLoad_PreservesFallbackLyricsSwitches()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        var settings = new AppSettings
+        {
+            DownloadDirectory = Path.Combine(_directory, "music"),
+            FallbackKugouLyrics = false,
+            FallbackLrclibLyrics = true,
+            LyricsEditorSearchSource = LyricsSourceKind.Lrclib,
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.False(loaded.FallbackKugouLyrics);
+        Assert.True(loaded.FallbackLrclibLyrics);
+        Assert.Equal(LyricsSourceKind.Lrclib, loaded.LyricsEditorSearchSource);
+    }
+
+    [Fact]
+    public async Task Load_LegacyLyricsEditorSourceName_StillParses()
+    {
+        Directory.CreateDirectory(_directory);
+        // 旧版本把来源存成 OnlineMusicSource 的名字，改名成 LyricsSourceKind 后仍应能读回。
+        await File.WriteAllTextAsync(
+            SettingsPath,
+            "{\"downloadDirectory\":\"D:\\\\music\",\"lyricsEditorSearchSource\":\"QQMusic\"}");
+
+        var loaded = await new JsonSettingsStore(SettingsPath).LoadAsync();
+
+        Assert.Equal(LyricsSourceKind.QQMusic, loaded.LyricsEditorSearchSource);
+        Assert.True(loaded.FallbackKugouLyrics);
+        Assert.True(loaded.FallbackLrclibLyrics);
+    }
     [Fact]
     public async Task SaveLoad_ClampsAndPersistsMatchThreshold()
     {
@@ -124,7 +160,7 @@ public sealed class JsonSettingsStoreTests : IDisposable
         var store = new JsonSettingsStore(SettingsPath);
         var loaded = await store.LoadAsync();
 
-        Assert.Equal(OnlineMusicSource.Netease, loaded.LyricsEditorSearchSource);
+        Assert.Equal(LyricsSourceKind.Netease, loaded.LyricsEditorSearchSource);
     }
 
     [Fact]

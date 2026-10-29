@@ -31,7 +31,10 @@ public sealed class KugouLyricsSource : ILyricsSource
         _timeout = timeout ?? TimeSpan.FromSeconds(10);
     }
 
-    public string Label => "酷狗音乐";
+    /// <summary>备用词源名称：设置开关与界面提示都按这个名字对应。</summary>
+    public const string LyricsSourceLabel = "酷狗音乐";
+
+    public string Label => LyricsSourceLabel;
 
     public async Task<LyricsSourceCandidate?> FetchAsync(
         IReadOnlyList<string> queries,

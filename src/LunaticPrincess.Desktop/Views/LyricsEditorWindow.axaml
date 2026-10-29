@@ -29,7 +29,7 @@
         <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
           <ComboBox ItemsSource="{Binding SearchSources}"
                     SelectedItem="{Binding SelectedSearchSource, Mode=TwoWay}"
-                    Width="132" Height="32" MinHeight="30" Padding="9,3"
+                    Width="190" Height="32" MinHeight="30" Padding="9,3"
                     VerticalContentAlignment="Center"
                     AutomationProperties.Name="在线搜索来源">
             <ComboBox.ItemTemplate>

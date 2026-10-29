@@ -242,6 +242,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             LogWarning("读取设置失败，已使用默认设置：" + ErrorFormatter.ToFriendlyMessage(ex));
         }
 
+        // 备用词源开关（设置里控制酷狗 / LRCLIB 是否参与兜底）在每次读取设置后同步到批量匹配服务。
+        _services.ApplyFallbackLyricsSettings(_settings);
         UpdatePathTexts();
         RefreshCommandStates();
 
@@ -1034,7 +1036,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 _settings.TagSourcePriority,
                 _settings.LyricsSourcePriority,
                 _settings,
-                _services.SettingsStore);
+                _services.SettingsStore,
+                _services.FallbackLyricsSources);
             await viewModel.InitializeAsync(initialPath).ConfigureAwait(true);
             await _ui.ShowLyricsEditorAsync(viewModel).ConfigureAwait(true);
         }
@@ -1066,6 +1069,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var libraryChanged = !string.Equals(saved.LibraryDirectory, _settings.LibraryDirectory, StringComparison.OrdinalIgnoreCase);
         _settings = saved;
+        _services.ApplyFallbackLyricsSettings(_settings);
         // 设置窗口里已即时预览；保存后按持久化的值再应用一次（含“跟随系统”）。
         ThemeService.Apply(saved.Theme);
         UpdatePathTexts();

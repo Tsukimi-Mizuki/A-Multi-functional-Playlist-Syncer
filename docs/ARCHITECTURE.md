@@ -217,6 +217,10 @@ Core
   - 备用词源命中的候选同样经 `LyricsMatchScorer` 打分并校验时长/伴奏标记，低于阈值的直接丢弃；
     写回时消息追加「（歌词来源：酷狗音乐/LRCLIB）」。酷狗在本机偶发
     `RemoteCertificateNameMismatch`，异常被吞掉后自动回落到下一个词源，不影响主流程。
+  - 两个备用词源可在设置窗口的「备用词源」卡片里单独开关（`fallbackKugouLyrics` /
+    `fallbackLrclibLyrics`，默认都开启）。`AppServices.ApplyFallbackLyricsSettings` 把它们翻译成
+    `BatchLyricsService.FallbackSourceFilter`，被关掉的源在 `FindFallbackLyricsAsync` 里直接跳过；
+    过滤器是运行期委托，设置保存后立即生效，不需要重建批量服务。
 - 可选择覆盖已有标签与歌词；未开启时只补缺失字段、缺失封面和缺失歌词。
 - 批量任务使用 3 个并发请求、进度回报和取消令牌；界面为独立窗口，从歌词编辑窗口右上角的
   “批量获取”按钮以编辑器为 Owner 打开。
@@ -232,6 +236,10 @@ Core
 - 歌词按原始文本写入 TagLib 的 Lyrics 字段（支持 LRC / 增强 LRC / 逐字文本），
   写入后重新读取即可验证。
 - 文件选择通过 `IDesktopUiService.PickAudioFileAsync` 调用 Avalonia StorageProvider。
+- 在线搜索来源是 `LyricsSourceKind`（网易云音乐 / QQ 音乐 / 酷狗音乐 / LRCLIB）：选主源时走
+  `IOnlineMusicSearchService` 并同时提供标签、封面与歌词；选备用源时按当前文件的标题、歌手和时长
+  直接问该 `ILyricsSource`，结果标注“仅歌词”，载入只填歌词输入框，标签与封面保持当前内容。
+  来源选择记忆在 `settings.json` 的 `lyricsEditorSearchSource`。
 
 ## 线程与取消
 

@@ -32,7 +32,10 @@ public sealed class LrclibLyricsSource : ILyricsSource
         _retryDelay = retryDelay ?? TimeSpan.FromMilliseconds(1200);
     }
 
-    public string Label => "LRCLIB";
+    /// <summary>备用词源名称：设置开关与界面提示都按这个名字对应。</summary>
+    public const string LyricsSourceLabel = "LRCLIB";
+
+    public string Label => LyricsSourceLabel;
 
     public async Task<LyricsSourceCandidate?> FetchAsync(
         IReadOnlyList<string> queries,
