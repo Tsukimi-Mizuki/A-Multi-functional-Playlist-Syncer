@@ -14,6 +14,9 @@
         <TextBlock Text="{Binding FileName}" FontSize="11"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    MaxLines="1" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="也可以把音频文件或文件夹直接拖进窗口" FontSize="10.5"
+                   Foreground="{DynamicResource TextTertiaryBrush}"
+                   MaxLines="1" TextTrimming="CharacterEllipsis" />
       </StackPanel>
       <Button Grid.Column="1" Content="打开音频文件" Command="{Binding OpenFileCommand}"
               Padding="18,7" AutomationProperties.Name="打开音频文件" />
@@ -212,5 +215,20 @@
       <Button Grid.Column="2" Content="关闭" Click="OnCloseClick" Padding="22,7"
               AutomationProperties.Name="关闭歌词编辑器" />
     </Grid>
+
+    <!-- 拖放载入提示：把音频文件拖到窗口上时显示 -->
+    <Border Grid.Row="0" Grid.RowSpan="4" x:Name="DropOverlay"
+            IsVisible="False" IsHitTestVisible="False"
+            Background="{DynamicResource PanelAltBrush}"
+            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+            CornerRadius="12" Margin="6" Opacity="0.97">
+      <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Text="松开即可载入音频文件" FontSize="20" FontWeight="Bold"
+                   HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+        <TextBlock Text="支持 MP3 / FLAC / M4A / MP4 / OGG / OPUS / WAV / AAC / WMA，也可以拖入包含音频的文件夹"
+                   FontSize="12" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>

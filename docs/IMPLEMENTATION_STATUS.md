@@ -14,7 +14,7 @@
 | NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出；导入窗口可选解锁后自动在线匹配标签/封面/歌词 |
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化） |
+| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器（支持把音频文件或文件夹拖进窗口载入）；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化） |
 | 错误提示与运行日志 | ✅ 完成 | ErrorText 统一识别权限不足 / 磁盘空间不足 / 文件被占用 / 路径过长并给出中文说明与处理建议（不再暴露 Access to the path … is denied），覆盖下载、同步、NCM 导入与 UI 一层 ErrorFormatter；运行日志可收起（完全隐藏、不占空间）/ 展开（默认 92 DIP 原样式） |
 | Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
@@ -22,14 +22,14 @@
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**316 / 316 通过，0 skipped**。
+- `dotnet test`：**331 / 331 通过，0 skipped**。
   - Netease API：63
   - NCM / Lyrics / Tags：104
   - Library / Download / Sync：66
   - Storage / Settings / Filename：20
   - 音质映射（Models）：30
   - Online 搜索（含酷狗 / LRCLIB 备用词源）：23
-  - Utilities（错误文案）：10
+  - Utilities（错误文案 + 音频类型判定）：25
 - Debug 与 Release 全解决方案构建均 0 warning / 0 error。
 
 ### 真实网络冒烟（匿名，官方域名）

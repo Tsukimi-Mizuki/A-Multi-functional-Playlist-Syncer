@@ -238,6 +238,11 @@ Core
 - 歌词按原始文本写入 TagLib 的 Lyrics 字段（支持 LRC / 增强 LRC / 逐字文本），
   写入后重新读取即可验证。
 - 文件选择通过 `IDesktopUiService.PickAudioFileAsync` 调用 Avalonia StorageProvider。
+- 也支持把文件/文件夹拖进窗口载入：窗口构造时用 `DragDrop.SetAllowDrop` 与 `DragDrop.AddDragOverHandler /
+  AddDragLeaveHandler / AddDropHandler` 注册拖放（Avalonia 11.3 的 `DragEventArgs.DataTransfer.TryGetFiles()`），
+  拖入时显示半透明提示层；投放后交给 `LyricsEditorViewModel.LoadDroppedPathsAsync`，路径解析统一走
+  `LunaticPrincess.Core.Utilities.AudioFileTypes.TryResolve`（文件直接校验扩展名，文件夹取按名排序的第一个音频），
+  一次只载入一个文件，拖入多个时在状态栏说明。
 - 在线搜索来源是 `LyricsSourceKind`（网易云音乐 / QQ 音乐 / 酷狗音乐 / LRCLIB）：选主源时走
   `IOnlineMusicSearchService` 并同时提供标签、封面与歌词；选备用源时按当前文件的标题、歌手和时长
   直接问该 `ILyricsSource`，结果标注“仅歌词”，载入只填歌词输入框，标签与封面保持当前内容。

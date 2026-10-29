@@ -8,6 +8,7 @@ using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
 using LunaticPrincess.Core.Settings;
 using LunaticPrincess.Core.Tags;
+using LunaticPrincess.Core.Utilities;
 using LunaticPrincess.Desktop.Services;
 
 namespace LunaticPrincess.Desktop.ViewModels;
@@ -581,6 +582,52 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         catch (Exception ex)
         {
             StatusText = "选择文件失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+        }
+    }
+
+    /// <summary>
+    /// 拖放载入：把拖入的文件/文件夹解析成音频文件后读取标签与歌词。
+    /// 一次只编辑一个文件，拖入多个时载入第一个并说明。
+    /// </summary>
+    public async Task LoadDroppedPathsAsync(IReadOnlyList<string?>? targets)
+    {
+        if (targets is null || targets.Count == 0)
+        {
+            StatusText = AudioFileTypes.EmptyTargetMessage;
+            return;
+        }
+
+        if (IsBusy)
+        {
+            StatusText = "正在处理，请稍候再拖入文件。";
+            return;
+        }
+
+        string? firstPath = null;
+        string? firstError = null;
+        var resolvedCount = 0;
+        foreach (var target in targets)
+        {
+            if (AudioFileTypes.TryResolve(target, out var resolved, out var error))
+            {
+                resolvedCount++;
+                firstPath ??= resolved;
+                continue;
+            }
+
+            firstError ??= error;
+        }
+
+        if (firstPath is null)
+        {
+            StatusText = firstError ?? AudioFileTypes.EmptyTargetMessage;
+            return;
+        }
+
+        await LoadFileAsync(firstPath).ConfigureAwait(true);
+        if (resolvedCount > 1)
+        {
+            StatusText = $"已载入 {Path.GetFileName(firstPath)}（拖入了 {resolvedCount} 个文件，编辑器一次只编辑一个）";
         }
     }
 
