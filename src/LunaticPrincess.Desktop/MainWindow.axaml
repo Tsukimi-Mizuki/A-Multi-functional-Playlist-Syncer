@@ -420,10 +420,11 @@
           </Border>
         </Grid>
 
-        <!-- 底部：进度 + 日志 -->
-        <Border Grid.Row="4" Background="{DynamicResource ChromeGlassBrush}"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
-                Padding="20,12">
+        <!-- 底部：进度 + 日志（与主体一致的圆角玻璃卡片，不再用贴边的标题栏玻璃条） -->
+        <Border Grid.Row="4" x:Name="ProgressLogPanel"
+                Background="{DynamicResource PanelAltBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="8" Margin="20,12,20,14" Padding="16,12">
           <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <StackPanel Spacing="6">
