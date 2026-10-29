@@ -1,6 +1,6 @@
 # 实现状态
 
-> 最后更新：2026-10-28。当前状态：**v1.0 桌面端功能完成，构建/单测/真实网络冒烟/UI 启动均通过**。
+> 最后更新：2026-10-30。当前状态：**v1.0 桌面端功能完成，构建/单测/真实网络冒烟/UI 启动均通过**。
 
 ## 模块
 
@@ -15,19 +15,21 @@
 | 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
 | 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
 | Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化） |
+| 错误提示与运行日志 | ✅ 完成 | ErrorText 统一识别权限不足 / 磁盘空间不足 / 文件被占用 / 路径过长并给出中文说明与处理建议（不再暴露 Access to the path … is denied），覆盖下载、同步、NCM 导入与 UI 一层 ErrorFormatter；运行日志可收起（完全隐藏、不占空间）/ 展开（默认 92 DIP 原样式） |
 | Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
 | Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
 
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**306 / 306 通过，0 skipped**。
+- `dotnet test`：**316 / 316 通过，0 skipped**。
   - Netease API：63
   - NCM / Lyrics / Tags：104
   - Library / Download / Sync：66
   - Storage / Settings / Filename：20
   - 音质映射（Models）：30
   - Online 搜索（含酷狗 / LRCLIB 备用词源）：23
+  - Utilities（错误文案）：10
 - Debug 与 Release 全解决方案构建均 0 warning / 0 error。
 
 ### 真实网络冒烟（匿名，官方域名）

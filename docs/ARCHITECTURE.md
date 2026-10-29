@@ -241,6 +241,20 @@ Core
   直接问该 `ILyricsSource`，结果标注“仅歌词”，载入只填歌词输入框，标签与封面保持当前内容。
   来源选择记忆在 `settings.json` 的 `lyricsEditorSearchSource`。
 
+## 错误提示与运行日志
+
+- `LunaticPrincess.Core.Utilities.ErrorText` 把 I/O 异常统一翻译成可操作的中文：`DescribeWrite(ex, targetDirectory)`
+  优先用调用方给出的目标目录，其次用 `QuotedPathPattern` 从异常消息（兼容 .NET 英文与中文本地化）里
+  抠出带盘符的路径；识别权限不足（`UnauthorizedAccessException` / `SecurityException` / HRESULT `0x80070005` /
+  `is denied` / 拒绝访问 等）、磁盘空间不足（`0x80070070`）、文件被占用（`0x80070020`）、路径过长（`0x800700CE`），
+  未知异常回退原始消息。
+- 下载（`DownloadService`）、同步（`MusicSyncService` 的 NCM 解密与解密后处理）、NCM 导入
+  （`NcmImportService` 的导入 / 在线匹配 / 读文件头 / 写标签）都改为走 `ErrorText`；桌面层
+  `ErrorFormatter` 在通用分支之前新增 `ErrorText.IsKnownIoError` 判定，其余异常仍按原有规则格式化。
+- 运行日志仍只写内存（`MaxLogEntries = 400`，不落盘）。默认展开，使用原有 92 DIP 固定高度面板；
+  工具栏“收起日志 / 展开日志”命令切换 `MainWindowViewModel.IsLogExpanded`，收起时
+  `LogScrollViewer.IsVisible = false`，整块日志从布局中移除（所在行是 Auto，不留空白）。
+
 ## 线程与取消
 
 - 所有 I/O 使用 async；ViewModel 命令接受 CancellationToken。

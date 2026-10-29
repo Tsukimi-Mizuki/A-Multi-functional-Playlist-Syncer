@@ -54,6 +54,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<LogEntryViewModel> LogEntries { get; } = [];
 
+    /// <summary>日志面板是否展开；收起后整块日志完全隐藏，不占用窗口空间。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LogToggleText))]
+    private bool _isLogExpanded = true;
+
+    public string LogToggleText => IsLogExpanded ? "收起日志" : "展开日志";
+
+    [RelayCommand]
+    private void ToggleLogExpanded() => IsLogExpanded = !IsLogExpanded;
+
     // ===== 登录态 =====
 
     [ObservableProperty]

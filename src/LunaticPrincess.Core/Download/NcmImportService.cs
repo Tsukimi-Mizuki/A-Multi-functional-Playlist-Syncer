@@ -1,6 +1,7 @@
 using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Ncm;
 using LunaticPrincess.Core.Tags;
+using LunaticPrincess.Core.Utilities;
 
 namespace LunaticPrincess.Core.Download;
 
@@ -90,7 +91,11 @@ public sealed class NcmImportService : INcmImportService
             }
             catch (Exception ex)
             {
-                result = new NcmDecryptResult(path, null, false, ErrorMessage: $"导入失败：{ex.Message}");
+                result = new NcmDecryptResult(
+                    path,
+                    null,
+                    false,
+                    ErrorMessage: $"导入失败：{ErrorText.DescribeWrite(ex, targetDirectory)}");
             }
 
             if (result.Success &&
@@ -113,7 +118,7 @@ public sealed class NcmImportService : INcmImportService
                 }
                 catch (Exception ex)
                 {
-                    result = result with { EnrichmentMessage = $"在线匹配失败：{ex.Message}" };
+                    result = result with { EnrichmentMessage = $"在线匹配失败：{ErrorText.Describe(ex)}" };
                 }
             }
 
@@ -163,7 +168,7 @@ public sealed class NcmImportService : INcmImportService
         }
         catch (Exception ex)
         {
-            return new NcmDecryptResult(ncmPath, null, false, ErrorMessage: $"无法读取 NCM 文件头：{ex.Message}");
+            return new NcmDecryptResult(ncmPath, null, false, ErrorMessage: $"无法读取 NCM 文件头：{ErrorText.Describe(ex)}");
         }
 
         if (!isNcm)
@@ -229,7 +234,7 @@ public sealed class NcmImportService : INcmImportService
         catch (Exception ex)
         {
             MediaFileHelper.TryDeleteFile(tempPath);
-            return ex.Message;
+            return ErrorText.DescribeWrite(ex, directory);
         }
         finally
         {

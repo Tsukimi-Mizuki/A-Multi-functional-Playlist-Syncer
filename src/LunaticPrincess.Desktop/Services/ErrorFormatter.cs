@@ -1,5 +1,6 @@
 using System.Net.Http;
 using LunaticPrincess.Core.Netease;
+using LunaticPrincess.Core.Utilities;
 
 namespace LunaticPrincess.Desktop.Services;
 
@@ -14,7 +15,7 @@ public static class ErrorFormatter
             ? $"网易云接口错误（{code}）：{api.Message}"
             : $"网易云接口错误：{api.Message}",
         HttpRequestException => "网络连接失败，请检查网络后重试",
-        UnauthorizedAccessException => "没有访问权限，请检查目录权限或以管理员身份重试",
+        UnauthorizedAccessException or IOException when ErrorText.IsKnownIoError(exception) => ErrorText.Describe(exception),
         DirectoryNotFoundException => "目录不存在，请先在设置中配置正确的路径",
         FileNotFoundException => "文件不存在或已被移动",
         IOException io => $"文件读写失败：{io.Message}",

@@ -5,6 +5,7 @@ using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Ncm;
 using LunaticPrincess.Core.Netease;
 using LunaticPrincess.Core.Tags;
+using LunaticPrincess.Core.Utilities;
 
 namespace LunaticPrincess.Core.Sync;
 
@@ -92,7 +93,13 @@ public sealed class MusicSyncService : ISyncService
             }
             catch (Exception ex)
             {
-                results[index] = new SyncItemResult(request.Song.Id, songName, false, SyncSourceKind.Failed, null, ex.Message);
+                results[index] = new SyncItemResult(
+                    request.Song.Id,
+                    songName,
+                    false,
+                    SyncSourceKind.Failed,
+                    null,
+                    ErrorText.DescribeWrite(ex, options.Download.TargetDirectory));
             }
 
             var result = results[index];
@@ -193,7 +200,7 @@ public sealed class MusicSyncService : ISyncService
         }
         catch (Exception ex)
         {
-            return Failed(song, songName, $"NCM 解密失败：{ex.Message}");
+            return Failed(song, songName, $"NCM 解密失败：{ErrorText.DescribeWrite(ex, targetDirectory)}");
         }
 
         if (imported is null)
@@ -281,7 +288,7 @@ public sealed class MusicSyncService : ISyncService
         catch (Exception ex)
         {
             MediaFileHelper.TryDeleteFile(decryptedPath);
-            return Failed(song, songName, $"NCM 解密后处理失败：{ex.Message}");
+            return Failed(song, songName, $"NCM 解密后处理失败：{ErrorText.DescribeWrite(ex, targetDirectory)}");
         }
     }
 

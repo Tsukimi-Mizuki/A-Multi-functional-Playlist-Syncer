@@ -3,6 +3,7 @@ using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Ncm;
 using LunaticPrincess.Core.Netease;
 using LunaticPrincess.Core.Tags;
+using LunaticPrincess.Core.Utilities;
 
 namespace LunaticPrincess.Core.Download;
 
@@ -95,7 +96,11 @@ public sealed class DownloadService : IDownloadService
                 }
                 catch (Exception ex)
                 {
-                    result = new DownloadItemResult(song.Id, DisplayName(song), false, ErrorMessage: ex.Message);
+                    result = new DownloadItemResult(
+                        song.Id,
+                        DisplayName(song),
+                        false,
+                        ErrorMessage: ErrorText.DescribeWrite(ex, targetDirectory));
                 }
 
                 results[index] = result;

@@ -440,10 +440,17 @@
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
               <TextBlock Text="运行日志" FontSize="10.5" VerticalAlignment="Center"
                          Foreground="{DynamicResource TextTertiaryBrush}" />
-              <Button Grid.Column="1" Classes="ghost" Content="清空"
-                      Command="{Binding ClearLogCommand}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <Button Classes="ghost" Content="{Binding LogToggleText}"
+                        Command="{Binding ToggleLogExpandedCommand}"
+                        ToolTip.Tip="展开或收起运行日志；收起后不再显示日志，展开恢复默认样式"
+                        AutomationProperties.Name="展开或收起运行日志" />
+                <Button Classes="ghost" Content="清空"
+                        Command="{Binding ClearLogCommand}" />
+              </StackPanel>
             </Grid>
             <ScrollViewer Grid.Row="2" x:Name="LogScrollViewer" Height="92"
+                          IsVisible="{Binding IsLogExpanded}"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding LogEntries}">
