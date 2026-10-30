@@ -16,3 +16,4 @@ artifacts/
 publish/
 .idea/
 .vs/
+.tmp-avalonia-research/

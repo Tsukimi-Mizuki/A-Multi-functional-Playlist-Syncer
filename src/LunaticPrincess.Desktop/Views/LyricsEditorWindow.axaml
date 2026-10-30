@@ -17,6 +17,10 @@
         <TextBlock Text="也可以把音频文件或文件夹直接拖进窗口" FontSize="10.5"
                    Foreground="{DynamicResource TextTertiaryBrush}"
                    MaxLines="1" TextTrimming="CharacterEllipsis" />
+        <!-- 提权运行时 Windows 会阻止资源管理器拖放，提前说明原因、给出替代操作。 -->
+        <TextBlock x:Name="ElevationHint" IsVisible="False"
+                   FontSize="10.5" MaxLines="2" TextWrapping="Wrap"
+                   Foreground="{DynamicResource WarningBrush}" />
       </StackPanel>
       <Button Grid.Column="1" Content="打开音频文件" Command="{Binding OpenFileCommand}"
               Padding="18,7" AutomationProperties.Name="打开音频文件" />

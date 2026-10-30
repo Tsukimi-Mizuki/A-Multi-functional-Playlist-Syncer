@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LunaticPrincess.Desktop.Services;
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private const double TitleBarDragThreshold = 4;
 
     private readonly DispatcherTimer _longPressTimer;
+    private readonly DropOverlayController _dropOverlay;
     private MainWindowViewModel? _viewModel;
     private PointerPressedEventArgs? _titleBarPressArgs;
     private Point _titleBarPressPoint;
@@ -56,6 +58,49 @@ public partial class MainWindow : Window
             OnSongGridPointerCaptureLost,
             RoutingStrategies.Tunnel,
             handledEventsToo: true);
+
+        // 拖放载入：整个主窗口都是投放目标，拖入音频文件直接打开歌词编辑器。
+        _dropOverlay = new DropOverlayController(DropOverlay);
+        DragDrop.SetAllowDrop(this, true);
+        DragDrop.AddDragEnterHandler(this, OnFileDragEnter);
+        DragDrop.AddDragOverHandler(this, OnFileDragOver);
+        DragDrop.AddDragLeaveHandler(this, OnFileDragLeave);
+        DragDrop.AddDropHandler(this, OnFileDrop);
+    }
+
+    // ===== 拖放载入 =====
+
+    private void OnFileDragEnter(object? sender, DragEventArgs e)
+    {
+        _dropOverlay.Update(e);
+        e.Handled = true;
+    }
+
+    private void OnFileDragOver(object? sender, DragEventArgs e)
+    {
+        _dropOverlay.Update(e);
+        e.Handled = true;
+    }
+
+    private void OnFileDragLeave(object? sender, DragEventArgs e)
+    {
+        _dropOverlay.HideSoon();
+        e.Handled = true;
+    }
+
+    private async void OnFileDrop(object? sender, DragEventArgs e)
+    {
+        _dropOverlay.HideNow();
+        e.Handled = true;
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var paths = e.DataTransfer.TryGetFiles()?
+            .Select(item => item.TryGetLocalPath())
+            .ToList() ?? [];
+        await _viewModel.HandleDroppedTargetsAsync(paths);
     }
 
     public MainWindow(MainWindowViewModel viewModel)

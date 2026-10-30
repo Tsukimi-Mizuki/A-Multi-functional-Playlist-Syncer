@@ -9,6 +9,7 @@ using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Netease;
 using LunaticPrincess.Core.Settings;
 using LunaticPrincess.Core.Sync;
+using LunaticPrincess.Core.Utilities;
 using LunaticPrincess.Desktop.Services;
 
 namespace LunaticPrincess.Desktop.ViewModels;
@@ -223,6 +224,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public async Task InitializeAsync()
     {
         LogInfo("Lunatic Princess 已启动");
+        if (ElevationHelper.IsElevated)
+        {
+            LogWarning(ElevationHelper.DragDropBlockedHint);
+        }
+
         var token = _lifetimeCts.Token;
 
         try
@@ -1054,6 +1060,65 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             HandleOperationError("打开歌词编辑器失败", ex);
+        }
+    }
+
+    /// <summary>
+    /// 主窗口拖放：把第一个能解析成音频的目标（文件，或文件夹里的第一首）交给歌词编辑器打开；
+    /// 解析失败时在状态栏与日志里说明原因。异常在这里收口，供 async void 事件处理器安全调用。
+    /// </summary>
+    /// <param name="targets">拖入的路径（文件或文件夹），可以为空或含无效项。</param>
+    public async Task HandleDroppedTargetsAsync(IReadOnlyList<string?> targets)
+    {
+        if (targets.Count == 0)
+        {
+            StatusText = AudioFileTypes.EmptyTargetMessage;
+            LogWarning(AudioFileTypes.EmptyTargetMessage);
+            return;
+        }
+
+        try
+        {
+            string? firstError = null;
+            string? ncmTarget = null;
+            foreach (var target in targets)
+            {
+                if (ncmTarget is null && target is not null &&
+                    string.Equals(Path.GetExtension(target.Trim()), ".ncm", StringComparison.OrdinalIgnoreCase))
+                {
+                    ncmTarget = target;
+                }
+
+                if (!AudioFileTypes.TryResolve(target, out var path, out var error) || path is null)
+                {
+                    firstError ??= error;
+                    continue;
+                }
+
+                if (targets.Count > 1)
+                {
+                    LogInfo($"拖入 {targets.Count} 个目标，打开其中的「{Path.GetFileName(path)}」");
+                }
+                else
+                {
+                    LogInfo($"拖入文件：{path}");
+                }
+
+                await OpenLyricsEditorForFileAsync(path).ConfigureAwait(true);
+                return;
+            }
+
+            var message = ncmTarget is not null
+                ? "NCM 文件需要先解密：请使用工具栏的「导入 NCM」处理。"
+                : firstError ?? AudioFileTypes.EmptyTargetMessage;
+            StatusText = message;
+            LogWarning(message);
+        }
+        catch (Exception ex)
+        {
+            var message = "载入拖入的文件失败：" + ErrorFormatter.ToFriendlyMessage(ex);
+            StatusText = message;
+            LogWarning(message);
         }
     }
 

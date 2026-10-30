@@ -477,5 +477,20 @@
         </Grid>
       </Border>
     </Grid>
+
+    <!-- 拖放载入提示：把音频文件/文件夹拖到窗口任意位置时显示 -->
+    <Border x:Name="DropOverlay" Grid.RowSpan="2"
+            IsVisible="False" IsHitTestVisible="False"
+            Background="{DynamicResource PanelAltBrush}"
+            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+            CornerRadius="14" Margin="18" Opacity="0.97">
+      <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Text="松开即可载入音频文件" FontSize="24" FontWeight="Bold"
+                   HorizontalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+        <TextBlock Text="拖入音频文件会直接打开「歌词编辑」，也可以拖入包含音频的文件夹"
+                   FontSize="12.5" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>

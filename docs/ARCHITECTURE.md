@@ -238,11 +238,21 @@ Core
 - 歌词按原始文本写入 TagLib 的 Lyrics 字段（支持 LRC / 增强 LRC / 逐字文本），
   写入后重新读取即可验证。
 - 文件选择通过 `IDesktopUiService.PickAudioFileAsync` 调用 Avalonia StorageProvider。
-- 也支持把文件/文件夹拖进窗口载入：窗口构造时用 `DragDrop.SetAllowDrop` 与 `DragDrop.AddDragOverHandler /
-  AddDragLeaveHandler / AddDropHandler` 注册拖放（Avalonia 11.3 的 `DragEventArgs.DataTransfer.TryGetFiles()`），
-  拖入时显示半透明提示层；投放后交给 `LyricsEditorViewModel.LoadDroppedPathsAsync`，路径解析统一走
+- 也支持把文件/文件夹拖进窗口载入：主窗口与歌词编辑窗口都在构造时用 `DragDrop.SetAllowDrop` 与
+  `DragDrop.AddDragEnterHandler / AddDragOverHandler / AddDragLeaveHandler / AddDropHandler` 注册拖放
+  （Avalonia 11.3 的 `DragEventArgs.DataTransfer.TryGetFiles()`），拖入时显示半透明提示层。
+- 提示层显隐统一交给 `LunaticPrincess.Desktop.Services.DropOverlayController`：`Update(DragEventArgs)` 判断
+  `DataTransfer.Contains(DataFormat.File)` 决定光标效果与显示，收到 DragLeave 只做延迟隐藏
+  （`HideDelay = 180ms` 的 `DispatcherTimer`），期间再来 DragOver 就取消——Avalonia 在拖放目标身份变化
+  （指针跨过相邻控件）时会成对重发 DragLeave/DragEnter，立即隐藏会让提示层闪烁甚至停在隐藏状态。
+- 投放后：歌词编辑窗口交给 `LyricsEditorViewModel.LoadDroppedPathsAsync`；主窗口交给
+  `MainWindowViewModel.HandleDroppedTargetsAsync`，能解析成音频就直接 `OpenLyricsEditorForFileAsync` 打开编辑器，
+  拖到 `.ncm` 时提示改用「导入 NCM」。路径解析统一走
   `LunaticPrincess.Core.Utilities.AudioFileTypes.TryResolve`（文件直接校验扩展名，文件夹取按名排序的第一个音频），
-  一次只载入一个文件，拖入多个时在状态栏说明。
+  一次只载入一个文件，拖入多个时在日志里说明。
+- 以管理员身份运行时 Windows 用 UIPI 阻断「资源管理器 → 高完整性进程」的拖放（拖放靠窗口消息实现），
+  客户端没有可开关的绕过手段；因此 `Services.ElevationHelper.IsElevated` 为真时，歌词编辑窗口顶部显示提示、
+  主窗口启动日志也会说明原因并建议改用按钮选择文件。
 - 在线搜索来源是 `LyricsSourceKind`（网易云音乐 / QQ 音乐 / 酷狗音乐 / LRCLIB）：选主源时走
   `IOnlineMusicSearchService` 并同时提供标签、封面与歌词；选备用源时按当前文件的标题、歌手和时长
   直接问该 `ILyricsSource`，结果标注“仅歌词”，载入只填歌词输入框，标签与封面保持当前内容。
