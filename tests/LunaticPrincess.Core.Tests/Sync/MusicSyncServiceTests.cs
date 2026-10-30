@@ -63,6 +63,7 @@ public sealed class MusicSyncServiceTests
         public FakeLyricParserForSync Parser { get; } = new();
         public FakeImporterForSync Importer { get; } = new();
         public FakeDownloaderForSync Downloader { get; } = new();
+        public FakeBatchLyricsForSync Batch { get; } = new();
         public Dictionary<string, byte[]> HttpResponses { get; } = new();
         public HttpClient Client { get; private set; } = null!;
         public StubHttpMessageHandlerForSync HttpHandler { get; private set; } = null!;
@@ -80,6 +81,9 @@ public sealed class MusicSyncServiceTests
 
         public MusicSyncService CreateService() =>
             new(Api, Decoder, Tags, Parser, Importer, Downloader, Client);
+
+        public MusicSyncService CreateEnrichedService() =>
+            new(Api, Decoder, Tags, Parser, Importer, Downloader, Client, Batch);
 
         public void Dispose() => Client.Dispose();
     }
@@ -143,6 +147,64 @@ public sealed class MusicSyncServiceTests
         Assert.Equal(1, reports[^1].Completed);
         Assert.Equal(1, reports[^1].Total);
         Assert.Contains(reports, r => r.Stage == "解密 NCM");
+    }
+
+    [Fact]
+    public async Task SyncAsync_LocalNcm_AutoMatchesQqWordLyrics()
+    {
+        using var workspace = new TempWorkspaceForSync();
+        using var harness = new Harness();
+        var ncmPath = workspace.WriteFile("Lucky.ncm", new byte[] { 0x43, 0x54, 0x45, 0x4E, 0x46, 0x44, 0x41, 0x4D });
+        harness.Api.SongDetailsHandler = (_, _) =>
+            Task.FromResult<IReadOnlyList<NeteaseSong>>(new[] { CreateSong(7) });
+        harness.Api.LyricsHandler = (_, _) => Task.FromResult(new RawLyrics("[00:00.00]x"));
+        var request = new SyncRequest { Song = CreateSong(7), LocalMatch = CreateLocal(ncmPath, isNcm: true) };
+
+        var summary = await harness.CreateEnrichedService().SyncAsync(
+            new[] { request },
+            new SyncOptions { Download = CreateDownloadOptions(workspace.Root) });
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.Success);
+        Assert.Equal(SyncSourceKind.DecryptedNcm, result.Source);
+        var fetched = Assert.Single(harness.Batch.FetchCalls);
+        Assert.Equal(result.OutputPath, fetched);
+        var options = Assert.Single(harness.Batch.FetchOptions);
+        Assert.Equal(OnlineSourcePriority.QQMusicFirst, options.TagPriority);
+        Assert.Equal(OnlineSourcePriority.QQMusicFirst, options.LyricsPriority);
+        Assert.True(options.PreferWordLyrics);
+        Assert.Contains("已写入标签", result.Message);
+    }
+
+    [Fact]
+    public async Task SyncAsync_LocalNcm_AutoMatchDisabled_KeepsOnlineLyricsOnly()
+    {
+        using var workspace = new TempWorkspaceForSync();
+        using var harness = new Harness();
+        var ncmPath = workspace.WriteFile("Lucky.ncm", new byte[] { 0x43, 0x54, 0x45, 0x4E, 0x46, 0x44, 0x41, 0x4D });
+        harness.Api.SongDetailsHandler = (_, _) =>
+            Task.FromResult<IReadOnlyList<NeteaseSong>>(new[] { CreateSong(7) });
+        harness.Api.LyricsHandler = (_, _) => Task.FromResult(new RawLyrics("[00:00.00]x"));
+        var request = new SyncRequest { Song = CreateSong(7), LocalMatch = CreateLocal(ncmPath, isNcm: true) };
+        var downloadOptions = CreateDownloadOptions(workspace.Root);
+
+        var summary = await harness.CreateEnrichedService().SyncAsync(
+            new[] { request },
+            new SyncOptions
+            {
+                Download = new DownloadOptions
+                {
+                    TargetDirectory = downloadOptions.TargetDirectory,
+                    LyricsMode = downloadOptions.LyricsMode,
+                    WriteCover = downloadOptions.WriteCover,
+                    AutoMatchOnline = false,
+                },
+            });
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.Success);
+        Assert.Empty(harness.Batch.FetchCalls);
+        Assert.Null(result.Message);
     }
 
     [Fact]

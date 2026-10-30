@@ -25,6 +25,7 @@ public sealed class MusicSyncService : ISyncService
     private readonly INcmImportService _importer;
     private readonly IDownloadService _downloader;
     private readonly HttpClient _httpClient;
+    private readonly IBatchLyricsService? _batchLyrics;
 
     public MusicSyncService(
         INeteaseApiClient api,
@@ -33,7 +34,8 @@ public sealed class MusicSyncService : ISyncService
         ILyricParser lyricParser,
         INcmImportService importer,
         IDownloadService downloader,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        IBatchLyricsService? batchLyrics = null)
     {
         _api = api ?? throw new ArgumentNullException(nameof(api));
         _ncmDecoder = ncmDecoder ?? throw new ArgumentNullException(nameof(ncmDecoder));
@@ -42,6 +44,7 @@ public sealed class MusicSyncService : ISyncService
         _importer = importer ?? throw new ArgumentNullException(nameof(importer));
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _batchLyrics = batchLyrics;
     }
 
     /// <inheritdoc />
@@ -277,6 +280,17 @@ public sealed class MusicSyncService : ISyncService
                 .ConfigureAwait(false);
 
             var warning = tagged ? null : "标签写入失败，已保留解密音频。";
+            var enrichment = await TryEnrichAsync(
+                    outputPath,
+                    options,
+                    stage => Report("匹配在线歌词", stage),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (enrichment is not null)
+            {
+                warning = warning is null ? enrichment : warning + "；" + enrichment;
+            }
+
             Report("完成", warning, 100);
             return new SyncItemResult(song.Id, songName, true, SyncSourceKind.DecryptedNcm, outputPath, warning);
         }
@@ -333,6 +347,72 @@ public sealed class MusicSyncService : ISyncService
         }
 
         return new SyncItemResult(song.Id, songName, true, SyncSourceKind.Downloaded, item.OutputPath, item.ErrorMessage);
+    }
+
+    /// <summary>
+    /// 解密并写入基础标签后，按「QQ 音乐逐字歌词优先、网易云音乐兜底」在线补全标签、封面与歌词。
+    /// 补全失败只作为提示返回，不影响同步成功。
+    /// </summary>
+    private async Task<string?> TryEnrichAsync(
+        string? filePath,
+        SyncOptions options,
+        Action<string> report,
+        CancellationToken cancellationToken)
+    {
+        if (!options.Download.AutoMatchOnline
+            || _batchLyrics is null
+            || string.IsNullOrWhiteSpace(filePath)
+            || !File.Exists(filePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            report("正在按 QQ 优先次序补全标签、封面与歌词…");
+            var matchOptions = options.Download.MatchOptions
+                               ?? BatchLyricsOptions.AutoEnrich with
+                               {
+                                   FetchLyrics = options.Download.LyricsMode != LyricsWriteMode.None,
+                               };
+            var result = await _batchLyrics
+                .FetchForFileAsync(filePath!, matchOptions, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (result is null)
+            {
+                return null;
+            }
+
+            if (result.Success)
+            {
+                return DescribeMatch(result);
+            }
+
+            return result.Skipped ? null : $"在线匹配未完成：{result.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return $"在线匹配未完成：{ex.Message}";
+        }
+    }
+
+    /// <summary>补全结果文案附带来源（如「（QQ 音乐）」），方便确认歌词来源。</summary>
+    private static string? DescribeMatch(BatchLyricsResult result)
+    {
+        var message = MediaFileHelper.NullIfEmpty(result.Message);
+        if (string.IsNullOrWhiteSpace(result.SourceLabel))
+        {
+            return message;
+        }
+
+        return string.IsNullOrWhiteSpace(message)
+            ? $"已在线补全（{result.SourceLabel}）"
+            : $"{message}（{result.SourceLabel}）";
     }
 
     private async Task<NeteaseSong?> TryFetchSongAsync(NeteaseSong song, CancellationToken cancellationToken)

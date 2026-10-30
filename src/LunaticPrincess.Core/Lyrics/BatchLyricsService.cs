@@ -11,7 +11,18 @@ public sealed record BatchLyricsOptions(
     bool OverwriteExisting = false,
     bool FetchLyrics = true,
     bool PreferWordLyrics = false,
-    double MinScore = LyricsMatchScorer.DefaultMinScore);
+    double MinScore = LyricsMatchScorer.DefaultMinScore)
+{
+    /// <summary>
+    /// 下载、同步与 NCM 解锁后自动补全用：QQ 音乐逐字歌词优先，其次网易云音乐，并覆盖已有标签与歌词。
+    /// </summary>
+    public static BatchLyricsOptions AutoEnrich { get; } = new(
+        OnlineSourcePriority.QQMusicFirst,
+        OnlineSourcePriority.QQMusicFirst,
+        OverwriteExisting: true,
+        FetchLyrics: true,
+        PreferWordLyrics: true);
+}
 
 public sealed record BatchLyricsResult(
     string FilePath,

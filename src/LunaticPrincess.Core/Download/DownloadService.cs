@@ -19,19 +19,22 @@ public sealed class DownloadService : IDownloadService
     private readonly ILyricParser _lyricParser;
     private readonly INcmDecoder _ncmDecoder;
     private readonly HttpClient _httpClient;
+    private readonly IBatchLyricsService? _batchLyrics;
 
     public DownloadService(
         INeteaseApiClient api,
         IAudioTagService tagService,
         ILyricParser lyricParser,
         INcmDecoder ncmDecoder,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        IBatchLyricsService? batchLyrics = null)
     {
         _api = api ?? throw new ArgumentNullException(nameof(api));
         _tagService = tagService ?? throw new ArgumentNullException(nameof(tagService));
         _lyricParser = lyricParser ?? throw new ArgumentNullException(nameof(lyricParser));
         _ncmDecoder = ncmDecoder ?? throw new ArgumentNullException(nameof(ncmDecoder));
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _batchLyrics = batchLyrics;
     }
 
     /// <inheritdoc />
@@ -293,6 +296,17 @@ public sealed class DownloadService : IDownloadService
             decryptedAudioPath = null;
 
             var warning = tagged ? null : "标签写入失败，已保留音频文件。";
+            var enrichment = await TryEnrichAsync(
+                    outputPath,
+                    options,
+                    stage => Report("匹配在线歌词", stage),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (enrichment is not null)
+            {
+                warning = warning is null ? enrichment : warning + "；" + enrichment;
+            }
+
             Report("完成", warning, 100);
             return new DownloadItemResult(song.Id, songName, true, outputPath, warning, decryptedFromNcm);
         }
@@ -302,6 +316,73 @@ public sealed class DownloadService : IDownloadService
             MediaFileHelper.TryDeleteFile(ncmTemp);
             MediaFileHelper.TryDeleteFile(decryptedAudioPath);
         }
+    }
+
+    /// <summary>
+    /// 标签写完后按「QQ 音乐逐字歌词优先、网易云音乐兜底」在线补全标签、封面与歌词。
+    /// 补全失败只作为提示返回，不影响本次下载/解密成功。
+    /// </summary>
+    private async Task<string?> TryEnrichAsync(
+        string? filePath,
+        DownloadOptions options,
+        Action<string> report,
+        CancellationToken cancellationToken)
+    {
+        if (!options.AutoMatchOnline
+            || _batchLyrics is null
+            || string.IsNullOrWhiteSpace(filePath)
+            || !File.Exists(filePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            report("正在按 QQ 优先次序补全标签、封面与歌词…");
+            // 用户明确关闭歌词写入时仍然只补标签与封面，其余情况一律 QQ 逐字歌词优先。
+            var matchOptions = options.MatchOptions
+                               ?? BatchLyricsOptions.AutoEnrich with
+                               {
+                                   FetchLyrics = options.LyricsMode != LyricsWriteMode.None,
+                               };
+            var result = await _batchLyrics
+                .FetchForFileAsync(filePath!, matchOptions, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (result is null)
+            {
+                return null;
+            }
+
+            if (result.Success)
+            {
+                return DescribeMatch(result);
+            }
+
+            return result.Skipped ? null : $"在线匹配未完成：{result.Message}";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return $"在线匹配未完成：{ex.Message}";
+        }
+    }
+
+    /// <summary>补全结果文案附带来源（如「（QQ 音乐）」），方便确认歌词来源。</summary>
+    private static string? DescribeMatch(BatchLyricsResult result)
+    {
+        var message = MediaFileHelper.NullIfEmpty(result.Message);
+        if (string.IsNullOrWhiteSpace(result.SourceLabel))
+        {
+            return message;
+        }
+
+        return string.IsNullOrWhiteSpace(message)
+            ? $"已在线补全（{result.SourceLabel}）"
+            : $"{message}（{result.SourceLabel}）";
     }
 
     private async Task<(string? Plain, string? Word)> TryBuildLyricsAsync(

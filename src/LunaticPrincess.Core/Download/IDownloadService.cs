@@ -1,3 +1,4 @@
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 
 namespace LunaticPrincess.Core.Download;
@@ -12,6 +13,12 @@ public sealed class DownloadOptions
     public bool SkipExisting { get; init; } = true;
     public string FileNameTemplate { get; init; } = "{artist} - {title}";
     public int MaxConcurrency { get; init; } = 3;
+
+    /// <summary>写入基础标签后是否再在线补全标签/封面/歌词（QQ 逐字歌词优先、网易云兜底）。</summary>
+    public bool AutoMatchOnline { get; init; } = true;
+
+    /// <summary>在线补全参数；为空时使用 <see cref="BatchLyricsOptions.AutoEnrich"/>。</summary>
+    public BatchLyricsOptions? MatchOptions { get; init; }
 }
 
 public sealed record DownloadProgress(

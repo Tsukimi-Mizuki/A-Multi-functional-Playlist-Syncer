@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using LunaticPrincess.Core.Download;
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Netease;
 using Xunit;
@@ -274,6 +275,134 @@ public sealed class DownloadServiceTests
         Assert.Equal(parser.PlainText, write.Tags.PlainLyrics);
         Assert.Equal(parser.EnhancedText, write.Tags.WordLyrics);
         Assert.Equal(1, parser.EnhancedCalls);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_AutoMatch_UsesQqWordLyricsFirst()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.mp3",
+                Format = "mp3",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics("[00:01.00]line")),
+        };
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/3.mp3"] = Mp3Bytes() },
+            out _);
+        var batch = new FakeBatchLyricsForDownload();
+        var service = new DownloadService(
+            api,
+            new RecordingTagServiceForDownload(),
+            new FakeLyricParserForDownload(),
+            new FakeNcmDecoderForDownload(),
+            client,
+            batch);
+
+        var summary = await service.DownloadAsync(
+            new[] { CreateSong(3, coverUrl: null) },
+            new DownloadOptions { TargetDirectory = workspace.Root, WriteCover = false });
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.Success);
+        var fetched = Assert.Single(batch.FetchCalls);
+        Assert.Equal(result.OutputPath, fetched);
+        var options = Assert.Single(batch.FetchOptions);
+        Assert.Equal(OnlineSourcePriority.QQMusicFirst, options.TagPriority);
+        Assert.Equal(OnlineSourcePriority.QQMusicFirst, options.LyricsPriority);
+        Assert.True(options.PreferWordLyrics);
+        Assert.True(options.FetchLyrics);
+        Assert.True(options.OverwriteExisting);
+        Assert.Contains("已写入标签", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_AutoMatchDisabled_DoesNotFetchOnline()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.mp3",
+                Format = "mp3",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics("[00:01.00]line")),
+        };
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/4.mp3"] = Mp3Bytes() },
+            out _);
+        var batch = new FakeBatchLyricsForDownload();
+        var service = new DownloadService(
+            api,
+            new RecordingTagServiceForDownload(),
+            new FakeLyricParserForDownload(),
+            new FakeNcmDecoderForDownload(),
+            client,
+            batch);
+
+        var summary = await service.DownloadAsync(
+            new[] { CreateSong(4, coverUrl: null) },
+            new DownloadOptions
+            {
+                TargetDirectory = workspace.Root,
+                WriteCover = false,
+                AutoMatchOnline = false,
+            });
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.Success);
+        Assert.Empty(batch.FetchCalls);
+        Assert.Null(result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_AutoMatchFailure_KeepsDownloadSuccess()
+    {
+        using var workspace = new TempWorkspaceForDownload();
+        var api = new FakeApiForDownload
+        {
+            PlaybackHandler = (id, _, _) => Task.FromResult(new SongPlaybackInfo
+            {
+                SongId = id,
+                Url = $"https://cdn.example/{id}.mp3",
+                Format = "mp3",
+            }),
+            LyricsHandler = (_, _) => Task.FromResult(new RawLyrics(null)),
+        };
+        using var client = StubHttpMessageHandlerForDownload.CreateClient(
+            new Dictionary<string, byte[]> { ["https://cdn.example/5.mp3"] = Mp3Bytes() },
+            out _);
+        var batch = new FakeBatchLyricsForDownload
+        {
+            Handler = (path, _, _) => Task.FromResult(new BatchLyricsResult(
+                path,
+                false,
+                false,
+                "未找到匹配度足够的在线歌曲")),
+        };
+        var service = new DownloadService(
+            api,
+            new RecordingTagServiceForDownload(),
+            new FakeLyricParserForDownload(),
+            new FakeNcmDecoderForDownload(),
+            client,
+            batch);
+
+        var summary = await service.DownloadAsync(
+            new[] { CreateSong(5, coverUrl: null) },
+            new DownloadOptions { TargetDirectory = workspace.Root, WriteCover = false });
+
+        var result = Assert.Single(summary.Results);
+        Assert.True(result.Success);
+        Assert.True(File.Exists(result.OutputPath));
+        Assert.Contains("在线匹配未完成", result.ErrorMessage);
+        Assert.Contains("未找到匹配度足够的在线歌曲", result.ErrorMessage);
     }
 
     [Fact]

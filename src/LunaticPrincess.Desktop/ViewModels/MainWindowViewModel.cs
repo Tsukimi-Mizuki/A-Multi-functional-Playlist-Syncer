@@ -934,6 +934,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 $"同步完成：成功 {summary.SuccessCount} 首" +
                 $"（下载 {summary.DownloadedCount}、NCM 解密 {summary.DecryptedCount}、跳过 {summary.SkippedCount}），" +
                 $"失败 {summary.FailedCount} 首");
+            // 成功的曲目也把在线匹配结果（QQ 逐字歌词等）写进日志，方便确认歌词来源。
+            foreach (var item in summary.Results
+                         .Where(result => result.Success
+                                          && result.Source != SyncSourceKind.Skipped
+                                          && !string.IsNullOrWhiteSpace(result.Message))
+                         .Take(15))
+            {
+                LogInfo($"{item.SongName} · {item.Message}");
+            }
+
             foreach (var failure in summary.Results.Where(result => !result.Success).Take(15))
             {
                 LogError($"同步失败：{failure.SongName} · {failure.Message ?? "未知错误"}");

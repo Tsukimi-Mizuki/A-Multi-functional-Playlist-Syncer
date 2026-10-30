@@ -64,6 +64,10 @@ Core
 4. 拉取歌词、翻译、封面、歌曲/专辑元数据。
 5. 按歌词模式选择普通 LRC 或增强 LRC（逐字）。
 6. TagLib 写入 MP3/FLAC/M4A/OGG 标签，原子移动到下载目录。
+7. 写完后按 `BatchLyricsOptions.AutoEnrich`（QQ 音乐逐字歌词优先、网易云音乐兜底，覆盖已有歌词）再在线
+   补全一次；`DownloadOptions.AutoMatchOnline` 可关闭，`MatchOptions` 可覆盖参数。补全失败只作为提示
+   （`DownloadItemResult.ErrorMessage` / `SyncItemResult.Message`）上报，不影响下载或解密成功，
+   提示文案会带上来源，如「已写入标签、封面、双语逐字歌词（QQ 音乐）」。
 
 ### NCM 解密
 
@@ -71,7 +75,8 @@ Core
 - 输出格式由首块内容判断（ID3 => mp3，fLaC => flac）。
 - `NcmImportService` 解密成功后先写回内嵌元数据/封面/网易云 ID；导入窗口开启
   “解密后自动获取在线标签、封面与歌词”（默认开启，对应 `NcmImportOptions.AutoMatchOnline`）时，
-  再逐个调用 `IBatchLyricsService.FetchForFileAsync` 按设置中的来源优先级在线匹配，
+  再逐个调用 `IBatchLyricsService.FetchForFileAsync` 按 `BatchLyricsOptions.AutoEnrich`（QQ 音乐逐字歌词优先、
+  网易云音乐兜底）在线匹配，
   写回标题/歌手/专辑/封面与双语歌词；匹配失败不影响解密结果，逐文件状态通过
   `NcmDecryptResult.EnrichmentMessage` 展示在导入窗口。
 - 导入窗口的输入文件夹列表与输出目录默认自动记忆（无开关）：打开时从 `AppSettings.NcmImportFolders` /

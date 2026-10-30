@@ -83,8 +83,8 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
         var thresholdPercent = Math.Round(
             Math.Clamp(settings.MatchThreshold, LyricsMatchScorer.MinThreshold, LyricsMatchScorer.MaxThreshold) * 100);
         AutoMatchHintText =
-            $"在线匹配来源：标签 {PriorityLabel(settings.TagSourcePriority)} · 歌词 {PriorityLabel(settings.LyricsSourcePriority)}" +
-            $" · 匹配度 {thresholdPercent:0}%（可在「设置」与「歌词编辑」中调整）";
+            "在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐" +
+            $" · 匹配度 {thresholdPercent:0}%（可在「歌词编辑」中调整）";
     }
 
     /// <summary>打开窗口时恢复上次记住的文件夹并重新扫描。</summary>
@@ -118,14 +118,6 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
     /// <summary>当前设置的在线来源优先级说明。</summary>
     public string AutoMatchHintText { get; }
 
-    private static string PriorityLabel(OnlineSourcePriority priority) =>
-        priority switch
-        {
-            OnlineSourcePriority.QQMusicFirst => "QQ 音乐优先",
-            OnlineSourcePriority.NeteaseOnly => "仅网易云音乐",
-            OnlineSourcePriority.QQMusicOnly => "仅 QQ 音乐",
-            _ => "网易云音乐优先",
-        };
 
     public ObservableCollection<string> Folders { get; } = [];
     public ObservableCollection<NcmImportResultRow> Results { get; } = [];
@@ -326,13 +318,12 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
                 StatusText = $"正在处理 {position}/{p.Total}：{Path.GetFileName(p.CurrentFile)} · {stage}";
             });
 
-            var matchOptions = new BatchLyricsOptions(
-                _settings.TagSourcePriority,
-                _settings.LyricsSourcePriority,
-                OverwriteExisting: true,
-                FetchLyrics: _settings.LyricsMode != LyricsWriteMode.None,
-                PreferWordLyrics: _settings.LyricsMode == LyricsWriteMode.Word,
-                MinScore: _settings.MatchThreshold);
+            // 解锁后自动补全固定走「QQ 逐字歌词优先、网易云兜底」，只沿用设置里的匹配度阈值。
+            var matchOptions = BatchLyricsOptions.AutoEnrich with
+            {
+                MinScore = _settings.MatchThreshold,
+                FetchLyrics = _settings.LyricsMode != LyricsWriteMode.None,
+            };
 
             var results = await _importService
                 .ImportAsync(

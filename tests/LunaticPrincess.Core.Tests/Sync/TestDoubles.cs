@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using LunaticPrincess.Core.Download;
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Ncm;
 using LunaticPrincess.Core.Netease;
@@ -334,5 +335,47 @@ internal sealed class FakeDownloaderForSync : IDownloadService
                 Path.Combine(options.TargetDirectory, song.Name + ".mp3")))
             .ToArray();
         return Task.FromResult(new DownloadSummary { Results = results });
+    }
+}
+
+internal sealed class FakeBatchLyricsForSync : IBatchLyricsService
+{
+    public List<string> FetchCalls { get; } = [];
+
+    public List<BatchLyricsOptions> FetchOptions { get; } = [];
+
+    public Func<string, BatchLyricsOptions, CancellationToken, Task<BatchLyricsResult>>? Handler { get; set; }
+
+    public Task<IReadOnlyList<string>> ScanAudioFilesAsync(
+        string directory,
+        bool recursive,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
+    public async Task<BatchLyricsResult> FetchForFileAsync(
+        string filePath,
+        BatchLyricsOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        lock (FetchCalls)
+        {
+            FetchCalls.Add(filePath);
+            FetchOptions.Add(options);
+        }
+
+        if (Handler is not null)
+        {
+            return await Handler(filePath, options, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new BatchLyricsResult(
+            filePath,
+            true,
+            false,
+            "已写入标签、封面、双语逐字歌词",
+            MatchedTitle: "Lemon",
+            MatchedArtist: "米津玄師",
+            SourceLabel: "QQ 音乐",
+            LyricsFormat: "双语逐字歌词");
     }
 }

@@ -112,7 +112,6 @@ public sealed class AppServices : IDisposable
         var lyrics = new LyricParser();
         var library = new LocalLibraryService(ncmDecoder, tags);
         var matcher = new SongMatcher();
-        var downloader = new DownloadService(api, tags, lyrics, ncmDecoder, http);
         var onlineSearch = new OnlineMusicSearchService(api, http, lyrics);
         // 网易云 / QQ 都没有歌词时，按顺序用酷狗 KRC、LRCLIB 兜底补歌词。
         ILyricsSource[] fallbackLyrics =
@@ -121,9 +120,10 @@ public sealed class AppServices : IDisposable
             new LrclibLyricsSource(http, lyrics),
         ];
         var batchLyrics = new BatchLyricsService(tags, onlineSearch, fallbackLyrics);
-        // 解密成功后可自动在线匹配标签/封面/歌词，因此导入器依赖批量匹配服务。
+        // 下载、同步与 NCM 解锁成功后都用同一套在线匹配补全标签/封面/歌词（QQ 逐字歌词优先）。
+        var downloader = new DownloadService(api, tags, lyrics, ncmDecoder, http, batchLyrics);
         var ncmImporter = new NcmImportService(ncmDecoder, tags, batchLyrics);
-        var sync = new MusicSyncService(api, ncmDecoder, tags, lyrics, ncmImporter, downloader, http);
+        var sync = new MusicSyncService(api, ncmDecoder, tags, lyrics, ncmImporter, downloader, http, batchLyrics);
         var sessionStore = new ProtectedSessionStore();
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);

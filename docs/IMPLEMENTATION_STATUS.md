@@ -22,10 +22,10 @@
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**331 / 331 通过，0 skipped**。
+- `dotnet test`：**336 / 336 通过，0 skipped**。
   - Netease API：63
   - NCM / Lyrics / Tags：104
-  - Library / Download / Sync：66
+  - Library / Download / Sync：71
   - Storage / Settings / Filename：20
   - 音质映射（Models）：30
   - Online 搜索（含酷狗 / LRCLIB 备用词源）：23
@@ -84,7 +84,12 @@
   自动去重去空白）；设置窗口保存其他设置时也会原样保留这两个字段。已用预置记忆的 settings.json
   启动验证：窗口打开即显示上次文件夹路径、输出目录正确恢复，关闭后设置文件仍保留记忆。
 - NCM 导入窗口新增“解密后自动获取在线标签、封面与歌词”（默认开启）：每个文件解密成功后按
-  设置的来源优先级自动在线匹配并写回标题、歌手、专辑、封面与双语歌词；解密/匹配失败都逐条展示。
+  `BatchLyricsOptions.AutoEnrich`（QQ 音乐逐字歌词优先、网易云音乐兜底）自动在线匹配并写回标题、歌手、
+  专辑、封面与双语歌词；解密/匹配失败都逐条展示。
+- “下载/同步选中”与 NCM 解密后都会自动在线补全（`DownloadOptions.AutoMatchOnline`，默认开启）：
+  `DownloadService` / `MusicSyncService` 写标签后调用同一个批量匹配服务，固定 QQ 音乐逐字歌词优先、
+  网易云兜底；结果提示带来源（如「（QQ 音乐）」）并逐首写进主界面日志。已用真实 .ncm + 真实网络验证：
+  同步解密后写回 `source=QQ 音乐、format=双语逐字歌词`，TagLib 读回 4925 字符含逐字时间轴的歌词。
   已用合成 .ncm + 真实网络端到端验证：解密 → 自动匹配「Lemon - 米津玄師」（网易云音乐）→
   TagLib 读回标题/歌手/专辑、封面与 2000 字符双语歌词全部成功。
 - 评分与标签读取参考 MusicTag 桌面端 / 音樂標籤：标题的 “A / B”“A & B” 与歌手的
