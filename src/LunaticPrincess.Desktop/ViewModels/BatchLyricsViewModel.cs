@@ -35,7 +35,7 @@ public sealed partial class BatchLyricsViewModel : ObservableObject, IDisposable
         FolderPath = Directory.Exists(initialDirectory) ? initialDirectory! : string.Empty;
         TagPriorityText = PriorityLabel(tagPriority);
         LyricsPriorityText = PriorityLabel(lyricsPriority);
-        MatchThresholdText = $"匹配度阈值 {_minScore * 100:0}%（在「歌词编辑」窗口调整，低于该值的歌曲会被跳过）";
+        MatchThresholdText = $"匹配度阈值 {_minScore * 100:0}%（在「设置」的「在线匹配度」里调整，低于该值的歌曲会被跳过）";
         LyricModeOptions =
         [
             new(false, "逐行歌词"),

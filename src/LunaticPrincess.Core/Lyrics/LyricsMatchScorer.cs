@@ -38,11 +38,53 @@ public static class LyricsMatchScorer
     /// <summary>默认匹配度阈值（等价于 音樂標籤 的 0.6 分界）。</summary>
     public const double DefaultMinScore = 0.60;
 
-    /// <summary>阈值滑块允许的最小值。</summary>
+    /// <summary>匹配度阈值允许的最小值。</summary>
     public const double MinThreshold = 0.30;
 
-    /// <summary>阈值滑块允许的最大值。</summary>
+    /// <summary>匹配度阈值允许的最大值。</summary>
     public const double MaxThreshold = 1.00;
+
+    /// <summary>把阈值格式化成设置界面里显示的百分数文本（0.60 →「60」）。</summary>
+    public static string FormatThresholdPercent(double threshold)
+    {
+        var clamped = Math.Clamp(Math.Round(threshold, 2), MinThreshold, MaxThreshold);
+        return (clamped * 100).ToString("0", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 解析设置界面输入的匹配度：接受「60」「60%」「0.6」等写法，换算成 0.30–1.00 的阈值；
+    /// 无法解析或超出范围时返回 false，由界面提示用户重填。
+    /// </summary>
+    public static bool TryParseThreshold(string? text, out double threshold)
+    {
+        threshold = DefaultMinScore;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim().TrimEnd('%', '％').Trim();
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        if (!double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
+            !double.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+        {
+            return false;
+        }
+
+        // 大于 1 按百分数理解（60 → 0.60），小于等于 1 按小数理解（0.6 → 0.60）。
+        var normalized = value > 1 ? value / 100 : value;
+        if (double.IsNaN(normalized) || normalized < MinThreshold || normalized > MaxThreshold)
+        {
+            return false;
+        }
+
+        threshold = Math.Round(normalized, 2);
+        return true;
+    }
 
     /// <summary>标题达到该分数算“好标题”（音樂標籤 的 0.8）。</summary>
     public const double GoodTitleScore = 0.80;

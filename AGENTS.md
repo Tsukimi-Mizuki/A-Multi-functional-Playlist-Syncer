@@ -13,7 +13,7 @@
 
 ## 构建 / 测试 / 发布
 
-- `.\build.ps1 -Test`：构建 + 全量单元测试（当前 331/331 通过）。
+- `.\build.ps1 -Test`：构建 + 全量单元测试（当前 359/359 通过）。
 - `.\build.ps1 -Publish`：发布到 `publish\win-x64\LunaticPrincess.exe` 并打包 `publish\LunaticPrincess-win-x64.zip`。
   - 发布前先 `Get-Process LunaticPrincess | Stop-Process -Force`。
   - `publish\win-x64\data`（登录态 `session.dat`、`settings.json`）**不要删除**。

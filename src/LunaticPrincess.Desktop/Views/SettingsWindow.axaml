@@ -210,6 +210,29 @@
                        Foreground="{DynamicResource TextTertiaryBrush}" />
           </StackPanel>
         </Border>
+        <!-- 在线匹配度：文本框输入百分数，取代歌词编辑窗口里的滑块 -->
+        <Border Classes="salt-card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="salt-card-title" Text="在线匹配度" />
+            <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
+              <TextBlock Text="匹配度阈值" VerticalAlignment="Center" FontSize="12"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <TextBox Text="{Binding MatchThresholdText, Mode=TwoWay}" Width="88"
+                         VerticalContentAlignment="Center"
+                         ToolTip.Tip="输入 30–100 的百分数，例如 60 表示 60%"
+                         AutomationProperties.Name="在线匹配度阈值" />
+                <TextBlock Text="%" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                <TextBlock Text="（30–100，可写 60 或 60%）" VerticalAlignment="Center" FontSize="10.5"
+                           Foreground="{DynamicResource TextTertiaryBrush}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="低于该匹配度的在线搜索结果视为不可用；歌词编辑器搜索、批量获取标签/封面/歌词、NCM 解密后自动匹配都使用这个值。"
+                       FontSize="10.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextTertiaryBrush}" />
+          </StackPanel>
+        </Border>
         <Border IsVisible="{Binding HasValidationMessage}"
                 Background="{DynamicResource DangerSoftBrush}" BorderBrush="{DynamicResource DangerBorderBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="14,10">

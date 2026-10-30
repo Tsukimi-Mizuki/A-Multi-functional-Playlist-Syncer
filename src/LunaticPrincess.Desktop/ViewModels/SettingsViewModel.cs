@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using LunaticPrincess.Core.Lyrics;
 using LunaticPrincess.Core.Models;
 using LunaticPrincess.Core.Online;
 using LunaticPrincess.Core.Settings;
@@ -15,7 +16,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly string _ncmImportOutputDirectory;
     private readonly LyricsSourceKind _lyricsEditorSearchSource;
     private readonly bool _lyricsEditorPreferWordLyrics;
-    private readonly double _matchThreshold;
     private readonly ThemeMode _initialTheme;
     private bool _syncingExclusiveFlags;
     private bool _syncingFileNameTemplate;
@@ -30,7 +30,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _lyricsEditorPreferWordLyrics = current.LyricsEditorPreferWordLyrics;
         FallbackKugouLyrics = current.FallbackKugouLyrics;
         FallbackLrclibLyrics = current.FallbackLrclibLyrics;
-        _matchThreshold = current.MatchThreshold;
+        MatchThresholdText = LyricsMatchScorer.FormatThresholdPercent(current.MatchThreshold);
         _initialTheme = current.Theme;
         _syncingFileNameTemplate = true;
 
@@ -167,6 +167,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _fallbackLrclibLyrics;
 
+    /// <summary>在线匹配度阈值：以百分数文本编辑（例如 60 表示 60%），保存时解析并校验。</summary>
+    [ObservableProperty]
+    private string _matchThresholdText = string.Empty;
+
     [ObservableProperty]
     private ThemeOption _selectedTheme = null!;
 
@@ -301,6 +305,12 @@ public sealed partial class SettingsViewModel : ObservableObject
             return null;
         }
 
+        if (!LyricsMatchScorer.TryParseThreshold(MatchThresholdText, out var matchThreshold))
+        {
+            ValidationMessage = "匹配度需在 30–100 之间（百分数，例如 60）";
+            return null;
+        }
+
         IsSaving = true;
         try
         {
@@ -335,7 +345,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LyricsEditorPreferWordLyrics = _lyricsEditorPreferWordLyrics,
                 FallbackKugouLyrics = FallbackKugouLyrics,
                 FallbackLrclibLyrics = FallbackLrclibLyrics,
-                MatchThreshold = _matchThreshold,
+                MatchThreshold = matchThreshold,
                 Theme = SelectedTheme.Value,
             };
 

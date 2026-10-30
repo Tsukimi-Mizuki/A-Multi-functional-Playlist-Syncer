@@ -181,9 +181,13 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     private OnlineSearchResultItem? _selectedSearchResult;
 
-    /// <summary>匹配度阈值：低于该分数的搜索结果视为不可用，同时影响批量获取的精度。</summary>
-    [ObservableProperty]
-    private double _matchThreshold = LyricsMatchScorer.DefaultMinScore;
+    /// <summary>
+    /// 匹配度阈值：低于该分数的搜索结果视为不可用。只在「设置」窗口里用文本框调整，
+    /// 这里读取打开窗口时传入的设置值。
+    /// </summary>
+    private readonly double _matchThreshold;
+
+    public double MatchThreshold => _matchThreshold;
 
     public string MatchThresholdText => $"{Math.Round(MatchThreshold * 100):0}%";
 
@@ -240,23 +244,6 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         }
     }
 
-    partial void OnMatchThresholdChanged(double value)
-    {
-        var clamped = Math.Clamp(
-            Math.Round(value, 2),
-            LyricsMatchScorer.MinThreshold,
-            LyricsMatchScorer.MaxThreshold);
-        if (Math.Abs(clamped - value) > 0.0001)
-        {
-            MatchThreshold = clamped;
-            return;
-        }
-
-        OnPropertyChanged(nameof(MatchThresholdText));
-        // RememberThreshold 会顺带刷新每个结果的“低于阈值”标注。
-        RememberThreshold();
-    }
-
     partial void OnSelectedSearchLyricModeChanged(OnlineLyricModeOption value)
     {
         RememberOptions();
@@ -276,30 +263,6 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     }
 
     partial void OnSelectedSearchSourceChanged(LyricsSourceOption value) => RememberOptions();
-
-    /// <summary>匹配度阈值改动后只更新内存，真正落盘在搜索时与关闭窗口时做（避免拖动滑块频繁写盘）。</summary>
-    private void RememberThreshold()
-    {
-        if (_settings is not null)
-        {
-            _settings.MatchThreshold = Math.Round(MatchThreshold, 2);
-        }
-
-        foreach (var item in SearchResults)
-        {
-            item.UpdateThreshold(MatchThreshold);
-        }
-    }
-
-    private async Task PersistThresholdAsync()
-    {
-        if (_settings is null || _settingsStore is null)
-        {
-            return;
-        }
-
-        await PersistOptionsAsync(_settingsStore, _settings).ConfigureAwait(true);
-    }
 
     /// <summary>把在线搜索来源与歌词格式记到设置里（默认开启，无界面开关）。</summary>
     private void RememberOptions()
@@ -354,7 +317,6 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         SearchResults = Array.Empty<OnlineSearchResultItem>();
         SelectedSearchResult = null;
         SearchStatus = "正在搜索...";
-        await PersistThresholdAsync().ConfigureAwait(true);
         try
         {
             var results = await _onlineSearch
@@ -403,7 +365,6 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
         SelectedSearchResult = null;
         var label = kind.ToDisplayLabel();
         SearchStatus = $"正在从{label}检索歌词...";
-        await PersistThresholdAsync().ConfigureAwait(true);
         try
         {
             if (!HasFile)
@@ -916,10 +877,5 @@ public sealed partial class LyricsEditorViewModel : ObservableObject, IDisposabl
     public void Dispose()
     {
         CoverImage?.Dispose();
-        // 阈值拖动过程中只改内存，关闭窗口时补一次落盘（失败不影响关闭）。
-        if (_settings is not null && _settingsStore is not null)
-        {
-            _ = PersistThresholdAsync();
-        }
     }
 }

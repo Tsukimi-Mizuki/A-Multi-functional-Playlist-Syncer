@@ -84,7 +84,7 @@ public sealed partial class NcmImportViewModel : ObservableObject, IDisposable
             Math.Clamp(settings.MatchThreshold, LyricsMatchScorer.MinThreshold, LyricsMatchScorer.MaxThreshold) * 100);
         AutoMatchHintText =
             "在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐" +
-            $" · 匹配度 {thresholdPercent:0}%（可在「歌词编辑」中调整）";
+            $" · 匹配度 {thresholdPercent:0}%（可在「设置」的「在线匹配度」中调整）";
     }
 
     /// <summary>打开窗口时恢复上次记住的文件夹并重新扫描。</summary>

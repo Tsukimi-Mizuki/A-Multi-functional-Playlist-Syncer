@@ -125,4 +125,55 @@ public sealed class LyricsMatchScorerTests
             LyricsMatchScorer.NormalizeText("Ｌｅｍｏｎ   -   Lemon"),
             LyricsMatchScorer.NormalizeText("lemon lemon"));
     }
+
+    [Theory]
+    [InlineData("60", 0.60)]
+    [InlineData("60%", 0.60)]
+    [InlineData(" 65 % ", 0.65)]
+    [InlineData("0.6", 0.60)]
+    [InlineData("0.75", 0.75)]
+    [InlineData("100", 1.00)]
+    [InlineData("30", 0.30)]
+    [InlineData("46", 0.46)]
+    public void TryParseThreshold_AcceptsPercentAndDecimal(string text, double expected)
+    {
+        Assert.True(LyricsMatchScorer.TryParseThreshold(text, out var threshold));
+        Assert.Equal(expected, threshold, 3);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("abc")]
+    [InlineData("29")]
+    [InlineData("0.2")]
+    [InlineData("101")]
+    [InlineData("150")]
+    [InlineData("1.5")]
+    [InlineData("%")]
+    public void TryParseThreshold_RejectsOutOfRangeOrGarbage(string text)
+    {
+        Assert.False(LyricsMatchScorer.TryParseThreshold(text, out var threshold));
+        Assert.Equal(LyricsMatchScorer.DefaultMinScore, threshold, 3);
+    }
+
+    [Theory]
+    [InlineData(0.60, "60")]
+    [InlineData(0.45, "45")]
+    [InlineData(0.3, "30")]
+    [InlineData(1.0, "100")]
+    [InlineData(0.05, "30")]
+    public void FormatThresholdPercent_ClampsAndRounds(double threshold, string expected)
+    {
+        Assert.Equal(expected, LyricsMatchScorer.FormatThresholdPercent(threshold));
+    }
+
+    [Fact]
+    public void ThresholdText_RoundTripsThroughSettingsFormat()
+    {
+        var text = LyricsMatchScorer.FormatThresholdPercent(0.72);
+
+        Assert.True(LyricsMatchScorer.TryParseThreshold(text, out var parsed));
+        Assert.Equal(0.72, parsed, 3);
+    }
 }
