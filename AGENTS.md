@@ -15,13 +15,13 @@
 | 技术栈 | .NET 8 / C# 12、Avalonia 11.3、CommunityToolkit.Mvvm、TagLibSharp、xUnit |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | v1.2 已发布（GitHub Release 自包含单文件 zip）；桌面端功能完整；**359/359 单测通过**，0 warning / 0 error |
+| 当前状态 | v1.2 已发布（GitHub Release 自包含单文件 zip）；桌面端功能完整；**404/404 单测通过**，0 warning / 0 error |
 | 分支 | `main` 为开发与发布主分支；`tauri-experiment` 是已放弃的 Tauri 试验分支，仅作历史保留，**不要合并回 main** |
 
 ## 2. 接手后先做的自检（约 15 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上。SDK 版本由 `global.json` 锁定（8.0.426，rollForward = latestFeature）；仓库自带 `.dotnet\dotnet.exe`（8.0.426），`build.ps1` 会优先使用它，无需另外安装。
-2. **跑基线**：`.\build.ps1 -Test` → 预期 0 warning / 0 error、**359/359 通过**（1–2 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → 预期 0 warning / 0 error、**404/404 通过**（1–2 分钟）。
 3. **出包并试用**：`.\build.ps1 -Publish` → `publish\win-x64\LunaticPrincess.exe` 与 `publish\LunaticPrincess-win-x64.zip`；双击 exe，用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，再看 `docs/IMPLEMENTATION_STATUS.md` 的「验证记录 / 已知限制」。
 5. **确认干净**：`git status` 应无改动；`publish/`、`.tmp/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本或登录态。
@@ -184,7 +184,7 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
 
 ### 关键流程（改代码前先确认这些不变量）
 
-- **扫码登录**：`unikey(type=3)` → 二维码 → 每约 2 秒轮询 `801/802/803/800` → 收集 Cookie → `NeteaseSession` → DPAPI 落盘；启动时用 `/weapi/nuser/account/get` 校验。**Cookie 不能刷新，失效必须重扫码**。
+- **扫码登录**：`unikey(type=3)` → 二维码 → 每约 2 秒轮询 `801/802/803/800` → 收集 Cookie → `NeteaseSession` → DPAPI 落盘；启动时用 `/weapi/nuser/account/get` 校验。**登录续期与 Cookie 合并**：`NeteaseApiClient` 对每个带会话的 weapi/GET 响应调用 `CookieMerger` 合并 Set-Cookie（按名覆盖、Max-Age<=0/过期即删除、空值不覆盖；合并后会丢 MUSIC_U 则忽略），变化时触发 `SessionChanged`，由 `SessionAutoSaver`（`AppServices.Create()` 装配）串行落盘；`RefreshLoginAsync` 调 `/weapi/login/token/refresh`，启动校验成功后调用一次，运行期每约 12 小时一次。**「登录失效」只认接口 `code==301` 或 `account/get` 返回 200 但 account/profile 为空**（`NeteaseApiException.IsNotLoggedIn`；HTTP 401/302/5xx、406、-460、超时一律不清除登录态）；清除前先续期并复核一次。
 - **歌单**：大歌单先取 `trackIds`，再按 500 首/批调用 `/weapi/v3/song/detail` 补齐并保持原顺序。
 - **本地对比**：优先用网易云 ID（本程序写入的 `LunaticPrincess:<id>` 注释，或客户端文件里的 `163 key(Don't modify)` 解出的 `musicId`）精确匹配；否则标题/歌手/时长评分；再否则文件名猜测。每首本地文件最多匹配一首歌单曲。
 - **下载**：九档音质 → `/api/song/enhance/player/url/v1`（取链请求带桌面客户端 Cookie，否则 Hi-Res 会被静默降级）→ 服务端降档时提示「实际音质」→ 临时文件 → 文件头是 NCM 就解密 → 歌词/翻译/封面/元数据 → TagLib 写入 → 原子移动 → 按 `BatchLyricsOptions.AutoEnrich` 在线补全（QQ 逐字优先、网易云兜底）。失败只作提示，不影响下载成功。
@@ -227,7 +227,7 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
   - `Ncm/SyntheticNcmFile.cs`：按格式规范做**逆运算**生成真实可解的 .ncm（AES + RC4 变体），与生产实现互相独立；
   - `Lyrics/KrcFixture.cs`、`Netease/TestHttp.cs`（假 HttpMessageHandler 响应）、`Ncm/TempDirectory.cs`（临时目录帮手）。
 - 双打：`Download/TestDoubles.cs`、`Sync/TestDoubles.cs`、`Library/TestDoubles.cs` 手写 Fake，记录调用参数用于断言。
-- 当前分布（2026-10 记录，合计 359）：Netease API 63 / NCM·歌词·标签 127 / 本地扫描·下载·同步 71 / 存储·设置·文件名 20 / 音质映射 30 / 在线搜索 23 / 工具类 25。
+- 当前分布（2026-10 记录，合计 404）：Netease API 101（含 Cookie 合并、续期、登录判定）/ NCM·歌词·标签 127 / 本地扫描·下载·同步 71 / 存储·设置·文件名 27（含 `SessionAutoSaver`、会话读取失败区分） / 音质映射 30 / 在线搜索 23 / 工具类 25。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的「自动化测试」总数与分项，以及本文件 §2 的数字。
 - 真实网络验证：可以临时写探针跑一次（本项目历次都是这么验证的），**验证完立刻删除**，不要把依赖网络的测试提交进仓库，也不要放进会被 `dotnet test` 全量执行的路径。
 - 跑单个测试：`--filter "FullyQualifiedName~ClassName"`（完整环境变量见 §5）。
@@ -240,7 +240,7 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
 - **QQ 音乐**：搜索旧接口 `client_search_cp` 已下线（两个域名都 500），现用 `/soso/fcgi-bin/search_cp` + `new_json=1`；`c.y.qq.com` 失败要自动切 `c6.y.qq.com`。歌词用 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`），QRC 是 3DES 变体：字节编号/位序与标准 DES 不同（已知向量：key `133457799BBCDFF1`、plain `0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），解出后 zlib 解压再按 QRC 行/词时间戳解析。
 - **酷狗**：三段链路 `mobilecdn.kugou.com/api/v3/search/song` → `krcs.kugou.com/search` → `lyrics.kugou.com/download?fmt=krc`；KRC 前 4 字节明文 `krc1`，之后 16 字节固定密钥 XOR 再 zlib；本机偶发证书域名不匹配，异常吞掉后回落下一个词源。
 - **LRCLIB**：只有逐行 `syncedLyrics`；先用 `?q=` 多变体检索，落空再用 `track_name/artist_name` 兜底；429/503 属瞬时失败，退避后重试一次。
-- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；账号 Cookie 无法续期。
+- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；登录态靠 `login/token/refresh` + 合并后续响应的 Set-Cookie 续期（实际续期效果需真机长期观察）；若 `MUSIC_U` 真正过期或被服务端作废，仍需重新扫码。
 - **版权**：不绕过会员/版权限制；试听片段直接判失败。
 - 所有在线请求都应有独立超时与可读的中文错误；封面下载限制大小；解析失败保留本地已有内容。
 
@@ -281,7 +281,7 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
 - 单测只覆盖 Core；Desktop 的 ViewModel/窗口**没有自动化测试**，历史验证都是临时 UIA 脚本，未入库。
 - 文档引用了两个仓库里不存在的文件：`docs/IMPLEMENTATION_STATUS.md` 提到 `docs/screenshots/main-window.png`，`THIRD_PARTY_NOTICES.md` 提到开发期参考 `.research/netease-integration-research.md`（`.research/` 已 gitignore）。补图或改文档二者取一。
 - 网易云 / QQ / 酷狗接口随时可能变（见 §10）；匹配成功率依赖第三方可用性，网易云 406 限流时以 QQ 为主。
-- 单账号：没有账号切换/多账号；`session.dat` 绑定 Windows 用户，换用户或换机器必须重新扫码。
+- 单账号：没有账号切换/多账号；`session.dat` 绑定 Windows 用户，换用户或换机器必须重新扫码（启动时读取失败会在日志里给出原因与数据目录）；账号 Cookie 的续期依赖非公开接口，长期有效性尚待真机观察。
 - 本地发布产物不带版本号（1.0.0.0），只有 CI 包带 `-p:Version`。
 - 逐字歌词取决于源是否提供 YRC/QRC/KRC；都没有时回退逐行 LRC。
 - 无损/ Hi-Res 以上档位受会员权益限制：无权限时降档或失败，程序不绕过。
@@ -293,6 +293,6 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改。
 - [ ] 删除个人数据：`publish\win-x64\data`（含 `session.dat`）、`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本/日志/发布产物；`git log` 与远端一致。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（359/359）与 `.\build.ps1 -Publish`，并在一台**没装 .NET** 的机器上验证 CI 风格自包含 zip 能直接运行。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（404/404）与 `.\build.ps1 -Publish`，并在一台**没装 .NET** 的机器上验证 CI 风格自包含 zip 能直接运行。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责后续 tag/Release。
 - [ ] 约定后续节奏：分支策略（是否引入 develop/PR 流程）、发版频率、以及是否继续推进 Android 与本地播放。

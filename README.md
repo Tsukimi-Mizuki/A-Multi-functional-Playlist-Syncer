@@ -81,7 +81,7 @@ dotnet test tests/LunaticPrincess.Core.Tests/LunaticPrincess.Core.Tests.csproj
 
 ## 已知限制
 
-- 扫码登录 Cookie 不能通过刷新接口续期；若失效需要重新扫码。
+- 程序会合并服务端轮换下发的 Cookie 并自动保存，启动后及运行期间约每 12 小时调用一次续期接口；只有网易云明确返回“未登录”时才会清除登录状态，限流、风控或网络异常不会让你掉登录。若账号 Cookie 确实过期或被服务端作废，仍需重新扫码。
 
 第三方组件与参考项目见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 

@@ -50,6 +50,7 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     private readonly object _sessionGate = new();
     private readonly ConcurrentDictionary<string, QrLoginContext> _qrLoginContexts = new(StringComparer.Ordinal);
     private NeteaseSession? _session;
+    private int _sessionGeneration;
 
     /// <summary>使用默认随机 secret 生成器创建客户端。</summary>
     /// <param name="httpClient">已配置好的 HttpClient（建议关闭自动 Cookie 管理）。</param>
@@ -81,13 +82,85 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     public bool IsLoggedIn => Session?.IsLoggedIn == true;
 
     /// <inheritdoc />
+    public event EventHandler<NeteaseSession>? SessionChanged;
+
+    /// <inheritdoc />
     public void SetSession(NeteaseSession? session)
     {
         lock (_sessionGate)
         {
             _session = session;
+            // 显式切换登录态后，仍在途的旧请求的 Set-Cookie 不得再合并进新会话。
+            _sessionGeneration++;
         }
     }
+
+    /// <summary>同时取得当前登录态与其代数（用于判断请求期间登录态是否被显式切换）。</summary>
+    private (NeteaseSession? Session, int Generation) SnapshotSession()
+    {
+        lock (_sessionGate)
+        {
+            return (_session, _sessionGeneration);
+        }
+    }
+
+    /// <summary>
+    /// 把响应里的 Set-Cookie 合并进当前登录态；Cookie 真的变化时更新会话并触发 <see cref="SessionChanged"/>。
+    /// 匿名请求、登录态已被显式切换、或合并后会丢失 MUSIC_U（疑似误删）时不处理。
+    /// </summary>
+    private void AbsorbSetCookies(IReadOnlyList<string> setCookies, int generation)
+    {
+        if (setCookies.Count == 0)
+        {
+            return;
+        }
+
+        NeteaseSession updated;
+        lock (_sessionGate)
+        {
+            var current = _session;
+            if (generation != _sessionGeneration || current is not { IsLoggedIn: true })
+            {
+                return;
+            }
+
+            var merged = CookieMerger.Merge(current.Cookie, setCookies);
+            if (!merged.Changed)
+            {
+                return;
+            }
+
+            if (current.GetCookieValue("MUSIC_U") is not null && !HasCookie(merged.Cookie, "MUSIC_U"))
+            {
+                // 服务端偶发会对非登录相关请求下发清除指令；丢掉 MUSIC_U 会让登录彻底失效，宁可保留旧值。
+                return;
+            }
+
+            updated = new NeteaseSession
+            {
+                Cookie = merged.Cookie,
+                Nickname = current.Nickname,
+                UserId = current.UserId,
+                VipType = current.VipType,
+                AvatarUrl = current.AvatarUrl,
+                LoggedInAt = current.LoggedInAt,
+            };
+            _session = updated;
+        }
+
+        try
+        {
+            SessionChanged?.Invoke(this, updated);
+        }
+        catch (Exception)
+        {
+            // 订阅方（落盘）的异常不能影响正在进行的业务请求。
+        }
+    }
+
+    private static bool HasCookie(string cookie, string name) =>
+        CookieMerger.ParseCookieString(cookie)
+            .Any(pair => string.Equals(pair.Name, name, StringComparison.OrdinalIgnoreCase) && pair.Value.Length > 0);
 
     /// <summary>把当前登录态拼成 Cookie 头；未登录时使用匿名基础 Cookie。</summary>
     internal static string BuildCookieHeader(NeteaseSession? session)
@@ -98,7 +171,21 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     /// <summary>播放/下载接口使用的 Cookie 头：登录态 + 桌面客户端标识。</summary>
     internal static string BuildPlaybackCookieHeader(NeteaseSession? session)
     {
-        return BuildCookieHeader(session) + "; " + PlaybackCookieSuffix;
+        // 登录态里已有的键（如 os/appver）以登录态原值为准，只追加缺失的客户端标识，避免重复键。
+        var baseCookie = string.IsNullOrWhiteSpace(session?.Cookie) ? string.Empty : session!.Cookie.Trim().TrimEnd(';');
+        var existing = CookieMerger.ParseCookieString(baseCookie)
+            .Select(pair => pair.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var extras = CookieMerger.ParseCookieString(PlaybackCookieSuffix)
+            .Where(pair => !existing.Contains(pair.Name))
+            .Select(pair => $"{pair.Name}={pair.Value}");
+        var suffix = string.Join("; ", extras);
+        if (baseCookie.Length == 0)
+        {
+            return suffix;
+        }
+
+        return suffix.Length == 0 ? baseCookie : baseCookie + "; " + suffix;
     }
 
     /// <summary>构造 weapi 业务 JSON：原样 payload + 来自 cookie 的 csrf_token。</summary>
@@ -118,7 +205,7 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         CancellationToken cancellationToken,
         bool usePlaybackCookie = false)
     {
-        var session = Session;
+        var (session, generation) = SnapshotSession();
         var secret = _secretFactory();
         var businessJson = BuildBusinessJson(payload, session?.CsrfToken);
         var (encryptedParams, encSecKey) = WeapiCrypto.Encrypt(businessJson, secret);
@@ -135,6 +222,7 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
         ApplyHeaders(request, session, BrowserUserAgent, usePlaybackCookie);
 
         var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+        AbsorbSetCookies(response.SetCookies, generation);
         var document = ParseJsonOrThrow(response, operation);
         try
         {
@@ -151,11 +239,12 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     /// <summary>发送 GET 请求并返回 JSON 文档（调用方负责 Dispose）。</summary>
     private async Task<JsonDocument> GetJsonAsync(Uri uri, string operation, CancellationToken cancellationToken)
     {
-        var session = Session;
+        var (session, generation) = SnapshotSession();
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         ApplyHeaders(request, session, BrowserUserAgent);
 
         var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+        AbsorbSetCookies(response.SetCookies, generation);
         var document = ParseJsonOrThrow(response, operation);
         try
         {
@@ -223,7 +312,10 @@ public sealed partial class NeteaseApiClient : INeteaseApiClient
     {
         if (!response.IsSuccessStatusCode)
         {
-            throw new NeteaseApiException($"{operation}失败：HTTP {response.NumericStatusCode}", response.NumericStatusCode);
+            throw new NeteaseApiException(
+                $"{operation}失败：HTTP {response.NumericStatusCode}",
+                response.NumericStatusCode,
+                isHttpStatus: true);
         }
 
         try

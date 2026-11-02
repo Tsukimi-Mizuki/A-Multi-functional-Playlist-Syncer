@@ -58,6 +58,50 @@ public sealed class ProtectedSessionStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadAsync_MissingFile_IsNotAFailure()
+    {
+        var store = new ProtectedSessionStore(SessionPath);
+
+        Assert.Null(await store.LoadAsync());
+        Assert.Null(store.LastLoadFailure);
+    }
+
+    [Fact]
+    public async Task LoadAsync_CorruptFile_ReportsFailureReason()
+    {
+        var store = new ProtectedSessionStore(SessionPath);
+        await File.WriteAllTextAsync(SessionPath, "not a session");
+
+        Assert.Null(await store.LoadAsync());
+        Assert.False(string.IsNullOrWhiteSpace(store.LastLoadFailure));
+    }
+
+    [Fact]
+    public async Task LoadAsync_UndecryptablePayload_ReportsFailureReason()
+    {
+        var store = new ProtectedSessionStore(SessionPath);
+        var bytes = "NMMSES01"u8.ToArray().Concat(new byte[] { 1 }).Concat(new byte[64]).ToArray();
+        await File.WriteAllBytesAsync(SessionPath, bytes);
+
+        Assert.Null(await store.LoadAsync());
+        Assert.False(string.IsNullOrWhiteSpace(store.LastLoadFailure));
+    }
+
+    [Fact]
+    public async Task LoadAsync_SuccessClearsPreviousFailure()
+    {
+        var store = new ProtectedSessionStore(SessionPath);
+        await File.WriteAllTextAsync(SessionPath, "not a session");
+        Assert.Null(await store.LoadAsync());
+        Assert.NotNull(store.LastLoadFailure);
+
+        await store.SaveAsync(new NeteaseSession { Cookie = "MUSIC_U=abc" });
+
+        Assert.NotNull(await store.LoadAsync());
+        Assert.Null(store.LastLoadFailure);
+    }
+
+    [Fact]
     public void SessionHelpers_ParseCookies()
     {
         var session = new NeteaseSession { Cookie = "MUSIC_U=abc; __csrf=tok ; os=pc" };

@@ -129,7 +129,16 @@ internal sealed class FakeApiForSync : INeteaseApiClient
     public NeteaseSession? Session => null;
     public bool IsLoggedIn => false;
 
+    public event EventHandler<NeteaseSession>? SessionChanged
+    {
+        add { }
+        remove { }
+    }
+
     public void SetSession(NeteaseSession? session) => throw new NotSupportedException();
+
+    public Task<bool> RefreshLoginAsync(CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
 
     public Task<QrLoginStart> CreateQrLoginAsync(CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();

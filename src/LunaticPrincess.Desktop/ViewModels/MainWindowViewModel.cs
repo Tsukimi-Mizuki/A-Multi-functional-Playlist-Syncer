@@ -38,11 +38,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _presentCount;
     private int _ncmCount;
     private int _missingCount;
+    private bool _loginKeepAliveStarted;
+    private bool _runtimeAuthRecheckRunning;
+
+    /// <summary>登录态续期间隔（网易云 MUSIC_U 有效期较长，约每 12 小时续期一次即可）。</summary>
+    private static readonly TimeSpan LoginKeepAliveInterval = TimeSpan.FromHours(12);
 
     public MainWindowViewModel(AppServices services, IDesktopUiService ui)
     {
         _services = services;
         _ui = ui;
+        _services.SessionPersistFailed += OnSessionPersistFailed;
         RefreshEmptyStates();
         RefreshCommandStates();
     }
@@ -266,6 +272,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             var session = await _services.SessionStore.LoadAsync(token).ConfigureAwait(true);
+            if (session is null && _services.SessionStore.LastLoadFailure is { } loadFailure)
+            {
+                LogWarning($"读取已保存的登录状态失败：{loadFailure}。数据目录：{AppPaths.DataDirectory}，请重新扫码登录");
+            }
+
             if (session is { IsLoggedIn: true })
             {
                 _services.Api.SetSession(session);
@@ -277,6 +288,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 {
                     await RefreshAccountAndPlaylistsAsync(selectFirstPlaylist: true, token).ConfigureAwait(true);
                     LogSuccess("账号信息同步完成");
+                    await RenewLoginAsync(token).ConfigureAwait(true);
                 }
                 catch (OperationCanceledException)
                 {
@@ -284,13 +296,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
                 catch (Exception ex) when (ErrorFormatter.IsAuthenticationError(ex))
                 {
-                    await ClearLoginStateAsync("登录状态已失效，请重新扫码登录").ConfigureAwait(true);
+                    // 接口说未登录：先续期并复核一次，仍明确未登录才清除本地登录态。
+                    await HandleStartupAuthErrorAsync(token).ConfigureAwait(true);
                 }
                 catch (Exception ex)
                 {
+                    // 限流、风控、HTTP 异常、超时等都不代表登录失效：保留登录，等网络恢复后再用。
                     var message = ErrorFormatter.ToFriendlyMessage(ex);
-                    LogWarning("无法连接网易云，已进入离线模式：" + message);
-                    SetError("无法连接网易云（已离线）：" + message);
+                    LogWarning("暂时无法验证登录状态，已保留登录并进入离线模式：" + message);
+                    SetError("暂时无法验证登录状态（已保留登录）：" + message);
                 }
                 finally
                 {
@@ -446,11 +460,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _ = LoadAvatarAsync(user.AvatarUrl);
         }
 
-        var userId = user?.UserId ?? _services.Api.Session?.UserId ?? 0;
-        if (userId <= 0)
+        if (user is null || user.UserId <= 0)
         {
-            throw new NeteaseApiException("无法获取当前用户信息", 301);
+            // 接口 HTTP 200 却没有 account/profile：服务端明确认为当前未登录。
+            throw new NeteaseApiException("接口未返回账号信息，登录状态已失效", 301);
         }
+
+        var userId = user.UserId;
 
         var playlists = await _services.Api.GetUserPlaylistsAsync(userId, cancellationToken).ConfigureAwait(true);
         Playlists.Clear();
@@ -508,12 +524,169 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         AccountName = session.DisplayName;
         AccountSubtitle = session.VipType > 0 ? "黑胶 VIP" : "网易云用户";
         IsLoggedIn = true;
+        StartLoginKeepAlive();
+    }
+
+    /// <summary>登录复核结果。</summary>
+    private enum LoginCheck
+    {
+        /// <summary>仍然登录有效。</summary>
+        LoggedIn,
+
+        /// <summary>接口明确返回未登录。</summary>
+        LoggedOut,
+
+        /// <summary>暂时无法确定（限流、风控、网络等）。</summary>
+        Unknown,
+    }
+
+    /// <summary>先请求续期，再重新读取账号，判断登录是否真的失效。</summary>
+    private async Task<LoginCheck> RecheckLoginAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _services.Api.RefreshLoginAsync(cancellationToken).ConfigureAwait(true);
+            var user = await _services.Api.GetCurrentUserAsync(cancellationToken).ConfigureAwait(true);
+            return user is null || user.UserId <= 0 ? LoginCheck.LoggedOut : LoginCheck.LoggedIn;
+        }
+        catch (NeteaseApiException ex)
+        {
+            return ex.IsNotLoggedIn ? LoginCheck.LoggedOut : LoginCheck.Unknown;
+        }
+    }
+
+    private async Task HandleStartupAuthErrorAsync(CancellationToken token)
+    {
+        var check = await RecheckLoginAsync(token).ConfigureAwait(true);
+        switch (check)
+        {
+            case LoginCheck.LoggedOut:
+                await ClearLoginStateAsync("登录状态已失效，请重新扫码登录").ConfigureAwait(true);
+                break;
+
+            case LoginCheck.LoggedIn:
+                try
+                {
+                    await RefreshAccountAndPlaylistsAsync(selectFirstPlaylist: true, token).ConfigureAwait(true);
+                    LogSuccess("登录态已续期，账号信息同步完成");
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    var message = ErrorFormatter.ToFriendlyMessage(ex);
+                    LogWarning("暂时无法验证登录状态，已保留登录：" + message);
+                    SetError("暂时无法验证登录状态（已保留登录）：" + message);
+                }
+
+                break;
+
+            default:
+                LogWarning("暂时无法验证登录状态，保留登录");
+                SetError("暂时无法验证登录状态（已保留登录），请稍后重试");
+                break;
+        }
+    }
+
+    /// <summary>请求服务端续期登录态；失败只记日志，不打扰用户。</summary>
+    private async Task RenewLoginAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await _services.Api.RefreshLoginAsync(cancellationToken).ConfigureAwait(true))
+            {
+                LogSuccess("登录态已续期");
+            }
+            else
+            {
+                LogWarning("登录态续期未成功，将继续使用当前登录状态");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogWarning("登录态续期失败：" + ErrorFormatter.ToFriendlyMessage(ex));
+        }
+    }
+
+    /// <summary>运行期间约每 12 小时续期一次登录态；随窗口关闭取消。</summary>
+    private void StartLoginKeepAlive()
+    {
+        if (_loginKeepAliveStarted || _disposed)
+        {
+            return;
+        }
+
+        _loginKeepAliveStarted = true;
+        _ = RunLoginKeepAliveAsync(_lifetimeCts.Token);
+    }
+
+    private async Task RunLoginKeepAliveAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(LoginKeepAliveInterval);
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(true))
+            {
+                if (IsLoggedIn)
+                {
+                    await RenewLoginAsync(cancellationToken).ConfigureAwait(true);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 应用关闭。
+        }
+    }
+
+    private void OnSessionPersistFailed(Exception exception)
+    {
+        LogWarning("保存续期后的登录状态失败：" + ErrorFormatter.ToFriendlyMessage(exception));
+    }
+
+    /// <summary>运行中遇到「未登录」错误：先续期并复核，仍明确未登录才清除登录态。</summary>
+    private async Task HandleRuntimeAuthErrorAsync(string operation, string friendlyMessage)
+    {
+        // 批量下载等场景可能同时报出多条 301：只复核一次，避免并发请求触发网易云限流。
+        if (_runtimeAuthRecheckRunning)
+        {
+            return;
+        }
+
+        _runtimeAuthRecheckRunning = true;
+        LoginCheck check;
+        try
+        {
+            check = await RecheckLoginAsync(_lifetimeCts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            _runtimeAuthRecheckRunning = false;
+        }
+
+        if (check == LoginCheck.LoggedOut)
+        {
+            await ClearLoginStateAsync("登录状态已失效，请重新扫码登录").ConfigureAwait(true);
+            return;
+        }
+
+        SetError($"{operation}：{friendlyMessage}（已保留登录，可稍后重试）".Replace("：：", "："));
     }
 
     private async Task ClearLoginStateAsync(string message)
     {
+        // 先切断内存登录态（在途请求的 Set-Cookie 不再合并），再等自动落盘排空，最后删文件；
+        // 顺序反过来会让已排队的落盘在删除后把 session.dat 写回去。
+        _services.Api.SetSession(null);
         try
         {
+            await _services.FlushSessionSavesAsync().ConfigureAwait(true);
             await _services.SessionStore.ClearAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -521,7 +694,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             LogWarning("清除本地登录状态失败：" + ErrorFormatter.ToFriendlyMessage(ex));
         }
 
-        _services.Api.SetSession(null);
         _suppressPlaylistSelection = true;
         SelectedPlaylist = null;
         _suppressPlaylistSelection = false;
@@ -1305,7 +1477,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (ErrorFormatter.IsAuthenticationError(exception))
         {
-            _ = ClearLoginStateAsync("登录状态已失效，请重新扫码登录");
+            _ = HandleRuntimeAuthErrorAsync(operation, message);
             return;
         }
 
@@ -1349,6 +1521,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        _services.SessionPersistFailed -= OnSessionPersistFailed;
         try
         {
             _operationCts?.Cancel();

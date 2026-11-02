@@ -19,6 +19,7 @@ namespace LunaticPrincess.Desktop.Services;
 public sealed class AppServices : IDisposable
 {
     private readonly BatchLyricsService _batchLyrics;
+    private SessionAutoSaver? _sessionAutoSaver;
 
     private AppServices(
         HttpClient http,
@@ -56,6 +57,9 @@ public sealed class AppServices : IDisposable
         SettingsStore = settingsStore;
         Covers = covers;
     }
+
+    /// <summary>服务端续期/轮换登录 Cookie 后自动落盘失败时触发（可能在后台线程）。</summary>
+    public event Action<Exception>? SessionPersistFailed;
 
     public HttpClient Http { get; }
     public INeteaseApiClient Api { get; }
@@ -128,7 +132,7 @@ public sealed class AppServices : IDisposable
         var settingsStore = new JsonSettingsStore();
         var covers = new CoverImageService(http);
 
-        return new AppServices(
+        var services = new AppServices(
             http,
             api,
             ncmDecoder,
@@ -145,10 +149,23 @@ public sealed class AppServices : IDisposable
             onlineSearch,
             batchLyrics,
             fallbackLyrics);
+        // 网易云会在后续请求里轮换 MUSIC_U；每次合并出新 Cookie 都要落盘，否则下次启动会拿着旧 Cookie 掉登录。
+        services._sessionAutoSaver = new SessionAutoSaver(
+            api,
+            sessionStore,
+            ex => services.SessionPersistFailed?.Invoke(ex));
+        return services;
     }
+
+    /// <summary>
+    /// 等待已排队的登录态自动落盘完成。退出登录时须先 <c>SetSession(null)</c> 再等待它、最后清除 session.dat，
+    /// 否则在途的落盘可能在删除之后把登录态写回磁盘。
+    /// </summary>
+    public Task FlushSessionSavesAsync() => _sessionAutoSaver?.FlushAsync() ?? Task.CompletedTask;
 
     public void Dispose()
     {
+        _sessionAutoSaver?.Dispose();
         Http.Dispose();
     }
 }

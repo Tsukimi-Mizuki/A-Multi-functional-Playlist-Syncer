@@ -28,11 +28,15 @@ public sealed class ProtectedSessionStore : ISessionStore
 
     public string FilePath => _filePath;
 
+    /// <inheritdoc />
+    public string? LastLoadFailure { get; private set; }
+
     public async Task<NeteaseSession?> LoadAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            LastLoadFailure = null;
             if (!File.Exists(_filePath))
             {
                 return null;
@@ -41,6 +45,7 @@ public sealed class ProtectedSessionStore : ISessionStore
             var raw = await File.ReadAllBytesAsync(_filePath, cancellationToken).ConfigureAwait(false);
             if (raw.Length <= Magic.Length + 1 || !raw.AsSpan(0, Magic.Length).SequenceEqual(Magic))
             {
+                LastLoadFailure = "登录文件格式不正确或已损坏";
                 return null;
             }
 
@@ -51,6 +56,7 @@ public sealed class ProtectedSessionStore : ISessionStore
             {
                 if (!OperatingSystem.IsWindows())
                 {
+                    LastLoadFailure = "登录文件由 Windows 加密保存，当前系统无法解密";
                     return null;
                 }
 
@@ -66,18 +72,22 @@ public sealed class ProtectedSessionStore : ISessionStore
         }
         catch (CryptographicException)
         {
+            LastLoadFailure = "登录文件无法解密（可能来自其他 Windows 账号或其他电脑）";
             return null;
         }
         catch (JsonException)
         {
+            LastLoadFailure = "登录文件内容无法解析";
             return null;
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            LastLoadFailure = "读取登录文件失败：" + ex.Message;
             return null;
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            LastLoadFailure = "没有权限读取登录文件：" + ex.Message;
             return null;
         }
         finally

@@ -7,7 +7,7 @@
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 解决方案 / 契约 / 构建 | ✅ 完成 | .NET 8，Core/Desktop/Tests 三项目，Debug/Release 0 warning / 0 error |
-| 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复登录态 |
+| 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复登录态；后续响应 Set-Cookie 合并并自动落盘；`login/token/refresh` 启动及每约 12 小时续期；仅接口明确“未登录”才清除会话 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 我的歌单分页、大歌单 trackIds 按 500/批补齐、保持顺序 |
 | 本地扫描与歌单差异匹配 | ✅ 完成 | 标签/文件名/NCM 元数据、网易云 ID 精确匹配、模糊匹配、一对一 |
 | 音质选择下载 | ✅ 完成 | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 (SpatialAudio) / 沉浸环绕声 (Surround Audio) / 超清母带 (Master) / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；映射 level 见 ARCHITECTURE.md，不可用时自动降档并提示实际音质；取链请求带桌面客户端 Cookie，Hi-Res 实际返回 24bit/48–96kHz FLAC；旧设置 "Higher" 迁移为 ExHigh；试听片段拒收 |
@@ -22,11 +22,11 @@
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**359 / 359 通过，0 skipped**。
-  - Netease API：63
+- `dotnet test`：**404 / 404 通过，0 skipped**。
+  - Netease API：101（含 Cookie 合并 CookieMerger、Set-Cookie 合并与 SessionChanged、RefreshLoginAsync、登录失效判定、播放 Cookie 去重）
   - NCM / Lyrics / Tags：127
   - Library / Download / Sync：71
-  - Storage / Settings / Filename：20
+  - Storage / Settings / Filename：27（含 SessionAutoSaver、会话读取失败区分）
   - 音质映射（Models）：30
   - Online 搜索（含酷狗 / LRCLIB 备用词源）：23
   - Utilities（错误文案 + 音频类型判定）：25
@@ -185,7 +185,7 @@
 
 ## 已知限制
 
-1. 扫码登录的 803 确认段需要真实手机扫码；自动化只能验证出码与轮询，无法验证最终 Cookie 获取。
+1. 扫码登录的 803 确认段需要真实手机扫码；自动化只能验证出码与轮询，无法验证最终 Cookie 获取。登录续期（Cookie 合并 + token/refresh）仅有单测覆盖，实际能延长多久需真机长期观察；Cookie 真正过期或被作废时仍须重新扫码。
 2. 无损/Hi-Res 取决于账号会员权益；无权限时会降级或明确失败，程序不绕过版权限制。
 3. 逐字歌词取决于网易云是否为该曲目提供 YRC、QQ 音乐是否提供可解密的 QRC；都没有时回退逐行 LRC。
 4. FLAC 封面按 VorbisComment METADATA_BLOCK_PICTURE 写入（TagLibSharp 2.3.0 不支持原生 PICTURE block API），主流播放器兼容。

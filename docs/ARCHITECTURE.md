@@ -36,6 +36,16 @@ Core
 4. 803 时从 Set-Cookie 与响应 cookie 字段收集 Cookie，构造 `NeteaseSession`。
 5. 使用 DPAPI 加密写入 session.dat；启动时恢复并通过 `/weapi/nuser/account/get` 校验。
 
+登录态续期与保持：
+
+- `NeteaseApiClient` 对每个带会话的 weapi/GET 响应，用 `CookieMerger.Merge` 合并 Set-Cookie（按名字忽略大小写覆盖；`Max-Age<=0` 或 `Expires` 已过期视为删除；空值不覆盖；其余键顺序保持；Max-Age 优先于 Expires）。
+  合并后若会丢失 `MUSIC_U`、或请求期间会话被显式 `SetSession` 切换，则丢弃本次合并。Cookie 真的变化时更新会话并触发 `INeteaseApiClient.SessionChanged`。
+- `SessionAutoSaver`（Core/Storage，由 `AppServices.Create()` 装配）订阅该事件，把**当前**会话串行写入 `ISessionStore`，写入失败经 `AppServices.SessionPersistFailed` 记入运行日志。扫码 803 的保存仍由 `QrLoginViewModel` 负责。
+- `RefreshLoginAsync` 请求 `/weapi/login/token/refresh`（体为 `{}` + csrf_token），Set-Cookie 同样走合并；失败只返回 false。主窗口在启动校验成功后调用一次，之后每约 12 小时一次。
+- 「登录失效」判定：仅 `NeteaseApiException.IsNotLoggedIn`（JSON `code==301`，`IsHttpStatus=false`）或 `account/get` 返回 200 但 account/profile 为空。HTTP 401/302/5xx、406 限流、-460 风控、超时与网络错误都只提示“暂时无法验证登录状态，保留登录”。
+  判定为失效时先 `RefreshLoginAsync` + 再次 `GetCurrentUserAsync` 复核，仍明确未登录才清除 session.dat。
+- `ProtectedSessionStore.LastLoadFailure` 区分“文件不存在”（正常未登录）与“损坏/无法解密/读取失败”（日志里给出原因与数据目录）。
+
 ### 歌单与歌曲
 
 - weapi 请求需 AES-CBC 双重加密 + 无填充 RSA 加密的 `encSecKey`。

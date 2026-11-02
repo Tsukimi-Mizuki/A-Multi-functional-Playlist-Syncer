@@ -143,6 +143,31 @@ public sealed partial class NeteaseApiClient
         return user;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> RefreshLoginAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsLoggedIn)
+        {
+            return false;
+        }
+
+        try
+        {
+            // 对应 NeteaseCloudMusicApi 的 login_refresh；Set-Cookie 由 PostWeapiAsync 统一合并并落盘。
+            using var document = await PostWeapiAsync(
+                    "/weapi/login/token/refresh",
+                    new JsonObject(),
+                    "续期登录状态",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return document.RootElement.GetInt32("code", WeapiCodeSuccess) == WeapiCodeSuccess;
+        }
+        catch (NeteaseApiException)
+        {
+            return false;
+        }
+    }
+
     private async Task<QrLoginStatus> CompleteQrLoginAsync(
         JsonElement root,
         IReadOnlyList<string> setCookieHeaders,
@@ -230,7 +255,8 @@ public sealed partial class NeteaseApiClient
     }
 
     /// <summary>
-    /// 合并 Set-Cookie 头与 803 响应体里的 cookie 串。Set-Cookie 头优先，响应体补齐缺失项。
+    /// 合并 Set-Cookie 头与 803 响应体里的 cookie 串。Set-Cookie 头优先于响应体；
+    /// 同一来源内的重复键以后到的为准（后出现的 Set-Cookie 才是服务端最终要保留的值）。
     /// </summary>
     internal static List<(string Name, string Value)> BuildCookieCollection(
         IReadOnlyList<string> setCookieHeaders,
@@ -238,8 +264,9 @@ public sealed partial class NeteaseApiClient
     {
         var cookies = new List<(string Name, string Value)>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var fromHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        void Add(string? name, string? value)
+        void Add(string? name, string? value, bool overrideExisting)
         {
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
             {
@@ -251,12 +278,21 @@ public sealed partial class NeteaseApiClient
             {
                 cookies.Add((trimmedName, value.Trim()));
             }
+            else if (overrideExisting)
+            {
+                var index = cookies.FindIndex(pair => string.Equals(pair.Name, trimmedName, StringComparison.OrdinalIgnoreCase));
+                cookies[index] = (cookies[index].Name, value.Trim());
+            }
         }
 
         foreach (var header in setCookieHeaders)
         {
             var (name, value) = ParseCookiePair(header);
-            Add(name, value);
+            Add(name, value, overrideExisting: true);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                fromHeaders.Add(name.Trim());
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(jsonCookie))
@@ -264,7 +300,13 @@ public sealed partial class NeteaseApiClient
             foreach (var part in jsonCookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 var (name, value) = ParseCookiePair(part);
-                Add(name, value);
+                // 响应体只补齐头里没有的键；响应体内部重复则后者为准。
+                if (!string.IsNullOrWhiteSpace(name) && fromHeaders.Contains(name.Trim()))
+                {
+                    continue;
+                }
+
+                Add(name, value, overrideExisting: true);
             }
         }
 

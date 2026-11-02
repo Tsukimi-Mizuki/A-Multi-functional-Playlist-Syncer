@@ -22,7 +22,10 @@ public static class ErrorFormatter
         _ => string.IsNullOrWhiteSpace(exception.Message) ? exception.GetType().Name : exception.Message,
     };
 
-    /// <summary>登录态失效（网易云返回需要重新登录的错误码）。</summary>
+    /// <summary>
+    /// 接口明确返回「未登录」（业务 code=301）。HTTP 层的 401/302/5xx、限流（406）、风控（-460）、超时与网络错误
+    /// 都不算——它们可能是暂时性的，不能据此清除登录态。
+    /// </summary>
     public static bool IsAuthenticationError(Exception exception) =>
-        exception is NeteaseApiException { Code: 301 or -2 or 401 or 302 };
+        exception is NeteaseApiException { IsNotLoggedIn: true };
 }
