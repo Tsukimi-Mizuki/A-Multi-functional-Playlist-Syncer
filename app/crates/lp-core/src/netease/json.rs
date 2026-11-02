@@ -28,6 +28,16 @@ pub fn i32_or(value: &Value, name: &str, default: i32) -> i32 {
         .unwrap_or(default)
 }
 
+/// 读取布尔字段；缺失或无法识别时返回 `None`（接受 `true` / `false` 与同名字符串）。
+pub fn bool_or_none(value: &Value, name: &str) -> Option<bool> {
+    match property(value, name)? {
+        Value::Bool(flag) => Some(*flag),
+        Value::String(text) if text.trim().eq_ignore_ascii_case("true") => Some(true),
+        Value::String(text) if text.trim().eq_ignore_ascii_case("false") => Some(false),
+        _ => None,
+    }
+}
+
 /// 把当前值按整数读取：数字（浮点截断）或可解析的字符串。
 pub fn as_i64(value: &Value) -> Option<i64> {
     match value {
@@ -63,6 +73,17 @@ mod tests {
         assert_eq!(i64_or(&value, "e", -1), -1);
         assert_eq!(i64_or(&value, "missing", -1), -1);
         assert_eq!(i32_or(&value, "b", 0), 7);
+    }
+
+    #[test]
+    fn booleans_accept_bools_and_boolean_strings_only() {
+        let value = json!({"a": true, "b": "False", "c": "yes", "d": 1, "e": null});
+        assert_eq!(bool_or_none(&value, "a"), Some(true));
+        assert_eq!(bool_or_none(&value, "b"), Some(false));
+        assert_eq!(bool_or_none(&value, "c"), None);
+        assert_eq!(bool_or_none(&value, "d"), None);
+        assert_eq!(bool_or_none(&value, "e"), None);
+        assert_eq!(bool_or_none(&value, "missing"), None);
     }
 
     #[test]

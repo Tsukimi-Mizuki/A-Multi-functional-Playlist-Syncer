@@ -45,7 +45,8 @@ app/
 | `auth` | 原来放在 `MainWindowViewModel` / `QrLoginViewModel` 里的登录编排（启动校验、续期、扫码落盘、退出、运行期复核） |
 | `logs` | `MainWindowViewModel` 里的运行日志列表（400 条、内存） |
 | `qr` | `QrLoginViewModel.RenderQrCode`（QRCoder → `qrcode` SVG） |
-| `netease` | `Core/Netease/` |
+| `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs`） |
+| `playlist` | 原来放在 `MainWindowViewModel` 里的歌单加载编排（取列表 / 曲目、写日志、301 时走登录复核） |
 | `ncm` | `Core/Ncm/` |
 | `lyrics` | `Core/Lyrics/` |
 | `tags` | `Core/Tags/` |
@@ -88,7 +89,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 1 | 项目骨架 | Cargo workspace、`lp-core` 空骨架、Tauri 外壳、自绘标题栏、主题 token、`build.ps1 -Tauri` | 完成 |
 | 2 | 基础层 | 数据目录解析、`settings.json`、DPAPI `session.dat`（与 C# 版兼容） | 完成 |
 | 3 | 登录 | weapi 加密、HTTP、Cookie 合并与续期、扫码登录 UI | 完成（续期效果待真机长期观察） |
-| 4 | 歌单 | 歌单列表与详情（trackIds + 分批 song/detail） | 待做 |
+| 4 | 歌单 | 歌单列表与详情（trackIds + 分批 song/detail）、歌单侧栏与歌曲表格 | 完成 |
 | 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC | 待做 |
 | 6 | 标签读写 | MP3 / FLAC / M4A / OGG 标签、封面、歌词写入 | 待做 |
 | 7 | NCM 解密与导入 | `.ncm` 解密、元数据与封面回写、导入窗口 | 待做 |
@@ -97,6 +98,51 @@ pnpm build           # 只构建前端（tsc + vite）
 | 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | 待做 |
 | 11 | 设置与外观 | 设置窗口、主题切换、帧率等 | 待做 |
 | 12 | CI 打包、文档、删除 C# | 安装包 / zip、GitHub Actions、更新 AGENTS.md 与 README、删除 C# 代码 | 待做 |
+
+## 待修问题
+
+以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
+
+- **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 4（歌单）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `netease::models` | `NeteaseModels.cs` | `ArtistRef` / `AlbumRef` / `NeteaseSong` / `PlaylistSummary` / `PlaylistDetail`，camelCase 序列化可直接交给前端；`PlaylistDetail.track_ids` 不序列化（前端用不到，长歌单省流量）。 |
+| `netease::mappers` | `NeteaseMappers.cs`（歌曲 / 歌单部分） | 字段读取全部宽容（数字 / 字符串混用）；`ar`→`artists`、`al`→`album`、`alia`/`alias`、`dt`/`duration`、`no`/`trackNo`、`cd`/`disc` 的回落顺序与 C# 一致；`maxbr` / `fee` 来自歌曲自带 `privilege` 或顶层 `privileges` 数组（按 id 关联）。 |
+| `netease::playlists` | `NeteaseApiClient.Playlists.cs` | `get_user_playlists`：`uid` + `limit=1000` 翻页（`more=false` 或页不满即停，最多 10 页，按 id 去重）；`get_playlist_detail`：`/weapi/v6/playlist/detail`（`n=1000, s=8`）先收内嵌 `tracks`，再以 `trackIds` 为全量有序来源，缺失的按 **500 首 / 批**调 `song/detail` 补齐，最后按 `trackIds` 顺序还原；进度回调 `(已加载, 总数)`。 |
+| `netease::songs` | `NeteaseApiClient.Songs.cs`（`GetSongDetailsAsync`） | `get_song_details`：去重、500 一批、按调用方顺序返回；业务 JSON 同时带 `c` 与 `ids`。播放地址 / 取链属于下载模块，模块 9 再补。 |
+| `playlist::PlaylistService` | `MainWindowViewModel` 的加载与 `HandleOperationError` | `list()` / `tracks(id, progress)`：写日志（`已加载 N 个歌单`、`歌单「X」加载完成，共 N 首`、`歌单较大，正在补全 N 首歌曲详情…`）；会话里没有 userId 时先补取账号；接口业务 301 时调用 `LoginManager::handle_runtime_auth_error`（先续期再复核，仍未登录才清除），复核后仍有效 / 无法确认则提示「已保留登录，可稍后重试」。错误以 `{ kind, message }`（`notLoggedIn` / `sessionExpired` / `failed`）交给前端。 |
+
+### Tauri 外壳与前端
+
+- 命令：`list_playlists`、`get_playlist_tracks(id)`；事件 `playlist:progress`（`{ playlistId, loaded, total }`，只有需要分批补齐时才发）。
+- 前端加载时机：启动校验（`validate_login`）**结束后**，已登录就加载歌单并选中第一个；扫码登录成功（账号 ID 变化）后同样自动加载；退出登录后清空。等校验结束再加载是为了不与启动期登录复核并发（C# 也是顺序执行）。昵称 / 会员状态的刷新不会触发重新加载。
+- 左侧侧栏：展开 272px，收起 88px 只显示封面（封面 42→56px 同步过渡）；宽度 0.24s 过渡、文字淡出；列表上下边缘用 CSS `mask-image` 渐隐；侧栏顶部按钮与 `Ctrl+B` 切换，收起状态记在 `localStorage`（仅界面偏好，失败静默）；选中项高亮；上下方向键在歌单间移动焦点；刷新按钮带“刷新中…”状态，刷新失败保留旧列表并提示。C# 版侧栏没有「我创建的 / 我收藏的」分组，故未做；封面 `http://` 升级为 `https://` 并带 `?param=宽y高` 取缩略图。
+- 右侧：歌单头部（封面、名称、创建者 · 曲目数、简介两行截断）+ 歌曲表格（序号、标题 + 别名、歌手、专辑、时长、本地状态占位「—」，模块 8 再填；C# 版另有「本地文件」列，同样等模块 8）。**固定行高 48px 的自写虚拟滚动**（`lib/virtual.ts`，3000 首时 DOM 里只有约 24 行），表头与行共用同一 grid 列，滚动条槽位固定保证对齐，没有新增依赖。
+- 状态：未登录、加载歌单列表中、列表失败（重试）、账号无歌单、未选歌单、曲目加载中（含「已加载 500/1832 首」与进度条）、曲目失败（重新加载）、空歌单、部分曲目缺失横幅（可重新加载）。后端错误同时写入运行日志。
+- 开发辅助：`src/dev/mockBackend.ts` 在 `pnpm dev` 的普通浏览器里（没有 `__TAURI_INTERNALS__`）用 `?mock=loggedout|empty|listerror|slow` 装上假后端检查渲染；生产构建里 `import.meta.env.DEV` 恒为 false，该文件整体被摘除（已在 `dist` 里确认没有它的任何内容）。
+
+### 与 C# 行为的差异（有意为之）
+
+- 某一批 `song/detail` 失败时**重试一次**，仍失败才把该批略过并置 `is_partial`；业务 301 则立即向上返回错误走登录复核（C# 吞掉所有 `NeteaseApiException`，包括 301）。部分缺失时界面给出横幅与「重新加载」，而不是像 C# 那样整个加载失败。`is_partial` 的定义不变（`songs.len() < trackIds.len()`），所以歌单里有已下架歌曲时也会提示。
+- 发行日期固定按东八区格式化（C# 按本机时区）：网易云的发行日期是北京时间 0 点，按 UTC 会少一天。
+- 歌曲自带的 `privilege` 为 `null` 等非对象时回退到顶层 `privileges`（C# 会丢掉）。
+- 没有“按歌单取消在途请求”：快速切换歌单时前端只采纳最后一次请求的结果，旧请求在后端跑完即丢弃。
+
+### 新增依赖
+
+无（Rust 与前端都没有新增）。
+
+### 验证
+
+- 单测：`lp-core` lib 261 个（模块 4 新增 62 个：mapper、歌曲详情、用户歌单分页、歌单详情 trackIds 分批 / 顺序 / 进度 / 部分缺失 / 301、`PlaylistService` 的 301 复核与错误分类），外壳 9 个，`csharp_compat` 5 个；`cargo fmt --check`、`clippy -D warnings`、`pnpm build`、`.\build.ps1 -Tauri` 通过。
+- 联网探针（一次性，已删除）：匿名取 3 个公开歌单（热歌榜 200 首、飙升榜 100 首、抖音排行榜 81 首），名称 / 创建者 / 曲目 / 歌手 / 专辑 / 时长 / 别名 / 发行日期 / `maxbr` / `fee` 均正确解析，顺序与 `trackIds` 一致；`song/detail` 批量接口正常。
+- 浏览器假后端：3000 首列表虚拟滚动（滚到 2500 附近 DOM 仍只有 24 行）、表头列与行列对齐、`Ctrl+B` 收起 / 展开、选中高亮、空歌单 / 曲目失败 / 部分缺失 / 未登录 / 列表失败各状态、浅色主题。
+- 实机（exe 复制到 `D:\claude\lp-run\`、`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，未触碰真实登录态）：测试期间有真人扫码登录，随后看到了**真实账号的 16 个歌单**，封面正常；1235 首的大歌单走通了分批补齐（「歌单较大，正在补全 235 首歌曲详情…」→「加载完成，共 1235 首」，进度条显示 1000/1235），歌曲表格的标题 / 歌手 / 专辑 / 时长 / 别名显示正确。
 
 ## 模块 3（登录）实现记录
 

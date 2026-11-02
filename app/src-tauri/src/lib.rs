@@ -10,18 +10,21 @@ use lp_core::auth::{
 use lp_core::logs::{LogEntry, LogHub};
 use lp_core::models::{AudioQuality, ThemeMode};
 use lp_core::netease::http::ReqwestTransport;
-use lp_core::netease::{NeteaseClient, NeteaseError};
+use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
 use lp_core::paths::{AppPaths, PathEnv};
+use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
 use serde::Serialize;
 use tauri::window::{Effect, EffectsBuilder};
-use tauri::{Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
 
 /// 前端订阅的事件名：新的运行日志。
 const EVENT_LOG: &str = "app:log";
 /// 前端订阅的事件名：账号状态变化（登录成功、退出、登录失效、资料刷新）。
 const EVENT_ACCOUNT: &str = "auth:state";
+/// 前端订阅的事件名：大歌单分批补齐曲目详情的进度。
+const EVENT_PLAYLIST_PROGRESS: &str = "playlist:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -50,6 +53,8 @@ struct AppState {
     logs: Arc<LogHub>,
     /// 登录编排；登录态（含 Cookie）只留在后端，前端永远拿不到。
     login: Arc<LoginManager>,
+    /// 歌单加载（列表与曲目），301 时经 `login` 复核登录。
+    playlists: Arc<PlaylistService>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -90,6 +95,7 @@ impl AppState {
             LoginOptions::default(),
         );
 
+        let playlists = Arc::new(PlaylistService::new(Arc::clone(&login), Arc::clone(&logs)));
         let restored = login.restore();
         if restored.load_failure.is_some() {
             logs.warning(format!(
@@ -104,6 +110,7 @@ impl AppState {
             settings_warning,
             logs,
             login,
+            playlists,
             session_error: restored.load_failure,
         }
     }
@@ -350,6 +357,45 @@ async fn recheck_login(state: State<'_, AppState>) -> Result<&'static str, Strin
     })
 }
 
+/// `playlist:progress` 事件的载荷。
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistProgressDto {
+    playlist_id: i64,
+    /// 已取得详情的歌曲数。
+    loaded: usize,
+    /// 歌单总曲目数。
+    total: usize,
+}
+
+/// 当前账号的全部歌单。失败时 `Err` 是 `{ kind, message }`，`message` 已是中文说明。
+#[tauri::command]
+async fn list_playlists(state: State<'_, AppState>) -> Result<Vec<PlaylistSummary>, PlaylistError> {
+    let playlists = Arc::clone(&state.playlists);
+    playlists.list().await
+}
+
+/// 一个歌单的完整曲目；超过 500 首时分批补齐，期间发 `playlist:progress` 事件。
+#[tauri::command]
+async fn get_playlist_tracks(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: i64,
+) -> Result<PlaylistDetail, PlaylistError> {
+    let playlists = Arc::clone(&state.playlists);
+    let report = move |loaded: usize, total: usize| {
+        let _ = app.emit(
+            EVENT_PLAYLIST_PROGRESS,
+            PlaylistProgressDto {
+                playlist_id: id,
+                loaded,
+                total,
+            },
+        );
+    };
+    playlists.tracks(id, &report).await
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -408,7 +454,9 @@ pub fn run() {
             qr_start,
             qr_poll,
             logout,
-            recheck_login
+            recheck_login,
+            list_playlists,
+            get_playlist_tracks
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -567,5 +615,36 @@ mod tests {
         .unwrap();
         assert_eq!(json["lifetimeSecs"], 180);
         assert_eq!(json["svg"], "<svg/>");
+    }
+
+    #[test]
+    fn playlist_progress_dto_serializes_to_camel_case() {
+        let json = serde_json::to_value(PlaylistProgressDto {
+            playlist_id: 9,
+            loaded: 500,
+            total: 1832,
+        })
+        .unwrap();
+        assert_eq!(json["playlistId"], 9);
+        assert_eq!(json["loaded"], 500);
+        assert_eq!(json["total"], 1832);
+    }
+
+    #[test]
+    fn playlist_errors_reach_the_frontend_as_kind_and_message() {
+        use lp_core::playlist::PlaylistErrorKind;
+
+        let json = serde_json::to_value(PlaylistError {
+            kind: PlaylistErrorKind::Failed,
+            message: "加载歌单失败：网络连接失败，请检查网络后重试".to_owned(),
+        })
+        .unwrap();
+        assert_eq!(json["kind"], "failed");
+        assert!(
+            json["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("加载歌单失败")
+        );
     }
 }

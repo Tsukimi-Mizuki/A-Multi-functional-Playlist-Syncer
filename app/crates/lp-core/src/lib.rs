@@ -15,6 +15,7 @@ pub mod ncm;
 pub mod netease;
 pub mod online;
 pub mod paths;
+pub mod playlist;
 pub mod qr;
 pub mod session;
 pub mod settings;

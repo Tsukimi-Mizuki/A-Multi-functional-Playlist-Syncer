@@ -15,9 +15,11 @@ let validation: Promise<ValidationResult | null> | null = null
  * 账号状态：先订阅后端的账号变化事件，再读取当前摘要，最后触发一次启动校验。
  * 校验结果（续期、登录失效、暂时无法验证）由后端写入运行日志，并通过事件更新这里的账号。
  */
-export function useAuth(): { account: AccountSummary; ready: boolean } {
+export function useAuth(): { account: AccountSummary; ready: boolean; validated: boolean } {
   const [account, setAccount] = useState<AccountSummary>(LOGGED_OUT)
   const [ready, setReady] = useState(false)
+  /** 启动校验已结束（无论成功与否）。歌单等需要联网的数据要等它结束再加载，避免与登录复核并发。 */
+  const [validated, setValidated] = useState(false)
 
   useEffect(() => {
     let disposed = false
@@ -40,7 +42,9 @@ export function useAuth(): { account: AccountSummary; ready: boolean } {
         return validation
       })
       .then((result) => {
-        if (!disposed && result) setAccount(result.account)
+        if (disposed) return
+        if (result) setAccount(result.account)
+        setValidated(true)
       })
       .catch(() => {
         if (!disposed) setReady(true) // 非 Tauri 环境（纯浏览器预览）：保持未登录。
@@ -52,5 +56,5 @@ export function useAuth(): { account: AccountSummary; ready: boolean } {
     }
   }, [])
 
-  return { account, ready }
+  return { account, ready, validated }
 }
