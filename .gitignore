@@ -17,3 +17,9 @@ publish/
 .idea/
 .vs/
 .tmp-avalonia-research/
+
+# Tauri rewrite (app/)
+app/target/
+app/dist/
+app/node_modules/
+app/src-tauri/gen/schemas/

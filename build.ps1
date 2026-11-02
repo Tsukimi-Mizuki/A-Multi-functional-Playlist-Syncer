@@ -3,10 +3,43 @@ param(
     [ValidateSet('Debug','Release')][string]$Configuration = 'Debug',
     [switch]$Test,
     [switch]$Publish,
-    [switch]$SelfContained
+    [switch]$SelfContained,
+    [switch]$Tauri
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+
+if ($Tauri) {
+    # Rust + Tauri 2 + React rewrite (app/). Independent from the .NET pipeline below.
+    #   -Tauri          fmt/clippy/test checks, then builds the release executable (installers come in module 12).
+    #   -Tauri -Test    checks and tests only, no packaging.
+    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+    foreach ($tool in @('cargo', 'pnpm')) {
+        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool was not found on PATH." }
+    }
+    # cargo/pnpm write progress to stderr; rely on exit codes instead of PowerShell error records.
+    $ErrorActionPreference = 'Continue'
+    Push-Location (Join-Path $root 'app')
+    try {
+        if (Test-Path 'pnpm-lock.yaml') { pnpm install --frozen-lockfile } else { pnpm install }
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        cargo fmt --check
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        cargo clippy --workspace -- -D warnings
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        cargo test --workspace
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        if (-not $Test) {
+            pnpm tauri build --no-bundle
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Write-Host ('Built: ' + (Join-Path (Get-Location) 'target\release\LunaticPrincess.exe'))
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    exit 0
+}
 $dotnet = Join-Path $root '.dotnet\dotnet.exe'
 if (-not (Test-Path $dotnet)) { $dotnet = 'dotnet' }
 $env:DOTNET_CLI_HOME = Join-Path $root '.dotnet-home'

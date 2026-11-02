@@ -1,0 +1,109 @@
+/*
+ * 主题 token。配色取自 C# 版 App.axaml 的 ThemeDictionaries（Default = 深色，Light = 浅色），
+ * 变量名与那里的 *Brush 一一对应（去掉 Brush 后缀、转 kebab-case），后续模块直接复用。
+ * 默认深色；系统为浅色时自动切换。后续设置界面可通过 <html data-theme="dark|light"> 强制覆盖。
+ * 注意：颜色为 #AARRGGBB 写法的 Avalonia 习惯已转换成 CSS 的 #RRGGBBAA。
+ */
+:root {
+  color-scheme: dark;
+
+  --app-background: #0a0f17;
+  --chrome-glass: #151a23a6;
+  --dialog-glass: #080d15a8;
+  --caption-button-hover: #ffffff33;
+  --caption-button-pressed: #ffffff4d;
+  --caption-close-hover: #e81123;
+  --panel: #151a23a3;
+  --panel-alt: #1d242fbf;
+  --panel-hover: #2b3442d9;
+  --input: #10151dcc;
+  --control: #ffffff1a;
+  --control-hover: #ffffff2b;
+  --control-pressed: #ffffff3d;
+  --row-hover: #ffffff14;
+  --border: #ffffff33;
+  --border-strong: #ffffff59;
+  --text-primary: #f4f7fb;
+  --text-secondary: #c2cbd7;
+  --text-tertiary: #96a1b0;
+  --accent: #ff6b7d;
+  --accent-hover: #ff8a99;
+  --accent-pressed: #e05569;
+  --accent-soft: #ec414133;
+  --accent-border: #ff7a7a66;
+  --success: #5bdb95;
+  --warning: #f0b64d;
+  --danger: #ff7d7d;
+  --danger-soft: #3b1c20;
+  --window-veil: #05080d33;
+}
+
+/* 系统为浅色且未手动指定主题时，使用浅色 token。 */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+
+    --app-background: #f3f6fb;
+    --chrome-glass: #fefefed0;
+    --dialog-glass: #f2f5fadc;
+    --caption-button-hover: #00000017;
+    --caption-button-pressed: #00000029;
+    --panel: #ffffffc2;
+    --panel-alt: #f6f8fcd2;
+    --panel-hover: #e4e9f1e0;
+    --input: #ffffffe6;
+    --control: #00000014;
+    --control-hover: #0000001f;
+    --control-pressed: #00000029;
+    --row-hover: #00000012;
+    --border: #00000026;
+    --border-strong: #0000003d;
+    --text-primary: #151a22;
+    --text-secondary: #454e5c;
+    --text-tertiary: #6e7787;
+    --accent: #e0354a;
+    --accent-hover: #ec4a5e;
+    --accent-pressed: #c22839;
+    --accent-soft: #ec41411f;
+    --accent-border: #e0354a66;
+    --success: #1b8a57;
+    --warning: #a26800;
+    --danger: #c62828;
+    --danger-soft: #fbe6e6;
+    --window-veil: #f3f6fbcc;
+  }
+}
+
+/* 手动强制浅色（预留给设置界面）。 */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --app-background: #f3f6fb;
+  --chrome-glass: #fefefed0;
+  --dialog-glass: #f2f5fadc;
+  --caption-button-hover: #00000017;
+  --caption-button-pressed: #00000029;
+  --panel: #ffffffc2;
+  --panel-alt: #f6f8fcd2;
+  --panel-hover: #e4e9f1e0;
+  --input: #ffffffe6;
+  --control: #00000014;
+  --control-hover: #0000001f;
+  --control-pressed: #00000029;
+  --row-hover: #00000012;
+  --border: #00000026;
+  --border-strong: #0000003d;
+  --text-primary: #151a22;
+  --text-secondary: #454e5c;
+  --text-tertiary: #6e7787;
+  --accent: #e0354a;
+  --accent-hover: #ec4a5e;
+  --accent-pressed: #c22839;
+  --accent-soft: #ec41411f;
+  --accent-border: #e0354a66;
+  --success: #1b8a57;
+  --warning: #a26800;
+  --danger: #c62828;
+  --danger-soft: #fbe6e6;
+  --window-veil: #f3f6fbcc;
+}

@@ -1,0 +1,130 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* 窗口本身是透明的（Mica / Acrylic 材质铺在下面），所以 body 背景保持透明，
+   由标题栏与面板自带的半透明色叠在材质之上。 */
+body {
+  background: transparent;
+  color: var(--text-primary);
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--window-veil);
+}
+
+/* ---- 标题栏 ---- */
+.titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: none;
+  height: 68px;
+  background: var(--chrome-glass);
+  border-bottom: 1px solid var(--border);
+}
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 20px;
+  min-width: 0;
+}
+
+.titlebar-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.titlebar-controls {
+  display: flex;
+  flex: none;
+}
+
+.caption-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.caption-button:hover {
+  background: var(--caption-button-hover);
+}
+
+.caption-button:active {
+  background: var(--caption-button-pressed);
+}
+
+.caption-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.caption-close:hover,
+.caption-close:active {
+  background: var(--caption-close-hover);
+  color: #fff;
+}
+
+/* ---- 主体 ---- */
+.app-content {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  min-height: 0;
+}
+
+.card {
+  min-width: 360px;
+  padding: 28px 32px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.card-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.card-text {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+}
+
+.card-meta {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -1,0 +1,12 @@
+[package]
+name = "lp-core"
+description = "Lunatic Princess 平台无关业务库"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true

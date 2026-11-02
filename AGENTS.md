@@ -16,7 +16,7 @@
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
 | 当前状态 | v1.2 已发布（GitHub Release 自包含单文件 zip）；桌面端功能完整；**404/404 单测通过**，0 warning / 0 error |
-| 分支 | `main` 为开发与发布主分支；`tauri-experiment` 是已放弃的 Tauri 试验分支，仅作历史保留，**不要合并回 main** |
+| 分支 | `main` 为开发与发布主分支；`tauri-experiment` 已删除；`GUI-Tauri` 为 Rust + Tauri 2 + React 的彻底重写分支，进度见 `docs/TAURI_REWRITE.md` |
 
 ## 2. 接手后先做的自检（约 15 分钟）
 
@@ -263,7 +263,7 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
   手动 `workflow_dispatch` 没有 tag 时版本号固定为 `v0.0.1-manual`。
 - Release 资产名里的空格在下载 URL 中会变成点：`Lunatic.Princess-v1.2.zip`（按 `/releases/expanded_assets/<tag>` 查真实资产名，直接拼 `%20` 会 404）。
 - 历史 tag：`v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点，CI 已兼容去点）、`v1.1`、`v1.2`。CI 只跑构建与发布，**不跑单元测试**；打 tag 前务必本地 `-Test`。
-- 不要 force push 主分支；`tauri-experiment` 分支保留现状即可，合并会带回已弃用的 Rust/WebView 方案。
+- 不要 force push 主分支。
 
 ## 13. 常见修改配方
 

@@ -1,0 +1,24 @@
+[package]
+name = "lunatic-princess"
+description = "Lunatic Princess 桌面外壳（Tauri 2）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "LunaticPrincess"
+path = "src/main.rs"
+
+[lib]
+name = "lunatic_princess_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+lp-core.workspace = true
+serde.workspace = true
+tauri = { version = "2.12.5", features = [] }

@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = ["src-tauri", "crates/lp-core"]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer"
+authors = ["Tsukimi-Mizuki"]
+
+[workspace.dependencies]
+lp-core = { path = "crates/lp-core" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
