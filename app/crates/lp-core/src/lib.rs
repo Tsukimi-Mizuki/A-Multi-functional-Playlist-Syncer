@@ -4,15 +4,18 @@
 //! Tauri 外壳（`src-tauri`）只负责把这些能力转发给前端。
 //! 各模块目前只是骨架，会随重写进度（见 `docs/TAURI_REWRITE.md`）逐步填充。
 
+pub mod auth;
 pub mod download;
 pub mod error;
 pub mod library;
+pub mod logs;
 pub mod lyrics;
 pub mod models;
 pub mod ncm;
 pub mod netease;
 pub mod online;
 pub mod paths;
+pub mod qr;
 pub mod session;
 pub mod settings;
 pub mod sync;

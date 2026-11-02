@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { AccountSummary } from './auth'
 
 /** 与 Rust 端 `AppInfoDto`（camelCase）一一对应。 */
 export interface AppInfo {
@@ -16,12 +17,14 @@ export interface SettingsSummary {
   matchThreshold: number
 }
 
-/** 登录态摘要：只有是否登录与昵称，后端不会把 Cookie 交给前端。 */
+/** 登录态摘要：账号信息与读取失败原因，后端不会把 Cookie 交给前端。 */
 export interface SessionSummary {
   loggedIn: boolean
   nickname: string | null
   /** 登录文件读取 / 解密失败时的中文原因。 */
   loadError: string | null
+  /** 完整账号摘要（头像、会员类型等），不含 Cookie。 */
+  account: AccountSummary
 }
 
 /** 与 Rust 端 `AppStateDto` 一一对应。 */

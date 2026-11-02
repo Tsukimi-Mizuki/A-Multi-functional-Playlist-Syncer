@@ -1,5 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 /** 在非 Tauri 环境（如纯浏览器预览）下 getCurrentWindow 会抛错，这里统一兜底。 */
 function currentWindow() {
@@ -48,7 +48,7 @@ function CloseIcon() {
 }
 
 /** 自绘标题栏：68px 高，整条可拖动，双击切换最大化。 */
-export default function TitleBar() {
+export default function TitleBar({ accountSlot }: { accountSlot?: ReactNode }) {
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
@@ -92,6 +92,7 @@ export default function TitleBar() {
           Lunatic Princess
         </span>
       </div>
+      {accountSlot && <div className="titlebar-account">{accountSlot}</div>}
       <div className="titlebar-controls" onDoubleClick={(event) => event.stopPropagation()}>
         <button
           type="button"

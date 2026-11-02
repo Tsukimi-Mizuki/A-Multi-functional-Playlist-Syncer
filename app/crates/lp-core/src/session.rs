@@ -12,7 +12,8 @@
 //! ```
 //!
 //! 加密能力抽象成 [`DataProtector`]：生产环境在 Windows 上用 [`DpapiProtector`]，单测用假实现。
-//! `SessionAutoSaver`（Cookie 合并后串行落盘）依赖 API 客户端，留到模块 3。
+//! 存储抽象成 [`SessionStorage`]（`SessionStore` 是它的文件实现），`SessionAutoSaver`（见 [`saver`]）订阅
+//! `NeteaseClient` 的会话变化并串行落盘。
 
 use std::fs;
 use std::io::ErrorKind;
@@ -21,6 +22,11 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+
+mod saver;
+#[cfg(test)]
+pub(crate) use saver::test_support;
+pub use saver::{ErrorHandler, SessionAutoSaver};
 
 use crate::error::{CoreError, CoreResult};
 use crate::settings::write_atomic;
@@ -256,6 +262,18 @@ mod dpapi {
     }
 }
 
+/// 登录态的持久化接口。生产环境是文件实现 [`SessionStore`]，单测用手写假实现。
+pub trait SessionStorage: Send + Sync {
+    /// 读取登录态，语义同 [`SessionStore::load`]。
+    fn load(&self) -> CoreResult<Option<NeteaseSession>>;
+    /// 保存登录态。
+    fn save(&self, session: &NeteaseSession) -> CoreResult<()>;
+    /// 删除已保存的登录态。
+    fn clear(&self) -> CoreResult<()>;
+    /// 最近一次读取失败的原因。
+    fn last_load_failure(&self) -> Option<String>;
+}
+
 const FAIL_FORMAT: &str = "登录文件格式不正确或已损坏";
 const FAIL_NO_DECRYPTOR: &str = "登录文件由 Windows 加密保存，当前系统无法解密";
 const FAIL_DECRYPT: &str = "登录文件无法解密（可能来自其他 Windows 账号或其他电脑）";
@@ -390,6 +408,24 @@ impl SessionStore {
         let mut temp = self.file_path.as_os_str().to_owned();
         temp.push(".tmp");
         remove_if_exists(Path::new(&temp))
+    }
+}
+
+impl SessionStorage for SessionStore {
+    fn load(&self) -> CoreResult<Option<NeteaseSession>> {
+        SessionStore::load(self)
+    }
+
+    fn save(&self, session: &NeteaseSession) -> CoreResult<()> {
+        SessionStore::save(self, session)
+    }
+
+    fn clear(&self) -> CoreResult<()> {
+        SessionStore::clear(self)
+    }
+
+    fn last_load_failure(&self) -> Option<String> {
+        SessionStore::last_load_failure(self)
     }
 }
 
