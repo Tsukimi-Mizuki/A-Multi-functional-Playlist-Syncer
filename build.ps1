@@ -17,6 +17,12 @@ if ($Tauri) {
     foreach ($tool in @('cargo', 'pnpm')) {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool was not found on PATH." }
     }
+    # Keep temp files inside the workspace, like the .NET pipeline below: when the repository sits in a folder that carries a
+    # Low mandatory integrity label (for example Edge's download folder), the test executables inherit that level and cannot
+    # write to the regular user temp directory.
+    $env:TMP = Join-Path $root '.tmp'
+    $env:TEMP = $env:TMP
+    New-Item -ItemType Directory -Force -Path $env:TMP | Out-Null
     # cargo/pnpm write progress to stderr; rely on exit codes instead of PowerShell error records.
     $ErrorActionPreference = 'Continue'
     Push-Location (Join-Path $root 'app')

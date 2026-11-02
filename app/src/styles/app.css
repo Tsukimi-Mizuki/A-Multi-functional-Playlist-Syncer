@@ -106,6 +106,7 @@ body {
 
 .card {
   min-width: 360px;
+  max-width: 640px;
   padding: 28px 32px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -127,4 +128,34 @@ body {
   margin: 0;
   color: var(--accent);
   font-weight: 600;
+}
+
+.card-error {
+  margin: 12px 0 0;
+  color: var(--danger, #e5484d);
+  user-select: text;
+}
+
+/* ---- 基础信息列表 ---- */
+.info-list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.info-row dt {
+  color: var(--text-secondary);
+}
+
+.info-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
 }

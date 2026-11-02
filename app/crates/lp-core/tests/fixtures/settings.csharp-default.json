@@ -1,0 +1,23 @@
+{
+  "downloadDirectory": "D:\\Music\\LunaticPrincess",
+  "libraryDirectory": "D:\\Music\\LunaticPrincess",
+  "quality": "ExHigh",
+  "lyricsMode": "Line",
+  "writeCover": true,
+  "overwriteExisting": false,
+  "skipExisting": true,
+  "fileNameTemplate": "{artist} - {title}",
+  "maxConcurrency": 3,
+  "autoMatchLocal": true,
+  "tagSourcePriority": "NeteaseFirst",
+  "lyricsSourcePriority": "NeteaseFirst",
+  "ncmImportFolders": [],
+  "ncmImportOutputDirectory": "",
+  "lyricsEditorSearchSource": "Netease",
+  "fallbackKugouLyrics": true,
+  "fallbackLrclibLyrics": true,
+  "lyricsEditorPreferWordLyrics": false,
+  "matchThreshold": 0.6,
+  "theme": "Dark",
+  "renderFrameRate": "VSync"
+}

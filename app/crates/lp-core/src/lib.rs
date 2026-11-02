@@ -8,6 +8,7 @@ pub mod download;
 pub mod error;
 pub mod library;
 pub mod lyrics;
+pub mod models;
 pub mod ncm;
 pub mod netease;
 pub mod online;
@@ -16,6 +17,9 @@ pub mod session;
 pub mod settings;
 pub mod sync;
 pub mod tags;
+
+#[cfg(test)]
+mod test_util;
 
 use serde::Serialize;
 

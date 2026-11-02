@@ -1,0 +1,26 @@
+{
+  "downloadDirectory": "E:\\\u4E0B\u8F7D\\music",
+  "libraryDirectory": "E:\\\u66F2\u5E93",
+  "quality": "DolbyAtmos",
+  "lyricsMode": "Word",
+  "writeCover": false,
+  "overwriteExisting": true,
+  "skipExisting": false,
+  "fileNameTemplate": "{title} - {artist}",
+  "maxConcurrency": 6,
+  "autoMatchLocal": false,
+  "tagSourcePriority": "QQMusicFirst",
+  "lyricsSourcePriority": "NeteaseOnly",
+  "ncmImportFolders": [
+    "D:\\ncm-a",
+    "D:\\ncm-b"
+  ],
+  "ncmImportOutputDirectory": "D:\\ncm-out",
+  "lyricsEditorSearchSource": "QQMusic",
+  "fallbackKugouLyrics": false,
+  "fallbackLrclibLyrics": false,
+  "lyricsEditorPreferWordLyrics": true,
+  "matchThreshold": 0.78,
+  "theme": "System",
+  "renderFrameRate": "Fps144"
+}
