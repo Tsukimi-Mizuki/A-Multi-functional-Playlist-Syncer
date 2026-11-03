@@ -167,6 +167,33 @@ export function installMockBackend(scenario: string | null): void {
           }
           return detailFor(id, list)
         }
+        case 'get_song_lyrics': {
+          // 歌曲 ID 能被 11 整除：失败；能被 7 整除：没有歌词；能被 5 整除：只有逐行歌词；其余：逐字 + 翻译。
+          const id = Number(args.id)
+          const mode = args.mode === 'word' ? 'word' : 'line'
+          await sleep(350)
+          if (id % 11 === 0) throw { kind: 'failed', message: '获取歌词失败：网络连接失败，请检查网络后重试' }
+          const base = { songId: id, mode, source: '网易云音乐' }
+          if (id % 7 === 0) {
+            return { ...base, text: '', isWordLevel: false, hasWordData: false, hasTranslation: false, lineCount: 0, isEmpty: true }
+          }
+          const hasWord = id % 5 !== 0
+          const isWord = mode === 'word' && hasWord
+          const wordText = [
+            '[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记<00:13.930>初<00:14.500>次<00:14.780>见<00:15.080>你<00:16.050>',
+            '[00:12.580]Hard to forget the first time I met you',
+            '[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人<00:18.510>的<00:19.300>眼<00:19.570>睛<00:20.520>',
+            '[00:16.960]Those charming eyes',
+          ].join('\n')
+          const lineText = [
+            '[00:12.580]难以忘记初次见你',
+            '[00:12.580]Hard to forget the first time I met you',
+            '[00:16.960]一双迷人的眼睛',
+            '[00:16.960]Those charming eyes',
+          ].join('\n')
+          const text = isWord ? wordText : lineText
+          return { ...base, text, isWordLevel: isWord, hasWordData: hasWord, hasTranslation: true, lineCount: 2, isEmpty: false }
+        }
         default:
           // 窗口、事件等插件命令：返回空值即可。
           return command.includes('is_maximized') ? false : undefined

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
+import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
+import LyricsDialog from './components/LyricsDialog'
 import LogPanel from './components/LogPanel'
 import PlaylistSidebar from './components/PlaylistSidebar'
 import PlaylistView from './components/PlaylistView'
@@ -37,6 +39,8 @@ export default function App() {
   const [appState, setAppState] = useState<AppState | null>(null)
   const [dialog, setDialog] = useState<DialogState>('none')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
+  // 歌词预览是只读的临时对话框，与登录 / 退出确认互不影响。
+  const [lyricsSong, setLyricsSong] = useState<Song | null>(null)
   const { account, validated } = useAuth()
   const logs = useLogs()
   const playlists = usePlaylists(account, validated)
@@ -121,11 +125,13 @@ export default function App() {
             onLogin={openLogin}
             onRetryList={playlists.reloadList}
             onRetryDetail={playlists.reloadDetail}
+            onShowLyrics={setLyricsSong}
           />
         </section>
       </main>
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
+      {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {dialog === 'logout' && (
         <ConfirmDialog
           title="退出登录"

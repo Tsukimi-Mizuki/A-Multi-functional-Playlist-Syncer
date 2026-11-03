@@ -1,4 +1,4 @@
-//! 把网易云原始 JSON 归一化成强类型模型。对应 C# 的 `NeteaseMappers`（歌曲 / 歌单部分）。
+//! 把网易云原始 JSON 归一化成强类型模型。对应 C# 的 `NeteaseMappers`（歌曲 / 歌单 / 歌词部分）。
 //!
 //! 字段类型不稳定（数字 / 字符串混用、缺失），全部经 [`json`] 宽容读取，单个字段异常不会拖垮整条数据。
 
@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use super::json;
 use super::models::{AlbumRef, ArtistRef, NeteaseSong, PlaylistSummary};
+use crate::lyrics::RawLyrics;
 
 const DEFAULT_DISC_NUMBER: i32 = 1;
 
@@ -119,6 +120,31 @@ pub fn map_playlist_summary(playlist: &Value) -> PlaylistSummary {
 pub fn creator_nickname(playlist: &Value) -> Option<String> {
     json::property(playlist, "creator")
         .and_then(|creator| json::string_or_none(creator, "nickname"))
+}
+
+/// 映射歌词接口响应（`lrc` / `tlyric` / `romalrc` / `yrc` 各取 `lyric`）。
+///
+/// `nolyric` / `uncollected` 为真表示没有歌词（纯音乐或未收录），按空结果而不是失败处理。
+pub fn map_lyrics(root: &Value) -> RawLyrics {
+    if json::bool_or_none(root, "nolyric") == Some(true)
+        || json::bool_or_none(root, "uncollected") == Some(true)
+    {
+        return RawLyrics::default();
+    }
+
+    RawLyrics {
+        lrc: read_lyric_section(root, "lrc"),
+        translated_lrc: read_lyric_section(root, "tlyric"),
+        romanized_lrc: read_lyric_section(root, "romalrc"),
+        yrc: read_lyric_section(root, "yrc"),
+        qrc: None,
+    }
+}
+
+/// 读取 `{ "<section>": { "lyric": "…" } }`；不是对象或歌词全是空白时返回 `None`。
+fn read_lyric_section(root: &Value, section_name: &str) -> Option<String> {
+    let section = json::property(root, section_name).filter(|value| value.is_object())?;
+    json::string_or_none(section, "lyric").filter(|lyric| !lyric.trim().is_empty())
 }
 
 /// 把毫秒时间戳格式化为 `yyyy-MM-dd`；非法值返回 `None`。

@@ -8,6 +8,7 @@ use lp_core::auth::{
     ValidationOutcome,
 };
 use lp_core::logs::{LogEntry, LogHub};
+use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
 use lp_core::models::{AudioQuality, ThemeMode};
 use lp_core::netease::http::ReqwestTransport;
 use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
@@ -55,6 +56,8 @@ struct AppState {
     login: Arc<LoginManager>,
     /// 歌单加载（列表与曲目），301 时经 `login` 复核登录。
     playlists: Arc<PlaylistService>,
+    /// 歌词预览（取歌词 -> 解析 -> 序列化），301 时经 `login` 复核。
+    lyrics: Arc<LyricsService>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -96,6 +99,7 @@ impl AppState {
         );
 
         let playlists = Arc::new(PlaylistService::new(Arc::clone(&login), Arc::clone(&logs)));
+        let lyrics = Arc::new(LyricsService::new(Arc::clone(&login), Arc::clone(&logs)));
         let restored = login.restore();
         if restored.load_failure.is_some() {
             logs.warning(format!(
@@ -111,6 +115,7 @@ impl AppState {
             logs,
             login,
             playlists,
+            lyrics,
             session_error: restored.load_failure,
         }
     }
@@ -396,6 +401,18 @@ async fn get_playlist_tracks(
     playlists.tracks(id, &report).await
 }
 
+/// 一首歌的歌词预览：`mode` 为 `line`（逐行）或 `word`（逐字优先，没有逐字数据时回退逐行），默认带翻译。
+/// 只读，不写入任何文件；失败时 `Err` 是 `{ kind, message }`，`message` 已是中文说明。
+#[tauri::command]
+async fn get_song_lyrics(
+    state: State<'_, AppState>,
+    id: i64,
+    mode: LyricsMode,
+) -> Result<LyricsPreview, LyricsError> {
+    let lyrics = Arc::clone(&state.lyrics);
+    lyrics.get(id, mode).await
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -456,7 +473,8 @@ pub fn run() {
             logout,
             recheck_login,
             list_playlists,
-            get_playlist_tracks
+            get_playlist_tracks,
+            get_song_lyrics
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");

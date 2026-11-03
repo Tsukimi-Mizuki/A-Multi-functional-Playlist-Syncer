@@ -7,10 +7,12 @@ interface ModalProps {
   children: ReactNode
   /** 底部按钮区。 */
   footer?: ReactNode
+  /** 额外的样式类（例如 `modal-wide` 加宽）。 */
+  className?: string
 }
 
 /** 模态对话框：半透明玻璃卡片 + 背景虚化；Esc / 点击遮罩关闭，打开时焦点落在对话框内。 */
-export default function Modal({ title, onClose, children, footer }: ModalProps) {
+export default function Modal({ title, onClose, children, footer, className }: ModalProps) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -47,7 +49,7 @@ export default function Modal({ title, onClose, children, footer }: ModalProps) 
     >
       <div
         ref={dialogRef}
-        className="modal"
+        className={className ? `modal ${className}` : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

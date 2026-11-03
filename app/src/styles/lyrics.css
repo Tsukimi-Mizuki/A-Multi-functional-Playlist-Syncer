@@ -1,0 +1,206 @@
+/* ---- 歌曲表格行尾的「查看歌词」按钮 ---- */
+.song-action {
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.song-lyrics-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.song-row:hover .song-lyrics-btn,
+.song-lyrics-btn:focus-visible {
+  opacity: 1;
+}
+
+.song-lyrics-btn:hover {
+  border-color: var(--border);
+  background: var(--control);
+  color: var(--text-primary);
+}
+
+.song-lyrics-btn:active {
+  background: var(--control-pressed);
+}
+
+.song-lyrics-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- 歌词预览对话框 ---- */
+.modal-wide {
+  width: min(100%, 640px);
+  height: min(100%, 640px);
+}
+
+.modal-wide .modal-body {
+  flex: 1;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.lyrics-song {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+
+.lyrics-song-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyrics-song-artist {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyrics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+/* 胶囊分段控件 */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--control);
+}
+
+.segmented-item {
+  height: 26px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: default;
+}
+
+.segmented-item:hover {
+  color: var(--text-primary);
+}
+
+.segmented-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.segmented-item-active,
+.segmented-item-active:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.lyrics-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  list-style: none;
+}
+
+.lyrics-note {
+  margin: 0;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.lyrics-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 160px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+}
+
+.lyrics-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.lyrics-state p {
+  margin: 0;
+}
+
+.lyrics-error {
+  color: var(--danger);
+}
+
+.lyrics-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.lyrics-text {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  color: var(--text-primary);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', monospace;
+  font-weight: 400;
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  outline: none;
+}
+
+.lyrics-text:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.lyrics-text::-webkit-scrollbar {
+  width: 10px;
+}
+
+.lyrics-text::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}

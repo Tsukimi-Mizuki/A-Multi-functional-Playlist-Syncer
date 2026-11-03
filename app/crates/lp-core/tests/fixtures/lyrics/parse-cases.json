@@ -1,0 +1,3662 @@
+[
+  {
+    "name": "lrc/basic-offset-multi",
+    "raw": {
+      "lrc": "[ti:测试歌曲]\n[ar:测试歌手]\n[offset:-100]\n[00:01.00]第一行\n[00:02.50][00:10.00]重复行\n[00:03.000]第三行",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 900,
+          "durationMs": 1500,
+          "text": "第一行",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2400,
+          "durationMs": 500,
+          "text": "重复行",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2900,
+          "durationMs": 7000,
+          "text": "第三行",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 9900,
+          "durationMs": 0,
+          "text": "重复行",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.900]第一行\n[00:02.400]重复行\n[00:02.900]第三行\n[00:09.900]重复行",
+    "plainNoTranslation": "[00:00.900]第一行\n[00:02.400]重复行\n[00:02.900]第三行\n[00:09.900]重复行",
+    "enhanced": "[00:00.900]第一行\n[00:02.400]重复行\n[00:02.900]第三行\n[00:09.900]重复行",
+    "enhancedNoTranslation": "[00:00.900]第一行\n[00:02.400]重复行\n[00:02.900]第三行\n[00:09.900]重复行"
+  },
+  {
+    "name": "lrc/fraction-variants",
+    "raw": {
+      "lrc": "[ti:标题]\n[00:01.5]A\n[00:02.05]B\n[00:03.005]C\n[00:04]D\n[00:05:5]E\n[00:06.]F\n[00:07.1234]G",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1500,
+          "durationMs": 550,
+          "text": "A",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2050,
+          "durationMs": 955,
+          "text": "B",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3005,
+          "durationMs": 995,
+          "text": "C",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 1500,
+          "text": "D",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 5500,
+          "durationMs": 0,
+          "text": "E",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.500]A\n[00:02.050]B\n[00:03.005]C\n[00:04.000]D\n[00:05.500]E",
+    "plainNoTranslation": "[00:01.500]A\n[00:02.050]B\n[00:03.005]C\n[00:04.000]D\n[00:05.500]E",
+    "enhanced": "[00:01.500]A\n[00:02.050]B\n[00:03.005]C\n[00:04.000]D\n[00:05.500]E",
+    "enhancedNoTranslation": "[00:01.500]A\n[00:02.050]B\n[00:03.005]C\n[00:04.000]D\n[00:05.500]E"
+  },
+  {
+    "name": "lrc/crlf",
+    "raw": {
+      "lrc": "[00:01.00]甲\r\n[00:02.00]乙\r\n\r\n[00:03.00]丙\r\n",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "乙",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 0,
+          "text": "丙",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhanced": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙"
+  },
+  {
+    "name": "lrc/bare-cr",
+    "raw": {
+      "lrc": "[00:01.00]甲\r[00:02.00]乙\r\r[00:03.00]丙",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "乙",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 0,
+          "text": "丙",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhanced": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙"
+  },
+  {
+    "name": "lrc/crcrlf",
+    "raw": {
+      "lrc": "[00:01.00]甲\r\r\n[00:02.00]乙\r\n\r[00:03.00]丙",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "乙",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 0,
+          "text": "丙",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhanced": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]乙\n[00:03.000]丙"
+  },
+  {
+    "name": "lrc/leading-whitespace",
+    "raw": {
+      "lrc": "  \t[00:01.00] 前面有空白\n\u3000[00:02.00]全角空白\n[ 00:03.00]内部空白坏标签\n[00:04.00]\u00A0NBSP两侧\u00A0",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "前面有空白",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 2000,
+          "text": "全角空白",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 0,
+          "text": "NBSP两侧",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]前面有空白\n[00:02.000]全角空白\n[00:04.000]NBSP两侧",
+    "plainNoTranslation": "[00:01.000]前面有空白\n[00:02.000]全角空白\n[00:04.000]NBSP两侧",
+    "enhanced": "[00:01.000]前面有空白\n[00:02.000]全角空白\n[00:04.000]NBSP两侧",
+    "enhancedNoTranslation": "[00:01.000]前面有空白\n[00:02.000]全角空白\n[00:04.000]NBSP两侧"
+  },
+  {
+    "name": "lrc/long-minutes-seconds",
+    "raw": {
+      "lrc": "[0001:02]a\n[00:99.99]b\n[12345:00]c\n[100:00.000]d\n[9999:99.999]e",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 62000,
+          "durationMs": 37990,
+          "text": "a",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 99990,
+          "durationMs": 5900010,
+          "text": "b",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 6000000,
+          "durationMs": 594039999,
+          "text": "d",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 600039999,
+          "durationMs": 0,
+          "text": "e",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[01:02.000]a\n[01:39.990]b\n[100:00.000]d\n[10000:39.999]e",
+    "plainNoTranslation": "[01:02.000]a\n[01:39.990]b\n[100:00.000]d\n[10000:39.999]e",
+    "enhanced": "[01:02.000]a\n[01:39.990]b\n[100:00.000]d\n[10000:39.999]e",
+    "enhancedNoTranslation": "[01:02.000]a\n[01:39.990]b\n[100:00.000]d\n[10000:39.999]e"
+  },
+  {
+    "name": "lrc/offset-variants",
+    "raw": {
+      "lrc": "[OFFSET: +250 ]\n[00:01.00]a\n[offset:-9999]\n[00:00.10]b",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 350,
+          "durationMs": 900,
+          "text": "b",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1250,
+          "durationMs": 0,
+          "text": "a",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.350]b\n[00:01.250]a",
+    "plainNoTranslation": "[00:00.350]b\n[00:01.250]a",
+    "enhanced": "[00:00.350]b\n[00:01.250]a",
+    "enhancedNoTranslation": "[00:00.350]b\n[00:01.250]a"
+  },
+  {
+    "name": "lrc/offset-negative-clamp",
+    "raw": {
+      "lrc": "[offset:-5000]\n[00:01.00]x\n[00:10.00]y",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 5000,
+          "text": "x",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 0,
+          "text": "y",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]x\n[00:05.000]y",
+    "plainNoTranslation": "[00:00.000]x\n[00:05.000]y",
+    "enhanced": "[00:00.000]x\n[00:05.000]y",
+    "enhancedNoTranslation": "[00:00.000]x\n[00:05.000]y"
+  },
+  {
+    "name": "lrc/offset-in-middle",
+    "raw": {
+      "lrc": "[00:01.00]a\n[offset:300]\n[00:02.00]b",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1300,
+          "durationMs": 1000,
+          "text": "a",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2300,
+          "durationMs": 0,
+          "text": "b",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.300]a\n[00:02.300]b",
+    "plainNoTranslation": "[00:01.300]a\n[00:02.300]b",
+    "enhanced": "[00:01.300]a\n[00:02.300]b",
+    "enhancedNoTranslation": "[00:01.300]a\n[00:02.300]b"
+  },
+  {
+    "name": "lrc/offset-garbage",
+    "raw": {
+      "lrc": "[offset:abc]\n[offset:99999999999]\n[00:01.00]a",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "a",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]a",
+    "plainNoTranslation": "[00:01.000]a",
+    "enhanced": "[00:01.000]a",
+    "enhancedNoTranslation": "[00:01.000]a"
+  },
+  {
+    "name": "lrc/empty-text-lines",
+    "raw": {
+      "lrc": "[00:01.00]甲\n[00:02.00]\n[00:03.00]   \n[00:04.00]乙",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 1000,
+          "text": "",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 0,
+          "text": "乙",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:02.000]\n[00:03.000]\n[00:04.000]乙",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]\n[00:03.000]\n[00:04.000]乙",
+    "enhanced": "[00:01.000]甲\n[00:02.000]\n[00:03.000]\n[00:04.000]乙",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]\n[00:03.000]\n[00:04.000]乙"
+  },
+  {
+    "name": "lrc/metadata-only",
+    "raw": {
+      "lrc": "[ti:x]\n[ar:y]\n[al:z]\n[by:w]",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "lrc/no-tags-at-all",
+    "raw": {
+      "lrc": "just some text\nwithout timestamps",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "lrc/blank",
+    "raw": {
+      "lrc": "   \n  ",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "lrc/multi-timestamps-with-gap-text",
+    "raw": {
+      "lrc": "[00:01.00]a[00:02.00]b\n[00:03.00] [00:04.00]c",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "a[00:02.00]b",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 1000,
+          "text": "c",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 0,
+          "text": "c",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]a[00:02.00]b\n[00:03.000]c\n[00:04.000]c",
+    "plainNoTranslation": "[00:01.000]a[00:02.00]b\n[00:03.000]c\n[00:04.000]c",
+    "enhanced": "[00:01.000]a[00:02.00]b\n[00:03.000]c\n[00:04.000]c",
+    "enhancedNoTranslation": "[00:01.000]a[00:02.00]b\n[00:03.000]c\n[00:04.000]c"
+  },
+  {
+    "name": "lrc/out-of-order-and-stable",
+    "raw": {
+      "lrc": "[00:05.00]后\n[00:01.00]先一\n[00:01.00]先二\n[00:01.00]先三",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "先一",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "先二",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 4000,
+          "text": "先三",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 0,
+          "text": "后",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]先一\n[00:01.000]先二\n[00:01.000]先三\n[00:05.000]后",
+    "plainNoTranslation": "[00:01.000]先一\n[00:01.000]先二\n[00:01.000]先三\n[00:05.000]后",
+    "enhanced": "[00:01.000]先一\n[00:01.000]先二\n[00:01.000]先三\n[00:05.000]后",
+    "enhancedNoTranslation": "[00:01.000]先一\n[00:01.000]先二\n[00:01.000]先三\n[00:05.000]后"
+  },
+  {
+    "name": "lrc/duplicates",
+    "raw": {
+      "lrc": "[00:01.00]同\n[00:01.00]同\n[00:02.00]异",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "同",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "同",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 0,
+          "text": "异",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]同\n[00:01.000]同\n[00:02.000]异",
+    "plainNoTranslation": "[00:01.000]同\n[00:01.000]同\n[00:02.000]异",
+    "enhanced": "[00:01.000]同\n[00:01.000]同\n[00:02.000]异",
+    "enhancedNoTranslation": "[00:01.000]同\n[00:01.000]同\n[00:02.000]异"
+  },
+  {
+    "name": "lrc/unicode",
+    "raw": {
+      "lrc": "[00:01.00]\uD83D\uDE00 emoji 与 é 组合\n[00:02.00]ＦＵＬＬ\u3000ＷＩＤＴＨ\n[00:03.00]العربية\n[00:04.00]日本語のテキスト",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "\uD83D\uDE00 emoji 与 é 组合",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "ＦＵＬＬ\u3000ＷＩＤＴＨ",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 1000,
+          "text": "العربية",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 0,
+          "text": "日本語のテキスト",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]\uD83D\uDE00 emoji 与 é 组合\n[00:02.000]ＦＵＬＬ\u3000ＷＩＤＴＨ\n[00:03.000]العربية\n[00:04.000]日本語のテキスト",
+    "plainNoTranslation": "[00:01.000]\uD83D\uDE00 emoji 与 é 组合\n[00:02.000]ＦＵＬＬ\u3000ＷＩＤＴＨ\n[00:03.000]العربية\n[00:04.000]日本語のテキスト",
+    "enhanced": "[00:01.000]\uD83D\uDE00 emoji 与 é 组合\n[00:02.000]ＦＵＬＬ\u3000ＷＩＤＴＨ\n[00:03.000]العربية\n[00:04.000]日本語のテキスト",
+    "enhancedNoTranslation": "[00:01.000]\uD83D\uDE00 emoji 与 é 组合\n[00:02.000]ＦＵＬＬ\u3000ＷＩＤＴＨ\n[00:03.000]العربية\n[00:04.000]日本語のテキスト"
+  },
+  {
+    "name": "lrc/embedded-newline-chars-in-text",
+    "raw": {
+      "lrc": "[00:01.00]a\tb\u000Bc\fd",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "a\tb\u000Bc\fd",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]a\tb\u000Bc\fd",
+    "plainNoTranslation": "[00:01.000]a\tb\u000Bc\fd",
+    "enhanced": "[00:01.000]a\tb\u000Bc\fd",
+    "enhancedNoTranslation": "[00:01.000]a\tb\u000Bc\fd"
+  },
+  {
+    "name": "lrc/json-lines",
+    "raw": {
+      "lrc": "{\"t\":0,\"c\":[{\"tx\":\"作词: \"},{\"tx\":\"张国祥\"}]}\n{\"t\":\"1500\",\"c\":[{\"tx\":\"字符串时间\"}]}\n{\"t\":2500.7,\"c\":[{\"tx\":\"浮点\"},{\"x\":1},{\"tx\":5},{\"tx\":null}]}\n{\"c\":[]}\n{坏json\n  {\"t\":3000,\"c\":[{\"tx\":\"前导空白\"}]}  \n[00:12.57]难以忘记初次见你",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1500,
+          "text": "作词: 张国祥",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1500,
+          "durationMs": 1000,
+          "text": "字符串时间",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2500,
+          "durationMs": 500,
+          "text": "浮点",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 9570,
+          "text": "前导空白",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 12570,
+          "durationMs": 0,
+          "text": "难以忘记初次见你",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]作词: 张国祥\n[00:01.500]字符串时间\n[00:02.500]浮点\n[00:03.000]前导空白\n[00:12.570]难以忘记初次见你",
+    "plainNoTranslation": "[00:00.000]作词: 张国祥\n[00:01.500]字符串时间\n[00:02.500]浮点\n[00:03.000]前导空白\n[00:12.570]难以忘记初次见你",
+    "enhanced": "[00:00.000]作词: 张国祥\n[00:01.500]字符串时间\n[00:02.500]浮点\n[00:03.000]前导空白\n[00:12.570]难以忘记初次见你",
+    "enhancedNoTranslation": "[00:00.000]作词: 张国祥\n[00:01.500]字符串时间\n[00:02.500]浮点\n[00:03.000]前导空白\n[00:12.570]难以忘记初次见你"
+  },
+  {
+    "name": "lrc/json-negative-and-huge",
+    "raw": {
+      "lrc": "{\"t\":-500,\"c\":[{\"tx\":\"负\"}]}\n{\"t\":99999999999,\"c\":[{\"tx\":\"巨大\"}]}\n{\"t\":\"x\",\"c\":[{\"tx\":\"坏字符串\"}]}\n{\"t\":true,\"c\":[{\"tx\":\"布尔\"}]}\n{\"t\":[1],\"c\":[{\"tx\":\"数组\"}]}",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 0,
+          "text": "巨大",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 0,
+          "durationMs": 0,
+          "text": "负",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 0,
+          "durationMs": 0,
+          "text": "坏字符串",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 0,
+          "durationMs": 0,
+          "text": "布尔",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 0,
+          "durationMs": 0,
+          "text": "数组",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]巨大\n[00:00.000]负\n[00:00.000]坏字符串\n[00:00.000]布尔\n[00:00.000]数组",
+    "plainNoTranslation": "[00:00.000]巨大\n[00:00.000]负\n[00:00.000]坏字符串\n[00:00.000]布尔\n[00:00.000]数组",
+    "enhanced": "[00:00.000]巨大\n[00:00.000]负\n[00:00.000]坏字符串\n[00:00.000]布尔\n[00:00.000]数组",
+    "enhancedNoTranslation": "[00:00.000]巨大\n[00:00.000]负\n[00:00.000]坏字符串\n[00:00.000]布尔\n[00:00.000]数组"
+  },
+  {
+    "name": "enh/basic",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00>Hello<00:02.00> world\n[00:05.00]plain line",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 4000,
+          "text": "Hello world",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "Hello"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 3000,
+              "text": " world"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 0,
+          "text": "plain line",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]Hello world\n[00:05.000]plain line",
+    "plainNoTranslation": "[00:01.000]Hello world\n[00:05.000]plain line",
+    "enhanced": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:05.000>\n[00:05.000]plain line",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:05.000>\n[00:05.000]plain line"
+  },
+  {
+    "name": "enh/relative-times",
+    "raw": {
+      "lrc": "[00:10.00]<00:00.50>甲<00:01.00>乙",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 1000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 10500,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 11000,
+              "durationMs": 0,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:10.000]甲乙",
+    "plainNoTranslation": "[00:10.000]甲乙",
+    "enhanced": "[00:10.000]<00:10.500>甲<00:11.000>乙<00:11.000>",
+    "enhancedNoTranslation": "[00:10.000]<00:10.500>甲<00:11.000>乙<00:11.000>"
+  },
+  {
+    "name": "enh/text-before-first-tag-dropped",
+    "raw": {
+      "lrc": "[00:01.00]前缀<00:01.00>x<00:02.00>y",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "xy",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "x"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 0,
+              "text": "y"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]xy",
+    "plainNoTranslation": "[00:01.000]xy",
+    "enhanced": "[00:01.000]<00:01.000>x<00:02.000>y<00:02.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>x<00:02.000>y<00:02.000>"
+  },
+  {
+    "name": "enh/trailing-end-tag",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00>a<00:02.00>b<00:03.00>",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "ab",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "a"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 1000,
+              "text": "b"
+            },
+            {
+              "startMs": 3000,
+              "durationMs": 0,
+              "text": ""
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]ab",
+    "plainNoTranslation": "[00:01.000]ab",
+    "enhanced": "[00:01.000]<00:01.000>a<00:02.000>b<00:03.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>a<00:02.000>b<00:03.000>"
+  },
+  {
+    "name": "enh/bad-tags",
+    "raw": {
+      "lrc": "[00:01.00]<foo>x<00:01.50>y<abc",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "y",
+          "words": [
+            {
+              "startMs": 1500,
+              "durationMs": 0,
+              "text": "y"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]y",
+    "plainNoTranslation": "[00:01.000]y",
+    "enhanced": "[00:01.000]<00:01.500>y<00:01.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.500>y<00:01.500>"
+  },
+  {
+    "name": "enh/multi-line-timestamps",
+    "raw": {
+      "lrc": "[00:01.00][00:05.00]<00:01.00>a<00:02.00>b",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 4000,
+          "text": "ab",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "a"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 3000,
+              "text": "b"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 2000,
+          "text": "ab",
+          "words": [
+            {
+              "startMs": 6000,
+              "durationMs": 1000,
+              "text": "a"
+            },
+            {
+              "startMs": 7000,
+              "durationMs": 0,
+              "text": "b"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]ab\n[00:05.000]ab",
+    "plainNoTranslation": "[00:01.000]ab\n[00:05.000]ab",
+    "enhanced": "[00:01.000]<00:01.000>a<00:02.000>b<00:05.000>\n[00:05.000]<00:06.000>a<00:07.000>b<00:07.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>a<00:02.000>b<00:05.000>\n[00:05.000]<00:06.000>a<00:07.000>b<00:07.000>"
+  },
+  {
+    "name": "enh/words-beyond-next-line",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00>a<00:09.00>b\n[00:02.00]next",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "ab",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 8000,
+              "text": "a"
+            },
+            {
+              "startMs": 9000,
+              "durationMs": 0,
+              "text": "b"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 0,
+          "text": "next",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]ab\n[00:02.000]next",
+    "plainNoTranslation": "[00:01.000]ab\n[00:02.000]next",
+    "enhanced": "[00:01.000]<00:01.000>a<00:09.000>b<00:09.000>\n[00:02.000]next",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>a<00:09.000>b<00:09.000>\n[00:02.000]next"
+  },
+  {
+    "name": "enh/contiguous-words",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00>a<00:02.00>b<00:03.00>c\n[00:10.00]<00:10.00>x<00:10.00>y",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 9000,
+          "text": "abc",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "a"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 1000,
+              "text": "b"
+            },
+            {
+              "startMs": 3000,
+              "durationMs": 7000,
+              "text": "c"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 10000,
+          "durationMs": 0,
+          "text": "xy",
+          "words": [
+            {
+              "startMs": 10000,
+              "durationMs": 0,
+              "text": "x"
+            },
+            {
+              "startMs": 10000,
+              "durationMs": 0,
+              "text": "y"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]abc\n[00:10.000]xy",
+    "plainNoTranslation": "[00:01.000]abc\n[00:10.000]xy",
+    "enhanced": "[00:01.000]<00:01.000>a<00:02.000>b<00:03.000>c<00:10.000>\n[00:10.000]<00:10.000>x<00:10.000>y<00:10.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>a<00:02.000>b<00:03.000>c<00:10.000>\n[00:10.000]<00:10.000>x<00:10.000>y<00:10.000>"
+  },
+  {
+    "name": "enh/spaces-and-empty-words",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00> <00:01.50>a<00:02.00><00:02.50>b",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1500,
+          "text": " ab",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": " "
+            },
+            {
+              "startMs": 1500,
+              "durationMs": 500,
+              "text": "a"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 500,
+              "text": ""
+            },
+            {
+              "startMs": 2500,
+              "durationMs": 0,
+              "text": "b"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]ab",
+    "plainNoTranslation": "[00:01.000]ab",
+    "enhanced": "[00:01.000]<00:01.000> <00:01.500>a<00:02.000><00:02.500>b<00:02.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000> <00:01.500>a<00:02.000><00:02.500>b<00:02.500>"
+  },
+  {
+    "name": "enh/word-tag-whitespace-inside",
+    "raw": {
+      "lrc": "[00:01.00]< 00:01.00 >a<00:02.00>b",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "ab",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "a"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 0,
+              "text": "b"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]ab",
+    "plainNoTranslation": "[00:01.000]ab",
+    "enhanced": "[00:01.000]<00:01.000>a<00:02.000>b<00:02.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>a<00:02.000>b<00:02.000>"
+  },
+  {
+    "name": "tr/nearest",
+    "raw": {
+      "lrc": "[00:01.00]Hello\n[00:05.00]World\n[00:09.00]No translation line",
+      "translatedLrc": "[00:05.30]世界\n[00:01.05]你好",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 4000,
+          "text": "Hello",
+          "words": [],
+          "translation": "你好"
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 4000,
+          "text": "World",
+          "words": [],
+          "translation": "世界"
+        },
+        {
+          "startMs": 9000,
+          "durationMs": 0,
+          "text": "No translation line",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[00:05.30]世界\n[00:01.05]你好",
+      "romanization": null
+    },
+    "plain": "[00:01.000]Hello\n[00:01.000]你好\n[00:05.000]World\n[00:05.000]世界\n[00:09.000]No translation line",
+    "plainNoTranslation": "[00:01.000]Hello\n[00:05.000]World\n[00:09.000]No translation line",
+    "enhanced": "[00:01.000]Hello\n[00:01.000]你好\n[00:05.000]World\n[00:05.000]世界\n[00:09.000]No translation line",
+    "enhancedNoTranslation": "[00:01.000]Hello\n[00:05.000]World\n[00:09.000]No translation line"
+  },
+  {
+    "name": "tr/slash-placeholders",
+    "raw": {
+      "lrc": "[00:01.00]line one\n[00:02.00]line two\n[00:03.00]line three",
+      "translatedLrc": "[00:01.00]翻译一\n[00:02.00]//\n[00:03.00]////",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "line one",
+          "words": [],
+          "translation": "翻译一"
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "line two",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 0,
+          "text": "line three",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[00:01.00]翻译一\n[00:02.00]//\n[00:03.00]////",
+      "romanization": null
+    },
+    "plain": "[00:01.000]line one\n[00:01.000]翻译一\n[00:02.000]line two\n[00:03.000]line three",
+    "plainNoTranslation": "[00:01.000]line one\n[00:02.000]line two\n[00:03.000]line three",
+    "enhanced": "[00:01.000]line one\n[00:01.000]翻译一\n[00:02.000]line two\n[00:03.000]line three",
+    "enhancedNoTranslation": "[00:01.000]line one\n[00:02.000]line two\n[00:03.000]line three"
+  },
+  {
+    "name": "tr/tolerance-edge",
+    "raw": {
+      "lrc": "[00:10.00]原文",
+      "translatedLrc": "[00:10.80]刚好",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 0,
+          "text": "原文",
+          "words": [],
+          "translation": "刚好"
+        }
+      ],
+      "translation": "[00:10.80]刚好",
+      "romanization": null
+    },
+    "plain": "[00:10.000]原文\n[00:10.000]刚好",
+    "plainNoTranslation": "[00:10.000]原文",
+    "enhanced": "[00:10.000]原文\n[00:10.000]刚好",
+    "enhancedNoTranslation": "[00:10.000]原文"
+  },
+  {
+    "name": "tr/beyond-tolerance",
+    "raw": {
+      "lrc": "[00:10.00]原文",
+      "translatedLrc": "[00:10.801]太远",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 0,
+          "text": "原文",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[00:10.801]太远",
+      "romanization": null
+    },
+    "plain": "[00:10.000]原文",
+    "plainNoTranslation": "[00:10.000]原文",
+    "enhanced": "[00:10.000]原文",
+    "enhancedNoTranslation": "[00:10.000]原文"
+  },
+  {
+    "name": "tr/greedy-competition",
+    "raw": {
+      "lrc": "[00:10.00]一\n[00:10.20]二\n[00:10.40]三",
+      "translatedLrc": "[00:10.10]甲\n[00:10.30]乙",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 200,
+          "text": "一",
+          "words": [],
+          "translation": "甲"
+        },
+        {
+          "startMs": 10200,
+          "durationMs": 200,
+          "text": "二",
+          "words": [],
+          "translation": "乙"
+        },
+        {
+          "startMs": 10400,
+          "durationMs": 0,
+          "text": "三",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[00:10.10]甲\n[00:10.30]乙",
+      "romanization": null
+    },
+    "plain": "[00:10.000]一\n[00:10.000]甲\n[00:10.200]二\n[00:10.200]乙\n[00:10.400]三",
+    "plainNoTranslation": "[00:10.000]一\n[00:10.200]二\n[00:10.400]三",
+    "enhanced": "[00:10.000]一\n[00:10.000]甲\n[00:10.200]二\n[00:10.200]乙\n[00:10.400]三",
+    "enhancedNoTranslation": "[00:10.000]一\n[00:10.200]二\n[00:10.400]三"
+  },
+  {
+    "name": "tr/tie-break",
+    "raw": {
+      "lrc": "[00:10.00]一\n[00:10.20]二",
+      "translatedLrc": "[00:10.10]唯一",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 200,
+          "text": "一",
+          "words": [],
+          "translation": "唯一"
+        },
+        {
+          "startMs": 10200,
+          "durationMs": 0,
+          "text": "二",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[00:10.10]唯一",
+      "romanization": null
+    },
+    "plain": "[00:10.000]一\n[00:10.000]唯一\n[00:10.200]二",
+    "plainNoTranslation": "[00:10.000]一\n[00:10.200]二",
+    "enhanced": "[00:10.000]一\n[00:10.000]唯一\n[00:10.200]二",
+    "enhancedNoTranslation": "[00:10.000]一\n[00:10.200]二"
+  },
+  {
+    "name": "tr/translation-has-offset",
+    "raw": {
+      "lrc": "[00:10.00]原文\n[00:20.00]原文二",
+      "translatedLrc": "[offset:1000]\n[00:09.00]译一\n[00:19.00]译二",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 10000,
+          "text": "原文",
+          "words": [],
+          "translation": "译一"
+        },
+        {
+          "startMs": 20000,
+          "durationMs": 0,
+          "text": "原文二",
+          "words": [],
+          "translation": "译二"
+        }
+      ],
+      "translation": "[offset:1000]\n[00:09.00]译一\n[00:19.00]译二",
+      "romanization": null
+    },
+    "plain": "[00:10.000]原文\n[00:10.000]译一\n[00:20.000]原文二\n[00:20.000]译二",
+    "plainNoTranslation": "[00:10.000]原文\n[00:20.000]原文二",
+    "enhanced": "[00:10.000]原文\n[00:10.000]译一\n[00:20.000]原文二\n[00:20.000]译二",
+    "enhancedNoTranslation": "[00:10.000]原文\n[00:20.000]原文二"
+  },
+  {
+    "name": "tr/translation-multi-timestamps",
+    "raw": {
+      "lrc": "[00:10.00]甲\n[00:20.00]乙",
+      "translatedLrc": "[00:10.00][00:20.00]同一句译文",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 10000,
+          "text": "甲",
+          "words": [],
+          "translation": "同一句译文"
+        },
+        {
+          "startMs": 20000,
+          "durationMs": 0,
+          "text": "乙",
+          "words": [],
+          "translation": "同一句译文"
+        }
+      ],
+      "translation": "[00:10.00][00:20.00]同一句译文",
+      "romanization": null
+    },
+    "plain": "[00:10.000]甲\n[00:10.000]同一句译文\n[00:20.000]乙\n[00:20.000]同一句译文",
+    "plainNoTranslation": "[00:10.000]甲\n[00:20.000]乙",
+    "enhanced": "[00:10.000]甲\n[00:10.000]同一句译文\n[00:20.000]乙\n[00:20.000]同一句译文",
+    "enhancedNoTranslation": "[00:10.000]甲\n[00:20.000]乙"
+  },
+  {
+    "name": "tr/translation-blank",
+    "raw": {
+      "lrc": "[00:01.00]甲",
+      "translatedLrc": "   \n  ",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲",
+    "plainNoTranslation": "[00:01.000]甲",
+    "enhanced": "[00:01.000]甲",
+    "enhancedNoTranslation": "[00:01.000]甲"
+  },
+  {
+    "name": "tr/translation-metadata-only",
+    "raw": {
+      "lrc": "[00:01.00]甲",
+      "translatedLrc": "[ti:无译文]",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "甲",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": "[ti:无译文]",
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲",
+    "plainNoTranslation": "[00:01.000]甲",
+    "enhanced": "[00:01.000]甲",
+    "enhancedNoTranslation": "[00:01.000]甲"
+  },
+  {
+    "name": "tr/translation-with-multiline-text-and-spaces",
+    "raw": {
+      "lrc": "[00:01.00]甲",
+      "translatedLrc": "[00:01.00]  带空白的译文  ",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "甲",
+          "words": [],
+          "translation": "带空白的译文"
+        }
+      ],
+      "translation": "[00:01.00]  带空白的译文  ",
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:01.000]带空白的译文",
+    "plainNoTranslation": "[00:01.000]甲",
+    "enhanced": "[00:01.000]甲\n[00:01.000]带空白的译文",
+    "enhancedNoTranslation": "[00:01.000]甲"
+  },
+  {
+    "name": "tr/more-translation-lines-than-origin",
+    "raw": {
+      "lrc": "[00:01.00]甲\n[00:02.00]乙",
+      "translatedLrc": "[00:01.00]一\n[00:02.00]二\n[00:03.00]三\n[00:01.50]插",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": "一"
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 0,
+          "text": "乙",
+          "words": [],
+          "translation": "二"
+        }
+      ],
+      "translation": "[00:01.00]一\n[00:02.00]二\n[00:03.00]三\n[00:01.50]插",
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:01.000]一\n[00:02.000]乙\n[00:02.000]二",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]乙",
+    "enhanced": "[00:01.000]甲\n[00:01.000]一\n[00:02.000]乙\n[00:02.000]二",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]乙"
+  },
+  {
+    "name": "tr/romanization-passthrough",
+    "raw": {
+      "lrc": "[00:01.00]原文",
+      "translatedLrc": null,
+      "romanizedLrc": "[00:01.00]roman",
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "原文",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": "[00:01.00]roman"
+    },
+    "plain": "[00:01.000]原文",
+    "plainNoTranslation": "[00:01.000]原文",
+    "enhanced": "[00:01.000]原文",
+    "enhancedNoTranslation": "[00:01.000]原文"
+  },
+  {
+    "name": "tr/enhanced-origin-plain-translation",
+    "raw": {
+      "lrc": "[00:01.00]<00:01.00>Hello<00:02.00> world",
+      "translatedLrc": "[00:01.00]你好世界",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "Hello world",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "Hello"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 0,
+              "text": " world"
+            }
+          ],
+          "translation": "你好世界"
+        }
+      ],
+      "translation": "[00:01.00]你好世界",
+      "romanization": null
+    },
+    "plain": "[00:01.000]Hello world\n[00:01.000]你好世界",
+    "plainNoTranslation": "[00:01.000]Hello world",
+    "enhanced": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:02.000>\n[00:01.000]你好世界",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:02.000>"
+  },
+  {
+    "name": "tr/translation-only-slashes-and-spaces",
+    "raw": {
+      "lrc": "[00:01.00]甲\n[00:02.00]乙",
+      "translatedLrc": "[00:01.00] / / \n[00:02.00]/ /",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [],
+          "translation": "/ /"
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 0,
+          "text": "乙",
+          "words": [],
+          "translation": "/ /"
+        }
+      ],
+      "translation": "[00:01.00] / / \n[00:02.00]/ /",
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:01.000]/ /\n[00:02.000]乙\n[00:02.000]/ /",
+    "plainNoTranslation": "[00:01.000]甲\n[00:02.000]乙",
+    "enhanced": "[00:01.000]甲\n[00:01.000]/ /\n[00:02.000]乙\n[00:02.000]/ /",
+    "enhancedNoTranslation": "[00:01.000]甲\n[00:02.000]乙"
+  },
+  {
+    "name": "yrc/real-sample",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,1000,0) 作词 : 张国祥\n[12580,3470](12580,250,0)难(12830,300,0)以(13130,370,0)忘(13500,430,0)记(13930,570,0)初(14500,280,0)次(14780,300,0)见(15080,970,0)你\n[16960,3560](16960,240,0)一(17200,350,0)双(17550,470,0)迷(18020,490,0)人(18510,790,0)的(19300,270,0)眼(19570,950,0)睛",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": " 作词 : 张国祥",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1000,
+              "text": " 作词 : 张国祥"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 12580,
+          "durationMs": 3470,
+          "text": "难以忘记初次见你",
+          "words": [
+            {
+              "startMs": 12580,
+              "durationMs": 250,
+              "text": "难"
+            },
+            {
+              "startMs": 12830,
+              "durationMs": 300,
+              "text": "以"
+            },
+            {
+              "startMs": 13130,
+              "durationMs": 370,
+              "text": "忘"
+            },
+            {
+              "startMs": 13500,
+              "durationMs": 430,
+              "text": "记"
+            },
+            {
+              "startMs": 13930,
+              "durationMs": 570,
+              "text": "初"
+            },
+            {
+              "startMs": 14500,
+              "durationMs": 280,
+              "text": "次"
+            },
+            {
+              "startMs": 14780,
+              "durationMs": 300,
+              "text": "见"
+            },
+            {
+              "startMs": 15080,
+              "durationMs": 970,
+              "text": "你"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 16960,
+          "durationMs": 3560,
+          "text": "一双迷人的眼睛",
+          "words": [
+            {
+              "startMs": 16960,
+              "durationMs": 240,
+              "text": "一"
+            },
+            {
+              "startMs": 17200,
+              "durationMs": 350,
+              "text": "双"
+            },
+            {
+              "startMs": 17550,
+              "durationMs": 470,
+              "text": "迷"
+            },
+            {
+              "startMs": 18020,
+              "durationMs": 490,
+              "text": "人"
+            },
+            {
+              "startMs": 18510,
+              "durationMs": 790,
+              "text": "的"
+            },
+            {
+              "startMs": 19300,
+              "durationMs": 270,
+              "text": "眼"
+            },
+            {
+              "startMs": 19570,
+              "durationMs": 950,
+              "text": "睛"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]作词 : 张国祥\n[00:12.580]难以忘记初次见你\n[00:16.960]一双迷人的眼睛",
+    "plainNoTranslation": "[00:00.000]作词 : 张国祥\n[00:12.580]难以忘记初次见你\n[00:16.960]一双迷人的眼睛",
+    "enhanced": "[00:00.000]<00:00.000> 作词 : 张国祥<00:01.000>\n[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记<00:13.930>初<00:14.500>次<00:14.780>见<00:15.080>你<00:16.050>\n[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人<00:18.510>的<00:19.300>眼<00:19.570>睛<00:20.520>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000> 作词 : 张国祥<00:01.000>\n[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记<00:13.930>初<00:14.500>次<00:14.780>见<00:15.080>你<00:16.050>\n[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人<00:18.510>的<00:19.300>眼<00:19.570>睛<00:20.520>"
+  },
+  {
+    "name": "yrc/real-sample-with-translation",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": "[00:00.00]//\n[00:12.58]Hard to forget\n[00:16.96]Those charming eyes",
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,1000,0) 作词 : 张国祥\n[12580,3470](12580,250,0)难(12830,300,0)以(13130,370,0)忘(13500,430,0)记(13930,570,0)初(14500,280,0)次(14780,300,0)见(15080,970,0)你\n[16960,3560](16960,240,0)一(17200,350,0)双(17550,470,0)迷(18020,490,0)人(18510,790,0)的(19300,270,0)眼(19570,950,0)睛",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": " 作词 : 张国祥",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1000,
+              "text": " 作词 : 张国祥"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 12580,
+          "durationMs": 3470,
+          "text": "难以忘记初次见你",
+          "words": [
+            {
+              "startMs": 12580,
+              "durationMs": 250,
+              "text": "难"
+            },
+            {
+              "startMs": 12830,
+              "durationMs": 300,
+              "text": "以"
+            },
+            {
+              "startMs": 13130,
+              "durationMs": 370,
+              "text": "忘"
+            },
+            {
+              "startMs": 13500,
+              "durationMs": 430,
+              "text": "记"
+            },
+            {
+              "startMs": 13930,
+              "durationMs": 570,
+              "text": "初"
+            },
+            {
+              "startMs": 14500,
+              "durationMs": 280,
+              "text": "次"
+            },
+            {
+              "startMs": 14780,
+              "durationMs": 300,
+              "text": "见"
+            },
+            {
+              "startMs": 15080,
+              "durationMs": 970,
+              "text": "你"
+            }
+          ],
+          "translation": "Hard to forget"
+        },
+        {
+          "startMs": 16960,
+          "durationMs": 3560,
+          "text": "一双迷人的眼睛",
+          "words": [
+            {
+              "startMs": 16960,
+              "durationMs": 240,
+              "text": "一"
+            },
+            {
+              "startMs": 17200,
+              "durationMs": 350,
+              "text": "双"
+            },
+            {
+              "startMs": 17550,
+              "durationMs": 470,
+              "text": "迷"
+            },
+            {
+              "startMs": 18020,
+              "durationMs": 490,
+              "text": "人"
+            },
+            {
+              "startMs": 18510,
+              "durationMs": 790,
+              "text": "的"
+            },
+            {
+              "startMs": 19300,
+              "durationMs": 270,
+              "text": "眼"
+            },
+            {
+              "startMs": 19570,
+              "durationMs": 950,
+              "text": "睛"
+            }
+          ],
+          "translation": "Those charming eyes"
+        }
+      ],
+      "translation": "[00:00.00]//\n[00:12.58]Hard to forget\n[00:16.96]Those charming eyes",
+      "romanization": null
+    },
+    "plain": "[00:00.000]作词 : 张国祥\n[00:12.580]难以忘记初次见你\n[00:12.580]Hard to forget\n[00:16.960]一双迷人的眼睛\n[00:16.960]Those charming eyes",
+    "plainNoTranslation": "[00:00.000]作词 : 张国祥\n[00:12.580]难以忘记初次见你\n[00:16.960]一双迷人的眼睛",
+    "enhanced": "[00:00.000]<00:00.000> 作词 : 张国祥<00:01.000>\n[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记<00:13.930>初<00:14.500>次<00:14.780>见<00:15.080>你<00:16.050>\n[00:12.580]Hard to forget\n[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人<00:18.510>的<00:19.300>眼<00:19.570>睛<00:20.520>\n[00:16.960]Those charming eyes",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000> 作词 : 张国祥<00:01.000>\n[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记<00:13.930>初<00:14.500>次<00:14.780>见<00:15.080>你<00:16.050>\n[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人<00:18.510>的<00:19.300>眼<00:19.570>睛<00:20.520>"
+  },
+  {
+    "name": "yrc/relative-times",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[10000,2000](0,500,0)甲(500,500,0)乙",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 10000,
+          "durationMs": 2000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 10000,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 10500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:10.000]甲乙",
+    "plainNoTranslation": "[00:10.000]甲乙",
+    "enhanced": "[00:10.000]<00:10.000>甲<00:10.500>乙<00:11.000>",
+    "enhancedNoTranslation": "[00:10.000]<00:10.000>甲<00:10.500>乙<00:11.000>"
+  },
+  {
+    "name": "yrc/json-mixed",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "{\"t\":0,\"c\":[{\"tx\":\"作词: \"},{\"tx\":\"张国祥\"}]}\n{\"t\":1000,\"c\":[{\"tx\":\"作曲: 汤小康\"}]}\n[12580,3470](12580,250,0)难",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "作词: 张国祥",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 11580,
+          "text": "作曲: 汤小康",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 12580,
+          "durationMs": 3470,
+          "text": "难",
+          "words": [
+            {
+              "startMs": 12580,
+              "durationMs": 250,
+              "text": "难"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]作词: 张国祥\n[00:01.000]作曲: 汤小康\n[00:12.580]难",
+    "plainNoTranslation": "[00:00.000]作词: 张国祥\n[00:01.000]作曲: 汤小康\n[00:12.580]难",
+    "enhanced": "[00:00.000]作词: 张国祥\n[00:01.000]作曲: 汤小康\n[00:12.580]<00:12.580>难<00:12.830>",
+    "enhancedNoTranslation": "[00:00.000]作词: 张国祥\n[00:01.000]作曲: 汤小康\n[00:12.580]<00:12.580>难<00:12.830>"
+  },
+  {
+    "name": "yrc/no-word-tags",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,500]纯文本\n[2000,0]零时长\n[3000,500]  带空白  ",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "纯文本",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "零时长",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 500,
+          "text": "带空白",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]纯文本\n[00:02.000]零时长\n[00:03.000]带空白",
+    "plainNoTranslation": "[00:01.000]纯文本\n[00:02.000]零时长\n[00:03.000]带空白",
+    "enhanced": "[00:01.000]纯文本\n[00:02.000]零时长\n[00:03.000]带空白",
+    "enhancedNoTranslation": "[00:01.000]纯文本\n[00:02.000]零时长\n[00:03.000]带空白"
+  },
+  {
+    "name": "yrc/priority-over-lrc",
+    "raw": {
+      "lrc": "[00:99.00]不应该出现",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,500]逐字行",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "逐字行",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]逐字行",
+    "plainNoTranslation": "[00:01.000]逐字行",
+    "enhanced": "[00:01.000]逐字行",
+    "enhancedNoTranslation": "[00:01.000]逐字行"
+  },
+  {
+    "name": "yrc/parentheses-in-text",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,500,0)你(好)(500,500,0)吗(开头",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "你吗",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "你"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "吗"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]你吗",
+    "plainNoTranslation": "[00:00.000]你吗",
+    "enhanced": "[00:00.000]<00:00.000>你<00:00.500>吗<00:01.000>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>你<00:00.500>吗<00:01.000>"
+  },
+  {
+    "name": "yrc/header-overflow-falls-back",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[9999999999,10]溢出\n[99999999999,10]更长\n[00:01.00]正常LRC行",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "正常LRC行",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]正常LRC行",
+    "plainNoTranslation": "[00:01.000]正常LRC行",
+    "enhanced": "[00:01.000]正常LRC行",
+    "enhancedNoTranslation": "[00:01.000]正常LRC行"
+  },
+  {
+    "name": "yrc/negative-and-weird-durations",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,2000](1000,-50,0)甲(1100,abc,0)乙(1200,100,0)丙",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "甲丙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 0,
+              "text": "甲"
+            },
+            {
+              "startMs": 1200,
+              "durationMs": 100,
+              "text": "丙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲丙",
+    "plainNoTranslation": "[00:01.000]甲丙",
+    "enhanced": "[00:01.000]<00:01.000>甲<00:01.000><00:01.200>丙<00:01.300>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>甲<00:01.000><00:01.200>丙<00:01.300>"
+  },
+  {
+    "name": "yrc/zero-line-duration-uses-next-line",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,0](1000,100,0)甲\n[3000,0](3000,100,0)乙",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 100,
+              "text": "甲"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 100,
+          "text": "乙",
+          "words": [
+            {
+              "startMs": 3000,
+              "durationMs": 100,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲\n[00:03.000]乙",
+    "plainNoTranslation": "[00:01.000]甲\n[00:03.000]乙",
+    "enhanced": "[00:01.000]<00:01.000>甲<00:01.100>\n[00:03.000]<00:03.000>乙<00:03.100>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>甲<00:01.100>\n[00:03.000]<00:03.000>乙<00:03.100>"
+  },
+  {
+    "name": "yrc/last-line-zero-duration-uses-words",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,0](1000,100,0)甲(1100,200,0)乙",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 300,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 100,
+              "text": "甲"
+            },
+            {
+              "startMs": 1100,
+              "durationMs": 200,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲乙",
+    "plainNoTranslation": "[00:01.000]甲乙",
+    "enhanced": "[00:01.000]<00:01.000>甲<00:01.100>乙<00:01.300>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>甲<00:01.100>乙<00:01.300>"
+  },
+  {
+    "name": "yrc/unsorted",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[5000,1000](5000,500,0)后\n[1000,1000](1000,500,0)前",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "前",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "前"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 5000,
+          "durationMs": 1000,
+          "text": "后",
+          "words": [
+            {
+              "startMs": 5000,
+              "durationMs": 500,
+              "text": "后"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]前\n[00:05.000]后",
+    "plainNoTranslation": "[00:01.000]前\n[00:05.000]后",
+    "enhanced": "[00:01.000]<00:01.000>前<00:01.500>\n[00:05.000]<00:05.000>后<00:05.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>前<00:01.500>\n[00:05.000]<00:05.000>后<00:05.500>"
+  },
+  {
+    "name": "yrc/empty-word-text",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,100,0)(100,100,0)甲(200,100,0)",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 100,
+              "text": ""
+            },
+            {
+              "startMs": 100,
+              "durationMs": 100,
+              "text": "甲"
+            },
+            {
+              "startMs": 200,
+              "durationMs": 100,
+              "text": ""
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲",
+    "plainNoTranslation": "[00:00.000]甲",
+    "enhanced": "[00:00.000]<00:00.100>甲<00:00.200>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.100>甲<00:00.200>"
+  },
+  {
+    "name": "yrc/leading-text-before-first-tag",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000]前缀(0,100,0)甲",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 100,
+              "text": "甲"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲",
+    "plainNoTranslation": "[00:00.000]甲",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.100>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.100>"
+  },
+  {
+    "name": "yrc/unclosed-parenthesis",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,100,0)甲(100,200",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 100,
+              "text": "甲"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲",
+    "plainNoTranslation": "[00:00.000]甲",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.100>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.100>"
+  },
+  {
+    "name": "yrc/header-only",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[100,200]",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 100,
+          "durationMs": 200,
+          "text": "",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.100]",
+    "plainNoTranslation": "[00:00.100]",
+    "enhanced": "[00:00.100]",
+    "enhancedNoTranslation": "[00:00.100]"
+  },
+  {
+    "name": "yrc/word-fields-with-spaces",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000]( 0 , 500 ,0)甲( 500 , 500 )乙(1000)丙",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲乙",
+    "plainNoTranslation": "[00:00.000]甲乙",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>"
+  },
+  {
+    "name": "yrc/lrc-line-mixed-in",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[00:01.50]LRC混入\n[2000,500](2000,500,0)逐字",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1500,
+          "durationMs": 500,
+          "text": "LRC混入",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 500,
+          "text": "逐字",
+          "words": [
+            {
+              "startMs": 2000,
+              "durationMs": 500,
+              "text": "逐字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.500]LRC混入\n[00:02.000]逐字",
+    "plainNoTranslation": "[00:01.500]LRC混入\n[00:02.000]逐字",
+    "enhanced": "[00:01.500]LRC混入\n[00:02.000]<00:02.000>逐字<00:02.500>",
+    "enhancedNoTranslation": "[00:01.500]LRC混入\n[00:02.000]<00:02.000>逐字<00:02.500>"
+  },
+  {
+    "name": "yrc/words-before-line-start",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[5000,1000](100,200,0)早(300,200,0)词",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 5000,
+          "durationMs": 1000,
+          "text": "早词",
+          "words": [
+            {
+              "startMs": 5100,
+              "durationMs": 200,
+              "text": "早"
+            },
+            {
+              "startMs": 5300,
+              "durationMs": 200,
+              "text": "词"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:05.000]早词",
+    "plainNoTranslation": "[00:05.000]早词",
+    "enhanced": "[00:05.000]<00:05.100>早<00:05.300>词<00:05.500>",
+    "enhancedNoTranslation": "[00:05.000]<00:05.100>早<00:05.300>词<00:05.500>"
+  },
+  {
+    "name": "yrc/crlf",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[0,1000](0,500,0)甲(500,500,0)乙\r\n[1000,1000](1000,500,0)丙\r\n",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "丙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "丙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲乙\n[00:01.000]丙",
+    "plainNoTranslation": "[00:00.000]甲乙\n[00:01.000]丙",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>\n[00:01.000]<00:01.000>丙<00:01.500>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>\n[00:01.000]<00:01.000>丙<00:01.500>"
+  },
+  {
+    "name": "yrc/blank",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "  \n ",
+      "qrc": null
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "qrc/sample",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[11720,3670]看(11720,370)着(12090,310)你(12400,290)\n[15400,2000]微笑(15400,500)的脸(15900,600)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 11720,
+          "durationMs": 3670,
+          "text": "看着你",
+          "words": [
+            {
+              "startMs": 11720,
+              "durationMs": 370,
+              "text": "看"
+            },
+            {
+              "startMs": 12090,
+              "durationMs": 310,
+              "text": "着"
+            },
+            {
+              "startMs": 12400,
+              "durationMs": 290,
+              "text": "你"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 15400,
+          "durationMs": 2000,
+          "text": "微笑的脸",
+          "words": [
+            {
+              "startMs": 15400,
+              "durationMs": 500,
+              "text": "微笑"
+            },
+            {
+              "startMs": 15900,
+              "durationMs": 600,
+              "text": "的脸"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:11.720]看着你\n[00:15.400]微笑的脸",
+    "plainNoTranslation": "[00:11.720]看着你\n[00:15.400]微笑的脸",
+    "enhanced": "[00:11.720]<00:11.720>看<00:12.090>着<00:12.400>你<00:12.690>\n[00:15.400]<00:15.400>微笑<00:15.900>的脸<00:16.500>",
+    "enhancedNoTranslation": "[00:11.720]<00:11.720>看<00:12.090>着<00:12.400>你<00:12.690>\n[00:15.400]<00:15.400>微笑<00:15.900>的脸<00:16.500>"
+  },
+  {
+    "name": "qrc/envelope-entities",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "<Lyric_1 LyricType=\"1\" LyricContent=\"[1000,500]Tom &amp; Jerry(1000,500)\"/>"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "Tom & Jerry",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "Tom & Jerry"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]Tom & Jerry",
+    "plainNoTranslation": "[00:01.000]Tom & Jerry",
+    "enhanced": "[00:01.000]<00:01.000>Tom & Jerry<00:01.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>Tom & Jerry<00:01.500>"
+  },
+  {
+    "name": "qrc/envelope-many-entities",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "<Lyric_1 LyricType=\"1\" LyricContent=\"[0,1000]&lt;a&gt; &quot;q&quot; &apos;s&apos; &#39;n&#39; &#x4E2D;&#25991; caf&eacute; &copy;&nbsp;x &unknown; &amp(0,1000)\n[1000,500]二&amp;&amp;行(1000,500)\"/>"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "<a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1000,
+              "text": "<a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "二&&行",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "二&&行"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]<a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp\n[00:01.000]二&&行",
+    "plainNoTranslation": "[00:00.000]<a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp\n[00:01.000]二&&行",
+    "enhanced": "[00:00.000]<00:00.000><a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp<00:01.000>\n[00:01.000]<00:01.000>二&&行<00:01.500>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000><a> \"q\" 's' 'n' 中文 café ©\u00A0x &unknown; &amp<00:01.000>\n[00:01.000]<00:01.000>二&&行<00:01.500>"
+  },
+  {
+    "name": "qrc/envelope-multiline",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<QrcInfos>\n<QrcHeadInfo SaveTime=\"1\" Version=\"100\"/>\n<LyricInfo LyricCount=\"1\">\n<Lyric_1 LyricType=\"1\" LyricContent=\"[0,500]甲(0,500)\n[500,500]乙(500,500)\n\"/>\n</LyricInfo>\n</QrcInfos>"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 500,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "甲"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 500,
+          "durationMs": 500,
+          "text": "乙",
+          "words": [
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲\n[00:00.500]乙",
+    "plainNoTranslation": "[00:00.000]甲\n[00:00.500]乙",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.500>\n[00:00.500]<00:00.500>乙<00:01.000>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.500>\n[00:00.500]<00:00.500>乙<00:01.000>"
+  },
+  {
+    "name": "qrc/envelope-unclosed",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "<Lyric_1 LyricContent=\"[1000,500]甲(1000,500)"
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "qrc/envelope-empty-content",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "<Lyric_1 LyricType=\"1\" LyricContent=\"\"/>"
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "qrc/optional-word-brackets",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[2000,500][2000,200]嘿(2000,200)呀(2200,300)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 2000,
+          "durationMs": 500,
+          "text": "嘿呀",
+          "words": [
+            {
+              "startMs": 2000,
+              "durationMs": 200,
+              "text": "嘿"
+            },
+            {
+              "startMs": 2200,
+              "durationMs": 300,
+              "text": "呀"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:02.000]嘿呀",
+    "plainNoTranslation": "[00:02.000]嘿呀",
+    "enhanced": "[00:02.000]<00:02.000>嘿<00:02.200>呀<00:02.500>",
+    "enhancedNoTranslation": "[00:02.000]<00:02.000>嘿<00:02.200>呀<00:02.500>"
+  },
+  {
+    "name": "qrc/priority-over-yrc-lrc",
+    "raw": {
+      "lrc": "[00:99.00]普通LRC",
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[1000,500]逐字YRC",
+      "qrc": "[2000,300]逐字QRC(2000,300)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 2000,
+          "durationMs": 300,
+          "text": "逐字QRC",
+          "words": [
+            {
+              "startMs": 2000,
+              "durationMs": 300,
+              "text": "逐字QRC"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:02.000]逐字QRC",
+    "plainNoTranslation": "[00:02.000]逐字QRC",
+    "enhanced": "[00:02.000]<00:02.000>逐字QRC<00:02.300>",
+    "enhancedNoTranslation": "[00:02.000]<00:02.000>逐字QRC<00:02.300>"
+  },
+  {
+    "name": "qrc/mixed-lrc-lines",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[ti:标题]\n[00:01.00]plain line\n[2000,500]逐字(2000,250)行(2250,250)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "plain line",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 500,
+          "text": "逐字行",
+          "words": [
+            {
+              "startMs": 2000,
+              "durationMs": 250,
+              "text": "逐字"
+            },
+            {
+              "startMs": 2250,
+              "durationMs": 250,
+              "text": "行"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]plain line\n[00:02.000]逐字行",
+    "plainNoTranslation": "[00:01.000]plain line\n[00:02.000]逐字行",
+    "enhanced": "[00:01.000]plain line\n[00:02.000]<00:02.000>逐字<00:02.250>行<00:02.500>",
+    "enhancedNoTranslation": "[00:01.000]plain line\n[00:02.000]<00:02.000>逐字<00:02.250>行<00:02.500>"
+  },
+  {
+    "name": "qrc/with-translation",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": "[00:01.00]你好世界",
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,1000]Hello(1000,500) world(1500,500)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "Hello world",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "Hello"
+            },
+            {
+              "startMs": 1500,
+              "durationMs": 500,
+              "text": " world"
+            }
+          ],
+          "translation": "你好世界"
+        }
+      ],
+      "translation": "[00:01.00]你好世界",
+      "romanization": null
+    },
+    "plain": "[00:01.000]Hello world\n[00:01.000]你好世界",
+    "plainNoTranslation": "[00:01.000]Hello world",
+    "enhanced": "[00:01.000]<00:01.000>Hello<00:01.500> world<00:02.000>\n[00:01.000]你好世界",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>Hello<00:01.500> world<00:02.000>"
+  },
+  {
+    "name": "qrc/stray-pairs-no-words",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,500]纯文本[3,4]带残留\n[2000,500]括号(尾巴"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "纯文本带残留",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 2000,
+          "durationMs": 500,
+          "text": "括号(尾巴",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]纯文本带残留\n[00:02.000]括号(尾巴",
+    "plainNoTranslation": "[00:01.000]纯文本带残留\n[00:02.000]括号(尾巴",
+    "enhanced": "[00:01.000]纯文本带残留\n[00:02.000]括号(尾巴",
+    "enhancedNoTranslation": "[00:01.000]纯文本带残留\n[00:02.000]括号(尾巴"
+  },
+  {
+    "name": "qrc/stray-pair-before-word-paren",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,500]纯文本[3,4](5,6)带残留"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "纯文本[3,4]",
+          "words": [
+            {
+              "startMs": 1005,
+              "durationMs": 6,
+              "text": "纯文本[3,4]"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]纯文本[3,4]",
+    "plainNoTranslation": "[00:01.000]纯文本[3,4]",
+    "enhanced": "[00:01.000]<00:01.005>纯文本[3,4]<00:01.011>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.005>纯文本[3,4]<00:01.011>"
+  },
+  {
+    "name": "qrc/pair-with-spaces-and-negative",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[0,1000]甲( 0 , 100 )乙(100,-50)丙(200,300)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲乙丙",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 100,
+              "text": "甲"
+            },
+            {
+              "startMs": 100,
+              "durationMs": 0,
+              "text": "乙"
+            },
+            {
+              "startMs": 200,
+              "durationMs": 300,
+              "text": "丙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲乙丙",
+    "plainNoTranslation": "[00:00.000]甲乙丙",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.100>乙<00:00.100><00:00.200>丙<00:00.500>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.100>乙<00:00.100><00:00.200>丙<00:00.500>"
+  },
+  {
+    "name": "qrc/non-numeric-pair-skipped",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[0,1000]甲(a,b)乙(100,200)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "乙",
+          "words": [
+            {
+              "startMs": 100,
+              "durationMs": 200,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]乙",
+    "plainNoTranslation": "[00:00.000]乙",
+    "enhanced": "[00:00.000]<00:00.100>乙<00:00.300>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.100>乙<00:00.300>"
+  },
+  {
+    "name": "qrc/header-overflow",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[9999999999,10]溢出(0,1)\n[1000,500]正常(1000,500)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 500,
+          "text": "正常",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "正常"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]正常",
+    "plainNoTranslation": "[00:01.000]正常",
+    "enhanced": "[00:01.000]<00:01.000>正常<00:01.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>正常<00:01.500>"
+  },
+  {
+    "name": "qrc/empty-word-texts",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[0,1000](0,100)(100,100)甲(200,100)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 100,
+              "text": ""
+            },
+            {
+              "startMs": 100,
+              "durationMs": 100,
+              "text": ""
+            },
+            {
+              "startMs": 200,
+              "durationMs": 100,
+              "text": "甲"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲",
+    "plainNoTranslation": "[00:00.000]甲",
+    "enhanced": "[00:00.000]<00:00.200>甲<00:00.300>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.200>甲<00:00.300>"
+  },
+  {
+    "name": "qrc/crlf",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[0,1000]甲(0,500)乙(500,500)\r\n[1000,1000]丙(1000,1000)\r\n"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "丙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "丙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:00.000]甲乙\n[00:01.000]丙",
+    "plainNoTranslation": "[00:00.000]甲乙\n[00:01.000]丙",
+    "enhanced": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>\n[00:01.000]<00:01.000>丙<00:02.000>",
+    "enhancedNoTranslation": "[00:00.000]<00:00.000>甲<00:00.500>乙<00:01.000>\n[00:01.000]<00:01.000>丙<00:02.000>"
+  },
+  {
+    "name": "qrc/words-before-line-start",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[5000,1000]早(100,200)词(300,200)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 5000,
+          "durationMs": 1000,
+          "text": "早词",
+          "words": [
+            {
+              "startMs": 5100,
+              "durationMs": 200,
+              "text": "早"
+            },
+            {
+              "startMs": 5300,
+              "durationMs": 200,
+              "text": "词"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:05.000]早词",
+    "plainNoTranslation": "[00:05.000]早词",
+    "enhanced": "[00:05.000]<00:05.100>早<00:05.300>词<00:05.500>",
+    "enhancedNoTranslation": "[00:05.000]<00:05.100>早<00:05.300>词<00:05.500>"
+  },
+  {
+    "name": "qrc/blank",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "  \n "
+    },
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "",
+    "plainNoTranslation": "",
+    "enhanced": "",
+    "enhancedNoTranslation": ""
+  },
+  {
+    "name": "ser/word-gap-and-contiguity",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,3000]甲(1000,500)乙(1500,500)丙(3000,500)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 3000,
+          "text": "甲乙丙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 1500,
+              "durationMs": 500,
+              "text": "乙"
+            },
+            {
+              "startMs": 3000,
+              "durationMs": 500,
+              "text": "丙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲乙丙",
+    "plainNoTranslation": "[00:01.000]甲乙丙",
+    "enhanced": "[00:01.000]<00:01.000>甲<00:01.500>乙<00:02.000><00:03.000>丙<00:03.500>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>甲<00:01.500>乙<00:02.000><00:03.000>丙<00:03.500>"
+  },
+  {
+    "name": "ser/multiline-text-in-word",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,1000]a\nb(1000,500)c(1500,500)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "a",
+          "words": [],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]a",
+    "plainNoTranslation": "[00:01.000]a",
+    "enhanced": "[00:01.000]a",
+    "enhancedNoTranslation": "[00:01.000]a"
+  },
+  {
+    "name": "ser/zero-duration-words",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": null,
+      "qrc": "[1000,0]甲(1000,0)乙(1000,0)"
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 0,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 0,
+              "text": "甲"
+            },
+            {
+              "startMs": 1000,
+              "durationMs": 0,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[00:01.000]甲乙",
+    "plainNoTranslation": "[00:01.000]甲乙",
+    "enhanced": "[00:01.000]<00:01.000>甲<00:01.000>乙<00:01.000>",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>甲<00:01.000>乙<00:01.000>"
+  },
+  {
+    "name": "ser/long-minutes",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": null,
+      "romanizedLrc": null,
+      "yrc": "[6000000,1000](6000000,500,0)百分钟(6000500,500,0)后",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 6000000,
+          "durationMs": 1000,
+          "text": "百分钟后",
+          "words": [
+            {
+              "startMs": 6000000,
+              "durationMs": 500,
+              "text": "百分钟"
+            },
+            {
+              "startMs": 6000500,
+              "durationMs": 500,
+              "text": "后"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    },
+    "plain": "[100:00.000]百分钟后",
+    "plainNoTranslation": "[100:00.000]百分钟后",
+    "enhanced": "[100:00.000]<100:00.000>百分钟<100:00.500>后<100:01.000>",
+    "enhancedNoTranslation": "[100:00.000]<100:00.000>百分钟<100:00.500>后<100:01.000>"
+  },
+  {
+    "name": "ser/bilingual-enhanced",
+    "raw": {
+      "lrc": null,
+      "translatedLrc": "[00:01.00]你好世界\n[00:04.00]结束",
+      "romanizedLrc": null,
+      "yrc": "[1000,2000](1000,1000,0)Hello(2000,1000,0) world\n[4000,1000](4000,500,0)End",
+      "qrc": null
+    },
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "Hello world",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 1000,
+              "text": "Hello"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 1000,
+              "text": " world"
+            }
+          ],
+          "translation": "你好世界"
+        },
+        {
+          "startMs": 4000,
+          "durationMs": 1000,
+          "text": "End",
+          "words": [
+            {
+              "startMs": 4000,
+              "durationMs": 500,
+              "text": "End"
+            }
+          ],
+          "translation": "结束"
+        }
+      ],
+      "translation": "[00:01.00]你好世界\n[00:04.00]结束",
+      "romanization": null
+    },
+    "plain": "[00:01.000]Hello world\n[00:01.000]你好世界\n[00:04.000]End\n[00:04.000]结束",
+    "plainNoTranslation": "[00:01.000]Hello world\n[00:04.000]End",
+    "enhanced": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:03.000>\n[00:01.000]你好世界\n[00:04.000]<00:04.000>End<00:04.500>\n[00:04.000]结束",
+    "enhancedNoTranslation": "[00:01.000]<00:01.000>Hello<00:02.000> world<00:03.000>\n[00:04.000]<00:04.000>End<00:04.500>"
+  }
+]

@@ -45,10 +45,10 @@ app/
 | `auth` | 原来放在 `MainWindowViewModel` / `QrLoginViewModel` 里的登录编排（启动校验、续期、扫码落盘、退出、运行期复核） |
 | `logs` | `MainWindowViewModel` 里的运行日志列表（400 条、内存） |
 | `qr` | `QrLoginViewModel.RenderQrCode`（QRCoder → `qrcode` SVG） |
-| `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs`） |
+| `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` / `lyrics` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs/Lyrics`） |
 | `playlist` | 原来放在 `MainWindowViewModel` 里的歌单加载编排（取列表 / 曲目、写日志、301 时走登录复核） |
 | `ncm` | `Core/Ncm/` |
-| `lyrics` | `Core/Lyrics/` |
+| `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；`LyricsMatchScorer`、`BatchLyricsService` 在模块 10） |
 | `tags` | `Core/Tags/` |
 | `library` | `Core/Library/` |
 | `download` | `Core/Download/` |
@@ -90,7 +90,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 2 | 基础层 | 数据目录解析、`settings.json`、DPAPI `session.dat`（与 C# 版兼容） | 完成 |
 | 3 | 登录 | weapi 加密、HTTP、Cookie 合并与续期、扫码登录 UI | 完成（续期效果待真机长期观察） |
 | 4 | 歌单 | 歌单列表与详情（trackIds + 分批 song/detail）、歌单侧栏与歌曲表格 | 完成 |
-| 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC | 待做 |
+| 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC、网易云歌词接口、歌词预览 | 完成 |
 | 6 | 标签读写 | MP3 / FLAC / M4A / OGG 标签、封面、歌词写入 | 待做 |
 | 7 | NCM 解密与导入 | `.ncm` 解密、元数据与封面回写、导入窗口 | 待做 |
 | 8 | 本地曲库与对比 | 曲库扫描、与歌单一对一匹配 | 待做 |
@@ -104,6 +104,48 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 5（歌词解析）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `lyrics::models` | `LyricModels.cs`、`RawLyrics` | `LyricWord` / `LyricLine` / `LyricDocument` / `RawLyrics`；时间用 `i32` 毫秒，边界运算沿用 C# `int` 的回绕语义（`wrapping_*`），极端输入不会 panic。 |
+| `lyrics::parser` | `LyricParser.cs` | LRC（多时间戳行、`[offset]`、元数据标签、3 种小数位）、增强 LRC 词标签、YRC v0 与 JSON 风格行、QRC（含 `<Lyric_1 …/>` 外壳）、译文合并（全局贪心最近邻，800ms 容差，`//` 占位不写入）、`to_plain_lrc` / `to_enhanced_lrc(doc, include_translation)`。逐字优先级 QRC > YRC > LRC。纯函数。 |
+| `lyrics::html` | `WebUtility.HtmlDecode` | QRC 外壳里的 `&amp;` 等实体还原，按 .NET 算法实现（HTML 4.01 的命名实体表 + `HTML 4.01 全部 252 个命名实体 + `&apos;`apos;`，数值实体、无效实体原样保留），不引入依赖。 |
+| `lyrics::qrc` | `QqTripleDes.cs`、`QrcDecryptor.cs` | QQ 的非标准 3DES 变体按位逐轮移植（含 S2 / S4 表里变体自带的重复值），已知向量 `133457799BBCDFF1 / 0123456789ABCDEF → F63A972CE52AA327`；`looks_encrypted` / `try_decrypt`（十六进制 → 3DES-ECB → zlib → 换行归一、去尾部 NUL）。 |
+| `lyrics::krc` | `KrcLyricsParser.cs` | `krc1` 魔数 + 16 字节 XOR + zlib（失败回落明文）、`[language:<base64 JSON>]` 的 `type=1` 逐行译文、逐字时间轴解析。与 C# 一样只读 `type=1`，不处理 `type=0` 的罗马音。 |
+| `lyrics::zlib` | .NET `ZLibStream` | 共用的宽容解压：**数据被截断时返回已解出的部分**（.NET 8 行为，由 C# 探针的截断夹具核对），损坏（头 / 块 / 校验和）才失败；流结束后的多余字节（QRC 块填充）忽略。 |
+| `netease::lyrics` | `NeteaseApiClient.Lyrics.cs`、`MapLyrics` | `get_lyrics`：公开接口 `GET /api/song/lyric?…&yv=1` → `weapi/song/lyric` → `weapi/song/lyric/v1` 三级兜底（任何 `NeteaseError` 都落到下一级，三条全败返回带「获取歌曲 N 歌词失败」前缀的最后一个错误，保留 code，所以 301 仍可识别）；`nolyric` / `uncollected` 返回空结果而非失败。 |
+| `lyrics::service` | `DownloadService.TryBuildLyricsAsync` 的序列化规则 | `LyricsService::get(id, mode)`：逐行 → `to_plain_lrc`，逐字优先 → 有逐字数据时 `to_enhanced_lrc`、否则回退逐行；译文默认写入。返回 `LyricsPreview`（文本、是否逐字、是否有逐字数据、是否含翻译、行数、是否为空、来源）。歌词接口匿名可用，**不要求登录**；只有业务 301 且当前带着登录态时才走 `LoginManager::handle_runtime_auth_error`（续期再复核，仍未登录才清除）。 |
+
+### Tauri 外壳与前端
+
+- 命令 `get_song_lyrics(id, mode)`（`mode` 为 `line` / `word`）；失败 `Err` 为 `{ kind: sessionExpired | failed, message }`。
+- 歌曲表格：双击一行，或点行尾新增的「词」按钮（`aria-label="查看歌词：歌名"`），打开歌词预览对话框（复用 `Modal`，新增 `className` 属性做 `modal-wide` 加宽，玻璃样式不变）。表格列模板多了一列 32px，最小窗口宽度 960 下仍放得下。
+- 对话框：胶囊分段控件「逐行 / 逐字优先」（`role=radiogroup`），元信息「来源：网易云音乐 · 逐字 / 逐行歌词 · 含 / 无翻译 · N 行」，请求逐字但没有逐字数据时提示「这首歌没有逐字歌词，已显示逐行歌词」；只读 `<pre>` 预览（可选中文字，不写任何文件）；加载中 / 失败（重试）/ 暂无歌词（纯音乐或未收录）三种状态；已取回的形式在对话框内缓存，切回去不重新请求；Esc / 点遮罩关闭。深色 / 浅色均在浏览器假后端里检查过。
+- 开发假后端 `mockBackend.ts` 新增 `get_song_lyrics`：歌曲 ID 能被 11 整除 → 失败，7 → 暂无歌词，5 → 仅逐行，其余逐字 + 翻译。
+
+### 与 C# 行为的差异（有意为之）
+
+- 无。解析 / 序列化 / 解密的输出与 C# 逐字节一致（见下）。仅有两处为了对齐 .NET 8 而特意保留的“怪行为”：JSON 行 `t` 超出 `int` 范围时，`(int)double` 在 .NET 8 / x64 得到 `int.MinValue`（Rust 版照此处理，.NET 9 起 C# 会饱和）；zlib 截断时返回部分数据而不是失败。
+- KRC 的 UTF-16 BOM 识别只做 LE / BE，没做 UTF-32（`StreamReader` 会识别）；HTML 实体解码里数值实体只接受纯数字（C# 的 `uint.TryParse` 还容忍空白与正负号）。二者都是病态输入。
+
+### 新增依赖
+
+| crate | 版本 | 用途 |
+|---|---|---|
+| `flate2` | 1.1.10（默认纯 Rust 后端 `miniz_oxide`） | QRC / KRC 的 zlib 解压 |
+| `regex` | 1.13.1 | LRC 时间戳 / offset、QRC 外壳、KRC 行与词标签（与 .NET 的 `Regex` 语义一一对应，比手写扫描更不容易偏离） |
+
+### 验证
+
+- 单测：`lp-core` lib 363 个（模块 5 新增 102 个：C# 的 `LyricParserTests` 15 + `QrcLyricParserTests` 7 + `QrcDecryptorTests`（含已知向量）+ `KrcLyricsParserTests`（夹具逻辑 `KrcFixture` 一并移植）+ `NeteaseApiClientLyricTests` 5 全部移植，另加边界、HTML 解码、zlib、`LyricsService` 的 301 复核 / 匿名 / 网络错误等），外壳 9 个，`csharp_compat` 5 个，新增 `csharp_lyrics` 4 个；`.\build.ps1 -Tauri` 的 fmt / clippy / 测试 / 打包全部通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **与 C# 逐字节对比**（`tests/csharp_lyrics.rs` + `tests/fixtures/lyrics/`）：临时 C# 探针（直接编译 C# 版 `LyricParser` / `QqTripleDes` / `QrcDecryptor` / `KrcLyricsParser` 源码，探针已删除、不入库）对 92 个解析用例（LRC / 增强 LRC / 译文 / YRC / QRC / 序列化）记录文档结构与四种序列化输出，22 个 KRC 解析用例，31 个解密用例（C# 的 .NET `ZLibStream` + 3DES 变体生成的密文，含截断、校验和损坏、BOM、非法 UTF-8、明文兜底），5 组 3DES 随机向量。Rust 结果**全部完全相等**。夹具里只有手写的假文本。
+- 联网探针（一次性，已删除）：匿名取 10 首公开歌曲的网易云歌词（6 首有歌词：49 行逐字、62 行逐行、50 行、30 行逐字 + 翻译、24 行逐字、63 行；其余为纯音乐 / 未收录），Rust 与 C# 的解析与四种序列化输出逐一 `deepEqual` 完全一致。真实歌词有版权，未入库。
+- 浏览器假后端：双击打开、行尾按钮、逐行 / 逐字切换、逐字回退提示、暂无歌词、失败重试状态、浅色主题。
+- 实机：release 版 exe 在 `D:\claude\` 下启动正常；测试期间有真人在该实例上扫码登录成功（只在 `D:\claude\lp-data`，未碰真实登录态，测完已清理），但窗口随后被切到后台、系统不允许自动化抢回前台，**歌词预览对话框的实机操作没能验证，需要用户在真机上双击一首歌确认**。
 
 ## 模块 4（歌单）实现记录
 

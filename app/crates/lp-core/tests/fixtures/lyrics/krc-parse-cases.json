@@ -1,0 +1,671 @@
+[
+  {
+    "name": "krc/sample",
+    "text": "[ti:テスト]\n[ar:歌手]\n[id:$00000000]\n[language:eyJjb250ZW50IjpbeyJ0eXBlIjoxLCJseXJpY0NvbnRlbnQiOltbIuS9oOWlvSAiXSxbIuesrOS6jOihjOivkSJdXX1dfQ==]\n[1000,2000]<0,500,0>Hello <500,500,0>world<1000,1000,0>!\n[3000,1500]<0,750,0>第二<750,750,0>行",
+    "document": {
+      "lines": [
+        {
+          "startMs": 1000,
+          "durationMs": 2000,
+          "text": "Hello world!",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "Hello "
+            },
+            {
+              "startMs": 1500,
+              "durationMs": 500,
+              "text": "world"
+            },
+            {
+              "startMs": 2000,
+              "durationMs": 1000,
+              "text": "!"
+            }
+          ],
+          "translation": "你好"
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 1500,
+          "text": "第二行",
+          "words": [
+            {
+              "startMs": 3000,
+              "durationMs": 750,
+              "text": "第二"
+            },
+            {
+              "startMs": 3750,
+              "durationMs": 750,
+              "text": "行"
+            }
+          ],
+          "translation": "第二行译"
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/metadata-and-blank",
+    "text": "[ti:标题]\n[offset:0]\n\n[0,1000]<0,400,0>只<400,600,0>有一行",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "只有一行",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 400,
+              "text": "只"
+            },
+            {
+              "startMs": 400,
+              "durationMs": 600,
+              "text": "有一行"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/only-metadata",
+    "text": "[ti:只有元数据]",
+    "document": {
+      "lines": [],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/crlf",
+    "text": "[0,1000]没有词标签的行\r\n[1000,1000]<0,500,0>有<500,500,0>词\r\n",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "没有词标签的行",
+          "words": [],
+          "translation": null
+        },
+        {
+          "startMs": 1000,
+          "durationMs": 1000,
+          "text": "有词",
+          "words": [
+            {
+              "startMs": 1000,
+              "durationMs": 500,
+              "text": "有"
+            },
+            {
+              "startMs": 1500,
+              "durationMs": 500,
+              "text": "词"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/blank-text-lines-skipped",
+    "text": "[0,1000]\n[1000,1000]   \n[2000,1000]<0,500,0> <500,500,0>\n[3000,1000]<0,500,0>x",
+    "document": {
+      "lines": [
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "text": "",
+          "words": [
+            {
+              "startMs": 2000,
+              "durationMs": 500,
+              "text": " "
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 1000,
+          "text": "x",
+          "words": [
+            {
+              "startMs": 3000,
+              "durationMs": 500,
+              "text": "x"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/negative-flag-and-spaces",
+    "text": "[0,1000]<0,500,-1>a b<500,500,1>c d",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "a bc d",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "a b"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "c d"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/zero-length-word-text",
+    "text": "[0,1000]<0,1,0><1,1,0>x<2,1,0>",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "x",
+          "words": [
+            {
+              "startMs": 1,
+              "durationMs": 1,
+              "text": "x"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/text-before-first-tag-ignored",
+    "text": "[0,1000]前缀<0,500,0>甲<500,500,0>乙",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "甲乙",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "甲"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "乙"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/lt-in-text",
+    "text": "[0,1000]<0,500,0>a<b<500,500,0>c",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1000,
+          "text": "a<bc",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 500,
+              "text": "a<b"
+            },
+            {
+              "startMs": 500,
+              "durationMs": 500,
+              "text": "c"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/big-numbers",
+    "text": "[99999999999,5]<0,1,0>溢出\n[100,200]<99999999999,1,0>词",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 5,
+          "text": "溢出",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "溢出"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 100,
+          "durationMs": 200,
+          "text": "词",
+          "words": [
+            {
+              "startMs": 100,
+              "durationMs": 1,
+              "text": "词"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-nested",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjowLCJseXJpY0NvbnRlbnQiOltbImEiLCJiIl1dfSx7InR5cGUiOjEsImx5cmljQ29udGVudCI6W1si5L2gIiwi5aW9Il0sIiAg5LiW55WMICAiLFtdLG51bGwsNyxbWyLltYwiXSwi5aWXIl1dfV19]\n[0,1]<0,1,0>a\n[1,1]<0,1,0>b\n[2,1]<0,1,0>c\n[3,1]<0,1,0>d\n[4,1]<0,1,0>e\n[5,1]<0,1,0>f\n[6,1]<0,1,0>g",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "a",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "a"
+            }
+          ],
+          "translation": "你好"
+        },
+        {
+          "startMs": 1,
+          "durationMs": 1,
+          "text": "b",
+          "words": [
+            {
+              "startMs": 1,
+              "durationMs": 1,
+              "text": "b"
+            }
+          ],
+          "translation": "世界"
+        },
+        {
+          "startMs": 2,
+          "durationMs": 1,
+          "text": "c",
+          "words": [
+            {
+              "startMs": 2,
+              "durationMs": 1,
+              "text": "c"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 3,
+          "durationMs": 1,
+          "text": "d",
+          "words": [
+            {
+              "startMs": 3,
+              "durationMs": 1,
+              "text": "d"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 4,
+          "durationMs": 1,
+          "text": "e",
+          "words": [
+            {
+              "startMs": 4,
+              "durationMs": 1,
+              "text": "e"
+            }
+          ],
+          "translation": null
+        },
+        {
+          "startMs": 5,
+          "durationMs": 1,
+          "text": "f",
+          "words": [
+            {
+              "startMs": 5,
+              "durationMs": 1,
+              "text": "f"
+            }
+          ],
+          "translation": "嵌套"
+        },
+        {
+          "startMs": 6,
+          "durationMs": 1,
+          "text": "g",
+          "words": [
+            {
+              "startMs": 6,
+              "durationMs": 1,
+              "text": "g"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-type0-only",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjowLCJseXJpY0NvbnRlbnQiOltbImEiXV19XX0=]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-bad-json",
+    "text": "[language:5LiN5pivIGpzb24=]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-no-content",
+    "text": "[language:eyJ4IjoxfQ==]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-content-not-objects",
+    "text": "[language:eyJjb250ZW50IjpbMV19]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-type-float",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjoxLjV9XX0=]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-type-string-skipped",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjoiMSIsImx5cmljQ29udGVudCI6W1sieCJdXX0seyJ0eXBlIjoxLCJseXJpY0NvbnRlbnQiOltbInkiXV19XX0=]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": "y"
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-type-too-big",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjo5OTk5OTk5OTk5OX0seyJ0eXBlIjoxLCJseXJpY0NvbnRlbnQiOltbInkiXV19XX0=]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-missing-lyriccontent",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjoxfV19]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-second-header-wins-when-first-is-useless",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjowfV19]\n[language:eyJjb250ZW50IjpbeyJ0eXBlIjoxLCJseXJpY0NvbnRlbnQiOltbIuS6jCJdXX1dfQ==]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": "二"
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-invalid-base64",
+    "text": "[language:abc]\n[0,1]<0,1,0>字",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": null
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  },
+  {
+    "name": "krc/language-ws-line-and-cr",
+    "text": "[language:eyJjb250ZW50IjpbeyJ0eXBlIjoxLCJseXJpY0NvbnRlbnQiOltbIuS9oOWlvSAiXSxbIuesrOS6jOihjOivkSJdXX1dfQ==]\r\n[0,1]<0,1,0>字\n[1,1]<0,1,0>字二",
+    "document": {
+      "lines": [
+        {
+          "startMs": 0,
+          "durationMs": 1,
+          "text": "字",
+          "words": [
+            {
+              "startMs": 0,
+              "durationMs": 1,
+              "text": "字"
+            }
+          ],
+          "translation": "你好"
+        },
+        {
+          "startMs": 1,
+          "durationMs": 1,
+          "text": "字二",
+          "words": [
+            {
+              "startMs": 1,
+              "durationMs": 1,
+              "text": "字二"
+            }
+          ],
+          "translation": "第二行译"
+        }
+      ],
+      "translation": null,
+      "romanization": null
+    }
+  }
+]

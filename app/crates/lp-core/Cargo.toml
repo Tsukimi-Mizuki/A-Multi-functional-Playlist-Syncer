@@ -22,6 +22,9 @@ rand = "0.10"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "http2", "system-proxy", "form", "gzip", "deflate"] }
 # 登录二维码：只需要 SVG 渲染。
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+# 歌词：QRC / KRC 的 zlib 解压（纯 Rust 后端），以及 LRC / QRC / KRC 解析用的正则。
+flate2 = "1.1.10"
+regex = "1.13.1"
 
 # Windows 专属：DPAPI（登录态加密）与已知文件夹查询。windows-sys 是纯 FFI 声明，Tauri 已依赖同一版本。
 [target.'cfg(windows)'.dependencies]

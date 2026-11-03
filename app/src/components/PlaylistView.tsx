@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import type { PlaylistDetail, PlaylistSummary } from '../api/playlists'
+import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 import { imageSrc } from '../lib/format'
 import type { DetailState, ListState } from '../state/usePlaylists'
 import SongTable from './SongTable'
@@ -12,6 +12,7 @@ interface PlaylistViewProps {
   onLogin: () => void
   onRetryList: () => void
   onRetryDetail: () => void
+  onShowLyrics: (song: Song) => void
 }
 
 function BigCover({ url, alt }: { url: string | null; alt: string }) {
@@ -99,6 +100,7 @@ export default function PlaylistView({
   onLogin,
   onRetryList,
   onRetryDetail,
+  onShowLyrics,
 }: PlaylistViewProps) {
   if (!loggedIn) {
     return (
@@ -215,7 +217,7 @@ export default function PlaylistView({
           </button>
         </Message>
       ) : (
-        <SongTable songs={loaded.songs} />
+        <SongTable songs={loaded.songs} onShowLyrics={onShowLyrics} />
       )}
     </>
   )
