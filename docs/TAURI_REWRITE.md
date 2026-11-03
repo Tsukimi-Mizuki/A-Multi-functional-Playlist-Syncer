@@ -51,7 +51,7 @@ app/
 | `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；`LyricsMatchScorer`、`BatchLyricsService` 在模块 10） |
 | `tags` | `Core/Tags/`（模块 6：`model` / `service` / `text` / `view`；`service` 对应 `AudioTagService`） |
 | `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；模块 7：`error_text`、`file_name_sanitizer`、`cancel`） |
-| `library` | `Core/Library/` |
+| `library` | `Core/Library/`（模块 8：`track` / `scanner` / `matcher` / `text` / `view` 对应 `ILocalLibraryService.cs`、`LocalLibraryService`、`SongMatcher`；`manager` 对应 `MainWindowViewModel` 里的扫描缓存与对比） |
 | `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；下载与同步在模块 9） |
 | `sync` | `Core/Sync/` |
 | `online` | `Core/Online/` |
@@ -94,7 +94,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC、网易云歌词接口、歌词预览 | 完成 |
 | 6 | 标签读写 | MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词读写（lofty），网易云 ID 与客户端 163 key，标签查看对话框 | 完成 |
 | 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
-| 8 | 本地曲库与对比 | 曲库扫描、与歌单一对一匹配 | 待做 |
+| 8 | 本地曲库与对比 | 曲库扫描（并行读标签）、与歌单一对一匹配、状态列 / 统计 / 对比与重新扫描按钮 | 完成 |
 | 9 | 下载与同步 | 九档音质取链下载、一键同步编排 | 待做 |
 | 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | 待做 |
 | 11 | 设置与外观 | 设置窗口、主题切换、帧率等 | 待做 |
@@ -105,6 +105,62 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 8（本地曲库与对比）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `library::track` | `ILocalLibraryService.cs` | `LocalTrack`（路径、标题 / 歌手 / 专辑、时长、格式、码率、是否 NCM、NCM 头元数据、网易云 ID、是否有封面；另有只供界面用的 `title_from_file_name`）、`LibraryScanProgress`、`ScanOutcome`、`LibraryError::Cancelled`。 |
+| `library::scanner` | `LocalLibraryService.cs` | `LocalLibraryService::scan(目录, 进度回调, 取消令牌)`：递归遍历（按绝对路径不区分大小写去重、重叠根目录只扫一次、不存在的根目录与空白路径忽略）、扩展名 `.mp3 .flac .m4a .mp4 .ogg .opus .wav .ncm`（不区分大小写；注意与编辑器用的 `audio_file_types` 不同）、Windows 上跳过带 System 属性的文件与带 System / 重解析点属性的目录（符号链接与联接点不跟随，符号链接指向文件的照常收录）、结果按完整路径 `OrdinalIgnoreCase` 排序。普通音频读标签交给模块 6 的 `AudioTagService`，`.ncm` 用模块 7 的 `NcmDecoder::read_info` 读文件头元数据（`is_ncm_file` 为假或读失败都当作没有元数据）；标题 / 歌手缺失时用 `parse_file_name`（「歌手 - 歌名」、中文 / 全角 / 长破折号、去掉前导音轨号 `01.` `02 -` `3)` `07 `）回退；单个文件或目录失败只跳过，无权限的目录计入 `skipped_directories`。 |
+| `library::matcher` | `SongMatcher.cs`、`ISongMatcher.cs` | **与 C# 一致的算法**：第一阶段网易云 ID 精确匹配（本地文件同 ID 重复时只认第一个；ID 小于等于 0 不参与；被占用的本地文件不再给别的歌）→ 第二阶段所有候选放进优先队列（分数高优先，同分歌曲下标小优先，再同分本地下标小优先），被占用的候选重新找下一个最优 → 每首本地文件最多匹配一首歌。综合分 = 标题 0.55 + 歌手 0.30 + 时长 0.15，**阈值固定 0.72**（与设置里的「在线匹配度阈值」无关），时长容差 12 秒线性衰减，歌手 / 时长缺失给中性 0.5，标题取歌名与别名里最高的相似度；相似度是相等 → 1、包含 → 0.85 + 0.15 × 长度比、其余字符二元组 Dice。返回值用下标指回输入（`SongMatch { song_index, local_index, method, confidence, availability }`），`LocalAvailability` 为 `Missing / Available / EncryptedNcm`。 |
+| `library::text` | `SongMatcher` 里的 `NormalizeForMatch` / `SplitArtistTokens` / `Similarity` | 归一化 = NFKC → 去括号及括号内内容（`( [ { 【 「 『 《 〈 〔 （`，嵌套按深度计）→ 去空白 / 控制字符 / 标点 / 符号 → 小写。**按 UTF-16 码元复现 .NET 的语义**：.NET 按码元判定类别，补充平面字符（emoji 等）的两个代理码元既不是标点也不是符号，所以 C# 会**保留** emoji、不会给它们转小写；这里同样用 `Vec<u16>` 表示归一化文本，长度、包含关系、二元组都按码元算。NFKC 与通用类别用 ICU4X 的内置数据（`icu_normalizer` / `icu_properties`，Tauri 的 `url` 依赖本来就在用；`icu_normalizer` 关掉了默认特性以免多拉 `utf16_iter` / `write16`，Cargo.lock 没有新增 crate）。 |
+| `library::manager` | `MainWindowViewModel` 里的 `_localTracks`、`TryScanLibraryInternalAsync`、`RebuildRows` | `LibraryManager`：内存里缓存最近一次扫描结果（对应 C# 的 `_localTracks`，不落盘；曲库目录文本变了缓存自动作废）与最近 6 个歌单的曲目；**同一时间只跑一个扫描**，后来的请求排队，轮到时直接复用刚出炉的结果；`scan`（强制重扫）、`match_playlist(歌单 ID, never | ifNeeded)`、`cancel`；进度节流（每 80 毫秒一条，最后一条必发）；写运行日志（`开始扫描本地曲库：…`、`本地曲库扫描完成：N 个文件（其中 NCM M 个）`、`本地对比：已存在 x，NCM 待解密 y，需下载 z`、目录不存在 / 已取消的警告，措辞同 C#）。 |
+| `library::view` | — | 给界面的 camelCase DTO：`LocalMatchView`（`availability`: available / ncm / missing，`method`: none / neteaseId / metadata / fileName，分数、文件路径与文件名、格式、本地标题 / 歌手）、`MatchStats`、`MatchOutcomeView`（含 `scanned`：曲库是否扫描过）、`LibraryCommandError { kind: directoryMissing | cancelled | playlistNotLoaded | failed, message }`。歌单里同一首歌出现多次时，每一行沿用**第一次出现**那一行的匹配结果（与 C# 的 `matches.TryAdd` 一致：本地有这首歌，重复的行也应显示「已存在」）；统计按歌单行数算。 |
+
+### 与 C# 行为的差异（有意为之）
+
+- **并行读标签**：C# 逐个文件顺序读；这里用最多 8 个工作线程并行（标签读取互不依赖），结果仍按路径排序，顺序与线程调度无关（有测试，扫描 1 万个小文件约 1.1 秒）。进度回调在锁内调用，已处理数单调递增。
+- **取消不保留部分结果**：返回 `Cancelled`，之前缓存的扫描结果原样保留（不完整的曲库拿去匹配只会得到一堆误报的「需下载」）。
+- **「文件名猜测」不在匹配器里**：C# 的 `MatchMethod.FileName` 从未被产生，文件名回退发生在扫描阶段（标签里没有标题 / 歌手时推断出来，再作为普通元数据参与评分）。这里保留同一枚举值；界面把「标题取自文件名的元数据匹配」标成「文件名匹配」（`title_from_file_name`，只改显示，不改评分与结果）。
+- **未对比的显示**：C# 没扫描过时所有行显示「需下载」，统计也算需下载；这里显示「—」并提示「尚未对比本地曲库」，因为没扫描不等于本地没有。
+- **按钮名**：任务书用「对比本地」「重新扫描」（C# 是「重新对比」「扫描曲库」）。「对比本地」= 没有扫描结果就先扫描，再对比；「重新扫描」= 强制重扫，再对比。C# 没有按状态筛选，这里也没有加。
+- **评分剪枝**：先算便宜的歌手 / 时长分，就算标题满分也过不了阈值的候选直接跳过标题比较（标题相似度不超过 1，浮点乘加按同一顺序求值是单调的，不改变任何结果；与 C# 的交叉验证分数逐位一致，见下）。
+
+### Tauri 外壳与前端
+
+- 命令：`scan_library()`（扫描设置里的 `libraryDirectory`，发 **`library:progress`** `{ scanned, total, fileName }`，返回 `{ directory, totalFiles, ncmFiles, skippedDirectories }`）、`match_playlist({ playlistId, scan: "never" | "ifNeeded" })`（返回与歌单歌曲一一对应的 `matches`、`stats`、`scanned` 等）、`library_cancel()`。`get_playlist_tracks` 加载完成后把曲目交给 `LibraryManager` 记住（所以 `match_playlist` 只传歌单 ID，不必把整份歌单再传一遍）。`get_app_state` 的设置摘要新增 `autoMatchLocal`。
+- 前端：`state/useLocalMatch.ts`（歌曲加载完成后自动对比——开了 `autoMatchLocal` 就先扫描，没开则只在已经扫描过时对比，与 C# 一致；扫描期间保留上一次的结果，不闪回「未对比」；取消后回到取消前的状态并提示；换歌单或重新加载只采纳最后一次请求）、`components/LocalToolbar.tsx`（歌单头部下方：「本地已存在 x / NCM 待解密 y / 需下载 z」三枚徽章 + 曲库文件数、「对比本地」「重新扫描」按钮、扫描时的进度条 / 当前文件 / 「取消」、目录不存在等错误提示）、歌曲表格「本地状态」列（徽标：本地已存在 / NCM 待解密 / 需下载，颜色用主题变量 `--success` / `--warning` / `--danger` 的淡化底色，深浅色都检查过；悬停提示本地文件名、匹配方式与分数、完整路径）。所有可交互控件有中文 `aria-label`（「对比本地曲库」「重新扫描本地曲库」「取消扫描本地曲库」，徽标 `本地状态：…`）。本地状态列加宽到 100px。
+- 开发假后端：默认自动扫描约 3 秒（带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；`?mock=libmanual` 关闭自动对比，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件。
+
+### 新增依赖
+
+| 依赖 | 版本 | 用途 |
+|---|---|---|
+| `icu_normalizer` | 2.4，`default-features = false` + `compiled_data`（Cargo.lock 里已有，现为 lp-core 的直接依赖） | NFKC 归一化（对应 .NET 的 `string.Normalize(FormKC)`） |
+| `icu_properties` | 2.4（同上） | Unicode 通用类别（对应 `char.IsPunctuation` / `IsSymbol` / `IsControl` / `IsWhiteSpace`） |
+
+前端没有新增依赖。
+
+### 验证
+
+- 单测：`lp-core` lib 608 个（模块 8 新增 62：`library::tests` 51——C# `LocalLibraryServiceTests` 8 个与 `SongMatcherTests` 12 个全部移植，另加 ID 精确优先于完美模糊分且空出的文件归另一首、被 ID 占用的文件不再复用、本地 ID 重复、ID 为 0、冲突按分数裁决且落选者退到次优、同分按下标、文件名猜测与 NCM 头元数据参与匹配、中性分（歌手 / 时长未知）、1000 首对 3000 个文件、重复歌曲共享第一次的匹配、视图 camelCase、扫描顺序稳定（并行读取）、无权限目录跳过并计数（用 `icacls` 真的拒绝读取，环境改不了 ACL 时跳过）、取消（开始前与中途）、符号链接不跟随、编排器的缓存 / 目录变化作废 / 目录不存在 / 歌单未加载 / 取消保留旧结果 / 并发请求只扫一次 / 进度节流；`library::text` 11），外壳 15 个（新增 2：请求反序列化、曲库目录取自设置且空闲时取消为空操作），集成测试 `csharp_library` 10 个；workspace 合计 650 个。`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm build`、`.\build.ps1 -Tauri` 通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **与 C# 的交叉验证**（临时 C# 探针直接引用 `LunaticPrincess.Core`，已删除、不入库；样本与期望值在 `tests/fixtures/library/`，说明见该目录的 README，约 510 KB，音频是静音帧 / 伪随机字节）：
+  - **匹配器**：五组随机歌单 + 曲库共 385 首歌（同名系列、重复歌曲、错误 / 不存在的 ID、NCM、缺歌手 / 时长、各种标题与歌手变体、同一首歌的多个版本、噪声文件），Rust 与 C# 对**每一首**的匹配文件、方式、状态**完全一致**，分数最大差值 1.1e-16（要求 1e-9）。
+  - **文本函数**：归一化 354 个字符串（含随机拼出的 NFKC、括号、标点、符号、控制字符、补充平面字符）、相似度 700 组、歌手拆分、时长分、文件名推断 46 个，全部一致。
+  - **字符类别**：对全部 65536 个 BMP 码元比对 `IsWhiteSpace / IsControl / IsPunctuation / IsSymbol` 与 `ToLowerInvariant`：只有 **.NET 8（Unicode 15.0）里还未分配而 ICU4X（更新的 Unicode）已归类的字符**不同（类别 47 个：Balinese、货币符号 U+20C1–20C4、控制图片 U+2427–2429、阿拉伯符号等；小写 8 个：Unicode 16 新增的拉丁大小写对）。测试里固化了这份白名单，出现白名单之外的差异就失败。
+  - **扫描**：C# 用真实的 `LocalLibraryService`（TagLib + 真实 `NcmDecoder`）扫描 79 个文件的合成曲库（见 README），Rust 用真实的 lofty + `FileNcmDecoder` 扫描同一目录：77 个文件的集合与顺序一致，标题 / 歌手 / 专辑 / 格式 / 是否 NCM / 网易云 ID / 是否有封面 / NCM 头元数据逐项一致，时长差不超过 30 毫秒（两个库按帧头估算），普通音频码率允许 20% 偏差（静音 FLAC / Opus 在 TagLib 里读不出码率）。
+  - **一份 74 首的假歌单对这个曲库**：用 C# 的扫描结果喂 Rust 匹配器，每首的文件 / 方式 / 状态 / 分数（1e-9）与 C# 一致（68 首有本地文件，其中 3 个 NCM）；用 Rust 自己的扫描结果，决定全部一致，分数差在 1e-3 内（时长估算的差）。
+- 浏览器假后端（`pnpm dev`）：自动扫描进度、徽标三态、统计徽章、重新扫描时保留旧结果、取消、目录不存在提示、`libmanual` 手动对比、浅色主题。
+- 实机（exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，`settings.json` 里 `libraryDirectory` 预先指向 `D:\claude` 下的合成曲库，**没有触碰真实登录态与用户目录**）：测试数据目录没有登录态，所以没法加载真实歌单，**真实歌单上的状态列 / 统计 / 按钮没能在实机验证，需要用户在真机上确认一次**。用 WebView2 的远程调试端口（只开在本次测试进程上）对真实 exe 调用后端命令：`get_app_state` 带出 `autoMatchLocal`；`scan_library` 扫描合成曲库得到 77 个文件 / 6 个 NCM（与 C# 一致），`library:progress` 事件单调递增、首尾正确，运行日志出现「本地曲库扫描完成：77 个文件（其中 NCM 6 个）」；`match_playlist` 对没有加载过的歌单返回 `playlistNotLoaded`；空闲时 `library_cancel` 返回 false；另用 1 万个小 MP3 复制品扫描约 1.1 秒，扫描中途 `library_cancel` 返回 `cancelled`。测完已清理 `D:\claude`。
+
+### 已知限制
+
+- 扫描结果只缓存在内存里（与 C# 一致）：曲库目录里的文件在两次扫描之间变化不会被感知，点「重新扫描」才会更新；设置窗口（模块 11）改了曲库目录后缓存会因目录文本不同而自动作废。
+- 模块 9 的下载 / 同步完成后需要调用 `scan_library` 刷新本地状态（C# 在同步结束后会重新扫描并对比）。
+- 标签库对损坏文件的行为（读不出标签就回退文件名）与 C# 一致，但 lofty 与 TagLib 对个别畸形文件可能一个读得出一个读不出，这类文件的标题 / 歌手可能不同。
+- 与 .NET 的 Unicode 版本差异见上（只涉及 .NET 8 之后才分配的字符）。
 
 ## 模块 7（NCM 解密与导入）实现记录
 

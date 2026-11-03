@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 import { imageSrc } from '../lib/format'
+import type { useLocalMatch } from '../state/useLocalMatch'
 import type { DetailState, ListState } from '../state/usePlaylists'
+import LocalToolbar from './LocalToolbar'
 import SongTable from './SongTable'
 
 interface PlaylistViewProps {
@@ -13,6 +15,8 @@ interface PlaylistViewProps {
   onRetryList: () => void
   onRetryDetail: () => void
   onShowLyrics: (song: Song) => void
+  /** 当前歌单与本地曲库的对比状态与操作。 */
+  local: ReturnType<typeof useLocalMatch>
 }
 
 function BigCover({ url, alt }: { url: string | null; alt: string }) {
@@ -101,6 +105,7 @@ export default function PlaylistView({
   onRetryList,
   onRetryDetail,
   onShowLyrics,
+  local,
 }: PlaylistViewProps) {
   if (!loggedIn) {
     return (
@@ -217,7 +222,19 @@ export default function PlaylistView({
           </button>
         </Message>
       ) : (
-        <SongTable songs={loaded.songs} onShowLyrics={onShowLyrics} />
+        <>
+          <LocalToolbar
+            songCount={loaded.songs.length}
+            outcome={local.outcome}
+            busy={local.busy}
+            error={local.error}
+            notice={local.notice}
+            onCompare={local.compare}
+            onRescan={local.rescan}
+            onCancel={local.cancel}
+          />
+          <SongTable songs={loaded.songs} matches={local.matches} onShowLyrics={onShowLyrics} />
+        </>
       )}
     </>
   )

@@ -7,10 +7,13 @@
  * `listerror` 歌单列表加载失败；`slow` 歌单列表很慢。
  * 歌单 1 有 3000 首（带加载进度），歌单 2 为空，歌单 3 曲目加载失败，歌单 4 有 3 首缺失。
  * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
+ * 本地曲库对比：默认自动扫描（约 3 秒，带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；
+ * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
  */
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import type { AccountSummary } from '../api/auth'
+import type { LibrarySummary, LocalMatch, MatchOutcome } from '../api/library'
 import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 
@@ -208,6 +211,43 @@ function mockNcmResult(file: NcmFileEntry, index: number, autoMatch: boolean): N
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+/** 假的本地匹配：按歌曲 ID 决定状态与匹配方式（4/10 需下载，1/10 NCM，其余已存在）。 */
+function mockLocalMatch(song: Song): LocalMatch {
+  const slot = song.id % 10
+  const base = { songId: song.id, localTitle: null, localArtist: null }
+  if (slot < 4) {
+    return { ...base, availability: 'missing', method: 'none', confidence: 0, path: null, fileName: null, format: null }
+  }
+  const ncm = slot === 4
+  const kind = song.id % 3
+  const fileName = `${song.name}.${ncm ? 'ncm' : kind === 0 ? 'flac' : 'mp3'}`
+  return {
+    ...base,
+    availability: ncm ? 'ncm' : 'available',
+    method: kind === 0 ? 'neteaseId' : kind === 1 ? 'metadata' : 'fileName',
+    confidence: kind === 0 ? 1 : 0.74 + (song.id % 25) / 100,
+    path: `D:\\mock\\Music\\专辑 ${song.id % 7}\\${fileName}`,
+    fileName,
+    format: ncm ? 'ncm' : kind === 0 ? 'flac' : 'mp3',
+    localTitle: song.name,
+    localArtist: song.artists.map((artist) => artist.name).join('/') || null,
+  }
+}
+
+function mockOutcome(playlistId: number, songs: Song[], scanned: boolean, totalFiles: number): MatchOutcome {
+  const matches = scanned ? songs.map(mockLocalMatch) : []
+  const count = (availability: string) => matches.filter((match) => match.availability === availability).length
+  return {
+    playlistId,
+    scanned,
+    libraryDirectory: 'D:\\mock\\Music',
+    totalFiles: scanned ? totalFiles : 0,
+    ncmFiles: scanned ? 36 : 0,
+    matches,
+    stats: { total: songs.length, available: count('available'), ncm: count('ncm'), missing: count('missing') },
+  }
+}
+
 function detailFor(id: number, list: PlaylistSummary[]): PlaylistDetail {
   const summary = list.find((item) => item.id === id)
   const songs = id === 1 ? makeSongs(3000, 1) : id === 2 ? [] : makeSongs(summary?.trackCount ?? 10, id)
@@ -237,6 +277,32 @@ export function installMockBackend(scenario: string | null): void {
   let ncmCancelled = false
   let ncmRunning = false
   const ncmPerFolder = scenario === 'ncmbig' ? 400 : 12
+  let libraryScanned = false
+  let libraryRunning = false
+  let libraryCancelled = false
+  const libraryFiles = scenario === 'libbig' ? 20000 : 1800
+
+  /** 假扫描：约 3 秒，逐步发 `library:progress`；可被 `library_cancel` 取消。 */
+  async function mockScan(): Promise<LibrarySummary> {
+    if (scenario === 'libmissing') {
+      throw { kind: 'directoryMissing', message: '曲库目录不存在：D:\\mock\\Music。请打开「设置」选择曲库目录。' }
+    }
+    libraryRunning = true
+    libraryCancelled = false
+    try {
+      const steps = 30
+      for (let step = 0; step <= steps; step += 1) {
+        if (libraryCancelled) throw { kind: 'cancelled', message: '扫描本地曲库已取消' }
+        const scanned = Math.round((libraryFiles * step) / steps)
+        await emit('library:progress', { scanned, total: libraryFiles, fileName: `歌手 ${step} - 一首歌曲 ${scanned}.mp3` })
+        await sleep(scenario === 'libbig' ? 200 : 100)
+      }
+    } finally {
+      libraryRunning = false
+    }
+    libraryScanned = true
+    return { directory: 'D:\\mock\\Music', totalFiles: libraryFiles, ncmFiles: 36, skippedDirectories: 0 }
+  }
   mockIPC(
     async (command, payload) => {
       const args = (payload ?? {}) as Record<string, unknown>
@@ -255,6 +321,7 @@ export function installMockBackend(scenario: string | null): void {
               theme: 'Dark',
               maxConcurrency: 3,
               matchThreshold: 0.6,
+              autoMatchLocal: scenario !== 'libmanual',
             },
             settingsWarning: null,
             session: { loggedIn: account.loggedIn, nickname: account.nickname, loadError: null, account },
@@ -290,6 +357,21 @@ export function installMockBackend(scenario: string | null): void {
           }
           return detailFor(id, list)
         }
+        case 'scan_library':
+          return mockScan()
+        case 'match_playlist': {
+          const request = args.request as { playlistId: number; scan: 'never' | 'ifNeeded' }
+          const songs = detailFor(request.playlistId, list).songs
+          if (!libraryScanned) {
+            if (request.scan === 'never') return mockOutcome(request.playlistId, songs, false, 0)
+            await mockScan()
+          }
+          await sleep(150)
+          return mockOutcome(request.playlistId, songs, true, libraryFiles)
+        }
+        case 'library_cancel':
+          libraryCancelled = libraryRunning
+          return libraryRunning
         case 'plugin:dialog|open': {
           const options = (args.options ?? {}) as { directory?: boolean; multiple?: boolean }
           if (options.directory) {

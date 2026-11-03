@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { availabilityLabel, methodLabel, type LocalMatch } from '../api/library'
 import type { Song } from '../api/playlists'
 import { artistText, formatDuration } from '../lib/format'
 import { useVirtualRows } from '../lib/virtual'
@@ -6,13 +7,30 @@ import { useVirtualRows } from '../lib/virtual'
 /** 固定行高（px）：虚拟滚动依赖它，样式里的 `--song-row-height` 必须与此一致。 */
 export const SONG_ROW_HEIGHT = 48
 
+/** 本地状态悬停提示：匹配到的文件、匹配方式与分数、完整路径。 */
+function localTooltip(match: LocalMatch | null): string {
+  if (match === null) return '尚未对比本地曲库，可点击上方的「对比本地」'
+  if (match.availability === 'missing' || match.path === null) return '未在本地曲库中找到匹配文件'
+  const score = match.method === 'neteaseId' ? '' : ` · ${Math.round(match.confidence * 100)}%`
+  const lines = [
+    `本地文件：${match.fileName ?? match.path}`,
+    `匹配方式：${methodLabel(match.method)}${score}`,
+    `路径：${match.path}`,
+  ]
+  if (match.availability === 'ncm') lines.push('这是未解密的 NCM 文件，需要先解密才能播放')
+  return lines.join('\n')
+}
+
 const SongRow = memo(function SongRow({
   song,
   index,
+  match,
   onShowLyrics,
 }: {
   song: Song
   index: number
+  /** 本地匹配结果；`null` 表示还没有对比。 */
+  match: LocalMatch | null
   onShowLyrics: (song: Song) => void
 }) {
   const name = song.name.trim() === '' ? '未知歌曲' : song.name
@@ -42,9 +60,13 @@ const SongRow = memo(function SongRow({
       <span className="song-cell song-duration" role="cell">
         {formatDuration(song.durationMs)}
       </span>
-      {/* 本地状态：模块 8（本地曲库与对比）接入后在这里显示「本地已存在 / 需下载 / NCM 待解密」。 */}
-      <span className="song-cell song-local" role="cell" aria-label="本地状态：尚未对比">
-        —
+      <span
+        className="song-cell song-local"
+        role="cell"
+        aria-label={`本地状态：${match ? availabilityLabel(match.availability) : '尚未对比'}`}
+        title={localTooltip(match)}
+      >
+        {match ? <span className={`local-badge local-${match.availability}`}>{availabilityLabel(match.availability)}</span> : '—'}
       </span>
       <span className="song-cell song-action" role="cell">
         <button
@@ -64,9 +86,12 @@ const SongRow = memo(function SongRow({
 /** 歌曲表格：序号、标题、歌手、专辑、时长、本地状态；固定行高 + 虚拟滚动，几千首也不卡。 */
 export default function SongTable({
   songs,
+  matches,
   onShowLyrics,
 }: {
   songs: Song[]
+  /** 与 `songs` 一一对应的本地匹配结果；`null` 表示还没有对比。 */
+  matches: LocalMatch[] | null
   /** 双击一行或点行尾的「词」按钮时打开歌词预览。 */
   onShowLyrics: (song: Song) => void
 }) {
@@ -110,6 +135,7 @@ export default function SongTable({
               key={`${song.id}-${range.start + offset}`}
               song={song}
               index={range.start + offset}
+              match={matches?.[range.start + offset] ?? null}
               onShowLyrics={onShowLyrics}
             />
           ))}

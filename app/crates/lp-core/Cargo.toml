@@ -27,6 +27,9 @@ flate2 = "1.1.10"
 regex = "1.13.1"
 # 音频标签读写：MP3 / FLAC / M4A / OGG / OPUS / WAV 等容器（对应 C# 的 TagLibSharp）。
 lofty = "0.25.5"
+# 曲库匹配：.NET 的 NFKC 归一化与 Unicode 通用类别（标点 / 符号 / 控制），用 ICU4X 的内置数据复现（Tauri 的 url 依赖本来就引入了这两个 crate）。
+icu_normalizer = { version = "2.4", default-features = false, features = ["compiled_data"] }
+icu_properties = "2.4"
 
 # Windows 专属：DPAPI（登录态加密）与已知文件夹查询。windows-sys 是纯 FFI 声明，Tauri 已依赖同一版本。
 [target.'cfg(windows)'.dependencies]

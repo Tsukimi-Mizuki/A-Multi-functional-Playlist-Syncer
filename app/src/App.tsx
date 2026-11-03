@@ -15,6 +15,7 @@ import QrLoginDialog from './components/QrLoginDialog'
 import TitleBar from './components/TitleBar'
 import { useAuth } from './state/useAuth'
 import { useLogs } from './state/useLogs'
+import { useLocalMatch } from './state/useLocalMatch'
 import { usePlaylists } from './state/usePlaylists'
 
 type DialogState = 'none' | 'login' | 'logout' | 'ncm'
@@ -49,6 +50,11 @@ export default function App() {
   const { account, validated } = useAuth()
   const logs = useLogs()
   const playlists = usePlaylists(account, validated)
+  // 歌曲加载完成后与本地曲库对比；设置还没读到（null）时先不动。
+  const local = useLocalMatch(
+    playlists.detail.status === 'ready' ? playlists.detail.detail : null,
+    appState ? appState.settings.autoMatchLocal : null,
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -151,6 +157,7 @@ export default function App() {
             onRetryList={playlists.reloadList}
             onRetryDetail={playlists.reloadDetail}
             onShowLyrics={setLyricsSong}
+            local={local}
           />
         </section>
       </main>

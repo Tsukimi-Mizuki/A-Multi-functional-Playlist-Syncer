@@ -1988,6 +1988,8 @@ dependencies = [
  "base64 0.23.1",
  "cbc",
  "flate2",
+ "icu_normalizer",
+ "icu_properties",
  "lofty",
  "num-bigint",
  "qrcode",

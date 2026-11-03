@@ -12,6 +12,10 @@ use lp_core::download::ncm_import::{
     NcmProgressView, NcmScanResult, NcmSummaryView, prepare_output_directory, remember_state,
     scan_ncm_files,
 };
+use lp_core::library::{
+    LibraryCommandError, LibraryManager, LibrarySummaryView, LocalLibraryService, MatchOutcomeView,
+    ScanMode, ScanProgressSink, ScanProgressView,
+};
 use lp_core::logs::{LogEntry, LogHub};
 use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
 use lp_core::models::{AudioQuality, ThemeMode};
@@ -35,6 +39,8 @@ const EVENT_ACCOUNT: &str = "auth:state";
 const EVENT_PLAYLIST_PROGRESS: &str = "playlist:progress";
 /// 前端订阅的事件名：NCM 导入的逐文件进度。
 const EVENT_NCM_PROGRESS: &str = "ncm:progress";
+/// 前端订阅的事件名：本地曲库扫描进度（已处理 / 总数 / 当前文件名）。
+const EVENT_LIBRARY_PROGRESS: &str = "library:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -75,6 +81,8 @@ struct AppState {
     ncm: Arc<NcmImportService>,
     /// 当前正在运行的 NCM 导入任务（至多一个），`ncm_cancel` 通过它取消。
     ncm_job: NcmJobSlot,
+    /// 本地曲库扫描结果缓存与歌单对比（扫描一次只跑一个，可取消）。
+    library: Arc<LibraryManager>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -132,6 +140,14 @@ impl AppState {
             None,
         ));
 
+        let library = LibraryManager::new(
+            Arc::new(LocalLibraryService::new(
+                Arc::new(FileNcmDecoder),
+                Arc::clone(&tags),
+            )),
+            Arc::clone(&logs),
+        );
+
         Self {
             paths,
             settings: RwLock::new(settings),
@@ -144,6 +160,7 @@ impl AppState {
             tags,
             ncm,
             ncm_job: NcmJobSlot::default(),
+            library,
             session_error: restored.load_failure,
         }
     }
@@ -179,6 +196,8 @@ struct SettingsSummaryDto {
     theme: ThemeMode,
     max_concurrency: i64,
     match_threshold: f64,
+    /// 加载歌单后是否自动对比本地曲库。
+    auto_match_local: bool,
 }
 
 /// 登录态摘要：账号信息 + 读取失败原因，**不含 Cookie**。
@@ -222,6 +241,7 @@ fn build_app_state_dto(
             theme: settings.theme,
             max_concurrency: settings.max_concurrency,
             match_threshold: settings.match_threshold,
+            auto_match_local: settings.auto_match_local,
         },
         settings_warning: settings_warning.map(str::to_owned),
         session: SessionSummaryDto {
@@ -416,6 +436,7 @@ async fn get_playlist_tracks(
     id: i64,
 ) -> Result<PlaylistDetail, PlaylistError> {
     let playlists = Arc::clone(&state.playlists);
+    let library = Arc::clone(&state.library);
     let report = move |loaded: usize, total: usize| {
         let _ = app.emit(
             EVENT_PLAYLIST_PROGRESS,
@@ -426,7 +447,10 @@ async fn get_playlist_tracks(
             },
         );
     };
-    playlists.tracks(id, &report).await
+    let detail = playlists.tracks(id, &report).await?;
+    // 记住曲目，之后 `match_playlist` 按歌单 ID 对比，不必把整份歌单再传一遍。
+    library.remember_playlist(detail.id, &detail.songs);
+    Ok(detail)
 }
 
 /// 一首歌的歌词预览：`mode` 为 `line`（逐行）或 `word`（逐字优先，没有逐字数据时回退逐行），默认带翻译。
@@ -605,6 +629,70 @@ fn ncm_cancel(state: State<'_, AppState>) -> bool {
     state.ncm_job.cancel()
 }
 
+/// `match_playlist` 的参数（camelCase）。
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchPlaylistRequest {
+    /// 要对比的歌单（必须已经通过 `get_playlist_tracks` 加载过）。
+    playlist_id: i64,
+    /// 还没有扫描结果时：`never`（不对比）/ `ifNeeded`（先扫描）。
+    scan: ScanMode,
+}
+
+impl AppState {
+    /// 扫描进度推给前端的接收端。
+    fn library_progress_sink(app: AppHandle) -> ScanProgressSink {
+        Arc::new(move |progress: ScanProgressView| {
+            let _ = app.emit(EVENT_LIBRARY_PROGRESS, progress);
+        })
+    }
+
+    /// 设置里的曲库目录。
+    fn library_directory(&self) -> String {
+        self.settings().library_directory.clone()
+    }
+}
+
+/// 扫描设置里的曲库目录并缓存结果（「重新扫描」）。逐批发 `library:progress` 事件；可用 `library_cancel` 取消。
+/// 失败时 `Err` 是 `{ kind, message }`：`directoryMissing` / `cancelled` / `failed`。
+#[tauri::command]
+async fn scan_library(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<LibrarySummaryView, LibraryCommandError> {
+    let library = Arc::clone(&state.library);
+    let directory = state.library_directory();
+    library
+        .scan(&directory, AppState::library_progress_sink(app))
+        .await
+}
+
+/// 把已加载的歌单与本地曲库一对一对比；还没有扫描结果时按 `scan` 决定先扫描还是返回「尚未对比」。
+/// 返回的 `matches` 与歌单歌曲一一对应（按歌单顺序）。
+#[tauri::command]
+async fn match_playlist(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: MatchPlaylistRequest,
+) -> Result<MatchOutcomeView, LibraryCommandError> {
+    let library = Arc::clone(&state.library);
+    let directory = state.library_directory();
+    library
+        .match_playlist(
+            request.playlist_id,
+            request.scan,
+            &directory,
+            AppState::library_progress_sink(app),
+        )
+        .await
+}
+
+/// 取消正在进行的曲库扫描；没有扫描在运行时返回 `false`。
+#[tauri::command]
+fn library_cancel(state: State<'_, AppState>) -> bool {
+    state.library.cancel()
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -674,7 +762,10 @@ pub fn run() {
             ncm_scan,
             ncm_save_state,
             ncm_import,
-            ncm_cancel
+            ncm_cancel,
+            scan_library,
+            match_playlist,
+            library_cancel
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -724,6 +815,7 @@ mod tests {
         assert_eq!(json["settings"]["theme"], "Light");
         assert_eq!(json["settings"]["quality"], "ExHigh");
         assert_eq!(json["settings"]["maxConcurrency"], 3);
+        assert_eq!(json["settings"]["autoMatchLocal"], true);
         assert_eq!(json["session"]["loggedIn"], false);
         assert!(json["session"]["nickname"].is_null());
     }
@@ -967,5 +1059,44 @@ mod tests {
         assert!(job.cancel.is_cancelled());
         drop(job);
         assert!(!state.ncm_job.cancel());
+    }
+
+    #[test]
+    fn match_playlist_request_is_read_from_camel_case_json() {
+        let request: MatchPlaylistRequest = serde_json::from_value(serde_json::json!({
+            "playlistId": 123456789012_i64,
+            "scan": "ifNeeded",
+        }))
+        .unwrap();
+        assert_eq!(request.playlist_id, 123_456_789_012);
+        assert_eq!(request.scan, ScanMode::IfNeeded);
+
+        let never: MatchPlaylistRequest = serde_json::from_value(serde_json::json!({
+            "playlistId": 1,
+            "scan": "never",
+        }))
+        .unwrap();
+        assert_eq!(never.scan, ScanMode::Never);
+        assert!(
+            serde_json::from_value::<MatchPlaylistRequest>(serde_json::json!({
+                "playlistId": 1,
+                "scan": "always",
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn the_library_directory_comes_from_the_settings_and_cancel_is_a_noop_when_idle() {
+        let dir = ScratchDir::new("library");
+        let state = AppState::load(dir.paths());
+        {
+            let mut settings = state.settings.write().unwrap();
+            settings.library_directory = r"D:\Music\Lib".to_owned();
+        }
+
+        assert_eq!(state.library_directory(), r"D:\Music\Lib");
+        assert!(!state.library.cancel());
+        assert!(!state.library.is_scanning());
     }
 }

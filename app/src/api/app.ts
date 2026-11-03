@@ -15,6 +15,8 @@ export interface SettingsSummary {
   theme: string
   maxConcurrency: number
   matchThreshold: number
+  /** 加载歌单后是否自动对比本地曲库。 */
+  autoMatchLocal: boolean
 }
 
 /** 登录态摘要：账号信息与读取失败原因，后端不会把 Cookie 交给前端。 */
