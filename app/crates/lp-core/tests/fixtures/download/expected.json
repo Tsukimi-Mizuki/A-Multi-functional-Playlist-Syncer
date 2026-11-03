@@ -1,0 +1,654 @@
+[
+  {
+    "name": "download-basic-line-lyrics",
+    "results": [
+      {
+        "songId": 101,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "周杰伦 - 晴天.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "周杰伦 - 晴天.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "晴天",
+          "artist": "周杰伦",
+          "album": "叶惠美",
+          "albumArtist": "周杰伦",
+          "year": 2003,
+          "trackNumber": 3,
+          "discNumber": 1,
+          "lyrics": "[00:01.000]故事的小黄花\n[00:05.500]从出生那年就飘着",
+          "neteaseId": 101,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "获取封面",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-word-lyrics-with-translation",
+    "results": [
+      {
+        "songId": 102,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "米津玄師 - Lemon.flac",
+        "message": null
+      }
+    ],
+    "files": {
+      "米津玄師 - Lemon.flac": {
+        "isDirectory": false,
+        "tags": {
+          "title": "Lemon",
+          "artist": "米津玄師",
+          "album": "Lemon",
+          "albumArtist": "米津玄師",
+          "year": 2018,
+          "trackNumber": 1,
+          "discNumber": 2,
+          "lyrics": "[00:12.580]<00:12.580>夢<00:13.080>なら<00:13.680>ば<00:14.380>\n[00:12.580]要是梦的话该有多好\n[00:16.960]<00:16.960>未<00:17.760>だ<00:18.360>に<00:18.960>\n[00:16.960]至今仍会梦见你",
+          "neteaseId": 102,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "b241046a022f4f4b585e1aa93c35245c7267619bdd48cb14cece6ab4429dc003",
+          "fileFormat": "FLAC"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "获取封面",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-quality-downgrade-notice",
+    "results": [
+      {
+        "songId": 103,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "歌手甲_歌手乙 - 降档之歌.flac",
+        "message": null
+      }
+    ],
+    "files": {
+      "歌手甲_歌手乙 - 降档之歌.flac": {
+        "isDirectory": false,
+        "tags": {
+          "title": "降档之歌",
+          "artist": "歌手甲/歌手乙",
+          "album": "专辑",
+          "albumArtist": "歌手甲",
+          "year": 2010,
+          "trackNumber": null,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 103,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "FLAC"
+        }
+      }
+    },
+    "notes": [
+      "实际音质：无损 (SQ)（杜比全景声 (Dolby Atmos) 不可用，已自动降级）"
+    ],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-ncm-payload",
+    "results": [
+      {
+        "songId": 104,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "某歌手 - 加密载荷.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "某歌手 - 加密载荷.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "加密载荷",
+          "artist": "某歌手",
+          "album": "某专辑",
+          "albumArtist": "某歌手",
+          "year": 2020,
+          "trackNumber": 7,
+          "discNumber": 1,
+          "lyrics": "[00:00.500]第一句",
+          "neteaseId": 104,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "解密 NCM",
+      "获取封面",
+      "写入标签",
+      "完成",
+      "NCM 解密完成"
+    ]
+  },
+  {
+    "name": "download-templates-and-collisions",
+    "results": [
+      {
+        "songId": 105,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "02 A_B_C__ - 歌手_合作 (1999) [105].mp3",
+        "message": null
+      },
+      {
+        "songId": 106,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "02 A_B_C__ - 歌手_合作 (1999) [106].mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "02 A_B_C__ - 歌手_合作 (1999) [105].mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "A/B:C?*",
+          "artist": "歌手/合作",
+          "album": "专辑",
+          "albumArtist": "歌手/合作",
+          "year": 1999,
+          "trackNumber": 2,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 105,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      },
+      "02 A_B_C__ - 歌手_合作 (1999) [106].mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "A/B:C?*",
+          "artist": "歌手/合作",
+          "album": "专辑",
+          "albumArtist": "歌手/合作",
+          "year": 1999,
+          "trackNumber": 2,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 106,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-same-name-gets-id-suffix",
+    "results": [
+      {
+        "songId": 107,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "同一歌手 - 同名.mp3",
+        "message": null
+      },
+      {
+        "songId": 108,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "同一歌手 - 同名 (108).mp3",
+        "message": null
+      },
+      {
+        "songId": 109,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "同一歌手 - 同名 (109).mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "同一歌手 - 同名 (108).mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "同名",
+          "artist": "同一歌手",
+          "album": "乙",
+          "albumArtist": "同一歌手",
+          "year": 2002,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 108,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      },
+      "同一歌手 - 同名 (109).mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "同名",
+          "artist": "同一歌手",
+          "album": "丙",
+          "albumArtist": "同一歌手",
+          "year": 2003,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 109,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      },
+      "同一歌手 - 同名.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "同名",
+          "artist": "同一歌手",
+          "album": "甲",
+          "albumArtist": "同一歌手",
+          "year": 2001,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 107,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-skip-existing",
+    "results": [
+      {
+        "songId": 110,
+        "success": true,
+        "skipped": true,
+        "source": "skipped",
+        "output": "歌手 - 已有的歌.FLAC",
+        "message": null
+      }
+    ],
+    "files": {
+      "歌手 - 已有的歌.FLAC": {
+        "isDirectory": false,
+        "tags": {
+          "title": null,
+          "artist": null,
+          "album": null,
+          "albumArtist": null,
+          "year": null,
+          "trackNumber": null,
+          "discNumber": null,
+          "lyrics": null,
+          "neteaseId": null,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "FLAC"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "已存在，跳过"
+    ]
+  },
+  {
+    "name": "download-overwrite-existing",
+    "results": [
+      {
+        "songId": 111,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "歌手 - 覆盖我.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "歌手 - 覆盖我.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "覆盖我",
+          "artist": "歌手",
+          "album": "新专辑",
+          "albumArtist": "歌手",
+          "year": 2006,
+          "trackNumber": 4,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 111,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-failures",
+    "results": [
+      {
+        "songId": 112,
+        "success": false,
+        "skipped": false,
+        "source": "failed",
+        "output": null,
+        "message": "版权受限"
+      },
+      {
+        "songId": 113,
+        "success": false,
+        "skipped": false,
+        "source": "failed",
+        "output": null,
+        "message": "该歌曲仅返回试听片段（需要 VIP 会员），已跳过下载。"
+      },
+      {
+        "songId": 114,
+        "success": false,
+        "skipped": false,
+        "source": "failed",
+        "output": null,
+        "message": "媒体下载失败：HTTP 404"
+      },
+      {
+        "songId": 115,
+        "success": false,
+        "skipped": false,
+        "source": "failed",
+        "output": null,
+        "message": "下载内容为空，已放弃该歌曲。"
+      },
+      {
+        "songId": 116,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "歌手 - 能下载.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "歌手 - 能下载.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "能下载",
+          "artist": "歌手",
+          "album": "专辑",
+          "albumArtist": "歌手",
+          "year": 2007,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 116,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "获取播放地址失败",
+      "失败",
+      "需要会员",
+      "下载中",
+      "下载失败",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "download-extension-from-url-no-cover",
+    "results": [
+      {
+        "songId": 117,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "歌手 - 按地址判断格式.flac",
+        "message": null
+      }
+    ],
+    "files": {
+      "歌手 - 按地址判断格式.flac": {
+        "isDirectory": false,
+        "tags": {
+          "title": "按地址判断格式",
+          "artist": "歌手",
+          "album": null,
+          "albumArtist": "歌手",
+          "year": null,
+          "trackNumber": null,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 117,
+          "comment": null,
+          "hasCover": false,
+          "coverSha256": null,
+          "fileFormat": "FLAC"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "写入标签",
+      "完成"
+    ]
+  },
+  {
+    "name": "sync-three-branches",
+    "results": [
+      {
+        "songId": 201,
+        "success": true,
+        "skipped": true,
+        "source": "skipped",
+        "output": "existing.mp3",
+        "message": "本地已存在，跳过。"
+      },
+      {
+        "songId": 202,
+        "success": true,
+        "skipped": false,
+        "source": "decryptedNcm",
+        "output": "在线歌手 - 待解密（在线）.mp3",
+        "message": null
+      },
+      {
+        "songId": 203,
+        "success": true,
+        "skipped": false,
+        "source": "downloaded",
+        "output": "歌手 - 需下载.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "在线歌手 - 待解密（在线）.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "待解密（在线）",
+          "artist": "在线歌手",
+          "album": "在线专辑",
+          "albumArtist": "在线歌手",
+          "year": 2012,
+          "trackNumber": 6,
+          "discNumber": 1,
+          "lyrics": "[00:01.000]解密后的歌词",
+          "neteaseId": 202,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileFormat": "MP3"
+        }
+      },
+      "歌手 - 需下载.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "需下载",
+          "artist": "歌手",
+          "album": "专辑",
+          "albumArtist": "歌手",
+          "year": 2013,
+          "trackNumber": 2,
+          "discNumber": 1,
+          "lyrics": "[00:01.000]下载的歌词",
+          "neteaseId": 203,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "处理中",
+      "已跳过",
+      "解密 NCM",
+      "正在解密 NCM…",
+      "完成",
+      "获取歌曲信息",
+      "写入标签",
+      "NCM 解密完成",
+      "获取播放地址",
+      "下载中",
+      "下载完成",
+      "获取封面"
+    ]
+  },
+  {
+    "name": "sync-ncm-falls-back-to-header-names",
+    "results": [
+      {
+        "songId": 204,
+        "success": true,
+        "skipped": false,
+        "source": "decryptedNcm",
+        "output": "测试歌手_第二歌手 - 测试歌曲.mp3",
+        "message": null
+      }
+    ],
+    "files": {
+      "测试歌手_第二歌手 - 测试歌曲.mp3": {
+        "isDirectory": false,
+        "tags": {
+          "title": "测试歌曲",
+          "artist": "测试歌手/第二歌手",
+          "album": "测试专辑",
+          "albumArtist": "测试歌手",
+          "year": null,
+          "trackNumber": null,
+          "discNumber": 1,
+          "lyrics": null,
+          "neteaseId": 204,
+          "comment": null,
+          "hasCover": true,
+          "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileFormat": "MP3"
+        }
+      }
+    },
+    "notes": [],
+    "stages": [
+      "处理中",
+      "解密 NCM",
+      "正在解密 NCM…",
+      "完成",
+      "获取歌曲信息",
+      "写入标签",
+      "NCM 解密完成"
+    ]
+  }
+]

@@ -7,6 +7,7 @@ import './styles/playlists.css'
 import './styles/lyrics.css'
 import './styles/tags.css'
 import './styles/ncm.css'
+import './styles/transfer.css'
 
 const container = document.getElementById('root')
 if (!container) {

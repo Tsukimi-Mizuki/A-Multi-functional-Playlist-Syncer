@@ -9,6 +9,7 @@
  * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
  * 本地曲库对比：默认自动扫描（约 3 秒，带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；
  * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
+ * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
  */
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
@@ -16,6 +17,7 @@ import type { AccountSummary } from '../api/auth'
 import type { LibrarySummary, LocalMatch, MatchOutcome } from '../api/library'
 import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
+import type { DownloadProgress, TransferItem, TransferKind, TransferSummary } from '../api/transfer'
 
 const ACCOUNT: AccountSummary = {
   loggedIn: true,
@@ -264,6 +266,154 @@ function detailFor(id: number, list: PlaylistSummary[]): PlaylistDetail {
   }
 }
 
+
+/* ---- 下载 / 同步的假实现：`?mock=dlslow` 让每首歌慢一倍，方便截图；`dlnote` 让所有成功的歌都带降档提示。 ---- */
+const QUALITY_OPTIONS = [
+  ['Standard', '标准'],
+  ['ExHigh', '极高 (HQ)'],
+  ['Lossless', '无损 (SQ)'],
+  ['HiRes', '高解析度无损 (Hi-Res)'],
+  ['SpatialAudio', '高清臻音 (SpatialAudio)'],
+  ['SurroundAudio', '沉浸环绕声 (Surround Audio)'],
+  ['Master', '超清母带 (Master)'],
+  ['AudioVivid', '臻音全景声 (Audio Vivid)'],
+  ['DolbyAtmos', '杜比全景声 (Dolby Atmos)'],
+].map(([value, label]) => ({ value, label }))
+
+interface MockTransferOptions {
+  kind: TransferKind
+  songs: Song[]
+  slow: boolean
+  allNotes: boolean
+  quality: string
+  shouldStop: () => boolean
+}
+
+/** 假任务：最多 3 首并行，逐步发 `download:progress`，结果按歌曲 ID 决定（13 的倍数失败，11 的倍数降档）。 */
+async function runMockTransfer(options: MockTransferOptions): Promise<TransferSummary> {
+  const { kind, songs, slow, allNotes, quality, shouldStop } = options
+  const total = songs.length
+  await emit('download:started', { kind, total, songIds: songs.map((song) => song.id) })
+  const results: Array<TransferItem | undefined> = new Array(total).fill(undefined)
+  let completed = 0
+  let next = 0
+  const pause = (ms: number) => sleep(slow ? ms * 2 : ms)
+
+  const progress = (index: number, partial: Partial<DownloadProgress> & Pick<DownloadProgress, 'phase' | 'stage'>) =>
+    emit('download:progress', {
+      completed,
+      total,
+      index,
+      songId: songs[index]?.id ?? 0,
+      songName: songs[index]?.name ?? '',
+      message: null,
+      percent: null,
+      bytesDone: null,
+      bytesTotal: null,
+      finish: null,
+      ...partial,
+    } satisfies DownloadProgress)
+
+  async function process(index: number): Promise<void> {
+    const song = songs[index]
+    if (!song) return
+    const match = mockLocalMatch(song)
+    const finish = async (item: Omit<TransferItem, 'songId' | 'songName'>, stage: string) => {
+      completed += 1
+      results[index] = { songId: song.id, songName: song.name, ...item }
+      await progress(index, { phase: 'tagging', stage, message: item.message, percent: item.success ? 100 : null, finish: item })
+    }
+
+    if (kind === 'sync' && match.availability === 'available') {
+      await pause(80)
+      await finish(
+        { success: true, skipped: true, source: 'skipped', outputPath: match.path, message: '本地已存在，跳过。', qualityNote: null },
+        '已跳过',
+      )
+      return
+    }
+    if (kind === 'sync' && match.availability === 'ncm') {
+      await progress(index, { phase: 'decrypting', stage: '解密 NCM', message: '正在解密本地 NCM…' })
+      await pause(300)
+      if (shouldStop()) return
+      await progress(index, { phase: 'tagging', stage: '写入标签', message: '正在写入元数据/封面/歌词…' })
+      await pause(200)
+      await finish(
+        {
+          success: true,
+          skipped: false,
+          source: 'decryptedNcm',
+          outputPath: `D:\\mock\\Music\\${song.name}.flac`,
+          message: null,
+          qualityNote: null,
+        },
+        'NCM 解密完成',
+      )
+      return
+    }
+
+    await progress(index, { phase: 'resolving', stage: '获取播放地址', message: '正在获取下载地址…', percent: 0 })
+    await pause(200)
+    if (song.id % 13 === 0) {
+      const message = '歌曲版权受限或已下架，没有可用的播放地址（code=404）'
+      await finish({ success: false, skipped: false, source: 'failed', outputPath: null, message, qualityNote: null }, '失败')
+      return
+    }
+    const note =
+      allNotes || song.id % 11 === 0
+        ? `实际音质：极高 (HQ)（${QUALITY_OPTIONS.find((q) => q.value === quality)?.label ?? quality} 不可用，已自动降级）`
+        : null
+    if (note) await progress(index, { phase: 'resolving', stage: '获取播放地址', message: note, percent: 0 })
+    const bytesTotal = 8_000_000 + ((song.id * 7919) % 30_000_000)
+    for (let step = 0; step <= 10; step += 1) {
+      if (shouldStop()) return
+      await progress(index, {
+        phase: 'downloading',
+        stage: '下载中',
+        message: '正在下载音频…',
+        percent: step * 10,
+        bytesDone: Math.round((bytesTotal * step) / 10),
+        bytesTotal,
+      })
+      await pause(110)
+    }
+    await progress(index, { phase: 'tagging', stage: '写入标签', message: '正在写入元数据/封面/歌词…' })
+    await pause(150)
+    await finish(
+      { success: true, skipped: false, source: 'downloaded', outputPath: `D:\\mock\\Music\\${song.name}.mp3`, message: null, qualityNote: note },
+      '完成',
+    )
+  }
+
+  async function worker(): Promise<void> {
+    while (!shouldStop()) {
+      const index = next
+      next += 1
+      if (index >= total) return
+      await process(index)
+    }
+  }
+  await Promise.all([worker(), worker(), worker()])
+
+  const done = results.filter((item): item is TransferItem => item !== undefined)
+  const count = (source: TransferItem['source']) => done.filter((item) => item.source === source).length
+  const downloaded = count('downloaded')
+  const decrypted = count('decryptedNcm')
+  return {
+    kind,
+    total,
+    succeeded: downloaded + decrypted,
+    downloaded,
+    decrypted,
+    skipped: count('skipped'),
+    failed: count('failed'),
+    cancelled: shouldStop(),
+    onlineMatchSkipped: done.some((item) => item.success && !item.skipped),
+    libraryRefreshed: true,
+    results: done,
+  }
+}
+
 /** 安装假后端；必须在 React 渲染之前调用。 */
 export function installMockBackend(scenario: string | null): void {
   const account = scenario === 'loggedout' ? LOGGED_OUT : ACCOUNT
@@ -281,6 +431,48 @@ export function installMockBackend(scenario: string | null): void {
   let libraryRunning = false
   let libraryCancelled = false
   const libraryFiles = scenario === 'libbig' ? 20000 : 1800
+  let mockQuality = 'ExHigh'
+  let transferRunning = false
+  let transferCancelled = false
+
+  /** 假的下载 / 同步任务：只允许一个；没有可处理的歌曲时与后端一样返回 noSongs。 */
+  async function mockTransferCommand(kind: TransferKind, playlistId: number, ids: number[] | null): Promise<TransferSummary> {
+    if (transferRunning) {
+      throw { kind: 'busy', message: '已有一个下载或同步任务正在进行，请等待它完成或先取消。' }
+    }
+    const all = detailFor(playlistId, list).songs
+    const seen = new Set<number>()
+    let songs: Song[]
+    if (kind === 'selected') {
+      songs = (ids ?? []).flatMap((id) => {
+        const song = all.find((candidate) => candidate.id === id)
+        return song && !seen.has(id) ? (seen.add(id), [song]) : []
+      })
+      if (songs.length === 0) throw { kind: 'noSongs', message: '没有可下载的歌曲，请先勾选歌曲。' }
+    } else {
+      songs = all.filter((song) => !seen.has(song.id) && (seen.add(song.id), true))
+      if (kind === 'missing') {
+        songs = songs.filter((song) => mockLocalMatch(song).availability === 'missing')
+        if (songs.length === 0) {
+          throw { kind: 'noSongs', message: '没有需要下载的歌曲：本地已存在，或是待解密的 NCM（可以用「一键同步」解密）。' }
+        }
+      }
+    }
+    transferRunning = true
+    transferCancelled = false
+    try {
+      return await runMockTransfer({
+        kind,
+        songs,
+        slow: scenario === 'dlslow',
+        allNotes: scenario === 'dlnote',
+        quality: mockQuality,
+        shouldStop: () => transferCancelled,
+      })
+    } finally {
+      transferRunning = false
+    }
+  }
 
   /** 假扫描：约 3 秒，逐步发 `library:progress`；可被 `library_cancel` 取消。 */
   async function mockScan(): Promise<LibrarySummary> {
@@ -317,7 +509,7 @@ export function installMockBackend(scenario: string | null): void {
             settings: {
               downloadDirectory: 'D:\\mock\\Music',
               libraryDirectory: 'D:\\mock\\Music',
-              quality: 'ExHigh',
+              quality: mockQuality,
               theme: 'Dark',
               maxConcurrency: 3,
               matchThreshold: 0.6,
@@ -325,6 +517,7 @@ export function installMockBackend(scenario: string | null): void {
             },
             settingsWarning: null,
             session: { loggedIn: account.loggedIn, nickname: account.nickname, loadError: null, account },
+            qualityOptions: QUALITY_OPTIONS,
           }
         case 'get_logs':
           return []
@@ -372,6 +565,18 @@ export function installMockBackend(scenario: string | null): void {
         case 'library_cancel':
           libraryCancelled = libraryRunning
           return libraryRunning
+        case 'set_quality':
+          mockQuality = String(args.quality)
+          return undefined
+        case 'download_tracks':
+          return mockTransferCommand('selected', Number(args.playlistId), (args.trackIds as number[]) ?? [])
+        case 'download_missing':
+          return mockTransferCommand('missing', Number(args.playlistId), null)
+        case 'sync_playlist':
+          return mockTransferCommand('sync', Number(args.playlistId), null)
+        case 'download_cancel':
+          transferCancelled = transferRunning
+          return transferRunning
         case 'plugin:dialog|open': {
           const options = (args.options ?? {}) as { directory?: boolean; multiple?: boolean }
           if (options.directory) {

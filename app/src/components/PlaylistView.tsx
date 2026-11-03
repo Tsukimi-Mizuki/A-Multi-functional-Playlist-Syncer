@@ -1,10 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 import { imageSrc } from '../lib/format'
+import type { QualityOption } from '../api/app'
 import type { useLocalMatch } from '../state/useLocalMatch'
+import type { useSelection } from '../state/useSelection'
+import type { useTransfer } from '../state/useTransfer'
 import type { DetailState, ListState } from '../state/usePlaylists'
 import LocalToolbar from './LocalToolbar'
 import SongTable from './SongTable'
+import TransferToolbar from './TransferToolbar'
 
 interface PlaylistViewProps {
   loggedIn: boolean
@@ -17,6 +21,15 @@ interface PlaylistViewProps {
   onShowLyrics: (song: Song) => void
   /** 当前歌单与本地曲库的对比状态与操作。 */
   local: ReturnType<typeof useLocalMatch>
+  /** 歌曲表格的多选状态。 */
+  selection: ReturnType<typeof useSelection>
+  /** 下载 / 同步任务的状态与操作。 */
+  transfer: ReturnType<typeof useTransfer>
+  /** 当前下载音质（`AudioQuality` 成员名）与可选项。 */
+  quality: string
+  qualityOptions: QualityOption[]
+  qualityError: string | null
+  onQualityChange: (quality: string) => void
 }
 
 function BigCover({ url, alt }: { url: string | null; alt: string }) {
@@ -106,6 +119,12 @@ export default function PlaylistView({
   onRetryDetail,
   onShowLyrics,
   local,
+  selection,
+  transfer,
+  quality,
+  qualityOptions,
+  qualityError,
+  onQualityChange,
 }: PlaylistViewProps) {
   if (!loggedIn) {
     return (
@@ -233,7 +252,37 @@ export default function PlaylistView({
             onRescan={local.rescan}
             onCancel={local.cancel}
           />
-          <SongTable songs={loaded.songs} matches={local.matches} onShowLyrics={onShowLyrics} />
+          <TransferToolbar
+            selectedCount={selection.count}
+            onClearSelection={selection.clear}
+            running={transfer.running}
+            summary={transfer.summary}
+            notice={transfer.notice}
+            error={transfer.error}
+            missingCount={local.outcome ? local.outcome.stats.missing : null}
+            localBusy={local.busy !== null}
+            quality={quality}
+            qualityOptions={qualityOptions}
+            qualityError={qualityError}
+            onQualityChange={onQualityChange}
+            onDownloadSelected={() =>
+              transfer.downloadSelected(loaded.songs.filter((song) => selection.selected.has(song.id)).map((song) => song.id))
+            }
+            onDownloadMissing={transfer.downloadMissing}
+            onSync={transfer.sync}
+            onCancel={transfer.cancel}
+            onDismiss={transfer.dismiss}
+          />
+          <SongTable
+            songs={loaded.songs}
+            matches={local.matches}
+            selected={selection.selected}
+            allSelected={selection.allSelected}
+            transfers={transfer.rows}
+            onShowLyrics={onShowLyrics}
+            onToggle={selection.toggle}
+            onToggleAll={selection.toggleAll}
+          />
         </>
       )}
     </>

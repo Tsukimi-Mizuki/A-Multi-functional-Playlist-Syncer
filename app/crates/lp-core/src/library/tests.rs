@@ -1453,3 +1453,85 @@ async fn progress_events_are_throttled_but_the_last_one_always_arrives() {
     assert_eq!((last.scanned, last.total), (300, 300));
     assert!(progress.windows(2).all(|w| w[1].scanned >= w[0].scanned));
 }
+
+// ---- 原始对比结果（给下载 / 同步用） ----
+
+#[tokio::test]
+async fn raw_matches_expose_the_local_files_and_share_the_first_duplicate() {
+    let m = ManagerFixture::new();
+    let path = m.fixture.file("周杰伦 - 晴天.mp3");
+    m.fixture
+        .tags
+        .set(&path, tag_info("晴天", "周杰伦", 269_000));
+    m.manager.remember_playlist(
+        5,
+        &[
+            song(1, "晴天", &["周杰伦"], 269_000, None),
+            song(2, "夜曲", &["周杰伦"], 226_000, None),
+            song(1, "晴天", &["周杰伦"], 269_000, None),
+        ],
+    );
+
+    let matched = m
+        .manager
+        .match_playlist_raw(5, ScanMode::IfNeeded, &m.dir(), m.sink.clone())
+        .await
+        .unwrap();
+
+    assert!(matched.scanned);
+    assert_eq!(matched.playlist_id, 5);
+    assert_eq!(matched.songs.len(), 3);
+    assert_eq!(matched.tracks.len(), 1);
+    assert_eq!(matched.availability(0), Some(LocalAvailability::Available));
+    assert_eq!(matched.availability(1), Some(LocalAvailability::Missing));
+    // 重复的行沿用第一次出现那一行的结果。
+    assert_eq!(matched.availability(2), Some(LocalAvailability::Available));
+    assert_eq!(matched.local_track(0).unwrap().path, path);
+    assert_eq!(matched.local_track(2).unwrap().path, path);
+    assert!(matched.local_track(1).is_none());
+    assert!(matched.local_track(99).is_none());
+}
+
+#[tokio::test]
+async fn raw_matches_without_a_scan_are_unresolved_rather_than_missing() {
+    let m = ManagerFixture::new();
+    m.manager
+        .remember_playlist(5, &[song(1, "x", &["y"], 1000, None)]);
+
+    let matched = m
+        .manager
+        .match_playlist_raw(5, ScanMode::Never, &m.dir(), m.sink.clone())
+        .await
+        .unwrap();
+
+    assert!(!matched.scanned);
+    assert_eq!(matched.availability(0), None);
+    assert!(matched.local_track(0).is_none());
+    assert_eq!(matched.songs.len(), 1);
+}
+
+#[tokio::test]
+async fn raw_matches_of_an_unknown_playlist_are_reported() {
+    let m = ManagerFixture::new();
+    let error = m
+        .manager
+        .match_playlist_raw(404, ScanMode::Never, &m.dir(), m.sink.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind, "playlistNotLoaded");
+    assert!(m.manager.playlist_songs(404).is_none());
+}
+
+#[test]
+fn remembered_songs_can_be_looked_up_by_playlist() {
+    let m = ManagerFixture::new();
+    m.manager.remember_playlist(
+        7,
+        &[
+            song(1, "a", &["b"], 1000, None),
+            song(2, "c", &["d"], 1000, None),
+        ],
+    );
+    let songs = m.manager.playlist_songs(7).unwrap();
+    assert_eq!(songs.iter().map(|s| s.id).collect::<Vec<_>>(), [1, 2]);
+}

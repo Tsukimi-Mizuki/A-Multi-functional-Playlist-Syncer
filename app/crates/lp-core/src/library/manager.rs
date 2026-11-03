@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use super::matcher::SongMatcher;
+use super::matcher::{LocalAvailability, SongMatch, SongMatcher};
 use super::scanner::LocalLibraryService;
 use super::track::{LibraryError, LibraryScanProgress, LocalTrack};
 use super::view::{
@@ -42,6 +42,45 @@ impl Snapshot {
             ncm_files: self.tracks.iter().filter(|t| t.is_ncm).count(),
             skipped_directories: self.skipped_directories,
         }
+    }
+}
+
+/// 歌单与曲库对比的原始结果：匹配到的本地文件本身，而不是给界面的视图。
+#[derive(Debug, Clone)]
+pub struct PlaylistMatches {
+    /// 歌单 ID。
+    pub playlist_id: i64,
+    /// 曲库是否已经扫描过；`false` 时 `tracks` 与 `matches` 为空，不能据此判断“本地没有”。
+    pub scanned: bool,
+    /// 歌单曲目。
+    pub songs: Arc<Vec<NeteaseSong>>,
+    /// 本地曲库。
+    pub tracks: Arc<Vec<LocalTrack>>,
+    /// 与 `songs` 一一对应的匹配结果（歌单里同一首歌的重复行各自参与一对一匹配）。
+    pub matches: Vec<SongMatch>,
+}
+
+impl PlaylistMatches {
+    /// 第 `row` 行歌曲的匹配结果；歌单里同一首歌出现多次时沿用**第一次出现**那一行的结果
+    /// （与界面显示一致：本地有这首歌，重复的行也算已存在）。没有对比过返回 `None`。
+    pub fn resolved(&self, row: usize) -> Option<&SongMatch> {
+        if !self.scanned {
+            return None;
+        }
+        let id = self.songs.get(row)?.id;
+        let first = self.songs.iter().position(|song| song.id == id)?;
+        self.matches.get(first)
+    }
+
+    /// 第 `row` 行歌曲在本地匹配到的文件。
+    pub fn local_track(&self, row: usize) -> Option<&LocalTrack> {
+        let index = self.resolved(row)?.local_index?;
+        self.tracks.get(index)
+    }
+
+    /// 第 `row` 行歌曲的本地状态；没有对比过返回 `None`。
+    pub fn availability(&self, row: usize) -> Option<LocalAvailability> {
+        self.resolved(row).map(|matched| matched.availability)
     }
 }
 
@@ -125,6 +164,14 @@ impl LibraryManager {
             .map(|snapshot| snapshot.summary())
     }
 
+    /// 记住的某个歌单的曲目（没有加载过为 `None`）。
+    pub fn playlist_songs(&self, playlist_id: i64) -> Option<Arc<Vec<NeteaseSong>>> {
+        lock(&self.playlists)
+            .iter()
+            .find(|(id, _)| *id == playlist_id)
+            .map(|(_, songs)| Arc::clone(songs))
+    }
+
     /// 把歌单与曲库对比。`mode` 决定还没有扫描结果时是先扫描还是直接返回「尚未对比」。
     pub async fn match_playlist(
         &self,
@@ -133,16 +180,46 @@ impl LibraryManager {
         directory: &str,
         progress: ScanProgressSink,
     ) -> Result<MatchOutcomeView, LibraryCommandError> {
-        let songs = lock(&self.playlists)
-            .iter()
-            .find(|(id, _)| *id == playlist_id)
-            .map(|(_, songs)| Arc::clone(songs))
-            .ok_or_else(|| {
-                LibraryCommandError::new(
-                    "playlistNotLoaded",
-                    "歌单还没有加载完成，请稍后再对比本地曲库。",
-                )
-            })?;
+        let matched = self
+            .match_playlist_raw(playlist_id, mode, directory, progress)
+            .await?;
+        if !matched.scanned {
+            return Ok(unscanned_view(playlist_id, directory, matched.songs.len()));
+        }
+
+        let view = build_match_view(
+            playlist_id,
+            directory,
+            &matched.songs,
+            &matched.tracks,
+            &matched.matches,
+        );
+        let hint = if matched.tracks.is_empty() {
+            "（本地曲库里没有找到音频文件）"
+        } else {
+            ""
+        };
+        self.logs.info(format!(
+            "本地对比：已存在 {}，NCM 待解密 {}，需下载 {}{hint}",
+            view.stats.available, view.stats.ncm, view.stats.missing
+        ));
+        Ok(view)
+    }
+
+    /// 同 [`match_playlist`](Self::match_playlist)，但返回原始结果（匹配到的本地文件本身），给下载 / 同步用。
+    pub async fn match_playlist_raw(
+        &self,
+        playlist_id: i64,
+        mode: ScanMode,
+        directory: &str,
+        progress: ScanProgressSink,
+    ) -> Result<PlaylistMatches, LibraryCommandError> {
+        let songs = self.playlist_songs(playlist_id).ok_or_else(|| {
+            LibraryCommandError::new(
+                "playlistNotLoaded",
+                "歌单还没有加载完成，请稍后再对比本地曲库。",
+            )
+        })?;
 
         let current = lock(&self.snapshot)
             .clone()
@@ -150,7 +227,13 @@ impl LibraryManager {
         let snapshot = match (current, mode) {
             (Some(snapshot), _) => snapshot,
             (None, ScanMode::Never) => {
-                return Ok(unscanned_view(playlist_id, directory, songs.len()));
+                return Ok(PlaylistMatches {
+                    playlist_id,
+                    scanned: false,
+                    songs,
+                    tracks: Arc::new(Vec::new()),
+                    matches: Vec::new(),
+                });
             }
             (None, ScanMode::IfNeeded) => self.ensure_snapshot(directory, false, progress).await?,
         };
@@ -164,17 +247,13 @@ impl LibraryManager {
         }
         .map_err(|_| internal_error("对比本地曲库"))?;
 
-        let view = build_match_view(playlist_id, directory, &songs, &tracks, &matches);
-        let hint = if tracks.is_empty() {
-            "（本地曲库里没有找到音频文件）"
-        } else {
-            ""
-        };
-        self.logs.info(format!(
-            "本地对比：已存在 {}，NCM 待解密 {}，需下载 {}{hint}",
-            view.stats.available, view.stats.ncm, view.stats.missing
-        ));
-        Ok(view)
+        Ok(PlaylistMatches {
+            playlist_id,
+            scanned: true,
+            songs,
+            tracks,
+            matches,
+        })
     }
 
     /// 返回与 `directory` 对应的扫描结果；`force` 为假且已有可用缓存时直接复用。

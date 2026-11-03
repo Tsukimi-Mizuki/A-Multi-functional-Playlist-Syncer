@@ -1,6 +1,6 @@
 //! 歌曲详情接口。对应 C# `NeteaseApiClient.Songs.cs` 中的 `GetSongDetailsAsync` 与批量请求。
 //!
-//! 播放地址（取链）属于下载模块，模块 9 再补。
+//! 播放地址（取链）在 [`super::player`]。
 
 use std::collections::{HashMap, HashSet};
 

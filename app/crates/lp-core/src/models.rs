@@ -11,6 +11,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
+mod audio_quality;
+
 /// 声明一个“按名字序列化、宽松读取”的设置枚举。
 macro_rules! name_enum {
     (

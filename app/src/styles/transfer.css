@@ -1,0 +1,226 @@
+/* ---- 下载 / 同步工具条（本地对比工具条下方） ---- */
+.transfer-toolbar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 20px 10px;
+}
+
+.transfer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.transfer-quality {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.transfer-quality-label {
+  color: var(--text-tertiary);
+}
+
+.transfer-select {
+  height: 24px;
+  max-width: 190px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--control);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+
+.transfer-select:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.transfer-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.transfer-select:disabled,
+.transfer-toolbar .btn:disabled {
+  opacity: 0.5;
+}
+
+.transfer-select option {
+  background: var(--app-background);
+  color: var(--text-primary);
+}
+
+.transfer-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: default;
+}
+
+.transfer-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.transfer-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.transfer-progress-row {
+  flex-wrap: nowrap;
+}
+
+.transfer-running-text {
+  flex: none;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-progress {
+  flex: 1;
+  min-width: 80px;
+  max-width: 260px;
+  height: 6px;
+  accent-color: var(--accent);
+}
+
+.transfer-summary {
+  color: var(--success);
+  font-weight: 600;
+  user-select: text;
+}
+
+.transfer-summary-warn {
+  color: var(--warning);
+}
+
+.transfer-note {
+  color: var(--text-tertiary);
+}
+
+.transfer-error {
+  color: var(--danger);
+  user-select: text;
+}
+
+/* ---- 歌曲表格里的复选框与下载状态列 ---- */
+.song-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.song-checkbox {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.song-row-selected {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.song-row-selected:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.song-transfer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.transfer-badge {
+  --badge-color: var(--text-tertiary);
+
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--badge-color) 16%, transparent);
+  color: var(--badge-color);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-ok {
+  --badge-color: var(--success);
+}
+
+.transfer-bad {
+  --badge-color: var(--danger);
+}
+
+.transfer-busy {
+  --badge-color: var(--accent);
+}
+
+.transfer-detail {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-detail-bad {
+  color: var(--danger);
+}
+
+.transfer-bar {
+  flex: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--control);
+}
+
+.transfer-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* 表格宽度不够时先隐藏专辑列，保证下载状态始终能看见。 */
+@container songs (max-width: 729px) {
+  .song-album {
+    display: none;
+  }
+
+  .song-grid {
+    grid-template-columns: 32px 44px minmax(120px, 2.2fr) minmax(70px, 1.2fr) 52px 100px minmax(120px, 1.5fr) 32px;
+  }
+}

@@ -2,15 +2,23 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::time::Duration;
 
 use lp_core::auth::{
     AccountSummary, LoginManager, LoginOptions, QrPollOutcome, RuntimeAuthOutcome,
     ValidationOutcome,
 };
+use lp_core::download::fetch::MediaFetcher;
 use lp_core::download::ncm_import::{
     NcmDialogState, NcmImportOptions, NcmImportProgress, NcmImportService, NcmJobSlot,
     NcmProgressView, NcmScanResult, NcmSummaryView, prepare_output_directory, remember_state,
     scan_ncm_files,
+};
+use lp_core::download::service::{
+    DownloadApi, DownloadProgress, DownloadService, Downloader, ProgressSink,
+};
+use lp_core::download::task::{
+    TransferChannels, TransferError, TransferManager, TransferStarted, TransferSummaryView,
 };
 use lp_core::library::{
     LibraryCommandError, LibraryManager, LibrarySummaryView, LocalLibraryService, MatchOutcomeView,
@@ -26,6 +34,7 @@ use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
+use lp_core::sync::SyncService;
 use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
 use serde::{Deserialize, Serialize};
 use tauri::window::{Effect, EffectsBuilder};
@@ -41,6 +50,10 @@ const EVENT_PLAYLIST_PROGRESS: &str = "playlist:progress";
 const EVENT_NCM_PROGRESS: &str = "ncm:progress";
 /// 前端订阅的事件名：本地曲库扫描进度（已处理 / 总数 / 当前文件名）。
 const EVENT_LIBRARY_PROGRESS: &str = "library:progress";
+/// 前端订阅的事件名：下载 / 同步任务开始（会处理哪些歌曲）。
+const EVENT_DOWNLOAD_STARTED: &str = "download:started";
+/// 前端订阅的事件名：下载 / 同步的逐曲进度（阶段、字节、实际音质、最终结果）。
+const EVENT_DOWNLOAD_PROGRESS: &str = "download:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -83,6 +96,8 @@ struct AppState {
     ncm_job: NcmJobSlot,
     /// 本地曲库扫描结果缓存与歌单对比（扫描一次只跑一个，可取消）。
     library: Arc<LibraryManager>,
+    /// 下载 / 同步任务（同一时间只有一个，可取消），结束后重新扫描曲库。
+    transfers: Arc<TransferManager>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -148,6 +163,38 @@ impl AppState {
             Arc::clone(&logs),
         );
 
+        // 音频下载用独立的传输层：只限制连接与“相邻两次读到数据的间隔”，不套 20 秒的接口总超时。
+        let download_transport = ReqwestTransport::for_downloads(
+            Duration::from_secs(15),
+            Duration::from_secs(60),
+            Duration::from_secs(30 * 60),
+        )
+        .expect("初始化下载组件失败");
+        let fetcher = MediaFetcher::new(Arc::new(download_transport));
+        let api: Arc<dyn DownloadApi> = login.client().clone();
+        let downloader = Arc::new(DownloadService::new(
+            Arc::clone(&api),
+            Arc::clone(&tags),
+            Arc::new(FileNcmDecoder),
+            fetcher.clone(),
+            None,
+        ));
+        let sync = Arc::new(SyncService::new(
+            api,
+            Arc::new(FileNcmDecoder),
+            Arc::clone(&tags),
+            Arc::clone(&ncm),
+            Arc::clone(&downloader) as Arc<dyn Downloader>,
+            fetcher,
+            None,
+        ));
+        let transfers = Arc::new(TransferManager::new(
+            downloader,
+            sync,
+            Arc::clone(&library),
+            Arc::clone(&logs),
+        ));
+
         Self {
             paths,
             settings: RwLock::new(settings),
@@ -161,6 +208,7 @@ impl AppState {
             ncm,
             ncm_job: NcmJobSlot::default(),
             library,
+            transfers,
             session_error: restored.load_failure,
         }
     }
@@ -221,6 +269,26 @@ struct AppStateDto {
     settings: SettingsSummaryDto,
     settings_warning: Option<String>,
     session: SessionSummaryDto,
+    /// 可选的下载音质（与 Rust 端 `AudioQuality` 一一对应，界面下拉直接用）。
+    quality_options: Vec<QualityOptionDto>,
+}
+
+/// 一档下载音质：`value` 是写进 `settings.json` 的名字，`label` 是界面显示名。
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct QualityOptionDto {
+    value: AudioQuality,
+    label: &'static str,
+}
+
+fn quality_options() -> Vec<QualityOptionDto> {
+    AudioQuality::ALL
+        .iter()
+        .map(|quality| QualityOptionDto {
+            value: *quality,
+            label: quality.display_name(),
+        })
+        .collect()
 }
 
 fn build_app_state_dto(
@@ -250,6 +318,7 @@ fn build_app_state_dto(
             load_error: session_error.map(str::to_owned),
             account: account.clone(),
         },
+        quality_options: quality_options(),
     }
 }
 
@@ -693,6 +762,128 @@ fn library_cancel(state: State<'_, AppState>) -> bool {
     state.library.cancel()
 }
 
+impl AppState {
+    /// 把下载 / 同步的进度事件推给前端的接收端。
+    fn download_sink(app: AppHandle) -> ProgressSink {
+        Arc::new(move |progress: DownloadProgress| {
+            let _ = app.emit(EVENT_DOWNLOAD_PROGRESS, progress);
+        })
+    }
+
+    /// 当前设置的快照（任务运行期间用户改设置不影响正在跑的任务）。
+    fn settings_snapshot(&self) -> AppSettings {
+        self.settings().clone()
+    }
+
+    /// 修改下载音质并写回 `settings.json`（只改这一个字段，其余设置原样保留）。
+    ///
+    /// 内存里的设置总是更新，让这次会话立刻生效；设置文件当初没能读出来（正在使用默认设置）时
+    /// 不写盘，免得把用户真正的设置覆盖成默认值。
+    fn set_quality(&self, quality: AudioQuality) -> Result<(), String> {
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        settings.quality = quality;
+        if self.settings_warning.is_some() {
+            return Ok(());
+        }
+        match self.settings_store.save(&settings) {
+            Ok(saved) => {
+                *settings = saved;
+                Ok(())
+            }
+            Err(error) => {
+                let message = format!("保存下载音质失败：{error}");
+                self.logs.warning(&message);
+                Err(message)
+            }
+        }
+    }
+}
+
+/// 修改下载音质（工具栏的下拉）。参数是 `AudioQuality` 的成员名；`AudioQuality` 自己的反序列化对未知值
+/// 会宽容地回落到默认档位，这里要明确拒绝，免得误把设置改成默认值。
+#[tauri::command]
+fn set_quality(state: State<'_, AppState>, quality: String) -> Result<(), String> {
+    state.set_quality(parse_quality(&quality)?)
+}
+
+/// 按成员名解析下载音质；未知名字返回中文说明。
+fn parse_quality(name: &str) -> Result<AudioQuality, String> {
+    AudioQuality::from_name(name.trim()).ok_or_else(|| format!("无法识别的下载音质：{name}"))
+}
+
+/// 构造某个任务的汇报出口：开始事件、逐曲进度、结束后重新扫描曲库的进度。
+macro_rules! transfer_channels {
+    ($app:expr, $started:ident, $channels:ident) => {
+        let $started = {
+            let app = $app.clone();
+            move |plan: TransferStarted| {
+                let _ = app.emit(EVENT_DOWNLOAD_STARTED, plan);
+            }
+        };
+        let $channels = TransferChannels {
+            started: &$started,
+            sink: AppState::download_sink($app.clone()),
+            scan_progress: AppState::library_progress_sink($app.clone()),
+        };
+    };
+}
+
+/// 下载用户勾选的歌曲。逐曲发 `download:progress` 事件；同一时间只允许一个下载 / 同步任务。
+/// 失败时 `Err` 是 `{ kind, message }`：`busy` / `noSongs` / `playlistNotLoaded` / `cancelled` / `failed`。
+#[tauri::command]
+async fn download_tracks(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    playlist_id: i64,
+    track_ids: Vec<i64>,
+) -> Result<TransferSummaryView, TransferError> {
+    let transfers = Arc::clone(&state.transfers);
+    let settings = state.settings_snapshot();
+    transfer_channels!(app, started, channels);
+    transfers
+        .download_tracks(playlist_id, &track_ids, &settings, &channels)
+        .await
+}
+
+/// 下载本地曲库里没有的歌曲（NCM 待解密的不算缺失）。
+#[tauri::command]
+async fn download_missing(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    playlist_id: i64,
+) -> Result<TransferSummaryView, TransferError> {
+    let transfers = Arc::clone(&state.transfers);
+    let settings = state.settings_snapshot();
+    transfer_channels!(app, started, channels);
+    transfers
+        .download_missing(playlist_id, &settings, &channels)
+        .await
+}
+
+/// 一键同步整个歌单：已存在的跳过，NCM 解密，缺失的下载。
+#[tauri::command]
+async fn sync_playlist(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    playlist_id: i64,
+) -> Result<TransferSummaryView, TransferError> {
+    let transfers = Arc::clone(&state.transfers);
+    let settings = state.settings_snapshot();
+    transfer_channels!(app, started, channels);
+    transfers
+        .sync_playlist(playlist_id, &settings, &channels)
+        .await
+}
+
+/// 取消正在进行的下载 / 同步任务；没有任务时返回 `false`。
+#[tauri::command]
+fn download_cancel(state: State<'_, AppState>) -> bool {
+    state.transfers.cancel()
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -765,7 +956,12 @@ pub fn run() {
             ncm_cancel,
             scan_library,
             match_playlist,
-            library_cancel
+            library_cancel,
+            set_quality,
+            download_tracks,
+            download_missing,
+            sync_playlist,
+            download_cancel
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -1098,5 +1294,81 @@ mod tests {
         assert_eq!(state.library_directory(), r"D:\Music\Lib");
         assert!(!state.library.cancel());
         assert!(!state.library.is_scanning());
+    }
+
+    #[test]
+    fn quality_options_list_every_level_with_its_display_name() {
+        let json = serde_json::to_value(dto(&account(false), None)).unwrap();
+        let options = json["qualityOptions"].as_array().unwrap();
+        assert_eq!(options.len(), 9);
+        assert_eq!(options[0]["value"], "Standard");
+        assert_eq!(options[0]["label"], "标准");
+        assert_eq!(options[1]["value"], "ExHigh");
+        assert_eq!(options[1]["label"], "极高 (HQ)");
+        assert_eq!(options[8]["value"], "DolbyAtmos");
+        assert_eq!(options[8]["label"], "杜比全景声 (Dolby Atmos)");
+    }
+
+    #[test]
+    fn changing_the_quality_writes_only_that_field() {
+        let dir = ScratchDir::new("quality");
+        let state = AppState::load(dir.paths());
+        {
+            let mut settings = state.settings().clone();
+            settings.max_concurrency = 6;
+            settings.match_threshold = 0.8;
+            settings.ncm_import_folders = vec![r"D:\in".to_owned()];
+            state.settings_store.save(&settings).unwrap();
+            *state.settings.write().unwrap() = settings;
+        }
+
+        state.set_quality(AudioQuality::Master).unwrap();
+
+        let saved = state.settings_store.load().unwrap();
+        assert_eq!(saved.quality, AudioQuality::Master);
+        assert_eq!(saved.max_concurrency, 6);
+        assert_eq!(saved.match_threshold, 0.8);
+        assert_eq!(saved.ncm_import_folders, [r"D:\in"]);
+        // 内存里的设置同步更新，下一次下载直接用新音质。
+        assert_eq!(state.settings_snapshot().quality, AudioQuality::Master);
+    }
+
+    #[test]
+    fn only_known_quality_names_are_accepted() {
+        assert_eq!(parse_quality("Master"), Ok(AudioQuality::Master));
+        assert_eq!(parse_quality(" DolbyAtmos "), Ok(AudioQuality::DolbyAtmos));
+        // `AudioQuality` 的反序列化会把未知值悄悄变成默认档位，命令必须自己拒绝。
+        assert_eq!(
+            parse_quality("Nope"),
+            Err("无法识别的下载音质：Nope".to_owned())
+        );
+        assert!(parse_quality("").is_err());
+    }
+
+    #[test]
+    fn untrusted_settings_are_never_overwritten_by_a_quality_change() {
+        let dir = ScratchDir::new("quality-untrusted");
+        let mut state = AppState::load(dir.paths());
+        state.settings_warning = Some("读取失败".to_owned());
+
+        state.set_quality(AudioQuality::Lossless).unwrap();
+
+        assert!(!state.paths.settings_file().exists());
+        assert_eq!(state.settings_snapshot().quality, AudioQuality::Lossless);
+    }
+
+    #[test]
+    fn download_and_sync_share_one_job_slot_and_cancel_is_a_noop_when_idle() {
+        let dir = ScratchDir::new("transfer-idle");
+        let state = AppState::load(dir.paths());
+        assert!(!state.transfers.cancel());
+        assert!(!state.transfers.is_running());
+    }
+
+    #[test]
+    fn transfer_commands_use_camel_case_names_for_the_frontend() {
+        // Tauri 把 Rust 参数名转成 camelCase：这里固化前端依赖的几个事件名。
+        assert_eq!(EVENT_DOWNLOAD_STARTED, "download:started");
+        assert_eq!(EVENT_DOWNLOAD_PROGRESS, "download:progress");
     }
 }

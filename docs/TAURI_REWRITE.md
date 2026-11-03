@@ -40,7 +40,7 @@ app/
 |---|---|
 | `paths` | `Core/AppPaths.cs` |
 | `settings` | `Core/Settings/`（`AppSettings`、`JsonSettingsStore`） |
-| `models` | `Core/Models/` 中的设置用枚举，以及 `ThemeMode`、`LyricsSourceKind`（后续模块陆续补充） |
+| `models` | `Core/Models/` 中的设置用枚举，以及 `ThemeMode`、`LyricsSourceKind`；模块 9 补上 `AudioQuality` 的接口映射（`models/audio_quality.rs`，对应 `AudioQualityExtensions`） |
 | `session` | `Core/Models/NeteaseSession.cs`、`Core/Storage/`（`ProtectedSessionStore`、`SessionAutoSaver`） |
 | `auth` | 原来放在 `MainWindowViewModel` / `QrLoginViewModel` 里的登录编排（启动校验、续期、扫码落盘、退出、运行期复核） |
 | `logs` | `MainWindowViewModel` 里的运行日志列表（400 条、内存） |
@@ -52,8 +52,8 @@ app/
 | `tags` | `Core/Tags/`（模块 6：`model` / `service` / `text` / `view`；`service` 对应 `AudioTagService`） |
 | `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；模块 7：`error_text`、`file_name_sanitizer`、`cancel`） |
 | `library` | `Core/Library/`（模块 8：`track` / `scanner` / `matcher` / `text` / `view` 对应 `ILocalLibraryService.cs`、`LocalLibraryService`、`SongMatcher`；`manager` 对应 `MainWindowViewModel` 里的扫描缓存与对比） |
-| `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；下载与同步在模块 9） |
-| `sync` | `Core/Sync/` |
+| `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；模块 9：`media` = `MediaFileHelper`、`fetch` = 其中的 HTTP 下载、`service` = `DownloadService`、`pool` = 并发上限的任务池、`task` = `MainWindowViewModel` 里下载 / 同步命令的编排） |
+| `sync` | `Core/Sync/`（模块 9：`service` = `MusicSyncService`） |
 | `online` | `Core/Online/` |
 | `error` | `Core/Utilities/ErrorText.cs` 的错误类型部分（判定与文案在 `utilities::error_text`） |
 
@@ -95,7 +95,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 6 | 标签读写 | MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词读写（lofty），网易云 ID 与客户端 163 key，标签查看对话框 | 完成 |
 | 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
 | 8 | 本地曲库与对比 | 曲库扫描（并行读标签）、与歌单一对一匹配、状态列 / 统计 / 对比与重新扫描按钮 | 完成 |
-| 9 | 下载与同步 | 九档音质取链下载、一键同步编排 | 待做 |
+| 9 | 下载与同步 | 九档音质取链下载（逐级降档、试听判失败、NCM 自动解密）、一键同步（跳过 / NCM 解密 / 下载三分支）、多选 + 工具栏 + 逐行进度 | 完成（真实下载需用户真机验证） |
 | 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | 待做 |
 | 11 | 设置与外观 | 设置窗口、主题切换、帧率等 | 待做 |
 | 12 | CI 打包、文档、删除 C# | 安装包 / zip、GitHub Actions、更新 AGENTS.md 与 README、删除 C# 代码 | 待做 |
@@ -105,6 +105,84 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 9（按音质下载与一键同步）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `models::audio_quality` | `AudioQualityExtensions`、`AudioQualityTests` | 给已有的 `AudioQuality` 补 `api_level` / `api_levels`（`audio_vivid` 有 `vivid` 别名）/ `bitrate` / `display_name` / `from_api_level`（不区分大小写、`higher` 是 `exhigh` 的旧写法）/ `fallback_chain`（从本档逐级降到标准）。 |
+| `netease::player` | `NeteaseApiClient.Songs.cs` 的 `GetSongPlaybackInfoAsync`、`NeteaseMappers.MapPlaybackInfo` | `NeteaseClient::get_song_playback_info`：从请求档位开始逐级降档，每档先试 `/weapi/song/enhance/player/url/v1`（`level` + `encodeType=flac`，多种写法依次试）再试经典接口（`br`）；**v1 一旦抛错，本首歌后面的档位不再试 v1**；两个接口都带桌面客户端 Cookie（模块 3 的 `build_playback_cookie_header`）；所有档位都没有地址时返回最后一个失败原因（保留 `code` / 类别，所以 301 仍可识别）。`SongPlaybackInfo` 含 `url / bitrate / size / format / level / fee / is_trial / 试听区间 / 有效期 / error_message`，失败文案（VIP / 版权 / 无权访问 / code=…）与 C# 逐字相同。 |
+| `netease::http`（扩展） | `HttpClient` 流式读取 | `HttpTransport` 新增 `send_stream`（响应头到达即返回，`BodyStream::next_chunk` 逐块取），**有默认实现**（退化为 `send` 后单块），所以只实现 `send` 的假传输照常可用；`ReqwestTransport` 覆盖它做真正的流式读取，并新增 `for_downloads(连接 15 s, 相邻读取间隔 60 s, 总时长 30 分钟)`（C# 给音频下载的 `HttpClient` 总超时也是 30 分钟）——下载不套接口用的 20 秒总超时。 |
+| `utilities::cancel`（扩展） | `CancellationToken` | `CancelToken` 加了 `cancelled()`（`Notify`）与 `cancellable(token, future)`：令牌一被取消就丢弃正在等待的 future。取消在等网络时立刻生效，不必等下一个分块。 |
+| `download::media` | `MediaFileHelper` | 扩展名推断（接口 `type` 优先于 URL，主机名里的点不算扩展名，回退 `.mp3`）、NCM 魔数、`parse_year`、`build_base_name`（模板 + `FileNameSanitizer`）、`find_existing_audio_file`、`write_tags_atomically`（下载 / 解密结果改名成临时文件 → 写标签 → 改名成最终文件名；**标签写入失败保留音频**）、`move_to_unique_path`（冲突时 `(歌曲ID)`、`(歌曲ID) (2)`…）、`create_tag_data`（备注 `LunaticPrincess`、网易云 ID 等）、`TempFiles` 守卫（正常结束、出错、future 被取消丢弃三种路径都会删临时文件）。 |
+| `download::fetch` | `DownloadToFileAsync` / `TryDownloadBytesAsync` | `MediaFetcher`：流式写临时文件、进度回调（有总长度每个整数百分点一次，没有每 256 KB 一次）；封面有 10 MB 上限（响应头声明超限直接不读；没声明就边读边数），任何失败返回 `None` 不打断主流程。 |
+| `download::pool` | `SemaphoreSlim` + `Task.WhenAll` | `run_pool`：按输入顺序、拿到并发名额才启动下一个；结果按下标归位；取消后不再启动新任务；任务 panic 只影响那一首（`Slot::Panicked`）。 |
+| `download::service` | `DownloadService`、`IDownloadService` | `DownloadService::download(songs, options, sink, cancel)`：见下文流程。`DownloadOptions`（含 `from_settings`）、`DownloadProgress`、`DownloadItemResult`、`DownloadOutcome`；`DownloadApi` trait（`NeteaseClient` 实现它，测试用手写假实现）；`Downloader` trait（单曲下载，同步服务通过它走下载分支）。 |
+| `sync::service` | `MusicSyncService`、`ISyncService` | `SyncService::sync(requests, options, sink, cancel)`：本地是 NCM → 解密 + 在线数据重写标签；本地已有普通音频且不要求重新下载 → 跳过；否则下载。每个请求恰好一个结果，顺序与输入一致。 |
+| `download::task` | `MainWindowViewModel` 的 `SyncSelectedAsync` / `SelectMissing` 与完成后的重新扫描 | `TransferManager`：`download_tracks` / `download_missing` / `sync_playlist` / `cancel`；`TaskSlot`（同一时间只有一个任务）；挑选歌曲、写运行日志、结束后重新扫描曲库；`TransferStarted` / `TransferSummaryView` / `TransferError { kind: busy \| noSongs \| playlistNotLoaded \| cancelled \| failed }` 等给界面的 DTO。 |
+| `library::manager`（扩展） | — | `playlist_songs`、`match_playlist_raw`（返回匹配到的本地文件本身而不是视图）、`PlaylistMatches`（`availability(row)` / `local_track(row)`，重复歌曲沿用第一次出现那一行的结果）；`match_playlist` 改为建立在它之上，行为不变。 |
+
+### 单曲下载流程（与 C# 一致，逐步对应）
+
+1. 按模板算出基名；`skip_existing && !overwrite_existing` 且下载目录里已有同基名的音频（`.mp3 .flac .m4a .mp4 .ogg .opus .wav`，不区分大小写）→ **直接跳过，不发起任何网络请求**。
+2. 取链（含逐级降档）。没有地址 → 失败，原因用接口给的中文文案；**试听片段（`freeTrialInfo`）一律判失败**：「该歌曲仅返回试听片段（需要 VIP 会员），已跳过下载。」。
+3. 服务端返回的 `level` 与请求档位不同 → 提示「实际音质：无损 (SQ)（杜比全景声 (Dolby Atmos) 不可用，已自动降级）」（进度事件的 `message`，同时放进结果的 `quality_note` 与日志）。实测：匿名请求 Hi-Res 一首免费歌曲，服务端静默给出 `exhigh`（见联网探针）。
+4. 流式下载到 `.lp-<进程号>-<序号>.part`。HTTP 非 2xx →「媒体下载失败：HTTP 404」；内容为空 →「下载内容为空，已放弃该歌曲。」；声明长度与实收不符 →「下载中断：只收到 x / y 字节」。
+5. 文件头是 `CTENFDAM` → 改名 `.ncm` 并用模块 7 的解密器解到下载目录（允许覆盖临时输出），**输出格式以解密结果的扩展名为准**，封面优先用 NCM 内嵌的。
+6. 歌词（模块 5 的解析与序列化：逐行写普通 LRC，逐字模式另写增强 LRC，译文默认写入；失败只当没有歌词）、封面（`write_cover`；NCM 内嵌封面优先，否则下载专辑封面，> 10 MB 或失败跳过）。
+7. 写标签（标题 / 歌手 / 专辑 / 专辑艺术家 = 第一位歌手 / 音轨 / 碟号 / 年份 / 封面 / 歌词 / 网易云 ID / 备注 `LunaticPrincess`）并原子落盘；冲突加 `(歌曲ID)` 后缀，`overwrite_existing` 则直接覆盖。标签失败 →「标签写入失败，已保留音频文件。」仍算成功。
+8. 在线补全（`auto_match_online`）：沿用模块 7 的 `OnlineEnricher` 挂钩，**模块 10 才接入**；没有实现时跳过，`DownloadOutcome.online_match_skipped` / `TransferSummaryView.online_match_skipped` 置位，界面与运行日志各提示一次（不在每首歌的结果里重复）。接入后的文案与 C# 相同（`已写入标签…（QQ 音乐）`、`在线匹配未完成：…`）。
+
+进度：`DownloadProgress { completed, total, index, song_id, song_name, stage（与 C# 相同的中文阶段名）, phase（resolving / downloading / decrypting / tagging / matching）, message, percent, bytes_done, bytes_total, finish? }`；每首歌处理完时最后一条带 `finish`（成败 / 是否跳过 / 来源 / 输出路径 / 说明 / 实际音质），`completed` 只在这时加一。
+
+### 一键同步的三个分支
+
+- **本地已有 NCM**：先用头部读元数据（只作回退，失败不影响解密）→ 交给 `NcmImportService` 解密并写入 NCM 内嵌标签（解到下载目录下的**临时子目录**）→ 取最新歌曲详情（失败回退请求里的歌曲）→ 歌词 / 封面（NCM 内嵌封面优先，否则下载）→ 按在线数据重新写标签，文件名取「在线值 → NCM 头 → 本地扫描结果 → 请求歌曲」里第一个非空的 → 原子落盘。
+- **本地已有普通音频**：`redownload_existing`（设置里的「覆盖已存在文件」）为假 → 跳过（消息「本地已存在，跳过。」），为真 → 走下载。
+- **本地没有**：走下载，下载服务自己的「已存在则跳过」仍然有效（映射成跳过）。
+
+### 与 C# 行为的差异（有意为之）
+
+- **取消时保留已完成的结果**（下载、同步、NCM 导入一致）：C# 取消抛 `OperationCanceledException` 丢掉整批结果；这里返回 `cancelled: true` 与已完成的结果，在途歌曲的临时文件被清理，界面把没处理到的行标成「已取消」。取消在等网络时立刻生效。
+- **同步按设置的并发数同时处理多首**：C# 的同步逐首顺序处理（每首歌各调一次下载服务，下载服务自己的并发上限形同虚设）。上千首的歌单逐首下载太慢，这里与下载共用同一个任务池。结果顺序、三个分支的行为与 C# 一致（交叉验证覆盖）。
+- **同步解密 NCM 不碰下载目录里已有的文件**：C# 把 `.ncm` 直接解密到下载目录、文件名取自 `.ncm` 的主干，目录里恰好有同名音频会被覆盖；这里解密到临时子目录，写完标签再改名成最终文件名（有测试）。
+- **冲突文件名原子占位**：先 `create_new` 占位再改名覆盖占位文件（Windows 上 `fs::rename` 会覆盖已有文件，不能直接拿来检测冲突）；并发下载同名歌曲不会互相覆盖（有测试）。
+- **下载不完整判失败**：响应头声明了长度而实收更少时失败（C# 依赖 `HttpClient` 自己发现）。
+- **歌单里重复出现的同一首歌，「下载缺失」与「一键同步」只处理一次**（并发处理同一首歌只会得到两份文件）；「下载选中」按勾选的歌曲 ID 去重。
+- **曲库目录不存在时**：「下载缺失」与「一键同步」按“本地为空”处理并给出警告（C# 在这种情况下扫描失败、所有行显示需下载）。
+- **在线补全未接入时统一提示一次**（见上），C# 的下载服务在没有批量服务时静默跳过。
+- C# 的 `Albums.cs` 的 `GetAlbumAsync` 在下载路径里**从未被调用**（任务书提到“下载时补专辑元数据”，实际 C# 用歌单歌曲自带的专辑信息），所以没有移植。
+- HTTP 错误文案没有 C# 的原因短语（`HTTP 404`，不是 `HTTP 404 Not Found`）；网络类错误是中文的「下载失败：网络连接中断（…）」「下载超时：…」。
+
+### Tauri 外壳与前端
+
+- 命令：`download_tracks(playlistId, trackIds)`、`download_missing(playlistId)`、`sync_playlist(playlistId)`（都返回 `TransferSummaryView`，失败 `Err` 为 `{ kind, message }`）、`download_cancel()`、`set_quality(quality)`（**只改 `settings.json` 里的 `quality`**，其他字段原样保留；设置文件当初没读出来时只改内存不写盘；未知名字明确拒绝，因为 `AudioQuality` 的反序列化会把未知值悄悄变成默认档位——实机验证时发现）。事件：`download:started`（`{ kind, total, songIds }`）、`download:progress`（见上）；结束后重新扫描曲库时照常发 `library:progress`。`get_app_state` 新增 `qualityOptions`（九档的成员名 + 中文显示名，界面下拉直接用）。同一时间只有一个下载 / 同步任务（`busy`）；用的是设置的快照，任务运行期间改设置不影响正在跑的任务。
+- 前端：歌曲表格新增**复选框列**（点复选框切换、**按住 Shift 再点连选一段**、表头复选框全选 / 全不选且有半选状态，按歌曲 ID 记，换歌单清空）与**下载状态列**（徽标：排队中 / 下载中 42% / 解密中 / 写入标签 / 在线匹配 / 已下载 / 已解密 / 已跳过 / 失败 / 已取消；第二行是失败原因（红）、实际音质提示、字节进度或补充说明；下载中有细进度条；悬停提示完整文字与输出路径）。表格宽度不够时（容器查询 < 730 px）先隐藏专辑列。
+- 工具条（本地对比工具条下方）：**音质下拉**（`aria-label="下载音质"`，改动立即生效并写回设置，任务运行中禁用）、「下载选中（N）」「下载缺失」「一键同步」「取消」、已选数量与「清除」；运行中显示「正在同步 18/35」+ 整体进度条，点取消后显示「正在取消…（等当前歌曲收尾，已下载的文件会保留）」；结束后一行汇总（与桌面版日志同文案，有失败时用警告色）+「知道了」；没勾选 / 没有缺失只给一句提示而不是错误。正在扫描 / 对比本地曲库时不开始新任务。任务成功结束后清掉勾选，并重新对比本地（后端已经重新扫描，直接复用扫描结果），所以「本地状态」列与统计立刻更新。所有可交互控件有中文 `aria-label`。
+- 逐曲进度事件很密集：前端先写进 ref，每帧最多刷新一次界面；任务结束后以汇总里的结果覆盖逐行状态（事件与命令返回值不保证先后）。
+- 开发假后端 `mockBackend.ts`：假下载 / 同步任务（最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档，同步里按本地状态走跳过 / 解密 / 下载）；`?mock=dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
+
+### 新增依赖
+
+无（Rust 与前端都没有新增；`tokio` 只用了已有的 `rt` / `sync` / `time` 特性里的 `JoinSet`、`Semaphore`、`Notify`；`reqwest` 的 `read_timeout` 与 `chunk()` 是已有特性）。
+
+### 验证
+
+- 单测：`lp-core` lib 739 个（模块 9 新增 131：`models::audio_quality` 6——C# `AudioQualityTests` 全部移植；`netease::player` 12——C# 取链的 7 个测试全部移植，另加 Audio Vivid 别名、业务 301 保持可识别、无效 ID、畸形响应与失败文案；`download::media` 12；`download::pool` 6；`download::service` 44——C# `DownloadServiceTests` 的 21 个全部移植，另加降档提示逐档、未知 `level` 不提示、`lyricsMode=None` 不取歌词、在线补全各分支（成功 / 失败 / 跳过 / 出错 / 未接入）、NCM 解密失败的原因与清理、并发下载同名歌曲不互相覆盖、文件名模板、取消（下载中途网络卡死 / 批量取消保留已完成结果）都清理临时文件、内容被截断、进度按字节与百分比、封面过大 / 恰在上限 / 封面地址 404、真实 lofty 标签服务端到端；`sync::service` 27——C# `MusicSyncServiceTests` 的 18 个全部移植，另加三分支并行、并发上限与结果顺序、NCM 解密不碰同名的无关文件、真实解密器 + 合成 NCM + lofty 的端到端、NCM 文件名回退链；`download::task` 16；`library` 4；`utilities::cancel` 净增 4），外壳 21 个（新增 6：音质选项、只改 `quality` 一个字段、设置不可信时不写盘、拒绝未知音质、任务槽空闲时取消为空操作、事件名），集成测试 29 个（新增 `csharp_download` 2）；workspace 合计 789 个。`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm build`、`.\build.ps1 -Tauri` 通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **与 C# 的交叉验证**（`tests/csharp_download.rs` + `tests/fixtures/download/`，说明见该目录 README；临时 C# 探针直接引用 `LunaticPrincess.Core`，已删除、不入库）：同一份 12 个场景（基础下载 + 封面 + 逐行歌词；FLAC + 逐字歌词 + 译文 + 别名；降档提示；下载下来的是 NCM；文件名模板含非法字符与占位符；同名冲突加 `(ID)` 后缀；跳过已存在；覆盖已存在；五种失败混合（版权 / 试听 / HTTP 404 / 空内容 / 成功）；格式缺失时取 URL 扩展名；同步三分支；同步 NCM 在线数据缺失时的文件名回退），C# 用真实的 `DownloadService` / `MusicSyncService` / `NcmDecoder` / `AudioTagService` 跑一遍，Rust 用真实的 lofty + `FileNcmDecoder` 跑一遍。**12/12 场景完全一致**：每首歌的成败 / 是否跳过 / 来源 / 输出文件名 / 消息，输出目录里的文件集合（也证明没有遗留临时文件 / 目录），每个文件读回的标题 / 歌手 / 专辑 / 专辑艺术家 / 年份 / 音轨 / 碟号 / 歌词（含逐字与译文）/ 网易云 ID / 备注 / 是否有封面 / 封面 SHA-256 / 格式，降档提示逐字相同，下载场景的阶段名集合相同（同步场景 C# 把导入进度的消息当阶段名，只比较共有的阶段）。
+- **联网探针**（一次性，已删除）：匿名取 5 首公开歌曲的播放地址、请求极高与 Hi-Res 两档，只看元数据、**没有下载任何音频**：4 首版权受限（`code=404`，文案与 C# 相同）；1 首免费歌曲拿到地址，两档都是 `level=exhigh`、`type=mp3`、码率 320000、大小 4247553、非试听、`fee=0`——请求 Hi-Res 却静默得到 `exhigh`，正是「实际音质」提示要覆盖的真实场景。
+- 浏览器假后端（`pnpm dev`，暗色 + 浅色）：复选框点选 / Shift 连选 / 全选半选；「下载选中（4）」运行中显示排队 / 写入标签状态与「正在下载 0/4」，结束后各行「已下载」、汇总文案正确；一键同步 35 首：「正在同步 18/35」、逐行「已下载 + 实际音质提示 / 失败 + 红色原因 / 已解密 / 已跳过 + 说明」、结束汇总「同步完成：成功 34 首（下载 14、NCM 解密 4、跳过 16），失败 1 首」；下载缺失中途取消：「正在取消…」→「下载已取消：已处理 10/15，成功 9 首，失败 1 首」；窗口较窄时专辑列被隐藏。
+- 实机（exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，`settings.json` 里 `downloadDirectory` / `libraryDirectory` 预先指向 `D:\claude` 下的目录，**没有触碰真实登录态与用户目录**；测完已清理）：测试数据目录没有登录态，加载不了真实歌单，所以**真实下载没能实机验证，需要用户在真机上确认**——请用一个自己有权访问的账号：①下载选中一首免费歌曲，确认文件落在下载目录、标签 / 封面 / 歌词正确、状态列显示「已下载」；②用有 / 没有 Hi-Res 权益的账号各下一首，确认「实际音质」提示与实际文件的格式相符；③一键同步里有 `.ncm` 的歌，确认被解密并改名；④下载过程中点取消，确认下载目录里没有 `.part` / `.tmp` 残留。用 WebView2 的远程调试端口（只开在本次测试进程上）对真实 exe 调用后端命令：`get_app_state` 带出九档 `qualityOptions`、设置里的 `quality`；`download_cancel` 空闲时返回 `false`；`download_tracks` / `download_missing` / `sync_playlist` 对没有加载过的歌单返回 `playlistNotLoaded`；`set_quality` 只改了 `quality`（`maxConcurrency` 等其他字段原样保留）。
+
+### 已知限制
+
+- 在线补全未接入（见上，模块 10）。
+- 没有“暂停 / 继续”与失败重试；失败的歌曲可以再点一次「下载选中」。
+- 取消在“等网络 / 分块之间”立即生效，但已经进入标签写入或改名的那一首会先完成再停。
+- 下载目录与曲库目录是两个设置：下载完成后重新扫描的是曲库目录，下载目录不在曲库目录里时下载的歌不会被对比识别到。
+- 前端没有自动化测试（与 C# 的 ViewModel 一样靠实机验证）；纯逻辑（Shift 区间选择、进度并入）放在可导出的函数里，但目前没有前端测试框架。
 
 ## 模块 8（本地曲库与对比）实现记录
 
@@ -158,7 +236,7 @@ pnpm build           # 只构建前端（tsc + vite）
 ### 已知限制
 
 - 扫描结果只缓存在内存里（与 C# 一致）：曲库目录里的文件在两次扫描之间变化不会被感知，点「重新扫描」才会更新；设置窗口（模块 11）改了曲库目录后缓存会因目录文本不同而自动作废。
-- 模块 9 的下载 / 同步完成后需要调用 `scan_library` 刷新本地状态（C# 在同步结束后会重新扫描并对比）。
+- 下载 / 同步结束后的重新扫描与对比刷新已在模块 9 里接上（见下）。
 - 标签库对损坏文件的行为（读不出标签就回退文件名）与 C# 一致，但 lofty 与 TagLib 对个别畸形文件可能一个读得出一个读不出，这类文件的标题 / 歌手可能不同。
 - 与 .NET 的 Unicode 版本差异见上（只涉及 .NET 8 之后才分配的字符）。
 

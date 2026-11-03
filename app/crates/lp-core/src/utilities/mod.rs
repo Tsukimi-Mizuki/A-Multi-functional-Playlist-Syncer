@@ -10,4 +10,4 @@ pub mod cancel;
 pub mod error_text;
 pub mod file_name_sanitizer;
 
-pub use cancel::CancelToken;
+pub use cancel::{CancelToken, Cancelled, cancellable};

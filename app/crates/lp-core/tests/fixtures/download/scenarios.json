@@ -1,0 +1,177 @@
+[
+  {
+    "name": "download-basic-line-lyrics",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "Line", "writeCover": true },
+    "songs": [
+      { "id": 101, "name": "晴天", "artists": ["周杰伦"], "album": "叶惠美", "coverUrl": "https://img.example/c1.png", "releaseDate": "2003-07-31", "trackNumber": 3, "discNumber": 1 }
+    ],
+    "playback": { "101": { "url": "https://cdn.example/101.mp3", "format": "mp3", "level": "exhigh" } },
+    "http": { "https://cdn.example/101.mp3": "sample.mp3", "https://img.example/c1.png": "cover.png" },
+    "lyrics": { "101": { "lrc": "[00:01.00]故事的小黄花\n[00:05.50]从出生那年就飘着\n" } }
+  },
+  {
+    "name": "download-word-lyrics-with-translation",
+    "mode": "download",
+    "options": { "quality": "Lossless", "lyricsMode": "Word", "writeCover": true },
+    "songs": [
+      { "id": 102, "name": "Lemon", "artists": ["米津玄師"], "album": "Lemon", "coverUrl": "https://img.example/c2.jpg", "releaseDate": "2018-03-14", "trackNumber": 1, "discNumber": 2, "alias": "柠檬" }
+    ],
+    "playback": { "102": { "url": "https://cdn.example/102.flac", "format": "flac", "level": "lossless" } },
+    "http": { "https://cdn.example/102.flac": "sample.flac", "https://img.example/c2.jpg": "cover.jpg" },
+    "lyrics": {
+      "102": {
+        "lrc": "[00:12.580]夢ならばどれほどよかったでしょう\n[00:16.960]未だにあなたのことを夢にみる\n",
+        "yrc": "[12580,4380](12580,500,0)夢(13080,600,0)なら(13680,700,0)ば\n[16960,4000](16960,800,0)未(17760,600,0)だ(18360,600,0)に\n",
+        "tlyric": "[00:12.580]要是梦的话该有多好\n[00:16.960]至今仍会梦见你\n"
+      }
+    }
+  },
+  {
+    "name": "download-quality-downgrade-notice",
+    "mode": "download",
+    "options": { "quality": "DolbyAtmos", "lyricsMode": "None", "writeCover": false },
+    "songs": [
+      { "id": 103, "name": "降档之歌", "artists": ["歌手甲", "歌手乙"], "album": "专辑", "coverUrl": null, "releaseDate": "2010-01-01", "trackNumber": 0, "discNumber": 1 }
+    ],
+    "playback": { "103": { "url": "https://cdn.example/103.flac", "format": "flac", "level": "lossless" } },
+    "http": { "https://cdn.example/103.flac": "sample.flac" },
+    "lyrics": {}
+  },
+  {
+    "name": "download-ncm-payload",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "Line", "writeCover": true },
+    "songs": [
+      { "id": 104, "name": "加密载荷", "artists": ["某歌手"], "album": "某专辑", "coverUrl": "https://img.example/c4.jpg", "releaseDate": "2020-05-20", "trackNumber": 7, "discNumber": 1 }
+    ],
+    "playback": { "104": { "url": "https://cdn.example/104.mp3", "format": "mp3", "level": "exhigh" } },
+    "http": { "https://cdn.example/104.mp3": "sample.ncm", "https://img.example/c4.jpg": "cover.jpg" },
+    "lyrics": { "104": { "lrc": "[00:00.50]第一句\n" } }
+  },
+  {
+    "name": "download-templates-and-collisions",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "None", "writeCover": false, "skipExisting": false, "fileNameTemplate": "{track} {title} - {artist} ({year}) [{id}]" },
+    "songs": [
+      { "id": 105, "name": "A/B:C?*", "artists": ["歌手/合作"], "album": "专辑", "coverUrl": null, "releaseDate": "1999-12-31", "trackNumber": 2, "discNumber": 1 },
+      { "id": 106, "name": "A/B:C?*", "artists": ["歌手/合作"], "album": "专辑", "coverUrl": null, "releaseDate": "1999-12-31", "trackNumber": 2, "discNumber": 1 }
+    ],
+    "playback": {
+      "105": { "url": "https://cdn.example/105.mp3", "format": "mp3" },
+      "106": { "url": "https://cdn.example/106.mp3", "format": "mp3" }
+    },
+    "http": { "https://cdn.example/105.mp3": "sample.mp3", "https://cdn.example/106.mp3": "sample.mp3" },
+    "lyrics": {}
+  },
+  {
+    "name": "download-same-name-gets-id-suffix",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "None", "writeCover": false, "skipExisting": false },
+    "songs": [
+      { "id": 107, "name": "同名", "artists": ["同一歌手"], "album": "甲", "coverUrl": null, "releaseDate": "2001-01-01", "trackNumber": 1, "discNumber": 1 },
+      { "id": 108, "name": "同名", "artists": ["同一歌手"], "album": "乙", "coverUrl": null, "releaseDate": "2002-02-02", "trackNumber": 1, "discNumber": 1 },
+      { "id": 109, "name": "同名", "artists": ["同一歌手"], "album": "丙", "coverUrl": null, "releaseDate": "2003-03-03", "trackNumber": 1, "discNumber": 1 }
+    ],
+    "playback": {
+      "107": { "url": "https://cdn.example/107.mp3", "format": "mp3" },
+      "108": { "url": "https://cdn.example/108.mp3", "format": "mp3" },
+      "109": { "url": "https://cdn.example/109.mp3", "format": "mp3" }
+    },
+    "http": { "https://cdn.example/107.mp3": "sample.mp3", "https://cdn.example/108.mp3": "sample.mp3", "https://cdn.example/109.mp3": "sample.mp3" },
+    "lyrics": {}
+  },
+  {
+    "name": "download-skip-existing",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "Line", "writeCover": false },
+    "songs": [
+      { "id": 110, "name": "已有的歌", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2005-05-05", "trackNumber": 1, "discNumber": 1 }
+    ],
+    "playback": {},
+    "http": {},
+    "lyrics": {},
+    "preexisting": [ { "name": "歌手 - 已有的歌.FLAC", "file": "sample.flac" } ]
+  },
+  {
+    "name": "download-overwrite-existing",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "None", "writeCover": false, "overwriteExisting": true },
+    "songs": [
+      { "id": 111, "name": "覆盖我", "artists": ["歌手"], "album": "新专辑", "coverUrl": null, "releaseDate": "2006-06-06", "trackNumber": 4, "discNumber": 1 }
+    ],
+    "playback": { "111": { "url": "https://cdn.example/111.mp3", "format": "mp3" } },
+    "http": { "https://cdn.example/111.mp3": "sample.mp3" },
+    "lyrics": {},
+    "preexisting": [ { "name": "歌手 - 覆盖我.mp3", "file": "sample.flac" } ]
+  },
+  {
+    "name": "download-failures",
+    "mode": "download",
+    "options": { "quality": "ExHigh", "lyricsMode": "None", "writeCover": false },
+    "songs": [
+      { "id": 112, "name": "版权受限", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2007-07-07", "trackNumber": 1, "discNumber": 1 },
+      { "id": 113, "name": "试听片段", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2007-07-07", "trackNumber": 1, "discNumber": 1 },
+      { "id": 114, "name": "下载404", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2007-07-07", "trackNumber": 1, "discNumber": 1 },
+      { "id": 115, "name": "空内容", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2007-07-07", "trackNumber": 1, "discNumber": 1 },
+      { "id": 116, "name": "能下载", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2007-07-07", "trackNumber": 1, "discNumber": 1 }
+    ],
+    "playback": {
+      "112": { "error": "版权受限" },
+      "113": { "url": "https://cdn.example/113.mp3", "format": "mp3", "isTrial": true },
+      "114": { "url": "https://cdn.example/114.mp3", "format": "mp3" },
+      "115": { "url": "https://cdn.example/115.mp3", "format": "mp3" },
+      "116": { "url": "https://cdn.example/116.mp3", "format": "mp3" }
+    },
+    "http": { "https://cdn.example/115.mp3": "@empty", "https://cdn.example/116.mp3": "sample.mp3" },
+    "lyrics": {}
+  },
+  {
+    "name": "download-extension-from-url-no-cover",
+    "mode": "download",
+    "options": { "quality": "HiRes", "lyricsMode": "None", "writeCover": false },
+    "songs": [
+      { "id": 117, "name": "按地址判断格式", "artists": ["歌手"], "album": "", "coverUrl": null, "releaseDate": null, "trackNumber": 0, "discNumber": 1 }
+    ],
+    "playback": { "117": { "url": "https://cdn.example/file.flac?token=abc", "format": null, "level": "hires" } },
+    "http": { "https://cdn.example/file.flac?token=abc": "sample.flac" },
+    "lyrics": {}
+  },
+  {
+    "name": "sync-three-branches",
+    "mode": "sync",
+    "options": { "quality": "ExHigh", "lyricsMode": "Line", "writeCover": true },
+    "songs": [
+      { "id": 201, "name": "本地已有", "artists": ["歌手"], "album": "专辑", "coverUrl": null, "releaseDate": "2011-01-01", "trackNumber": 1, "discNumber": 1 },
+      { "id": 202, "name": "待解密", "artists": ["请求歌手"], "album": "请求专辑", "coverUrl": "https://img.example/c202.png", "releaseDate": "2012-02-02", "trackNumber": 5, "discNumber": 1 },
+      { "id": 203, "name": "需下载", "artists": ["歌手"], "album": "专辑", "coverUrl": "https://img.example/c203.png", "releaseDate": "2013-03-03", "trackNumber": 2, "discNumber": 1 }
+    ],
+    "details": {
+      "202": { "id": 202, "name": "待解密（在线）", "artists": ["在线歌手"], "album": "在线专辑", "coverUrl": "https://img.example/c202.png", "releaseDate": "2012-02-02", "trackNumber": 6, "discNumber": 1 }
+    },
+    "playback": { "203": { "url": "https://cdn.example/203.mp3", "format": "mp3", "level": "exhigh" } },
+    "http": {
+      "https://cdn.example/203.mp3": "sample.mp3",
+      "https://img.example/c203.png": "cover.png",
+      "https://img.example/c202.png": "cover.png"
+    },
+    "lyrics": { "202": { "lrc": "[00:01.00]解密后的歌词\n" }, "203": { "lrc": "[00:01.00]下载的歌词\n" } },
+    "local": {
+      "201": { "name": "existing.mp3", "file": "sample.mp3", "isNcm": false },
+      "202": { "name": "Lucky.ncm", "file": "sample.ncm", "isNcm": true }
+    }
+  },
+  {
+    "name": "sync-ncm-falls-back-to-header-names",
+    "mode": "sync",
+    "options": { "quality": "ExHigh", "lyricsMode": "None", "writeCover": false },
+    "songs": [
+      { "id": 204, "name": "", "artists": [], "album": "", "coverUrl": null, "releaseDate": null, "trackNumber": 0, "discNumber": 1 }
+    ],
+    "details": {},
+    "playback": {},
+    "http": {},
+    "lyrics": {},
+    "local": { "204": { "name": "Lucky.ncm", "file": "sample.ncm", "isNcm": true } }
+  }
+]

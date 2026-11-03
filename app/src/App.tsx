@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
+import { setQuality, type TransferSummary } from './api/transfer'
 import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
@@ -17,10 +18,13 @@ import { useAuth } from './state/useAuth'
 import { useLogs } from './state/useLogs'
 import { useLocalMatch } from './state/useLocalMatch'
 import { usePlaylists } from './state/usePlaylists'
+import { useSelection } from './state/useSelection'
+import { useTransfer } from './state/useTransfer'
 
 type DialogState = 'none' | 'login' | 'logout' | 'ncm'
 
 const SIDEBAR_KEY = 'lp.sidebarCollapsed'
+const NO_SONGS: Song[] = []
 
 /** 侧栏收起状态只是每个用户自己的界面偏好：存取失败（隐私模式等）时静默回退。 */
 function readSidebarCollapsed(): boolean {
@@ -55,12 +59,37 @@ export default function App() {
     playlists.detail.status === 'ready' ? playlists.detail.detail : null,
     appState ? appState.settings.autoMatchLocal : null,
   )
+  const loadedDetail = playlists.detail.status === 'ready' ? playlists.detail.detail : null
+  const selection = useSelection(loadedDetail?.songs ?? NO_SONGS)
+  // 下载 / 同步结束后：清掉勾选，重新对比本地曲库（后端已经重新扫描过，这里直接复用扫描结果）。
+  const clearSelection = selection.clear
+  const compareLocal = local.compare
+  const onTransferFinished = useCallback(
+    (summary: TransferSummary) => {
+      if (!summary.cancelled) clearSelection()
+      compareLocal()
+    },
+    [clearSelection, compareLocal],
+  )
+  const transfer = useTransfer(loadedDetail?.id ?? null, onTransferFinished)
+  // 下载音质：启动时取设置里的值，工具栏改动后立即生效并写回设置。
+  const [quality, setQualityState] = useState<string | null>(null)
+  const [qualityError, setQualityError] = useState<string | null>(null)
+  const onQualityChange = useCallback((next: string) => {
+    setQualityState(next)
+    setQualityError(null)
+    setQuality(next).catch((raised: unknown) => {
+      setQualityError(typeof raised === 'string' ? raised : '保存下载音质失败，请稍后重试')
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     getAppState()
       .then((app) => {
-        if (!cancelled) setAppState(app)
+        if (cancelled) return
+        setAppState(app)
+        setQualityState((current) => current ?? app.settings.quality)
       })
       .catch(() => undefined) // 非 Tauri 环境（纯浏览器预览）没有后端。
     return () => {
@@ -158,6 +187,12 @@ export default function App() {
             onRetryDetail={playlists.reloadDetail}
             onShowLyrics={setLyricsSong}
             local={local}
+            selection={selection}
+            transfer={transfer}
+            quality={quality ?? appState?.settings.quality ?? 'ExHigh'}
+            qualityOptions={appState?.qualityOptions ?? []}
+            qualityError={qualityError}
+            onQualityChange={onQualityChange}
           />
         </section>
       </main>

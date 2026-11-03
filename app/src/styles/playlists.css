@@ -421,12 +421,14 @@
   flex-direction: column;
   min-height: 0;
   padding: 0 0 0 20px;
+  /* 表格宽度不够时隐藏专辑列（transfer.css 里的 @container songs 规则）。 */
+  container: songs / inline-size;
 }
 
 .song-grid {
   display: grid;
-  grid-template-columns: 48px minmax(150px, 2.2fr) minmax(90px, 1.2fr) minmax(90px, 1.4fr) 52px 100px 32px;
-  column-gap: 12px;
+  grid-template-columns: 32px 44px minmax(120px, 2.2fr) minmax(70px, 1.2fr) minmax(70px, 1.3fr) 52px 100px minmax(120px, 1.5fr) 32px;
+  column-gap: 10px;
   align-items: center;
 }
 

@@ -16,7 +16,7 @@ pub mod text;
 pub mod track;
 pub mod view;
 
-pub use manager::{LibraryManager, ScanProgressSink};
+pub use manager::{LibraryManager, PlaylistMatches, ScanProgressSink};
 pub use matcher::{
     DEFAULT_THRESHOLD, DURATION_TOLERANCE_MS, LocalAvailability, MatchMethod, SongMatch,
     SongMatcher, duration_similarity,

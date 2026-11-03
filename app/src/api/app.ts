@@ -11,6 +11,7 @@ export interface AppInfo {
 export interface SettingsSummary {
   downloadDirectory: string
   libraryDirectory: string
+  /** 下载音质：`AudioQuality` 的成员名（如 `ExHigh`）。 */
   quality: string
   theme: string
   maxConcurrency: number
@@ -29,6 +30,12 @@ export interface SessionSummary {
   account: AccountSummary
 }
 
+/** 一档下载音质：`value` 写进设置，`label` 给界面显示。 */
+export interface QualityOption {
+  value: string
+  label: string
+}
+
 /** 与 Rust 端 `AppStateDto` 一一对应。 */
 export interface AppState {
   dataDir: string
@@ -38,6 +45,8 @@ export interface AppState {
   /** 设置文件读取失败时的中文原因（此时使用默认设置）。 */
   settingsWarning: string | null
   session: SessionSummary
+  /** 可选的下载音质，按从低到高排列。 */
+  qualityOptions: QualityOption[]
 }
 
 /** 读取应用名称与版本，用来验证前后端 IPC 通路。 */

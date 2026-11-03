@@ -93,10 +93,61 @@ pub enum TransportError {
 /// `dyn` 兼容的异步返回值。
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// 流式响应的响应体：一块一块地取，取完返回 `None`。丢弃它即放弃剩余内容。
+pub trait BodyStream: Send {
+    /// 取下一块数据；响应体结束返回 `Ok(None)`。取消安全：future 被丢弃后可以继续调用。
+    fn next_chunk(&mut self) -> BoxFuture<'_, Result<Option<Vec<u8>>, TransportError>>;
+}
+
+/// 响应头已到、响应体还在路上的 HTTP 响应（大文件下载用，不把整个文件读进内存）。
+pub struct HttpStreamResponse {
+    /// 状态码。
+    pub status: u16,
+    /// 响应头里声明的内容长度（未知为 `None`）。
+    pub content_length: Option<u64>,
+    /// 响应体。
+    pub body: Box<dyn BodyStream>,
+}
+
+impl HttpStreamResponse {
+    /// 状态码是否为 2xx。
+    pub fn is_success(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+}
+
+/// 把一份已经在内存里的响应体包装成只有一块的流（默认实现与测试用）。
+struct BufferedBody(Option<Vec<u8>>);
+
+impl BodyStream for BufferedBody {
+    fn next_chunk(&mut self) -> BoxFuture<'_, Result<Option<Vec<u8>>, TransportError>> {
+        let chunk = self.0.take().filter(|bytes| !bytes.is_empty());
+        Box::pin(async move { Ok(chunk) })
+    }
+}
+
 /// 发送一次 HTTP 请求。
 pub trait HttpTransport: Send + Sync {
     /// 发送请求并读完整个响应。取消通过丢弃返回的 future 实现。
     fn send(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, TransportError>>;
+
+    /// 发送请求，响应头到达就返回，响应体按块流式读取（音频下载用）。
+    ///
+    /// 默认实现退化为 [`send`](Self::send)：整份响应体读完后当作只有一块的流，所以只实现 `send` 的
+    /// 测试传输也能用；生产实现 [`ReqwestTransport`] 覆盖它做真正的流式读取。
+    fn send_stream(
+        &self,
+        request: HttpRequest,
+    ) -> BoxFuture<'_, Result<HttpStreamResponse, TransportError>> {
+        Box::pin(async move {
+            let response = self.send(request).await?;
+            Ok(HttpStreamResponse {
+                status: response.status,
+                content_length: Some(response.body.len() as u64),
+                body: Box::new(BufferedBody(Some(response.body))),
+            })
+        })
+    }
 }
 
 /// 生产环境的传输实现：`reqwest` + `native-tls`（Windows 上即 Schannel，使用系统证书与系统代理）。
@@ -113,6 +164,22 @@ impl ReqwestTransport {
         let client = reqwest::Client::builder()
             .connect_timeout(timeout.min(Duration::from_secs(10)))
             .timeout(timeout)
+            .build()
+            .map_err(|error| TransportError::Network(describe_error(&error)))?;
+        Ok(Self { client })
+    }
+
+    /// 创建音频下载用的传输层：整份下载最长 `total_timeout`（C# 版为 30 分钟），另外限制连接时间与“相邻两次
+    /// 读到数据的间隔”`read_timeout`——网络断了很快就能发现，而不是等满总超时。
+    pub fn for_downloads(
+        connect_timeout: Duration,
+        read_timeout: Duration,
+        total_timeout: Duration,
+    ) -> Result<Self, TransportError> {
+        let client = reqwest::Client::builder()
+            .connect_timeout(connect_timeout)
+            .read_timeout(read_timeout)
+            .timeout(total_timeout)
             .build()
             .map_err(|error| TransportError::Network(describe_error(&error)))?;
         Ok(Self { client })
@@ -148,6 +215,45 @@ impl HttpTransport for ReqwestTransport {
                 set_cookies,
                 body,
             })
+        })
+    }
+
+    fn send_stream(
+        &self,
+        request: HttpRequest,
+    ) -> BoxFuture<'_, Result<HttpStreamResponse, TransportError>> {
+        Box::pin(async move {
+            let mut builder = match request.method {
+                HttpMethod::Get => self.client.get(&request.url),
+                HttpMethod::Post => self.client.post(&request.url),
+            };
+            for (name, value) in &request.headers {
+                builder = builder.header(name, value);
+            }
+            if let Some(form) = &request.form {
+                builder = builder.form(form);
+            }
+
+            let response = builder.send().await.map_err(map_error)?;
+            Ok(HttpStreamResponse {
+                status: response.status().as_u16(),
+                content_length: response.content_length(),
+                body: Box::new(ReqwestBody { response }),
+            })
+        })
+    }
+}
+
+/// `reqwest` 响应体的逐块读取。
+struct ReqwestBody {
+    response: reqwest::Response,
+}
+
+impl BodyStream for ReqwestBody {
+    fn next_chunk(&mut self) -> BoxFuture<'_, Result<Option<Vec<u8>>, TransportError>> {
+        Box::pin(async move {
+            let chunk = self.response.chunk().await.map_err(map_error)?;
+            Ok(chunk.map(|bytes| bytes.to_vec()))
         })
     }
 }
