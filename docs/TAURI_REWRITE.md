@@ -47,9 +47,10 @@ app/
 | `qr` | `QrLoginViewModel.RenderQrCode`（QRCoder → `qrcode` SVG） |
 | `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` / `lyrics` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs/Lyrics`） |
 | `playlist` | 原来放在 `MainWindowViewModel` 里的歌单加载编排（取列表 / 曲目、写日志、301 时走登录复核） |
-| `ncm` | `Core/Ncm/` |
+| `ncm` | `Core/Ncm/`（模块 6：`client_comment` = `NeteaseClientComment`；NCM 解密在模块 7） |
 | `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；`LyricsMatchScorer`、`BatchLyricsService` 在模块 10） |
-| `tags` | `Core/Tags/` |
+| `tags` | `Core/Tags/`（模块 6：`model` / `service` / `text` / `view`；`service` 对应 `AudioTagService`） |
+| `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；`FileNameSanitizer` 随模块 9） |
 | `library` | `Core/Library/` |
 | `download` | `Core/Download/` |
 | `sync` | `Core/Sync/` |
@@ -91,7 +92,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 3 | 登录 | weapi 加密、HTTP、Cookie 合并与续期、扫码登录 UI | 完成（续期效果待真机长期观察） |
 | 4 | 歌单 | 歌单列表与详情（trackIds + 分批 song/detail）、歌单侧栏与歌曲表格 | 完成 |
 | 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC、网易云歌词接口、歌词预览 | 完成 |
-| 6 | 标签读写 | MP3 / FLAC / M4A / OGG 标签、封面、歌词写入 | 待做 |
+| 6 | 标签读写 | MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词读写（lofty），网易云 ID 与客户端 163 key，标签查看对话框 | 完成 |
 | 7 | NCM 解密与导入 | `.ncm` 解密、元数据与封面回写、导入窗口 | 待做 |
 | 8 | 本地曲库与对比 | 曲库扫描、与歌单一对一匹配 | 待做 |
 | 9 | 下载与同步 | 九档音质取链下载、一键同步编排 | 待做 |
@@ -104,6 +105,64 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 6（标签读写）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `tags::model` | `IAudioTagService.cs` | `AudioTagData`（写入，含 `replace_all`）、`AudioTagInfo`（读取）、`TagError`（中文文案）。比 C# 多了 `track_total` / `disc_total`（C# 靠 TagLib 隐式保留已有总数，这里显式暴露）和 `cover_mime_type`。 |
+| `tags::service` | `AudioTagService.cs` | `AudioTagService` trait（同步，调用方 `spawn_blocking`）+ `LoftyTagService`。读写规则逐条对应 C# 的 `ReadCore` / `ApplyTag` / `ApplyComment` / `ApplyCover`。底层是 lofty 的通用 `Tag` + `ItemKey`，写回时转成容器自己的标签类型（ID3v2 / VorbisComments / ilst / RIFF INFO / APE），这样编辑器没展示的字段（TXXX、PRIV、UFID、ReplayGain、自定义 Vorbis 字段、`ilst` 里的其他原子、带描述的 `COMM`）原样保留，有测试。 |
+| `tags::text` | `AudioTagService` 里的私有静态方法 | `null_if_blank` / `join_values`（`/` 连接）/ `split_values`（`/ ; ； 换行`）/ `clean_comment` / 网易云 ID 标记 `LunaticPrincess:<id>`（正则、清理、溢出时不回落）/ `detect_image_mime`。 |
+| `tags::view` | — | 给界面用：`TagView`（封面转 data URL，超过 8 MB 不内联只标记；网易云 ID 用字符串避免 JS 精度丢失）、`WriteTagsRequest`（封面 Base64）、`TagCommandError { kind, message }`。 |
+| `ncm::client_comment` | `NeteaseClientComment.cs` | `163 key(Don't modify):<base64>` 的 AES-128-ECB + PKCS7 解密、取 `musicId`（数字或字符串）、`build_comment`（测试用）。`MODIFY_KEY` 留给模块 7 的 NCM 解密共用。Base64 按 .NET `FromBase64String` 的宽容度（要求规范填充、容忍末尾多余比特）。 |
+| `utilities::audio_file_types` | `AudioFileTypes.cs` | 扩展名判定、`try_resolve`（文件 / 文件夹 → 第一个受支持文件）、`list_supported_files`；扩展名规则与 .NET `Path.GetExtension` 一致。 |
+
+### 写入的安全性（与 C# 的有意差异）
+
+C# 是就地 `file.Save()`，写到一半失败会损坏文件。Rust 版：复制成同目录临时副本 `<原名>.lp-tmp-<进程号>-<序号>` → 改动全部写进副本 → 重新解析副本确认类型没变 → `rename` 原子替换原文件。任何一步失败都清理副本、保留原文件（有测试：原文件被占用时写入失败，原文件字节不变，且不留副本）。不写预留填充（`preferred_padding(0)`）：我们总是整体写出，填充没有意义，反而让 Ogg 每次多几 KB。
+
+### 各容器的字段映射与 C# 的差异
+
+- **MP3**：ID3v2.3（UTF-16）新建，文件里已有 2.4 就保持 2.4（C# 的 TagLib 行为）。2.3 里多个艺术家 / 流派 / 作曲家用 `/` 拼成一个帧（lofty 默认写 2.4 的 NUL 分隔，2.3 的读取方——包括 TagLib——会在 NUL 处截断，只剩第一个值，交叉实测发现的）；2.4 则每个值一个条目。年份由 lofty 在 2.3 下写成 `TYER`（C# 在 2.3 标签里写 `TDRC`，不合规）。备注与歌词的语言码写 `eng`（C# 取系统区域，如 `zho`）。
+- **ID3v1**：C# 每次保存都会另写一份 ID3v1；读取时仍像 TagLib 的 `CombinedTag` 一样“主标签优先、其余兜底”。`replace_all` 写入时会移除 ID3v1，否则清空的字段会被旧的 ID3v1 兜底读出来。
+- **FLAC**：**封面写入与读取都是原生 `PICTURE` 块**。任务书里说 C# 用 `METADATA_BLOCK_PICTURE` 存 FLAC 封面，实测不是：TagLib 的 FLAC 封面落在 `FlacMetadata`（即原生 PICTURE 块，交叉夹具里解析块类型确认；`csharp_tags.rs` 有测试固化），只有 Ogg Vorbis / Opus 才用 `METADATA_BLOCK_PICTURE`（Ogg 没有原生图片块，lofty 与 TagLib 一样）。所以 FLAC 在两边一致，没有需要记录的差异；另外读取仍兼容 FLAC 的 VorbisComment 里残留的 `METADATA_BLOCK_PICTURE`（别的工具写的），并在换封面时清掉，避免重复封面（有测试）。
+- **Vorbis / Opus / FLAC 备注**：TagLib 写 `COMMENT`，lofty 也是；读取时 `COMMENT` 优先，其次 `DESCRIPTION`。歌词写 `LYRICS`（和 TagLib 一致），读取兼容 `LYRICS` / `UNSYNCEDLYRICS`。年份写 `DATE`。
+- **M4A**：TagLib 把多值字段拼成 `a; b` 写进同一个 data 原子，读时按 `;` 拆开；lofty 不拆，所以读 `ilst` 时额外按 `;` 拆（否则 C# 写出的文件会显示成 `a; b`）。C# 的 M4A 在「备注 + 网易云 ID 标记」同时存在时会丢标记（TagLib 的 AppleTag 备注只取 `;` 前一段，C# 版的 bug）；Rust 版整串保存，能读回，C# 写出的 M4A 里读不到的 ID 仍读不到（文件里就没有）。
+- **WAV**：与 C# 一样同时写 ID3v2 块和 RIFF INFO。TagLib 追加 `id3 ` / `LIST` 块后**不更新 RIFF 头长度**（文件比头里声明的大），lofty 按声明长度找块会找不到旧的 `id3 ` 块、新建一个 `ID3 ` 块，旧值仍被读到；所以写 WAV 前，若声明长度之后的数据恰好能按块边界走完，就先把 RIFF 头长度修正到文件实际大小（有测试）。
+- **WMA**：lofty 不支持 ASF，读返回 `None`（「格式不支持」）、写返回 `Unsupported`。`AudioFileTypes` 仍保留 `.wma`（与 C# 一致，供后续拖放用），「查看标签」的文件选择器过滤器里去掉了它。这是相对 C# 的功能缺口。
+- **读取的小改进**：封面优先取「正面封面」（C# 取第一张图）；备注不再把带描述的 `COMM`（`iTunNORM` 等程序自用数据）当作用户备注；网易云 ID 会扫描全部备注帧；`replace_all` 保存时，年份没变就保留已有的完整日期（`2003-05-21` 不会被截成 `2003`）；读取时 IO 故障（权限、占用）返回 `Err` 带中文原因，而不是像 C# 一样一律当成「无法读取」。
+- **lofty 的小怪癖**：Vorbis 里 `ENCODER` 字段会被当作厂商串并从字段里消失（Ogg 写入会保留文件原有的厂商串）；`VorbisComments::from(Tag)` 内部的 swap 式移除会打乱同名多值字段的顺序，写入前把 `EncoderSoftware` 条目挪到最前面规避（有测试）。
+
+### Tauri 外壳与前端
+
+- 新增 `tauri-plugin-dialog`（capability `dialog:allow-open`）；命令 `read_tags(path)` → `TagView | null`（`null` = 格式不支持或损坏；IO 故障是 `{ kind, message }`），`write_tags(path, request)` 已实现、有 lp-core 测试，本模块前端不调用（编辑器在模块 10）。`AppState` 新增 `tags: Arc<dyn AudioTagService>`，读写在 `spawn_blocking` 里跑。
+- 标题栏「查看标签」按钮（`aria-label="查看本地音频文件的标签"`）→ 系统「打开文件」对话框（过滤 `mp3 / flac / m4a / mp4 / ogg / opus / wav / aac`）→ `TagsDialog`：封面（无封面 / 封面过大两种占位）、全部字段（标题、艺术家、专辑、专辑艺术家、年份、音轨 `3/12`、碟号、流派、作曲家、备注、网易云 ID，空值显示「—」，每个值有 `aria-label`）、歌词（只读 `<pre>`）、文件信息（格式、时长、码率、大小、封面类型与大小、路径），加载中 / 无法读取 / 失败（重试）三种状态，「选择其他文件…」「关闭」；深色 / 浅色已在浏览器假后端里检查。标题栏右侧新增 `titlebar-actions` 容器放工具按钮与账号区。
+- 开发假后端 `mockBackend.ts`：`plugin:dialog|open` 依次返回五个假路径，`read_tags` 按文件名给出完整标签 / 无标签 / 已损坏（`null`）/ 无权限（失败）/ 封面过大。
+
+### 新增依赖
+
+| 依赖 | 版本 | 用途 |
+|---|---|---|
+| `lofty` | 0.25.5 | 标签与音频属性读写（对应 TagLibSharp 2.3.0） |
+| `tauri-plugin-dialog` | 2.8.4 | 系统打开文件对话框 |
+| `@tauri-apps/plugin-dialog` | 2.8.4 | 前端调用上面的插件 |
+
+### 验证
+
+- 单测：`lp-core` lib 438 个（模块 6 新增 75：`tags::service` 约 40——C# `AudioTagServiceTests` 11 个与 `NeteaseClientCommentTests` 的标签部分全部移植，另加六种容器的「写满 / 清空 / 局部更新 / 换封面」往返、未展示字段保留、FLAC 原生 PICTURE 与旧 `METADATA_BLOCK_PICTURE` 清理、ID3v2.3/2.4、ID3v1、WAV 头修复、M4A 拆分、写入失败不破坏原文件等；`tags::text` 11、`tags::view` 8、`ncm::client_comment` 8、`utilities::audio_file_types` 6、夹具 2），`csharp_tags` 集成测试 4 个，合计 workspace 460 个；`.\build.ps1 -Tauri`（fmt / clippy / 测试 / 打包）通过；`.\build.ps1 -Test` C# 仍 404/404。
+- 测试夹具：MP3 / WAV / M4A 在 `tags/fixtures.rs` 里按格式规范用代码生成（M4A 只有容器结构真实，AAC 帧是占位字节）；FLAC / Ogg Vorbis / Ogg Opus 是 Python `soundfile` 生成的 0.5 秒静音，提交在 `tests/fixtures/audio/`（几百字节到 2.7 KB，生成方式见该目录 README）；无任何受版权保护的音频。`LP_EXPORT_SAMPLES_DIR` / `LP_EXPORT_RUST_TAGS_DIR` 环境变量能让对应的测试把样本导出到目录，供跨实现探针使用。
+- **与 C# 的交叉兼容实证**（临时 C# 探针直接引用 `LunaticPrincess.Core` 调用 `AudioTagService`，已删除、不入库；同一份写入数据 `tests/fixtures/tags/spec-full.json`：标题含 emoji、两个艺术家、专辑、专辑艺术家、音轨 / 碟号、年份、流派、作曲家、备注、多行普通 / 逐字歌词、网易云 ID、PNG 封面）：
+  - **C# 写 → Rust 读**：MP3 / FLAC / M4A / OGG / OPUS / WAV 各三个场景（写满 / 局部更新 / `replace_all` 清空）+ 一个带客户端 `163 key` 备注的 MP3，共 19 个文件已提交为夹具，`csharp_tags.rs` 要求每个字段（含封面字节、MIME、歌词、网易云 ID）与 C# 读出的一致；时长允许 25 ms、码率允许 20% 误差（M4A 样本的 AAC 帧是占位字节，lofty 按实际数据量得到 2 kbps，TagLib 读 esds 声明的 128 kbps，不比较）。唯一允许的差异是 M4A 的网易云 ID（见上，Rust 能读到的不少于 C#）。
+  - **Rust 写 → C# 读**：同样三个场景在六种容器上共 18 个文件，C# `AudioTagService.ReadAsync` 读回的全部字段（含封面 SHA-256、歌词、网易云 ID）与 C# 自己写的完全一致；另外 6 个「Rust 在 C# 写好的文件上局部改标题」的文件，除标题外所有字段、封面不变。第一轮实测发现并修复了三个问题：2.3 多值被 NUL 截断、M4A 读取没拆 `;`、TagLib 写的 WAV 头长度不对导致旧 ID3 块读到旧值。
+- 实机：release 版 exe 复制到 `D:\claude\` 运行（`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data` 式的独立数据目录，未碰真实登录态），用 Windows UI 自动化点「查看标签」、操作系统文件对话框（把路径粘进「文件名」框回车），对 Rust 写出的 MP3 / M4A / OPUS、C# 写出的 FLAC / WAV、无标签 MP3、非音频文件逐个打开：字段、歌词、封面信息、网易云 ID、文件信息、「无法读取」提示都正确（读出的是 UIA 控件名称，并截图确认对话框渲染）。窗口没有被切到后台。测完已清理 `D:\claude`。
+
+### 已知限制
+
+- WMA 不支持（见上）。
+- Windows 资源管理器只认 RIFF INFO 的 WAV 标签：写入时两种都写，但 RIFF INFO 没有总数、歌词、封面。
+- 读取时 `bitrate` 是 lofty 的 `audio_bitrate`（kbps），个别容器与 TagLib 报告的值不同（FLAC / Opus 更准确）。
 
 ## 模块 5（歌词解析）实现记录
 

@@ -21,6 +21,7 @@ pub mod session;
 pub mod settings;
 pub mod sync;
 pub mod tags;
+pub mod utilities;
 
 #[cfg(test)]
 mod test_util;

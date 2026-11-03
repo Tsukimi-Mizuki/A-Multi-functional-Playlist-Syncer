@@ -5,6 +5,7 @@ import './styles/theme.css'
 import './styles/app.css'
 import './styles/playlists.css'
 import './styles/lyrics.css'
+import './styles/tags.css'
 
 const container = document.getElementById('root')
 if (!container) {

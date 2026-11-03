@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
+import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
 import LyricsDialog from './components/LyricsDialog'
 import LogPanel from './components/LogPanel'
+import TagsDialog from './components/TagsDialog'
 import PlaylistSidebar from './components/PlaylistSidebar'
 import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
@@ -41,6 +43,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
   // 歌词预览是只读的临时对话框，与登录 / 退出确认互不影响。
   const [lyricsSong, setLyricsSong] = useState<Song | null>(null)
+  // 标签查看同样是只读的临时对话框：保存的是用户选中的本地音频路径。
+  const [tagsPath, setTagsPath] = useState<string | null>(null)
   const { account, validated } = useAuth()
   const logs = useLogs()
   const playlists = usePlaylists(account, validated)
@@ -76,6 +80,15 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [toggleSidebar])
 
+  /** 弹出系统文件选择器，选中后打开标签查看；取消则保持原状。 */
+  const pickTagsFile = useCallback(() => {
+    pickAudioFile()
+      .then((path) => {
+        if (path) setTagsPath(path)
+      })
+      .catch(() => undefined) // 非 Tauri 环境（纯浏览器预览）没有系统对话框。
+  }, [])
+
   const openLogin = useCallback(() => setDialog('login'), [])
   const closeDialog = useCallback(() => setDialog('none'), [])
 
@@ -93,6 +106,11 @@ export default function App() {
   return (
     <div className="app-shell">
       <TitleBar
+        toolsSlot={
+          <button type="button" className="btn" aria-label="查看本地音频文件的标签" onClick={pickTagsFile}>
+            查看标签
+          </button>
+        }
         accountSlot={<AccountButton account={account} onLogin={openLogin} onLogout={() => setDialog('logout')} />}
       />
       {appState?.session.loadError && (
@@ -131,6 +149,7 @@ export default function App() {
       </main>
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
+      {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {dialog === 'logout' && (
         <ConfirmDialog

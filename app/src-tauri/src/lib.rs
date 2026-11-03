@@ -1,6 +1,6 @@
 //! Tauri 外壳：只做命令转发、事件推送、窗口与插件，业务逻辑一律在 `lp-core`。
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use lp_core::auth::{
@@ -16,6 +16,7 @@ use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
+use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
 use serde::Serialize;
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
@@ -58,6 +59,8 @@ struct AppState {
     playlists: Arc<PlaylistService>,
     /// 歌词预览（取歌词 -> 解析 -> 序列化），301 时经 `login` 复核。
     lyrics: Arc<LyricsService>,
+    /// 音频标签读写（lofty）。
+    tags: Arc<dyn AudioTagService>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -116,6 +119,7 @@ impl AppState {
             login,
             playlists,
             lyrics,
+            tags: Arc::new(LoftyTagService),
             session_error: restored.load_failure,
         }
     }
@@ -413,6 +417,44 @@ async fn get_song_lyrics(
     lyrics.get(id, mode).await
 }
 
+/// 在后台线程里跑同步的标签读写，任务本身 panic 时转成普通失败。
+async fn run_tag_task<T: Send + 'static>(
+    task: impl FnOnce() -> Result<T, lp_core::tags::TagError> + Send + 'static,
+) -> Result<T, TagCommandError> {
+    match tauri::async_runtime::spawn_blocking(task).await {
+        Ok(result) => result.map_err(TagCommandError::from),
+        Err(_) => Err(TagCommandError {
+            kind: "failed",
+            message: "处理音频文件时程序内部出错，请重试。".to_owned(),
+        }),
+    }
+}
+
+/// 读取一个本地音频文件的标签、封面（data URL，过大时不内联）、歌词与文件信息。
+/// 文件不存在、格式不支持或已损坏时返回 `None`；权限不足等真正的 IO 故障返回 `Err`。只读，不改文件。
+#[tauri::command]
+async fn read_tags(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Option<TagView>, TagCommandError> {
+    let tags = Arc::clone(&state.tags);
+    let target = PathBuf::from(path);
+    run_tag_task(move || Ok(tags.read(&target)?.map(|info| TagView::new(&target, info)))).await
+}
+
+/// 写入标签（先写同目录临时副本再原子替换，失败保留原文件）。本模块前端只读，编辑器在模块 10 接入。
+#[tauri::command]
+async fn write_tags(
+    state: State<'_, AppState>,
+    path: String,
+    request: WriteTagsRequest,
+) -> Result<(), TagCommandError> {
+    let tags = Arc::clone(&state.tags);
+    let data = request.into_data().map_err(TagCommandError::from)?;
+    let target = PathBuf::from(path);
+    run_tag_task(move || tags.write(&target, &data)).await
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -431,6 +473,7 @@ pub fn run() {
     let state = AppState::load(paths);
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(state)
         .setup(move |app| {
             // 把后端的日志与账号变化推给前端。
@@ -474,7 +517,9 @@ pub fn run() {
             recheck_login,
             list_playlists,
             get_playlist_tracks,
-            get_song_lyrics
+            get_song_lyrics,
+            read_tags,
+            write_tags
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");

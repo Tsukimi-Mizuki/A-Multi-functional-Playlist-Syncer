@@ -48,7 +48,7 @@ function CloseIcon() {
 }
 
 /** 自绘标题栏：68px 高，整条可拖动，双击切换最大化。 */
-export default function TitleBar({ accountSlot }: { accountSlot?: ReactNode }) {
+export default function TitleBar({ toolsSlot, accountSlot }: { toolsSlot?: ReactNode; accountSlot?: ReactNode }) {
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
@@ -92,7 +92,12 @@ export default function TitleBar({ accountSlot }: { accountSlot?: ReactNode }) {
           Lunatic Princess
         </span>
       </div>
-      {accountSlot && <div className="titlebar-account">{accountSlot}</div>}
+      {(toolsSlot || accountSlot) && (
+        <div className="titlebar-actions" onDoubleClick={(event) => event.stopPropagation()}>
+          {toolsSlot}
+          {accountSlot && <div className="titlebar-account">{accountSlot}</div>}
+        </div>
+      )}
       <div className="titlebar-controls" onDoubleClick={(event) => event.stopPropagation()}>
         <button
           type="button"

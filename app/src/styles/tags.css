@@ -1,0 +1,121 @@
+/* ---- 标题栏右侧的工具与账号 ---- */
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 14px;
+  margin-left: auto;
+  margin-right: 16px;
+  min-width: 0;
+}
+
+.titlebar-actions .titlebar-account {
+  margin: 0;
+}
+
+/* ---- 音频标签查看对话框 ---- */
+.tags-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.tags-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tags-scroll::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.tags-top {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tags-cover {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 132px;
+  height: 132px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+}
+
+.tags-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tags-cover-empty {
+  padding: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.tags-fields {
+  display: grid;
+  flex: 1;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 14px;
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.tags-fields dt {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.tags-fields dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.tags-empty {
+  color: var(--text-tertiary);
+}
+
+.tags-heading {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.tags-lyrics {
+  flex: none;
+  max-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+}
+
+.tags-no-lyrics {
+  margin: 0;
+  font-size: 13px;
+}
+
+.tags-fileinfo {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+}

@@ -23,3 +23,5 @@ lp-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.5", features = [] }
+# 选择本地音频文件的系统对话框（查看标签）。
+tauri-plugin-dialog = "2.8.4"

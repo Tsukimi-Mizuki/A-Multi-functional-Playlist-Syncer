@@ -6,6 +6,7 @@
  * 用 `?mock=<场景>` 选择：默认已登录有歌单；`loggedout` 未登录；`empty` 没有歌单；
  * `listerror` 歌单列表加载失败；`slow` 歌单列表很慢。
  * 歌单 1 有 3000 首（带加载进度），歌单 2 为空，歌单 3 曲目加载失败，歌单 4 有 3 首缺失。
+ * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
  */
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
@@ -90,6 +91,63 @@ function makeSongs(count: number, seed: number): Song[] {
   })
 }
 
+const MOCK_AUDIO_FILES = [
+  'D:\\mock\\音乐\\晴天 - 周杰伦.mp3',
+  'D:\\mock\\音乐\\无标签.flac',
+  'D:\\mock\\音乐\\已损坏.mp3',
+  'D:\\mock\\音乐\\无权限.m4a',
+  'D:\\mock\\音乐\\大封面.ogg',
+]
+
+function mockTagView(path: string) {
+  const fileName = path.split('\\').pop() ?? path
+  const bare = fileName.startsWith('无标签')
+  const hugeCover = fileName.startsWith('大封面')
+  const format = (fileName.split('.').pop() ?? '').toUpperCase()
+  const base = {
+    path,
+    fileName,
+    durationMs: 269_000,
+    bitrate: bare ? 0 : 320,
+    fileSize: 10_823_541,
+    fileFormat: format,
+  }
+  if (bare) {
+    return {
+      ...base,
+      title: null, artist: null, album: null, albumArtist: null, year: null,
+      trackNumber: null, trackTotal: null, discNumber: null, discTotal: null,
+      genre: null, composer: null, comment: null, lyrics: null, neteaseId: null,
+      hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
+    }
+  }
+  return {
+    ...base,
+    title: '晴天',
+    artist: '周杰伦/方文山',
+    album: '叶惠美',
+    albumArtist: '周杰伦',
+    year: 2003,
+    trackNumber: 3,
+    trackTotal: 11,
+    discNumber: 1,
+    discTotal: null,
+    genre: 'Pop/Rock',
+    composer: '周杰伦',
+    comment: '原始备注',
+    lyrics:
+      '[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记\n' +
+      '[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人\n' +
+      '[00:20.000]第三行很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长',
+    neteaseId: '186016',
+    hasCover: true,
+    coverDataUrl: hugeCover ? null : cover(210),
+    coverSize: hugeCover ? 12_582_912 : 2_048_000,
+    coverTooLarge: hugeCover,
+    coverMimeType: 'image/jpeg',
+  }
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 function detailFor(id: number, list: PlaylistSummary[]): PlaylistDetail {
@@ -114,6 +172,7 @@ export function installMockBackend(scenario: string | null): void {
   const list = scenario === 'empty' ? [] : playlists()
 
   mockWindows('main')
+  let mockFileIndex = -1
   mockIPC(
     async (command, payload) => {
       const args = (payload ?? {}) as Record<string, unknown>
@@ -166,6 +225,19 @@ export function installMockBackend(scenario: string | null): void {
             throw { kind: 'failed', message: '加载歌单失败：网络连接失败，请检查网络后重试' }
           }
           return detailFor(id, list)
+        }
+        case 'plugin:dialog|open': {
+          mockFileIndex = (mockFileIndex + 1) % MOCK_AUDIO_FILES.length
+          return MOCK_AUDIO_FILES[mockFileIndex]
+        }
+        case 'read_tags': {
+          const path = String(args.path)
+          await sleep(300)
+          if (path.includes('已损坏')) return null
+          if (path.includes('无权限')) {
+            throw { kind: 'failed', message: '文件操作失败：没有权限访问该位置，请检查文件夹权限，或换一个目录' }
+          }
+          return mockTagView(path)
         }
         case 'get_song_lyrics': {
           // 歌曲 ID 能被 11 整除：失败；能被 7 整除：没有歌词；能被 5 整除：只有逐行歌词；其余：逐字 + 翻译。

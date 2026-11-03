@@ -25,3 +25,23 @@ export function imageSrc(url: string | null | undefined, size: number): string |
   const secure = url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url
   return secure.includes('?') ? secure : `${secure}?param=${size}y${size}`
 }
+
+/** 文件大小：`1.2 KB` / `3.4 MB`；未知时 `—`。 */
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
+}
+
+/** 序号「3/12」；没有序号时返回 null，只有序号时就是「3」。 */
+export function formatPosition(number: number | null, total: number | null): string | null {
+  if (number == null) return null
+  return total != null ? `${number}/${total}` : String(number)
+}
