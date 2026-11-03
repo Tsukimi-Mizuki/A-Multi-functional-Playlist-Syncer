@@ -23,7 +23,7 @@ pub(crate) const MODIFY_KEY: [u8; 16] = [
 const MUSIC_PREFIX: &str = "music:";
 
 /// 与 .NET `Convert.FromBase64String` 一致：必须有规范填充，但容忍末尾多余的比特位。
-const BASE64: GeneralPurpose = GeneralPurpose::new(
+pub(crate) const BASE64: GeneralPurpose = GeneralPurpose::new(
     &STANDARD_ALPHABET,
     GeneralPurposeConfig::new()
         .with_decode_padding_mode(DecodePaddingMode::RequireCanonical)

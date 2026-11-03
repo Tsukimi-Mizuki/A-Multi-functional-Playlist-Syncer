@@ -1,0 +1,1125 @@
+[
+  {
+    "name": "mp3-full",
+    "fileName": "mp3-full.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "mp3-full.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "mp3-full.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": true,
+        "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "mp3-sync-word",
+    "fileName": "mp3-sync-word.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "mp3-sync-word.mp3",
+      "outputSha256": "264a66aa62e3e0e7c3e1b9b5febba8c15c573c05e76178dfe02ae1874acb334d",
+      "outputLength": 3336,
+      "coverSha256": null,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "mp3-sync-word.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "flac-full",
+    "fileName": "flac-full.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "无损之歌",
+        "artists": "歌手甲/歌手乙/歌手丙",
+        "album": "专辑",
+        "format": "flac",
+        "bitrate": 999000,
+        "durationMs": 180000,
+        "musicId": 4242,
+        "alias": "副标题"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "flac",
+      "outputName": "flac-full.flac",
+      "outputSha256": "467a6394a4de3a5bbe53b690365785982695669be15a9adacf8dea946bc391f5",
+      "outputLength": 99,
+      "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "metadata": {
+        "title": "无损之歌",
+        "artists": "歌手甲/歌手乙/歌手丙",
+        "album": "专辑",
+        "format": "flac",
+        "bitrate": 999000,
+        "durationMs": 180000,
+        "musicId": 4242,
+        "alias": "副标题"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "flac-full.flac",
+      "tags": {
+        "title": "无损之歌",
+        "artist": "歌手甲/歌手乙/歌手丙",
+        "album": "专辑",
+        "albumArtist": "歌手甲",
+        "neteaseId": 4242,
+        "hasCover": true,
+        "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "comment": null,
+        "fileFormat": "FLAC",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "mp3-multichunk",
+    "fileName": "mp3-multichunk.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "mp3-multichunk.mp3",
+      "outputSha256": "79c6d7889f19a0660eacc76c4be7ffc36a2bf19c6f0ef91aee5d0e243156c20b",
+      "outputLength": 41710,
+      "coverSha256": "8392b2bbeee16bc84eb723e94d08097b5945bb45fdcf0b1fe4bbba80733afacc",
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "mp3-multichunk.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": true,
+        "coverSha256": "8392b2bbeee16bc84eb723e94d08097b5945bb45fdcf0b1fe4bbba80733afacc",
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "no-metadata",
+    "fileName": "no-metadata.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": null
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "no-metadata.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "no-metadata.mp3",
+      "tags": {
+        "title": null,
+        "artist": null,
+        "album": null,
+        "albumArtist": null,
+        "neteaseId": null,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "bad-metadata",
+    "fileName": "bad-metadata.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": null
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "bad-metadata.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "bad-metadata.mp3",
+      "tags": {
+        "title": null,
+        "artist": null,
+        "album": null,
+        "albumArtist": null,
+        "neteaseId": null,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "metadata-edge",
+    "fileName": "metadata-edge.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "带空格",
+        "artists": null,
+        "album": "123",
+        "format": null,
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": null,
+        "alias": "甲/乙"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "metadata-edge.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "metadata": {
+        "title": "带空格",
+        "artists": null,
+        "album": "123",
+        "format": null,
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": null,
+        "alias": "甲/乙"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "metadata-edge.mp3",
+      "tags": {
+        "title": "带空格",
+        "artist": null,
+        "album": "123",
+        "albumArtist": null,
+        "neteaseId": null,
+        "hasCover": true,
+        "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "metadata-artists",
+    "fileName": "metadata-artists.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "多歌手",
+        "artists": "a/b/c&d",
+        "album": null,
+        "format": null,
+        "bitrate": 0,
+        "durationMs": 0,
+        "musicId": 99,
+        "alias": null
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "metadata-artists.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": {
+        "title": "多歌手",
+        "artists": "a/b/c&d",
+        "album": null,
+        "format": null,
+        "bitrate": 0,
+        "durationMs": 0,
+        "musicId": 99,
+        "alias": null
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "metadata-artists.mp3",
+      "tags": {
+        "title": "多歌手",
+        "artist": "a/b/c/d",
+        "album": null,
+        "albumArtist": "a",
+        "neteaseId": 99,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "key-short",
+    "fileName": "key-short.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "key-short.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "key-short.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "key-long",
+    "fileName": "key-long.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "key-long.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "key-long.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": false,
+        "coverSha256": null,
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "big-opaque",
+    "fileName": "big-opaque.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "big-opaque.mp3",
+      "outputSha256": "4ca074d15feb14765ccd615377b8208057696aee72ab317703c0ccc965dc47a5",
+      "outputLength": 100003,
+      "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": null
+  },
+  {
+    "name": "unknown-format",
+    "fileName": "unknown-format.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "flac",
+      "outputName": "unknown-format.flac",
+      "outputSha256": "b7750c3d4750d86e2734f1a91dda9a00e3533adf739a66468f8d0a896fdbd196",
+      "outputLength": 1004,
+      "coverSha256": null,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": null
+  },
+  {
+    "name": "dotted-name",
+    "fileName": "a.b.ncm",
+    "tag": true,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "a.b.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": {
+      "success": true,
+      "errorMessage": null,
+      "outputName": "a.b.mp3",
+      "tags": {
+        "title": "测试歌曲",
+        "artist": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "albumArtist": "测试歌手",
+        "neteaseId": 1234567890,
+        "hasCover": true,
+        "coverSha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "comment": null,
+        "fileFormat": "MP3",
+        "year": null,
+        "trackNumber": null,
+        "genre": null,
+        "lyrics": null
+      }
+    }
+  },
+  {
+    "name": "dot-only",
+    "fileName": ".ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": true,
+      "errorMessage": null,
+      "format": "mp3",
+      "outputName": "decrypted.mp3",
+      "outputSha256": "0486cb8646f5735f4c7a877bd506d3fb285b959aaff5b0c384470c6eed348b36",
+      "outputLength": 3346,
+      "coverSha256": null,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-8",
+    "fileName": "trunc-8.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-9",
+    "fileName": "trunc-9.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-20",
+    "fileName": "trunc-20.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（读取越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（读取越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-40",
+    "fileName": "trunc-40.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（读取越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（读取越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-in-meta",
+    "fileName": "trunc-in-meta.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（读取越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（读取越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-in-cover",
+    "fileName": "trunc-in-cover.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（跳过 封面数据 时越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（读取越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "trunc-no-audio",
+    "fileName": "trunc-no-audio.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": true,
+      "metadata": {
+        "title": "测试歌曲",
+        "artists": "测试歌手/第二歌手",
+        "album": "测试专辑",
+        "format": "mp3",
+        "bitrate": 320000,
+        "durationMs": 215000,
+        "musicId": 1234567890,
+        "alias": "别名"
+      }
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件中没有音频数据。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "not-ncm",
+    "fileName": "not-ncm.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "不是有效的网易云 NCM 文件（文件头不匹配）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "不是有效的网易云 NCM 文件（文件头不匹配）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "magic-only",
+    "fileName": "magic-only.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（跳过 文件头中的保留字段 时越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "key-len-0",
+    "fileName": "key-len-0.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 密钥长度无效（0）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 密钥长度无效（0）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "key-len-neg",
+    "fileName": "key-len-neg.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 密钥长度无效（-5）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 密钥长度无效（-5）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "key-len-huge",
+    "fileName": "key-len-huge.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 密钥长度无效（5242880）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 密钥长度无效（5242880）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "meta-len-huge",
+    "fileName": "meta-len-huge.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 元数据长度无效（17825792）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 元数据长度无效（17825792）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "meta-len-neg",
+    "fileName": "meta-len-neg.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 封面长度无效（390335756）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 封面长度无效（390335756）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "img-len-neg",
+    "fileName": "img-len-neg.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 封面长度无效（-1）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 封面长度无效（-1）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "img-len-huge",
+    "fileName": "img-len-huge.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 封面长度无效（68157440）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 封面长度无效（68157440）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "img-len-over-file",
+    "fileName": "img-len-over-file.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 文件不完整（跳过 封面数据 时越界）。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 文件不完整（读取越界）。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  },
+  {
+    "name": "short-key-data",
+    "fileName": "short-key-data.ncm",
+    "tag": false,
+    "readInfo": {
+      "ok": false,
+      "kind": "InvalidDataException",
+      "message": "NCM 密钥数据长度无效。"
+    },
+    "decrypt": {
+      "threw": null,
+      "success": false,
+      "errorMessage": "NCM 密钥数据长度无效。",
+      "format": null,
+      "outputName": null,
+      "outputSha256": null,
+      "outputLength": null,
+      "coverSha256": null,
+      "metadata": null
+    },
+    "import": null
+  }
+]

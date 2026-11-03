@@ -6,6 +6,7 @@ import './styles/app.css'
 import './styles/playlists.css'
 import './styles/lyrics.css'
 import './styles/tags.css'
+import './styles/ncm.css'
 
 const container = document.getElementById('root')
 if (!container) {

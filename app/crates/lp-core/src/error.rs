@@ -33,18 +33,25 @@ pub type CoreResult<T> = Result<T, CoreError>;
 
 /// 把 IO 错误翻译成“是什么 + 怎么办”的中文说明。
 ///
-/// 对应 C# `ErrorText` 对权限不足 / 空间不足 / 文件占用 / 路径过长的识别。
+/// 对应 C# `ErrorText` 对权限不足 / 空间不足 / 文件占用 / 路径过长的识别，判定规则集中在
+/// [`crate::utilities::error_text`]。
 fn describe_io(error: &std::io::Error) -> String {
-    use std::io::ErrorKind;
+    use crate::utilities::error_text::{
+        is_disk_full, is_file_in_use, is_path_too_long, is_permission_error,
+    };
 
-    // Windows 错误码：32 共享冲突、33 锁定冲突、112 磁盘已满、206 路径过长。
-    let hint = match (error.kind(), error.raw_os_error()) {
-        (ErrorKind::PermissionDenied, _) => "没有权限访问该位置，请检查文件夹权限，或换一个目录",
-        (_, Some(32 | 33)) => "文件正被其他程序占用，请关闭占用它的程序后重试",
-        (_, Some(112)) => "磁盘空间不足，请释放空间后重试",
-        (_, Some(206)) => "路径过长，请缩短目录层级或文件名",
-        (ErrorKind::NotFound, _) => "找不到指定的文件或目录",
-        _ => "",
+    let hint = if is_permission_error(error) {
+        "没有权限访问该位置，请检查文件夹权限，或换一个目录"
+    } else if is_file_in_use(error) {
+        "文件正被其他程序占用，请关闭占用它的程序后重试"
+    } else if is_disk_full(error) {
+        "磁盘空间不足，请释放空间后重试"
+    } else if is_path_too_long(error) {
+        "路径过长，请缩短目录层级或文件名"
+    } else if error.kind() == std::io::ErrorKind::NotFound {
+        "找不到指定的文件或目录"
+    } else {
+        ""
     };
     if hint.is_empty() {
         format!("文件操作失败：{error}")

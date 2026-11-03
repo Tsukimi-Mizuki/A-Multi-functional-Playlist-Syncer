@@ -11,6 +11,7 @@
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import type { AccountSummary } from '../api/auth'
+import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 
 const ACCOUNT: AccountSummary = {
@@ -148,6 +149,63 @@ function mockTagView(path: string) {
   }
 }
 
+/* ---- NCM 导入的假数据：`?mock=ncmempty` 打开时没有记住的文件夹，`ncmbig` 每个文件夹 400 个文件。 ---- */
+const MOCK_NCM_FOLDERS = ['D:\\mock\\NCM\\周杰伦', 'D:\\mock\\NCM\\新歌速递', 'D:\\mock\\NCM\\不存在的文件夹']
+const MOCK_NCM_OUTPUT_PICKS = ['D:\\mock\\解密输出']
+
+function mockNcmFiles(folders: string[], perFolder: number): NcmFileEntry[] {
+  const files: NcmFileEntry[] = []
+  for (const folder of folders) {
+    if (folder.includes('不存在')) continue
+    for (let i = 0; i < perFolder; i += 1) {
+      const name = i % 9 === 0 ? `这是一个名字特别特别特别长用来测试省略号的歌曲文件名 ${i + 1} - 某位歌手.ncm` : `歌曲 ${i + 1} - 歌手.ncm`
+      files.push({ path: `${folder}\\${name}`, name, size: 3_000_000 + ((i * 7919) % 30_000_000) })
+    }
+  }
+  return files
+}
+
+function mockNcmResult(file: NcmFileEntry, index: number, autoMatch: boolean): NcmFileResult {
+  const base = { path: file.path, title: null, artists: null, album: null }
+  if (index % 5 === 3) {
+    return {
+      ...base,
+      success: false,
+      outputPath: null,
+      outputFileName: null,
+      format: null,
+      errorMessage: 'NCM 文件不完整（读取越界）。',
+      enrichmentMessage: null,
+    }
+  }
+  if (index % 7 === 4) {
+    const stem = file.name.replace(/\.ncm$/i, '')
+    return {
+      ...base,
+      success: false,
+      outputPath: `D:\\mock\\解密输出\\${stem}.mp3`,
+      outputFileName: `${stem}.mp3`,
+      format: 'mp3',
+      errorMessage: '标签写入失败（音频已解密保留）：无法写入「D:\\mock\\解密输出」：没有写入权限，请检查该文件夹的权限，或以管理员身份运行本程序后重试。',
+      enrichmentMessage: null,
+    }
+  }
+  const stem = file.name.replace(/\.ncm$/i, '')
+  const format = index % 2 === 0 ? 'flac' : 'mp3'
+  return {
+    ...base,
+    title: stem,
+    artists: '歌手',
+    album: '专辑',
+    success: true,
+    outputPath: `D:\\mock\\解密输出\\${stem}.${format}`,
+    outputFileName: `${stem}.${format}`,
+    format,
+    errorMessage: null,
+    enrichmentMessage: autoMatch ? '在线匹配将在后续版本提供，已跳过。' : null,
+  }
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 function detailFor(id: number, list: PlaylistSummary[]): PlaylistDetail {
@@ -173,6 +231,12 @@ export function installMockBackend(scenario: string | null): void {
 
   mockWindows('main')
   let mockFileIndex = -1
+  let ncmFolders = scenario === 'ncmempty' ? [] : [...MOCK_NCM_FOLDERS]
+  let ncmOutput = 'D:\\mock\\Music'
+  let ncmFolderPick = 0
+  let ncmCancelled = false
+  let ncmRunning = false
+  const ncmPerFolder = scenario === 'ncmbig' ? 400 : 12
   mockIPC(
     async (command, payload) => {
       const args = (payload ?? {}) as Record<string, unknown>
@@ -227,8 +291,81 @@ export function installMockBackend(scenario: string | null): void {
           return detailFor(id, list)
         }
         case 'plugin:dialog|open': {
+          const options = (args.options ?? {}) as { directory?: boolean; multiple?: boolean }
+          if (options.directory) {
+            if (!options.multiple) return MOCK_NCM_OUTPUT_PICKS[0]
+            const picked = `D:\\mock\\NCM\\第 ${(ncmFolderPick += 1)} 个新增的文件夹`
+            return [picked]
+          }
           mockFileIndex = (mockFileIndex + 1) % MOCK_AUDIO_FILES.length
           return MOCK_AUDIO_FILES[mockFileIndex]
+        }
+        case 'ncm_get_state':
+          return {
+            folders: ncmFolders,
+            outputDirectory: ncmOutput,
+            downloadDirectory: 'D:\\mock\\Music',
+            onlineMatchAvailable: false,
+            onlineMatchHint: '在线匹配将在后续版本提供：目前勾选只会记住你的选择，解密后不会联网。',
+          }
+        case 'ncm_scan': {
+          await sleep(250)
+          const folders = (args.folders as string[]) ?? []
+          return {
+            files: mockNcmFiles(folders, ncmPerFolder),
+            missingFolders: folders.filter((folder) => folder.includes('不存在')),
+            skippedDirectories: 0,
+          }
+        }
+        case 'ncm_save_state':
+          ncmFolders = (args.folders as string[]) ?? []
+          ncmOutput = String(args.outputDirectory ?? '')
+          return undefined
+        case 'ncm_cancel':
+          ncmCancelled = ncmRunning
+          return ncmRunning
+        case 'ncm_import': {
+          const request = args.request as { paths: string[]; autoMatchOnline: boolean; outputDirectory: string }
+          if (!request.outputDirectory.includes(':\\')) {
+            throw '请先选择有效的输出目录（需要是完整路径，例如 D:\\音乐\\解密）。'
+          }
+          const all = mockNcmFiles(ncmFolders, ncmPerFolder)
+          const files = request.paths.map((path) => all.find((file) => file.path === path)).filter((f): f is NcmFileEntry => !!f)
+          ncmRunning = true
+          ncmCancelled = false
+          const results: NcmFileResult[] = []
+          try {
+            for (const [index, file] of files.entries()) {
+              if (ncmCancelled) break
+              const progress = (stage: NcmProgress['stage'], message: string, result: NcmFileResult | null): NcmProgress => ({
+                completed: index + (result ? 1 : 0),
+                total: files.length,
+                index,
+                path: file.path,
+                fileName: file.name,
+                stage,
+                message,
+                result,
+              })
+              await emit('ncm:progress', progress('decrypting', '正在解密 NCM…', null))
+              await sleep(scenario === 'ncmbig' ? 15 : 450)
+              const result = mockNcmResult(file, index, request.autoMatchOnline)
+              results.push(result)
+              await emit('ncm:progress', progress('finished', result.success ? '完成' : (result.errorMessage ?? '失败'), result))
+            }
+          } finally {
+            ncmRunning = false
+          }
+          const succeeded = results.filter((r) => r.success).length
+          return {
+            results,
+            total: files.length,
+            succeeded,
+            failed: results.length - succeeded,
+            cancelled: ncmCancelled,
+            outputDirectory: request.outputDirectory,
+            matchedOnline: 0,
+          }
         }
         case 'read_tags': {
           const path = String(args.path)

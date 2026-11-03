@@ -47,15 +47,15 @@ app/
 | `qr` | `QrLoginViewModel.RenderQrCode`（QRCoder → `qrcode` SVG） |
 | `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` / `lyrics` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs/Lyrics`） |
 | `playlist` | 原来放在 `MainWindowViewModel` 里的歌单加载编排（取列表 / 曲目、写日志、301 时走登录复核） |
-| `ncm` | `Core/Ncm/`（模块 6：`client_comment` = `NeteaseClientComment`；NCM 解密在模块 7） |
+| `ncm` | `Core/Ncm/`（模块 6：`client_comment` = `NeteaseClientComment`；模块 7：`decoder` = `NcmDecoder` / `INcmDecoder`） |
 | `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；`LyricsMatchScorer`、`BatchLyricsService` 在模块 10） |
 | `tags` | `Core/Tags/`（模块 6：`model` / `service` / `text` / `view`；`service` 对应 `AudioTagService`） |
-| `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；`FileNameSanitizer` 随模块 9） |
+| `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；模块 7：`error_text`、`file_name_sanitizer`、`cancel`） |
 | `library` | `Core/Library/` |
-| `download` | `Core/Download/` |
+| `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；下载与同步在模块 9） |
 | `sync` | `Core/Sync/` |
 | `online` | `Core/Online/` |
-| `error` | `Core/Utilities/ErrorText.cs` |
+| `error` | `Core/Utilities/ErrorText.cs` 的错误类型部分（判定与文案在 `utilities::error_text`） |
 
 构建产物（`app/target`、`app/dist`、`app/node_modules`、`app/src-tauri/gen/schemas`）都已 gitignore。
 
@@ -93,7 +93,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 4 | 歌单 | 歌单列表与详情（trackIds + 分批 song/detail）、歌单侧栏与歌曲表格 | 完成 |
 | 5 | 歌词解析 | LRC / 增强 LRC / YRC / QRC（3DES 变体）/ KRC、网易云歌词接口、歌词预览 | 完成 |
 | 6 | 标签读写 | MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词读写（lofty），网易云 ID 与客户端 163 key，标签查看对话框 | 完成 |
-| 7 | NCM 解密与导入 | `.ncm` 解密、元数据与封面回写、导入窗口 | 待做 |
+| 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
 | 8 | 本地曲库与对比 | 曲库扫描、与歌单一对一匹配 | 待做 |
 | 9 | 下载与同步 | 九档音质取链下载、一键同步编排 | 待做 |
 | 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | 待做 |
@@ -105,6 +105,56 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+
+## 模块 7（NCM 解密与导入）实现记录
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `ncm::decoder` | `NcmDecoder.cs`、`INcmDecoder.cs` | `NcmDecoder` trait（同步，调用方 `spawn_blocking`）+ `FileNcmDecoder`。文件头、AES-128-ECB 解 RC4 密钥与元数据、封面帧、32 KB 分块 XOR 与 C# 逐字节一致：**音频从不整文件读进内存**，边读边解边写同目录临时文件 `.<主干>.<pid>-<序号>.ncmtmp`，成功后原子改名，取消 / 失败都会清理，不会留下半截成品。输出格式看解密后的首块（`ID3` / 帧同步字 → mp3，`fLaC` → flac，其余按 flac）。可预期的失败（文件头不匹配、长度字段非法、文件被截断、没有音频、目标已存在且未允许覆盖）返回 `success == false` 的结果，文案与 C# 逐字相同；参数非法、文件不存在、取消、磁盘 IO 错误是 `Err(NcmError)`。元数据损坏绝不中断音频解密（`metadata == None`）。读头部时不按声明长度预先分配内存（C# 会按封面声明的最大 64 MB 先分配）。 |
+| `ncm::synthetic`（仅测试） | `SyntheticNcmFile.cs` | 按规范做**逆运算**造出真实可解的 `.ncm`（AES 加密密钥 / 元数据、密钥盒另写一份、RC4 变种密钥流异或音频），与生产实现互相独立。 |
+| `download::ncm_import` | `NcmImportService.cs`、`MediaFileHelper.CreateNcmTagData`、`NcmImportViewModel` 里与界面无关的部分 | `NcmImportService::import`：路径去重（绝对路径、不区分大小写、保持顺序）→ 依次处理（与 C# 一样**不并发**，解密是磁盘顺序读写）→ `is_ncm_file` → 解密 → 写回内嵌标题 / 歌手（拆分 `/ & 、; ； , ，`）/ 专辑 / 专辑艺术家 / 封面 / 网易云 ID / 备注 `LunaticPrincess`（交给模块 6 的 `AudioTagService`，它自己就是“写临时副本 → 原子替换”）。标签写入失败时音频保留，结果是 `标签写入失败（音频已解密保留）：…`。进度回调逐文件回报“开始 / 匹配中 / 完成”（带最终结果），取消令牌 `CancelToken`。另有 `scan_ncm_files`（递归、不区分大小写的 `.ncm`、按完整路径 OrdinalIgnoreCase 排序、不存在的文件夹与无权限的子文件夹单独报告、不跟随目录联接点）、`prepare_output_directory`（必须完整路径，建不了给中文原因）、`restore_state` / `remember_state`（**只改 `ncmImportFolders` 与 `ncmImportOutputDirectory` 两个字段**）、`NcmJobSlot`（同一时间只有一个导入任务，`ncm_cancel` 取消它）、`view`（给界面的 camelCase DTO）。 |
+| `utilities::error_text` | `ErrorText.cs` | 权限不足 / 磁盘已满 / 文件被占用（含 33 锁定冲突）/ 路径过长的识别与中文文案（`describe`、`describe_write`、`try_get_path`）。.NET 异常消息里带路径而 `io::Error` 通常不带，所以写入场景由调用方传目标目录。`error::CoreError::Io` 现在也走这里的判定。 |
+| `utilities::file_name_sanitizer` | `FileNameSanitizer.cs` | `sanitize`（按 UTF-16 码元截断）、`build_file_name`（模板占位符不区分大小写、按 title→artist→album→track→year→id 依次替换）。NCM 导入用不到（输出名就是 `.ncm` 主干 + 格式），随本模块移植是因为任务书要求，模块 9 的下载直接用。 |
+| `utilities::cancel` | `CancellationToken` | 同步 IO 用的轻量取消令牌（`Arc<AtomicBool>`）。 |
+
+### 与 C# 行为的差异（有意为之）
+
+- **取消时保留已完成的结果**：C# 取消会抛 `OperationCanceledException`，整批结果丢失；这里返回 `NcmImportOutcome { cancelled: true, results: 已完成的部分 }`，界面把没处理到的文件标成“已取消”。
+- **写标签不再额外复制一份**：C# 先复制成 `.tagtmp` 再写再替换；`AudioTagService` 本身已经是原子写，所以直接写输出文件。
+- **扫描更稳**：C# 的 `EnumerateFiles` 遇到一个无权限的子目录就中止整个文件夹；这里逐目录跳过、只计数。
+- 元数据里数字字段按 C# 的转换规则（带小数的 `bitrate` 当 0、`duration` 按双精度截断、整数夹取），`musicName` 为数字时取其文本（serde 的数字文本与 .NET 的原始文本在 `1e3` 这类写法上可能不同，病态输入）。
+
+### 在线补全挂钩（待模块 10 接入）
+
+C# 的“解密后自动获取在线标签、封面与歌词”依赖 `BatchLyricsService`（模块 10）。本模块只定义挂钩：`OnlineEnricher` trait（`enrich(audio_path, cancel) -> Result<OnlineMatchOutcome, EnrichError>`，实现自己读取当前设置里的来源优先级 / 匹配度阈值 / 是否取歌词）和 `describe_match`（与 C# `DescribeMatch` 同文案）。`NcmImportService::new(decoder, tags, None)` 目前不带实现：勾选了“自动在线匹配”时每个成功的文件在结果里得到 `在线匹配将在后续版本提供，已跳过。`；`AppState` 里装配的位置、勾选框的显示与记忆都已就绪，模块 10 只需把实现传进去（`ncm_get_state` 的 `onlineMatchAvailable` 会自动变 true，提示文案换成 C# 的“QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 N%”）。
+
+### Tauri 外壳与前端
+
+- 命令：`ncm_get_state`（记住的文件夹、输出目录——记住的为空回退下载目录、在线匹配是否可用与提示）、`ncm_scan(folders)`、`ncm_save_state(folders, outputDirectory)`、`ncm_import(request)`（长任务；逐文件发 **`ncm:progress`** 事件 `{ completed, total, index, path, fileName, stage: decrypting|matching|finished, message, result? }`，返回汇总 `{ results, total, succeeded, failed, cancelled, outputDirectory, matchedOnline }`；同时写运行日志）、`ncm_cancel`。设置记忆走模块 2 的 `JsonSettingsStore`，**设置文件当初没读出来（正在用默认值）时不写盘**，免得把用户真正的设置覆盖掉。
+- 标题栏新增「导入 NCM」按钮（`aria-label="导入并解密 NCM 文件"`）→ `NcmImportDialog`：输入文件夹列表（添加 / 移除；打开时从 `settings.ncmImportFolders` 恢复并重新扫描）、输出目录文本框 + 「浏览…」（目录选择器用 `tauri-plugin-dialog`，capability 沿用 `dialog:allow-open`）、「覆盖已存在的解密文件」（每次打开默认不勾）、「解密后自动获取在线标签、封面与歌词」（默认勾选，勾选状态记在 `localStorage`，C# 版每次打开都默认勾选）、状态行 + 总体进度条、**固定行高 38px 的虚拟滚动文件列表**（文件名、大小、状态：待处理 / 解密中… / 已解密 · FLAC → 输出名 · 补全说明 / 失败：中文原因 / 已取消）、「已发现 N 个文件」、「开始解密 / 取消」「关闭」。添加文件夹、移除文件夹、选择输出目录、开始解密、关闭窗口时都会写回设置；关闭窗口会取消正在进行的导入（与 C# 一致）。所有可交互控件有中文 `aria-label`。
+- 开发假后端 `mockBackend.ts` 新增 `ncm_*`：`?mock=ncmempty` 没有记住的文件夹，`ncmbig` 每个文件夹 400 个文件；假结果里第 4 个文件解密失败、第 5 个标签写入失败。
+
+### 新增依赖
+
+无（Rust 与前端都没有新增；测试里的 SHA-256 是 `csharp_ncm.rs` 里手写的几十行，带已知向量自测）。
+
+### 验证
+
+- 单测：`lp-core` lib 546 个（模块 7 新增 108：`ncm::decoder` 41——C# `NcmDecoderTests` 16 个全部移植，另加 5 MB / 160 分块的流式解密、各种分块边界、密钥材料长度 1–300、非法长度字段逐项、截断位置、无音频、取消中途停在分块之间且清理临时文件、提交失败保留原目标、元数据各种形态与 C# 转换规则；`download::ncm_import` 41——C# `NcmImportServiceTests` 11 个全部移植，另加取消保留已完成结果、在线补全挂钩（成功 / 失败 / 出错 / 取消 / 没有实现）、真实解密器 + 真实 lofty 的 MP3 / FLAC 端到端、扫描、输出目录校验、设置记忆往返且保留其他字段、视图序列化；`NcmJobSlot` 3；`utilities::error_text` 15（C# `ErrorTextTests` 全部移植并适配 `io::Error`）、`file_name_sanitizer` 7（C# 3 个 + 边界）、`cancel` 1），外壳 13 个（新增 4：请求反序列化、记忆只改两个字段、设置不可信时不写盘、同时只有一个任务），`csharp_ncm` 集成测试 4 个；workspace 合计 576 个。`.\build.ps1 -Tauri`（fmt / clippy / 测试 / 打包）通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **与 C# 的交叉验证**（临时 C# 探针直接引用 `LunaticPrincess.Core`，复制 `SyntheticNcmFile`，已删除、不入库；样本与期望值在 `tests/fixtures/ncm/`，共约 200 KB，音频是静音帧 / 伪随机字节，没有任何真实歌曲）：C# 合成 32 个 `.ncm`（合法 MP3 / FLAC、ID3 头与帧同步字两种 MP3、多分块、40 KB 封面、无元数据 / 坏元数据 / 各种元数据形态、密钥材料长度 1 与 300、`a.b.ncm` 与 `.ncm` 文件名，以及 17 种损坏：各位置截断、魔数、密钥 / 元数据 / 封面长度非法、密钥数据过短等）。
+  - **解密**：C# 与 Rust 对每个样本的 `ReadInfo`（元数据或错误文案）、`Decrypt`（成功与否、**错误文案逐字相同**、输出格式与文件名、**输出文件的长度与 SHA-256 完全相同**、封面 SHA-256、全部元数据字段）**32/32 完全一致**。
+  - **导入写标签**：11 个可写标签的样本，Rust 导入后读回的标题 / 艺术家 / 专辑 / 专辑艺术家 / 网易云 ID / 封面（SHA-256）/ 格式 / 备注 / 年份 / 歌词与 C# `NcmImportService` + `AudioTagService` 读回的**完全一致**；反方向（Rust 导入写出的 11 个文件由 C# `AudioTagService` 读回）与 C# 自己写出的结果**零差异**。
+  - `FileNameSanitizer`：13 个 `sanitize` 向量与 8 个 `build_file_name` 向量与 C# 输出完全一致。
+- 浏览器假后端（`pnpm dev`）：开对话框自动恢复文件夹并扫描、不存在的文件夹提示、开始 / 逐文件状态 / 取消后“已取消”、添加 / 移除文件夹重扫。
+- 实机（exe 复制到 `D:\claude\lp-run\`、`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，未触碰真实登录态；用 Windows UI 自动化 + 截图，只用合成样本）：对话框渲染正常；**系统文件夹选择器**真实走通（UIA 点「添加文件夹…」、把路径粘进「資料夾:」框回车，添加了 `ncm-in\周杰伦`，立刻扫描出 3 个文件，`settings.json` 里 `ncmImportFolders` 已写入）；预置 4 个文件夹（含 1 个不存在）与输出目录后**重新启动再打开对话框**：文件夹列表、输出目录原样恢复，自动重新扫描出 37 个文件并提示“1 个文件夹不存在”；点「开始解密」：37 个文件（合法 MP3 / FLAC、49 KB 多分块、30 个批量样本、1 个截断的、1 个其实是 MP3 的）→ 35 成功 2 失败，状态列逐行显示“已解密 · MP3 → 名字.mp3 · 在线匹配将在后续版本提供，已跳过。”，失败行显示中文原因，输出目录 35 个文件、无临时文件，运行日志出现“NCM 导入完成：成功 35 个，失败 2 个”，`settings.json` 里 `maxConcurrency` 等其他字段原样保留。测完已清理 `D:\claude`。
+
+### 已知限制
+
+- 在线补全未接入（见上），勾选后只显示“将在后续版本提供”。
+- 导入窗口没有“选择单个 `.ncm` 文件”的入口（C# 版也只有文件夹）；拖放导入在后续模块随主窗口拖放一起做。
+- 取消在“当前文件处理完 / 下一个分块之间”生效；已经解密出来的文件保留在输出目录。
 
 ## 模块 6（标签读写）实现记录
 

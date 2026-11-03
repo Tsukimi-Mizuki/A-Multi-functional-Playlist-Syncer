@@ -6,6 +6,7 @@ import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
 import LyricsDialog from './components/LyricsDialog'
+import NcmImportDialog from './components/NcmImportDialog'
 import LogPanel from './components/LogPanel'
 import TagsDialog from './components/TagsDialog'
 import PlaylistSidebar from './components/PlaylistSidebar'
@@ -16,7 +17,7 @@ import { useAuth } from './state/useAuth'
 import { useLogs } from './state/useLogs'
 import { usePlaylists } from './state/usePlaylists'
 
-type DialogState = 'none' | 'login' | 'logout'
+type DialogState = 'none' | 'login' | 'logout' | 'ncm'
 
 const SIDEBAR_KEY = 'lp.sidebarCollapsed'
 
@@ -90,6 +91,7 @@ export default function App() {
   }, [])
 
   const openLogin = useCallback(() => setDialog('login'), [])
+  const openNcm = useCallback(() => setDialog('ncm'), [])
   const closeDialog = useCallback(() => setDialog('none'), [])
 
   const confirmLogout = useCallback(() => {
@@ -107,9 +109,14 @@ export default function App() {
     <div className="app-shell">
       <TitleBar
         toolsSlot={
-          <button type="button" className="btn" aria-label="查看本地音频文件的标签" onClick={pickTagsFile}>
-            查看标签
-          </button>
+          <>
+            <button type="button" className="btn" aria-label="导入并解密 NCM 文件" onClick={openNcm}>
+              导入 NCM
+            </button>
+            <button type="button" className="btn" aria-label="查看本地音频文件的标签" onClick={pickTagsFile}>
+              查看标签
+            </button>
+          </>
         }
         accountSlot={<AccountButton account={account} onLogin={openLogin} onLogout={() => setDialog('logout')} />}
       />
@@ -149,6 +156,7 @@ export default function App() {
       </main>
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
+      {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {dialog === 'logout' && (

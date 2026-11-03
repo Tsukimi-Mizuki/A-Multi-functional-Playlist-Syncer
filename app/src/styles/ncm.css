@@ -1,0 +1,288 @@
+/* ---- NCM 导入对话框 ---- */
+.ncm-dialog {
+  width: min(100%, 780px);
+  height: min(100%, 760px);
+}
+
+.ncm-dialog .modal-body {
+  gap: 14px;
+}
+
+.ncm-intro {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.ncm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.ncm-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ncm-label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.ncm-sub {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.ncm-sub-warn {
+  color: var(--warning);
+}
+
+/* 输入文件夹列表 */
+.ncm-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 56px;
+  max-height: 112px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--input);
+  list-style: none;
+}
+
+.ncm-folders-empty {
+  margin: auto 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.ncm-folder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.ncm-folder-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 输出目录 */
+.ncm-output {
+  display: flex;
+  gap: 8px;
+}
+
+.ncm-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  user-select: text;
+}
+
+.ncm-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ncm-input:disabled {
+  opacity: 0.6;
+}
+
+.ncm-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.ncm-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* 状态行与总体进度 */
+.ncm-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+.ncm-status-line {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ncm-status-line-problem {
+  color: var(--warning);
+}
+
+.ncm-progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+
+/* 文件列表（固定行高 + 虚拟滚动；行高必须与 NcmImportDialog.tsx 的 NCM_ROW_HEIGHT 一致） */
+.ncm-table {
+  --ncm-row-height: 38px;
+  --ncm-scrollbar: 10px;
+
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-alt);
+  overflow: hidden;
+}
+
+.ncm-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.1fr) 76px minmax(160px, 2fr);
+  column-gap: 12px;
+  align-items: center;
+}
+
+.ncm-head {
+  flex: none;
+  height: 30px;
+  padding: 0 calc(var(--ncm-scrollbar) + 12px) 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.ncm-scroller {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  /* 始终保留滚动条槽位，保证表头与行的列对齐。 */
+  overflow-y: scroll;
+  outline: none;
+}
+
+.ncm-scroller::-webkit-scrollbar {
+  width: var(--ncm-scrollbar);
+}
+
+.ncm-scroller::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.ncm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.ncm-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.ncm-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.ncm-row {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--ncm-row-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.ncm-row:hover {
+  background: var(--row-hover);
+}
+
+.ncm-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ncm-name {
+  font-weight: 600;
+}
+
+.ncm-size {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ncm-status-muted {
+  color: var(--text-tertiary);
+}
+
+.ncm-status-busy {
+  color: var(--accent);
+}
+
+.ncm-status-success {
+  color: var(--success);
+}
+
+.ncm-status-error {
+  color: var(--danger);
+}
+
+/* 底部左侧的文件计数把按钮推到右侧 */
+.ncm-count {
+  margin-right: auto;
+  align-self: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.ncm-dialog .btn:disabled {
+  opacity: 0.5;
+}

@@ -18,4 +18,4 @@ pub use text::{detect_image_mime, parse_netease_id};
 pub use view::{MAX_COVER_PREVIEW_BYTES, TagCommandError, TagView, WriteTagsRequest};
 
 #[cfg(test)]
-mod fixtures;
+pub(crate) mod fixtures;

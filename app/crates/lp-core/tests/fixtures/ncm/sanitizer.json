@@ -1,0 +1,159 @@
+{
+  "sanitize": [
+    {
+      "input": "a/b:c*?\"<>|",
+      "max": 120,
+      "output": "a_b_c______"
+    },
+    {
+      "input": null,
+      "max": 120,
+      "output": "未知"
+    },
+    {
+      "input": "   ",
+      "max": 120,
+      "output": "未知"
+    },
+    {
+      "input": "...",
+      "max": 120,
+      "output": "未知"
+    },
+    {
+      "input": "a\tb\u0001c",
+      "max": 120,
+      "output": "a_b_c"
+    },
+    {
+      "input": " 歌名. ",
+      "max": 120,
+      "output": "歌名"
+    },
+    {
+      "input": "歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌",
+      "max": 120,
+      "output": "歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌歌"
+    },
+    {
+      "input": "a b xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "max": 10,
+      "output": "a b xxxxxx"
+    },
+    {
+      "input": "\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00",
+      "max": 120,
+      "output": "\uD83D\uDE00\uD83D\uDE00\uD83D\uDE00"
+    },
+    {
+      "input": "CON",
+      "max": 120,
+      "output": "CON"
+    },
+    {
+      "input": "末尾空格   ",
+      "max": 120,
+      "output": "末尾空格"
+    },
+    {
+      "input": "a.b.c...",
+      "max": 120,
+      "output": "a.b.c"
+    },
+    {
+      "input": "\\\\server\\share",
+      "max": 120,
+      "output": "__server_share"
+    }
+  ],
+  "build": [
+    {
+      "template": "{artist} - {title}",
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "track": 3,
+      "year": 2003,
+      "id": 186016,
+      "ext": ".mp3",
+      "output": "周杰伦 - 晴天.mp3"
+    },
+    {
+      "template": "{artist} - {title} ({year}) [{track}]",
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "track": 3,
+      "year": 2003,
+      "id": 186016,
+      "ext": ".mp3",
+      "output": "周杰伦 - 晴天 (2003) [03].mp3"
+    },
+    {
+      "template": "{title}",
+      "title": null,
+      "artist": null,
+      "album": null,
+      "track": 0,
+      "year": 0,
+      "id": 12,
+      "ext": "flac",
+      "output": "未知歌曲.flac"
+    },
+    {
+      "template": "{ARTIST}_{Album}_{ID}.MP3",
+      "title": "t",
+      "artist": "a",
+      "album": "b",
+      "track": 0,
+      "year": 0,
+      "id": 7,
+      "ext": "mp3",
+      "output": "a_b_7.MP3"
+    },
+    {
+      "template": "  ",
+      "title": "a/b",
+      "artist": "c:d",
+      "album": null,
+      "track": 100,
+      "year": 0,
+      "id": 1,
+      "ext": "mp3",
+      "output": "c_d - a_b.mp3"
+    },
+    {
+      "template": "{track}",
+      "title": null,
+      "artist": null,
+      "album": null,
+      "track": 123,
+      "year": 0,
+      "id": 1,
+      "ext": "mp3",
+      "output": "123.mp3"
+    },
+    {
+      "template": "{title}{title}",
+      "title": "{artist}",
+      "artist": "X",
+      "album": "Y",
+      "track": 0,
+      "year": 0,
+      "id": 1,
+      "ext": ".flac",
+      "output": "XX.flac"
+    },
+    {
+      "template": "{album}/{title}",
+      "title": "a",
+      "artist": "b",
+      "album": "c/d",
+      "track": 5,
+      "year": 1999,
+      "id": 1,
+      "ext": ".mp3",
+      "output": "c_d_a.mp3"
+    }
+  ]
+}

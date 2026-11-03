@@ -7,9 +7,15 @@ use lp_core::auth::{
     AccountSummary, LoginManager, LoginOptions, QrPollOutcome, RuntimeAuthOutcome,
     ValidationOutcome,
 };
+use lp_core::download::ncm_import::{
+    NcmDialogState, NcmImportOptions, NcmImportProgress, NcmImportService, NcmJobSlot,
+    NcmProgressView, NcmScanResult, NcmSummaryView, prepare_output_directory, remember_state,
+    scan_ncm_files,
+};
 use lp_core::logs::{LogEntry, LogHub};
 use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
 use lp_core::models::{AudioQuality, ThemeMode};
+use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::http::ReqwestTransport;
 use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
 use lp_core::paths::{AppPaths, PathEnv};
@@ -17,7 +23,7 @@ use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
 use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
 
@@ -27,6 +33,8 @@ const EVENT_LOG: &str = "app:log";
 const EVENT_ACCOUNT: &str = "auth:state";
 /// 前端订阅的事件名：大歌单分批补齐曲目详情的进度。
 const EVENT_PLAYLIST_PROGRESS: &str = "playlist:progress";
+/// 前端订阅的事件名：NCM 导入的逐文件进度。
+const EVENT_NCM_PROGRESS: &str = "ncm:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -49,6 +57,8 @@ impl From<lp_core::AppInfo> for AppInfoDto {
 struct AppState {
     paths: AppPaths,
     settings: RwLock<AppSettings>,
+    /// `settings.json` 的读写；只在记住 NCM 导入位置等需要落盘的地方使用。
+    settings_store: JsonSettingsStore,
     /// 设置文件读取失败时的中文原因（此时界面使用默认设置）。
     settings_warning: Option<String>,
     /// 运行日志（内存，最多 400 条）。
@@ -61,6 +71,10 @@ struct AppState {
     lyrics: Arc<LyricsService>,
     /// 音频标签读写（lofty）。
     tags: Arc<dyn AudioTagService>,
+    /// NCM 批量解密导入（在线补全挂钩待模块 10 接入）。
+    ncm: Arc<NcmImportService>,
+    /// 当前正在运行的 NCM 导入任务（至多一个），`ncm_cancel` 通过它取消。
+    ncm_job: NcmJobSlot,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -111,15 +125,25 @@ impl AppState {
             ));
         }
 
+        let tags: Arc<dyn AudioTagService> = Arc::new(LoftyTagService);
+        let ncm = Arc::new(NcmImportService::new(
+            Arc::new(FileNcmDecoder),
+            Arc::clone(&tags),
+            None,
+        ));
+
         Self {
             paths,
             settings: RwLock::new(settings),
+            settings_store,
             settings_warning,
             logs,
             login,
             playlists,
             lyrics,
-            tags: Arc::new(LoftyTagService),
+            tags,
+            ncm,
+            ncm_job: NcmJobSlot::default(),
             session_error: restored.load_failure,
         }
     }
@@ -455,6 +479,132 @@ async fn write_tags(
     run_tag_task(move || tags.write(&target, &data)).await
 }
 
+/// `ncm_import` 的参数（camelCase）。
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NcmImportRequest {
+    /// 要导入的 `.ncm` 文件（前端从扫描结果里取）。
+    paths: Vec<String>,
+    /// 当前的输入文件夹列表，开始前记住。
+    folders: Vec<String>,
+    /// 输出目录（必须是完整路径，不存在会创建）。
+    output_directory: String,
+    /// 目标文件已存在时是否覆盖。
+    overwrite: bool,
+    /// 解密后是否自动在线匹配。
+    auto_match_online: bool,
+}
+
+impl AppState {
+    /// 把 NCM 导入窗口的输入文件夹与输出目录写回 `settings.json`（只改这两个字段，其余设置原样保留）。
+    ///
+    /// 记忆只是便利功能：失败只记日志，不打断导入。设置文件当初没能读出来（正在使用默认设置）时
+    /// 不写盘，免得把用户真正的设置覆盖成默认值。
+    fn remember_ncm_state(&self, folders: &[String], output_directory: &str) {
+        if self.settings_warning.is_some() {
+            return;
+        }
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        remember_state(&mut settings, folders, output_directory);
+        match self.settings_store.save(&settings) {
+            Ok(saved) => *settings = saved,
+            Err(error) => self.logs.warning(format!("记住 NCM 导入位置失败：{error}")),
+        }
+    }
+}
+
+/// 打开 NCM 导入窗口时需要恢复的内容：记住的输入文件夹、输出目录（为空回退下载目录）、在线匹配是否可用。
+#[tauri::command]
+fn ncm_get_state(state: State<'_, AppState>) -> NcmDialogState {
+    NcmDialogState::new(&state.settings(), state.ncm.online_match_available())
+}
+
+/// 递归查找这些文件夹里的 `.ncm` 文件（不存在的文件夹会列在 `missingFolders` 里）。
+#[tauri::command]
+async fn ncm_scan(folders: Vec<String>) -> Result<NcmScanResult, String> {
+    tauri::async_runtime::spawn_blocking(move || scan_ncm_files(&folders))
+        .await
+        .map_err(|_| "扫描 .ncm 文件时程序内部出错，请重试。".to_owned())
+}
+
+/// 记住 NCM 导入窗口的输入文件夹与输出目录（添加文件夹、关闭窗口时调用）。
+#[tauri::command]
+fn ncm_save_state(state: State<'_, AppState>, folders: Vec<String>, output_directory: String) {
+    state.remember_ncm_state(&folders, &output_directory);
+}
+
+/// 批量解密并导入 `.ncm`：逐文件发 `ncm:progress` 事件，结束后返回汇总。
+/// 被取消时返回已完成的部分（`cancelled: true`）；同一时间只允许一个任务。
+#[tauri::command]
+async fn ncm_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: NcmImportRequest,
+) -> Result<NcmSummaryView, String> {
+    let output = prepare_output_directory(&request.output_directory)?;
+    if request.paths.is_empty() {
+        return Err("没有可导入的 .ncm 文件，请先添加包含 .ncm 的文件夹。".to_owned());
+    }
+    let job = state.ncm_job.try_begin().map_err(|e| e.to_string())?;
+
+    // 记住本次实际使用的位置（与 C# 一致：开始导入前保存）。
+    state.remember_ncm_state(&request.folders, &request.output_directory);
+    state.logs.info(format!(
+        "开始导入 {} 个 NCM 文件，输出到 {}",
+        request.paths.len(),
+        display_path(&output)
+    ));
+
+    let options = NcmImportOptions {
+        overwrite: request.overwrite,
+        auto_match_online: request.auto_match_online,
+    };
+    let paths: Vec<PathBuf> = request.paths.iter().map(PathBuf::from).collect();
+    let emit = move |progress: NcmImportProgress| {
+        let _ = app.emit(EVENT_NCM_PROGRESS, NcmProgressView::from(&progress));
+    };
+    let service = Arc::clone(&state.ncm);
+    let outcome = service
+        .import(&paths, &output, options, &emit, &job.cancel)
+        .await
+        .map_err(|error| {
+            let message = error.to_string();
+            state.logs.warning(format!("NCM 导入失败：{message}"));
+            message
+        })?;
+
+    let summary = NcmSummaryView::new(&outcome, &display_path(&output), request.auto_match_online);
+    if summary.cancelled {
+        state.logs.warning(format!(
+            "NCM 导入已取消：已处理 {}/{}，成功 {}，失败 {}",
+            outcome.results.len(),
+            summary.total,
+            summary.succeeded,
+            summary.failed
+        ));
+    } else if summary.failed == 0 {
+        state.logs.success(format!(
+            "NCM 导入完成：成功 {} 个（共 {} 个）",
+            summary.succeeded, summary.total
+        ));
+    } else {
+        state.logs.warning(format!(
+            "NCM 导入完成：成功 {} 个，失败 {} 个（共 {} 个）",
+            summary.succeeded, summary.failed, summary.total
+        ));
+    }
+    Ok(summary)
+}
+
+/// 取消正在进行的 NCM 导入；没有任务时返回 `false`。
+#[tauri::command]
+fn ncm_cancel(state: State<'_, AppState>) -> bool {
+    state.ncm_job.cancel()
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -519,7 +669,12 @@ pub fn run() {
             get_playlist_tracks,
             get_song_lyrics,
             read_tags,
-            write_tags
+            write_tags,
+            ncm_get_state,
+            ncm_scan,
+            ncm_save_state,
+            ncm_import,
+            ncm_cancel
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -709,5 +864,108 @@ mod tests {
                 .unwrap()
                 .starts_with("加载歌单失败")
         );
+    }
+
+    /// 在系统临时目录里建一个独立的数据目录，用完删除。
+    struct ScratchDir(PathBuf);
+
+    impl ScratchDir {
+        fn new(tag: &str) -> Self {
+            let path = std::env::temp_dir().join(format!("lp-shell-{tag}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn paths(&self) -> AppPaths {
+            AppPaths {
+                data_dir: self.0.clone(),
+                default_download_dir: self.0.join("Music"),
+                is_portable: true,
+            }
+        }
+    }
+
+    impl Drop for ScratchDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn ncm_import_request_is_read_from_camel_case_json() {
+        let request: NcmImportRequest = serde_json::from_value(serde_json::json!({
+            "paths": [r"D:\a.ncm"],
+            "folders": [r"D:\in"],
+            "outputDirectory": r"D:\out",
+            "overwrite": true,
+            "autoMatchOnline": false,
+        }))
+        .unwrap();
+
+        assert_eq!(request.paths, [r"D:\a.ncm"]);
+        assert_eq!(request.folders, [r"D:\in"]);
+        assert_eq!(request.output_directory, r"D:\out");
+        assert!(request.overwrite);
+        assert!(!request.auto_match_online);
+    }
+
+    #[test]
+    fn remembering_the_ncm_state_writes_only_its_two_fields() {
+        let dir = ScratchDir::new("remember");
+        let state = AppState::load(dir.paths());
+        // 先在磁盘上放一份带有非默认值的设置。
+        {
+            let mut settings = state.settings().clone();
+            settings.max_concurrency = 6;
+            settings.match_threshold = 0.8;
+            state.settings_store.save(&settings).unwrap();
+            *state.settings.write().unwrap() = settings;
+        }
+
+        state.remember_ncm_state(
+            &[r"D:\a".to_owned(), r"d:\A".to_owned(), r"E:\b".to_owned()],
+            r"  E:\out  ",
+        );
+
+        let saved = state.settings_store.load().unwrap();
+        assert_eq!(saved.ncm_import_folders, [r"D:\a", r"E:\b"]);
+        assert_eq!(saved.ncm_import_output_directory, r"E:\out");
+        assert_eq!(saved.max_concurrency, 6);
+        assert_eq!(saved.match_threshold, 0.8);
+        // 内存里的设置同步更新，窗口再次打开时读到的就是新值。
+        let dialog = ncm_dialog_state(&state);
+        assert_eq!(dialog.folders, [r"D:\a", r"E:\b"]);
+        assert_eq!(dialog.output_directory, r"E:\out");
+        assert!(!dialog.online_match_available);
+    }
+
+    #[test]
+    fn untrusted_settings_are_never_overwritten_by_the_ncm_memory() {
+        let dir = ScratchDir::new("untrusted");
+        let mut state = AppState::load(dir.paths());
+        // 设置文件当初没能读出来，正在使用默认值：写盘会把用户真正的设置覆盖掉。
+        state.settings_warning = Some("读取失败".to_owned());
+
+        state.remember_ncm_state(&[r"D:\a".to_owned()], r"E:\out");
+
+        assert!(!state.paths.settings_file().exists());
+    }
+
+    fn ncm_dialog_state(state: &AppState) -> NcmDialogState {
+        NcmDialogState::new(&state.settings(), state.ncm.online_match_available())
+    }
+
+    #[test]
+    fn only_one_ncm_import_runs_at_a_time_and_cancel_reaches_it() {
+        let dir = ScratchDir::new("job");
+        let state = AppState::load(dir.paths());
+
+        let job = state.ncm_job.try_begin().unwrap();
+        assert!(state.ncm_job.try_begin().is_err());
+        assert!(state.ncm_job.cancel());
+        assert!(job.cancel.is_cancelled());
+        drop(job);
+        assert!(!state.ncm_job.cancel());
     }
 }
