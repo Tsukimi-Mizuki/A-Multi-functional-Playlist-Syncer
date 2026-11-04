@@ -167,7 +167,7 @@ impl NeteaseClient {
         Ok(Some(user))
     }
 
-    /// 请求服务端续期登录态（`login/token/refresh`），Set-Cookie 由请求层统一合并并通知落盘。
+    /// 请求服务端续期登录态（eapi `login/token/refresh`），Set-Cookie 由请求层统一合并并通知落盘。
     ///
     /// 失败（未登录、网络、接口拒绝）只返回 `false`，不返回错误；需要失败原因时用
     /// [`try_refresh_login`](Self::try_refresh_login)。
@@ -176,16 +176,18 @@ impl NeteaseClient {
     }
 
     /// 同 [`refresh_login`](Self::refresh_login)，但把失败原因带出来，供日志说明“为什么续期没成功”。
+    ///
+    /// 必须走 **eapi**（`https://interface.music.163.com/eapi/login/token/refresh`，签名用 `/api/login/token/refresh`）：
+    /// 桌面端扫码得到的会话在 weapi 同名端点上要么返回 `code=400`（会话 Cookie 里没有桌面客户端标识），
+    /// 要么返回 `code=200` 却不换发任何令牌（`bizCode=201`）；eapi 才会真正下发新的 `MUSIC_U`（约 180 天）、
+    /// `__csrf` 与 `MUSIC_R_U`（2026-11 联网实测，旧令牌在换发后仍有效，可以连续续期）。
+    /// `e_r:false` 让服务端返回明文 JSON。
     pub async fn try_refresh_login(&self) -> Result<(), NeteaseError> {
-        if !self.is_logged_in() {
-            return Err(NeteaseError::protocol("当前没有登录态"));
-        }
-        // 对应 NeteaseCloudMusicApi 的 login_refresh。
-        self.post_weapi(
-            "/weapi/login/token/refresh",
-            &json!({}),
+        self.post_eapi_with_session(
+            INTERFACE_BASE_URL,
+            "/api/login/token/refresh",
+            &json!({ "e_r": false }),
             "续期登录状态",
-            false,
         )
         .await
         .map(|_| ())
@@ -914,37 +916,242 @@ mod tests {
         assert!(client.get_current_user().await.unwrap().is_some());
     }
 
+    // ---- 登录续期（eapi `login/token/refresh`）----
+    //
+    // 响应形状取自 2026-11 对桌面端扫码会话的联网实测（Cookie 值全部换成了假值）：除了真正的新令牌
+    // （`MUSIC_U`、`__csrf`、`MUSIC_R_U`），还有二十多条只作用于 `/api/feedback`、`/neapi/clientlog` 等子路径的
+    // `MUSIC_A_T` / `MUSIC_R_T`，以及一条会话里根本没有的 `MUSIC_SNS` 删除指令。
+
+    /// 带完整令牌的会话（桌面端扫码得到的 Cookie 名）。
+    fn desktop_session_client(transport: &Arc<FakeTransport>) -> NeteaseClient {
+        let client = test_client(transport);
+        client.set_session(Some(NeteaseSession {
+            cookie:
+                "MUSIC_A_T=a1; MUSIC_R_T=r1; __csrf=csrf1; NMTID=nmtid1; MUSIC_R_U=ru1; MUSIC_U=old"
+                    .to_owned(),
+            user_id: 42,
+            nickname: Some("旧昵称".to_owned()),
+            ..Default::default()
+        }));
+        client
+    }
+
+    const REFRESH_OK_JSON: &str = r#"{"code":200,"bizCode":200}"#;
+
+    /// 续期成功时服务端下发的 Set-Cookie（顺序故意打乱，与实测一样没有规律）。
+    fn refresh_set_cookies(music_u: &str, csrf: &str, music_r_u: &str) -> Vec<String> {
+        let far = "Max-Age=2147483647; Expires=Mon, 22 Nov 2094 12:46:05 GMT";
+        vec![
+            format!("MUSIC_A_T=a1; {far}; Path=/weapi/clientlog; Domain=.music.163.com"),
+            format!(
+                "MUSIC_R_U={music_r_u}; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/eapi/login/token/refresh; Domain=.music.163.com"
+            ),
+            format!("MUSIC_R_T=r1; {far}; Path=/neapi/clientlog; Domain=.music.163.com"),
+            format!(
+                "MUSIC_U={music_u}; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/; Domain=.music.163.com"
+            ),
+            format!("MUSIC_A_T=a1; {far}; Path=/api/feedback; Domain=.music.163.com"),
+            "MUSIC_SNS=; Max-Age=0; Expires=Wed, 04 Nov 2026 09:31:58 GMT; Path=/".to_owned(),
+            format!(
+                "MUSIC_R_U={music_r_u}; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/api/login/token/refresh; Domain=.music.163.com"
+            ),
+            format!("MUSIC_R_T=r1; {far}; Path=/eapi/feedback; Domain=.music.163.com"),
+            format!(
+                "__csrf={csrf}; Max-Age=1296010; Expires=Thu, 19 Nov 2026 09:32:08 GMT; Path=/; Domain=.music.163.com"
+            ),
+        ]
+    }
+
+    fn enqueue_refresh_ok(transport: &FakeTransport, set_cookies: &[String]) {
+        let refs: Vec<&str> = set_cookies.iter().map(String::as_str).collect();
+        transport.enqueue_json_with_cookies(REFRESH_OK_JSON, &refs);
+    }
+
+    /// 解开续期请求：返回 `(签名路径, 业务 JSON, 摘要)` 与其中的 `header` 对象。
+    fn open_refresh_request(
+        request: &crate::netease::http::HttpRequest,
+    ) -> (String, Value, serde_json::Map<String, Value>) {
+        let params = request.form_value("params").expect("续期请求缺少 params");
+        let (path, json, digest) = crate::netease::crypto::eapi_decrypt(params);
+        // 摘要必须与路径和业务 JSON 对得上，否则服务端会拒绝。
+        let expected = {
+            use md5::{Digest, Md5};
+            Md5::digest(format!("nobody{path}use{json}md5forencrypt").as_bytes())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        assert_eq!(digest, expected);
+        let body: Value = serde_json::from_str(&json).expect("业务 JSON 合法");
+        let header = body["header"]
+            .as_object()
+            .expect("body 里要有 header")
+            .clone();
+        (path, body, header)
+    }
+
     #[tokio::test]
-    async fn refresh_login_success_posts_refresh_endpoint_and_merges_cookies() {
+    async fn refresh_login_posts_an_eapi_request_with_the_desktop_identity() {
         let transport = FakeTransport::new();
-        transport.enqueue_json_with_cookies(
-            r#"{"code":200}"#,
-            &["MUSIC_U=renewed; Max-Age=1296000; Path=/"],
-        );
-        let client = logged_in_client(&transport);
-        let raised = capture_changes(&client);
+        transport.enqueue_json(REFRESH_OK_JSON);
+        let client = desktop_session_client(&transport);
 
-        let ok = client.refresh_login().await;
+        assert!(client.refresh_login().await);
 
-        assert!(ok);
         let requests = transport.requests();
         assert_eq!(requests.len(), 1);
-        assert!(requests[0].url.ends_with("/weapi/login/token/refresh"));
+        let request = &requests[0];
         assert_eq!(
-            crate::test_util::decrypt_business_json(&requests[0], crate::test_util::FIXED_SECRET),
-            r#"{"csrf_token":"csrf1"}"#
+            request.url,
+            "https://interface.music.163.com/eapi/login/token/refresh"
         );
+        assert_eq!(
+            request.header("User-Agent"),
+            Some(crate::netease::client::DESKTOP_USER_AGENT)
+        );
+        assert_eq!(
+            request.header("Referer"),
+            None,
+            "官方客户端的 eapi 请求不带 Referer"
+        );
+        // 表单里只有 params，没有 weapi 的 encSecKey。
+        let form = request.form.as_ref().unwrap();
+        assert_eq!(form.len(), 1);
+        assert_eq!(form[0].0, "params");
+        assert_eq!(request.form_value("encSecKey"), None);
+
+        let (path, body, header) = open_refresh_request(request);
+        assert_eq!(path, "/api/login/token/refresh");
+        assert_eq!(body["e_r"], Value::Bool(false));
+        assert_eq!(header["os"], "pc");
+        assert!(!header["appver"].as_str().unwrap().is_empty());
+        assert!(!header["osver"].as_str().unwrap().is_empty());
+        assert!(!header["deviceId"].as_str().unwrap().is_empty());
+        assert_eq!(header["channel"], "netease");
+        assert_eq!(header["__csrf"], "csrf1");
+        assert_eq!(header["MUSIC_U"], "old");
+        assert_eq!(header["NMTID"], "nmtid1");
+        // buildver 是 Unix 秒（10 位），requestId 是 `<毫秒>_<4 位>`。
+        let buildver = header["buildver"].as_str().unwrap();
+        assert!(buildver.len() == 10 && buildver.bytes().all(|b| b.is_ascii_digit()));
+        let request_id = header["requestId"].as_str().unwrap();
+        let (millis, suffix) = request_id.split_once('_').expect("requestId 带下划线");
+        assert!(millis.len() == 13 && millis.bytes().all(|b| b.is_ascii_digit()));
+        assert!(suffix.len() == 4 && suffix.bytes().all(|b| b.is_ascii_digit()));
+
+        // Cookie 头就是 header 对象里的键值对：服务端靠它们认出会话，并且只带这些
+        // （MUSIC_R_U / MUSIC_A_T / MUSIC_R_T 不发，联网实测不需要）。
+        let cookie = request.header("Cookie").unwrap();
+        for (name, value) in &header {
+            assert!(
+                cookie.contains(&format!("{name}={}", value.as_str().unwrap())),
+                "Cookie 头缺少 {name}"
+            );
+        }
+        for absent in ["MUSIC_R_U", "MUSIC_A_T", "MUSIC_R_T"] {
+            assert!(!cookie.contains(absent), "不应带上 {absent}");
+        }
+    }
+
+    #[tokio::test]
+    async fn refresh_login_rotates_music_u_csrf_and_refresh_token_and_keeps_the_rest() {
+        let transport = FakeTransport::new();
+        enqueue_refresh_ok(&transport, &refresh_set_cookies("new-u", "csrf2", "ru2"));
+        let client = desktop_session_client(&transport);
+        let raised = capture_changes(&client);
+
+        client.try_refresh_login().await.unwrap();
+
+        let session = client.session().unwrap();
+        assert_eq!(session.cookie_value("MUSIC_U").as_deref(), Some("new-u"));
+        assert_eq!(session.cookie_value("__csrf").as_deref(), Some("csrf2"));
+        assert_eq!(session.cookie_value("MUSIC_R_U").as_deref(), Some("ru2"));
+        // 其余令牌不变，没有的 MUSIC_SNS 不会冒出来；账号资料也不受影响。
+        assert_eq!(session.cookie_value("MUSIC_A_T").as_deref(), Some("a1"));
+        assert_eq!(session.cookie_value("MUSIC_R_T").as_deref(), Some("r1"));
+        assert_eq!(session.cookie_value("NMTID").as_deref(), Some("nmtid1"));
+        assert_eq!(session.cookie_value("MUSIC_SNS"), None);
+        assert_eq!(session.user_id, 42);
+        assert_eq!(session.nickname.as_deref(), Some("旧昵称"));
+        // 恰好通知一次落盘，内容就是合并后的会话。
+        let raised = raised.lock().unwrap();
+        assert_eq!(raised.len(), 1);
+        assert_eq!(raised[0].cookie, session.cookie);
+    }
+
+    #[tokio::test]
+    async fn refresh_login_can_be_chained_on_the_rotated_cookie() {
+        let transport = FakeTransport::new();
+        enqueue_refresh_ok(&transport, &refresh_set_cookies("new-u", "csrf2", "ru2"));
+        enqueue_refresh_ok(&transport, &refresh_set_cookies("newer-u", "csrf3", "ru3"));
+        let client = desktop_session_client(&transport);
+
+        client.try_refresh_login().await.unwrap();
+        client.try_refresh_login().await.unwrap();
+
+        let requests = transport.requests();
+        let (_, _, second) = open_refresh_request(&requests[1]);
+        assert_eq!(second["MUSIC_U"], "new-u", "第二次要带上第一次换发的令牌");
+        assert_eq!(second["__csrf"], "csrf2");
         assert_eq!(
             client.session().unwrap().cookie_value("MUSIC_U").as_deref(),
-            Some("renewed")
+            Some("newer-u")
         );
-        assert_eq!(raised.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn refresh_response_that_would_drop_music_u_keeps_the_old_login() {
+        let transport = FakeTransport::new();
+        transport.enqueue_json_with_cookies(
+            REFRESH_OK_JSON,
+            &["MUSIC_U=; Max-Age=0; Path=/", "__csrf=csrf2; Path=/"],
+        );
+        let client = desktop_session_client(&transport);
+        let raised = capture_changes(&client);
+
+        client.try_refresh_login().await.unwrap();
+
+        let session = client.session().unwrap();
+        assert_eq!(session.cookie_value("MUSIC_U").as_deref(), Some("old"));
+        assert_eq!(session.cookie_value("__csrf").as_deref(), Some("csrf1"));
+        assert!(raised.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn refresh_code_400_is_a_soft_failure_with_the_reason() {
+        // 旧的 weapi 端点就是这样回应的：HTTP 200，只有 `{"code":400}`，没有 message。
+        let transport = FakeTransport::new();
+        transport.enqueue_json(r#"{"code":400}"#);
+        let client = desktop_session_client(&transport);
+        let raised = capture_changes(&client);
+
+        let error = client.try_refresh_login().await.unwrap_err();
+
+        assert_eq!(error.code(), Some(400));
+        assert!(!error.is_not_logged_in());
+        assert_eq!(error.to_string(), "续期登录状态失败：接口返回 code=400");
+        assert!(client.is_logged_in());
+        assert!(raised.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn refresh_code_301_is_reported_as_not_logged_in() {
+        let transport = FakeTransport::new();
+        transport.enqueue_json(r#"{"code":301,"message":"需要登录"}"#);
+        let client = desktop_session_client(&transport);
+
+        let error = client.try_refresh_login().await.unwrap_err();
+
+        assert!(error.is_not_logged_in());
+        // 续期本身从不清除会话，清除是 LoginManager 复核之后的事。
+        assert!(client.is_logged_in());
     }
 
     #[tokio::test]
     async fn refresh_login_failure_returns_false_without_error() {
         for (status, body) in [
             (200, r#"{"code":301,"message":"需要登录"}"#),
+            (200, r#"{"code":400}"#),
             (200, r#"{"code":-460}"#),
             (502, ""),
         ] {

@@ -99,7 +99,8 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - 「登录失效」只认接口业务 `code == 301`，或 `account/get` 返回 200 但 account / profile 为空。HTTP 401/302/5xx、406 限流、-460 风控、超时与网络错误都只提示「暂时无法验证登录状态，已保留登录」。判定失效前先 `refresh_login` + 再次 `get_current_user` 复核，仍明确未登录才清除。
 - 清除顺序：`set_session(None)` → `flush` → 删 `session.dat`；运行期 301 复核同一时间只做一次。
 - `SessionStore::load` 区分「文件不存在 / 没有可用 Cookie」（正常未登录）与「损坏、无法解密、无法解析、读取失败」（日志里给出原因与数据目录）。
-- 已知：`/weapi/login/token/refresh` 目前返回 `code=400`，见 `docs/TAURI_REWRITE.md`「待修问题」。
+- **续期走 eapi**：`refresh_login` / `try_refresh_login` 调 `NeteaseClient::post_eapi_with_session`，`POST https://interface.music.163.com/eapi/login/token/refresh`——表单只有 `params`，明文是 `/api/login/token/refresh` + 业务 JSON（`{"e_r":false,"header":{os,appver,osver,deviceId,channel,versioncode,mobilename,buildver,resolution,requestId,__csrf,MUSIC_U,NMTID}}`）+ MD5 摘要，AES-128-ECB 后大写 hex；`header` 同时作为 Cookie 头发出（只带这些，不带 `MUSIC_R_U` 等）；桌面 UA，不发 Referer。成功（`code=200`、`bizCode=200`）时服务端换发新的 `MUSIC_U`（`Max-Age` 约 180 天）、`__csrf`（约 15 天）与 `MUSIC_R_U`，并且新旧令牌都有效，可以连续续期。weapi 的同名端点对桌面端会话返回 `code=400`，带桌面 Cookie 时是 `code=200 bizCode=201` 的空操作，**不能用**。
+- **同名多 Path 的 Set-Cookie**：服务端会在同一响应里对 `MUSIC_A_T` / `MUSIC_R_T` 等下发二十多条不同 `Path`（`/api/feedback`、`/neapi/clientlog` …）的设值，其中夹一条 `Path=/` 的 `Max-Age=0` 删除，顺序随机。`CookieMerger` 不区分 `Path`，所以规则是：带非根 `Path` 的删除永远忽略；同一响应里既有删除又有设值的名字，删除忽略、设值生效；其余删除照常。详见 `netease::cookie_merger` 的模块文档与 `docs/TAURI_REWRITE.md`「登录续期修复」。
 
 ### 歌单与歌曲
 

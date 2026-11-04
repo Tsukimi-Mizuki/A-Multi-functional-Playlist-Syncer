@@ -5,6 +5,16 @@
 //! - `Max-Age <= 0` 或 `Expires` 已过期视为删除（`Max-Age` 优先于 `Expires`，RFC 6265）；
 //! - 空值不会覆盖已有值，也不会新增；
 //! - 已有键保持原顺序，新增键追加在末尾。
+//!
+//! 本程序只有一个扁平的 Cookie 串，不区分 `Domain` / `Path`；而网易云会在同一个响应里对同一个名字下发多条
+//! 不同 `Path` 的 `Set-Cookie`（实测：续期或带桌面标识的 weapi 响应里，`MUSIC_A_T` / `MUSIC_R_T` 有一条
+//! `Path=/` 的 `Max-Age=0` 删除，同时又有二十多条 `Path=/api/feedback`、`Path=/neapi/clientlog` 等的重新设值，
+//! 顺序每次不同）。按名字顺序执行会让令牌被随机地删掉，所以再加两条规则：
+//! - **带非根 `Path` 的删除永远忽略**：它只清理那个路径下的 Cookie，与根路径的同名 Cookie 无关；
+//! - **同一个响应里既删除又设值的名字，删除忽略、设值生效**：服务端是在迁移 Cookie 的作用域，不是在撤销它。
+//!
+//! 其余的删除（根路径或没写 `Path`、且本响应没有同名设值）照常执行。`NeteaseClient` 在此之外还有一道保险：
+//! 合并结果会丢掉 `MUSIC_U` 时整体忽略。
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -36,15 +46,29 @@ pub fn merge_at(
     let mut pairs = parse_cookie_string(original);
     let mut changed = false;
 
-    for header in set_cookie_headers {
-        let Some(parsed) = parse_set_cookie(header, now_unix) else {
-            continue;
-        };
+    let parsed_headers: Vec<ParsedSetCookie> = set_cookie_headers
+        .iter()
+        .filter_map(|header| parse_set_cookie(header, now_unix))
+        .collect();
+    // 本响应里被设值（非删除且值不为空）的名字：这些名字的删除视为作用域迁移，不执行。
+    let set_names: Vec<String> = parsed_headers
+        .iter()
+        .filter(|parsed| !parsed.is_delete && !parsed.value.is_empty())
+        .map(|parsed| parsed.name.clone())
+        .collect();
+
+    for parsed in parsed_headers {
         let index = pairs
             .iter()
             .position(|(name, _)| name.eq_ignore_ascii_case(&parsed.name));
 
         if parsed.is_delete {
+            let migrating = set_names
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&parsed.name));
+            if parsed.path_scoped || migrating {
+                continue;
+            }
             if let Some(index) = index {
                 pairs.remove(index);
                 changed = true;
@@ -114,6 +138,8 @@ struct ParsedSetCookie {
     name: String,
     value: String,
     is_delete: bool,
+    /// `Path` 属性存在且不是根路径 `/`：这条 Set-Cookie 只作用于某个子路径。
+    path_scoped: bool,
 }
 
 fn parse_set_cookie(header: &str, now_unix: i64) -> Option<ParsedSetCookie> {
@@ -129,6 +155,7 @@ fn parse_set_cookie(header: &str, now_unix: i64) -> Option<ParsedSetCookie> {
     // Max-Age 优先于 Expires（RFC 6265）。
     let mut max_age_expired: Option<bool> = None;
     let mut expires: Option<i64> = None;
+    let mut path_scoped = false;
     for attribute in segments {
         let Some(attribute_separator) = attribute.find('=').filter(|&i| i > 0) else {
             continue;
@@ -143,6 +170,8 @@ fn parse_set_cookie(header: &str, now_unix: i64) -> Option<ParsedSetCookie> {
             && let Some(parsed) = parse_http_date(attribute_value)
         {
             expires = Some(parsed);
+        } else if attribute_name.eq_ignore_ascii_case("Path") {
+            path_scoped = !attribute_value.is_empty() && attribute_value != "/";
         }
     }
 
@@ -154,6 +183,7 @@ fn parse_set_cookie(header: &str, now_unix: i64) -> Option<ParsedSetCookie> {
         name,
         value,
         is_delete,
+        path_scoped,
     })
 }
 
@@ -381,6 +411,147 @@ mod tests {
         let result = merge_at(None, &strings(&["MUSIC_U=a; Path=/", "__csrf=c"]), now());
         assert!(result.changed);
         assert_eq!(result.cookie, "MUSIC_U=a; __csrf=c");
+    }
+
+    // ---- 同一响应里同名、不同 Path 的 Set-Cookie（形状取自 2026-11 的联网实测，值是假的） ----
+
+    const SESSION: &str =
+        "MUSIC_A_T=a1; MUSIC_R_T=r1; __csrf=c1; NMTID=n1; MUSIC_R_U=ru1; MUSIC_U=u1";
+    const SCOPES: [&str; 8] = [
+        "/api/feedback",
+        "/api/clientlog",
+        "/eapi/feedback",
+        "/eapi/clientlog",
+        "/weapi/feedback",
+        "/neapi/clientlog",
+        "/wapi/feedback",
+        "/openapi/clientlog",
+    ];
+
+    fn root_delete(name: &str) -> String {
+        format!(
+            "{name}=; Max-Age=0; Expires=Wed, 04 Nov 2026 09:26:27 GMT; Path=/; Domain=.music.163.com"
+        )
+    }
+
+    fn scoped_sets(name: &str, value: &str) -> Vec<String> {
+        SCOPES
+            .iter()
+            .map(|path| {
+                format!(
+                    "{name}={value}; Max-Age=2147483647; Expires=Mon, 22 Nov 2094 12:40:34 GMT; Path={path}; Domain=.music.163.com"
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn root_delete_next_to_scoped_sets_of_the_same_name_is_a_scope_migration_in_any_order() {
+        // 实测：Path=/ 的删除与八个子路径的设值混在一个响应里，位置随机；不论删除在前、在后还是夹在中间，
+        // MUSIC_A_T / MUSIC_R_T 都不能丢。
+        let mut sets = scoped_sets("MUSIC_A_T", "a1");
+        sets.extend(scoped_sets("MUSIC_R_T", "r1"));
+        for position in [0, 5, sets.len()] {
+            let mut headers = sets.clone();
+            headers.insert(position, root_delete("MUSIC_A_T"));
+            headers.insert(position, root_delete("MUSIC_R_T"));
+            let result = merge_at(Some(SESSION), &headers, now());
+            assert!(!result.changed, "位置 {position}");
+            assert_eq!(result.cookie, SESSION, "位置 {position}");
+        }
+    }
+
+    #[test]
+    fn scope_migration_still_applies_the_new_value_in_place() {
+        let mut headers = vec![root_delete("MUSIC_A_T")];
+        headers.extend(scoped_sets("MUSIC_A_T", "a2"));
+        headers.push(root_delete("MUSIC_A_T"));
+        let result = merge_at(Some(SESSION), &headers, now());
+        assert!(result.changed);
+        assert_eq!(
+            result.cookie,
+            "MUSIC_A_T=a2; MUSIC_R_T=r1; __csrf=c1; NMTID=n1; MUSIC_R_U=ru1; MUSIC_U=u1"
+        );
+    }
+
+    #[test]
+    fn path_scoped_delete_never_removes_the_root_cookie() {
+        for header in [
+            "MUSIC_A_T=; Max-Age=0; Path=/api/feedback; Domain=.music.163.com",
+            "MUSIC_A_T=; Max-Age=-1; path=/neapi/clientlog",
+            "MUSIC_A_T=x; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/weapi/feedback",
+        ] {
+            let result = merge_at(Some(SESSION), &[header.to_owned()], now());
+            assert!(!result.changed, "{header}");
+            assert_eq!(result.cookie, SESSION);
+        }
+    }
+
+    #[test]
+    fn root_delete_without_a_same_name_set_still_deletes() {
+        // 没写 Path 与显式 Path=/ 都算根路径；其他名字的设值不会让它免于删除。
+        let result = merge_at(
+            Some(SESSION),
+            &[
+                root_delete("MUSIC_A_T"),
+                "MUSIC_R_T=; Max-Age=0".to_owned(),
+                "__csrf=c2; Path=/".to_owned(),
+            ],
+            now(),
+        );
+        assert!(result.changed);
+        assert_eq!(
+            result.cookie,
+            "__csrf=c2; NMTID=n1; MUSIC_R_U=ru1; MUSIC_U=u1"
+        );
+    }
+
+    #[test]
+    fn an_empty_value_is_not_a_set_so_it_does_not_cancel_a_delete() {
+        let result = merge_at(
+            Some(SESSION),
+            &[
+                "NMTID=; Path=/api/feedback".to_owned(),
+                "NMTID=; Max-Age=0; Path=/".to_owned(),
+            ],
+            now(),
+        );
+        assert!(result.changed);
+        assert_eq!(
+            result.cookie,
+            "MUSIC_A_T=a1; MUSIC_R_T=r1; __csrf=c1; MUSIC_R_U=ru1; MUSIC_U=u1"
+        );
+    }
+
+    #[test]
+    fn refresh_response_shape_rotates_tokens_and_ignores_unrelated_entries() {
+        let far = "Max-Age=2147483647; Expires=Mon, 22 Nov 2094 12:46:05 GMT";
+        let mut headers = vec![
+            "MUSIC_U=u2; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/; Domain=.music.163.com".to_owned(),
+            "MUSIC_R_U=ru2; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/eapi/login/token/refresh; Domain=.music.163.com".to_owned(),
+            "MUSIC_R_U=ru2; Max-Age=15552000; Expires=Mon, 03 May 2027 09:31:58 GMT; Path=/api/login/token/refresh; Domain=.music.163.com".to_owned(),
+            "MUSIC_SNS=; Max-Age=0; Expires=Wed, 04 Nov 2026 09:31:58 GMT; Path=/".to_owned(),
+            "__csrf=c2; Max-Age=1296010; Expires=Thu, 19 Nov 2026 09:32:08 GMT; Path=/; Domain=.music.163.com".to_owned(),
+        ];
+        headers.extend(
+            SCOPES
+                .iter()
+                .map(|path| format!("MUSIC_A_T=a1; {far}; Path={path}; Domain=.music.163.com")),
+        );
+        headers.extend(
+            SCOPES
+                .iter()
+                .map(|path| format!("MUSIC_R_T=r1; {far}; Path={path}; Domain=.music.163.com")),
+        );
+
+        let result = merge_at(Some(SESSION), &headers, now());
+
+        assert!(result.changed);
+        // 三个令牌被换发，顺序不变；MUSIC_SNS 本来就没有，其余令牌保持原样。
+        assert_eq!(
+            result.cookie,
+            "MUSIC_A_T=a1; MUSIC_R_T=r1; __csrf=c2; NMTID=n1; MUSIC_R_U=ru2; MUSIC_U=u2"
+        );
     }
 
     #[test]

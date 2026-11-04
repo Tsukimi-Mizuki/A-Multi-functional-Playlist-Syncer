@@ -325,30 +325,57 @@ impl NeteaseClient {
         payload: &Value,
         operation: &str,
     ) -> Result<Value, NeteaseError> {
-        let route = api_path
-            .strip_prefix("/api/")
-            .ok_or_else(|| NeteaseError::protocol("eapi 接口路径必须以 /api/ 开头"))?;
-        let header = eapi_client_header();
-        let cookie = header
-            .iter()
-            .map(|(name, value)| format!("{name}={}", value.as_str().unwrap_or_default()))
-            .collect::<Vec<_>>()
-            .join("; ");
-
-        let mut body: Map<String, Value> = payload.as_object().cloned().unwrap_or_default();
-        body.insert("header".to_owned(), Value::Object(header));
-        let params = crypto::eapi_encrypt(api_path, &Value::Object(body).to_string());
-
-        let mut request = HttpRequest {
-            method: HttpMethod::Post,
-            url: format!("{base_url}/eapi/{route}"),
-            headers: Vec::new(),
-            form: Some(vec![("params".to_owned(), params)]),
-            body: None,
-        };
-        push_common_headers(&mut request, BROWSER_USER_AGENT, cookie);
+        let request = build_eapi_request(
+            base_url,
+            api_path,
+            payload,
+            eapi_client_header(),
+            BROWSER_USER_AGENT,
+            true,
+        )?;
 
         let response = self.send(request).await?;
+        let document = parse_json_or_throw(&response, operation)?;
+        ensure_success_code(&document, operation)?;
+        Ok(document)
+    }
+
+    /// 以桌面客户端的身份、**带登录态**发送 eapi POST 请求（目前只有登录续期用），返回已校验 `code` 的 JSON。
+    ///
+    /// 格式与 [`post_eapi`](Self::post_eapi) 相同，区别在于 `header` 对象（同时作为 Cookie）里带上当前会话的
+    /// `__csrf`、`MUSIC_U`、`NMTID`——服务端靠它们认出是谁在续期；UA 用桌面客户端的，并且不发 `Referer`
+    /// （官方客户端的 eapi 请求没有）。响应里的 `Set-Cookie` 经 [`CookieMerger`](cookie_merger) 并进会话，
+    /// 与 weapi 请求一样会通知订阅者落盘。没有登录态时直接返回协议错误，不发请求。
+    pub(crate) async fn post_eapi_with_session(
+        &self,
+        base_url: &str,
+        api_path: &str,
+        payload: &Value,
+        operation: &str,
+    ) -> Result<Value, NeteaseError> {
+        let (session, generation) = self.snapshot_session();
+        let session = session
+            .filter(NeteaseSession::is_logged_in)
+            .ok_or_else(|| NeteaseError::protocol("当前没有登录态"))?;
+
+        let mut header = eapi_client_header();
+        header.insert("__csrf".to_owned(), Value::String(session.csrf_token()));
+        for name in ["MUSIC_U", "NMTID"] {
+            if let Some(value) = session.cookie_value(name).filter(|v| !v.is_empty()) {
+                header.insert(name.to_owned(), Value::String(value));
+            }
+        }
+        let request = build_eapi_request(
+            base_url,
+            api_path,
+            payload,
+            header,
+            DESKTOP_USER_AGENT,
+            false,
+        )?;
+
+        let response = self.send(request).await?;
+        self.absorb_set_cookies(&response.set_cookies, generation);
         let document = parse_json_or_throw(&response, operation)?;
         ensure_success_code(&document, operation)?;
         Ok(document)
@@ -441,13 +468,24 @@ fn apply_headers(
     } else {
         NeteaseClient::build_cookie_header(session)
     };
-    push_common_headers(request, user_agent, cookie);
+    push_common_headers(request, user_agent, cookie, true);
 }
 
-fn push_common_headers(request: &mut HttpRequest, user_agent: &str, cookie: String) {
+fn push_common_headers(
+    request: &mut HttpRequest,
+    user_agent: &str,
+    cookie: String,
+    with_referer: bool,
+) {
+    request
+        .headers
+        .push(("User-Agent".to_owned(), user_agent.to_owned()));
+    if with_referer {
+        request
+            .headers
+            .push(("Referer".to_owned(), REFERER.to_owned()));
+    }
     request.headers.extend([
-        ("User-Agent".to_owned(), user_agent.to_owned()),
-        ("Referer".to_owned(), REFERER.to_owned()),
         ("Accept".to_owned(), "*/*".to_owned()),
         (
             "Accept-Language".to_owned(),
@@ -455,6 +493,41 @@ fn push_common_headers(request: &mut HttpRequest, user_agent: &str, cookie: Stri
         ),
         ("Cookie".to_owned(), cookie),
     ]);
+}
+
+/// 组装 eapi 请求：`header` 对象写进业务 JSON（参与加密）并原样作为 Cookie 发出。
+///
+/// `api_path` 是网页风格的 `/api/...` 路径，实际 URL 把它换成 `/eapi/...`。
+fn build_eapi_request(
+    base_url: &str,
+    api_path: &str,
+    payload: &Value,
+    header: Map<String, Value>,
+    user_agent: &str,
+    with_referer: bool,
+) -> Result<HttpRequest, NeteaseError> {
+    let route = api_path
+        .strip_prefix("/api/")
+        .ok_or_else(|| NeteaseError::protocol("eapi 接口路径必须以 /api/ 开头"))?;
+    let cookie = header
+        .iter()
+        .map(|(name, value)| format!("{name}={}", value.as_str().unwrap_or_default()))
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    let mut body: Map<String, Value> = payload.as_object().cloned().unwrap_or_default();
+    body.insert("header".to_owned(), Value::Object(header));
+    let params = crypto::eapi_encrypt(api_path, &Value::Object(body).to_string());
+
+    let mut request = HttpRequest {
+        method: HttpMethod::Post,
+        url: format!("{base_url}/eapi/{route}"),
+        headers: Vec::new(),
+        form: Some(vec![("params".to_owned(), params)]),
+        body: None,
+    };
+    push_common_headers(&mut request, user_agent, cookie, with_referer);
+    Ok(request)
 }
 
 /// eapi 请求里的客户端标识（`header` 对象，同时作为 Cookie）：桌面端身份取自 [`PLAYBACK_COOKIE_SUFFIX`]，

@@ -1,7 +1,7 @@
 # 实现状态
 
 > 最后更新：2026-11-04。当前状态：**2.0.0（Rust + Tauri 2 + React 重写版）功能完整**：重写模块 1–12 全部完成，
-> `cargo test --workspace` **1027 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
+> `cargo test --workspace` **1038 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
 > **2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版）。
 >
 > 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
@@ -13,7 +13,7 @@
 |---|---|---|
 | 工程骨架与构建 | ✅ 完成 | Cargo 工作区（`lp-core` + `src-tauri`）、React + TS 前端、`build.ps1`（默认构建 / `-Test` / `-Bundle`）、`ci.yml` + `main.yml`、`scripts/resolve-version.ps1`；Rust 1.99 / edition 2024，clippy `-D warnings` 干净 |
 | 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（24 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
-| 扫码登录与 Cookie 持久化 | ✅ 完成（续期效果待观察） | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；`login/token/refresh` 启动及每约 12 小时续期；仅接口 `code==301` 才清除会话。实测 refresh 返回 `code=400`，见下 |
+| 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；eapi `login/token/refresh` 启动及每约 12 小时续期（实测换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，2026-11-04 修复了原先 weapi 端点的 `code=400`）；`CookieMerger` 按 `Path` 处理同名多条 Set-Cookie；仅接口 `code==301` 才清除会话。180 天后的实际掉线情况仍待长期观察 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
 | 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框 |
 | 标签读写 | ✅ 完成 | MP3 / FLAC / M4A / OGG / OPUS / WAV（lofty）；封面、歌词、网易云 ID；原子写入；标签查看对话框 |
@@ -31,11 +31,11 @@
 
 ### 自动化测试
 
-`cargo test --workspace`（离线，不依赖真实音频）：**1027 个，全部通过，0 ignored**。
+`cargo test --workspace`（离线，不依赖真实音频）：**1038 个，全部通过，0 ignored**。
 
 | 范围 | 数量 | 说明 |
 |---|---|---|
-| `lp-core` 库内 | 958 | `netease` 165（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 177（解析、QRC、KRC、zlib、打分、批量、歌词服务）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
+| `lp-core` 库内 | 969 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 177（解析、QRC、KRC、zlib、打分、批量、歌词服务）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
 | `lp-core` 集成测试 | 36 | `csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4——与 C# 版生成的「黄金」夹具逐字节 / 逐字段对照 |
 | `src-tauri` 外壳 | 33 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘、任务槽、事件名等 |
 
@@ -58,14 +58,14 @@
 
 - 重写期间每个模块都用「exe 复制到独立目录 + 独立数据目录」的方式实机跑过（WebView2 远程调试端口驱动界面 / 调命令，Windows UI 自动化读控件，截图确认）：登录（含**真实 803 扫码确认流程**、重启后 DPAPI 恢复、退出登录）、歌单（真实账号 16 个歌单、1235 首大歌单分批补齐）、标签、NCM 导入、本地曲库、编辑器与批量、设置与材质切换。细节见 `docs/TAURI_REWRITE.md` 各模块「验证」。
 - **模块 12（本次）**：
-  - `.\build.ps1 -Test` 全过（上面的 1014，网易云搜索修复后为 1027）；`.\build.ps1` 默认构建成功，`app\target\release\LunaticPrincess.exe` 约 6.8 MB。
+  - `.\build.ps1 -Test` 全过（上面的 1014，网易云搜索修复后为 1027，登录续期修复后为 1038）；`.\build.ps1` 默认构建成功，`app\target\release\LunaticPrincess.exe` 约 6.8 MB。
   - `.\build.ps1 -Bundle -Version v2.0.0-manual.1`：版本号写入 `Cargo.toml` / `tauri.conf.json` / `package.json` 并参与编译（构建输出为 `lp-core v2.0.0-manual.1`），**便携版 zip 生成成功**（`LunaticPrincess-2.0.0-manual.1-win-x64-portable.zip`，3.0 MB，里面只有 `LunaticPrincess.exe`，没有 `data`）。解压到 `D:\claude\lp-portable\`、`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data` 启动：窗口标题 `Lunatic Princess`、进程 `Responding`，数据落在指定目录的 `webview\EBWebView`；测完已清空 `D:\claude`。
   - **NSIS 安装包在本次自动化环境里没能生成**：Tauri 打包器把下载的 NSIS 工具解压到 `%LOCALAPPDATA%\tauri\nsis-3.13` 后要把目录改名为 `NSIS`，而这台机器上 Claude 桌面版的子进程对 `%LOCALAPPDATA%` 的写入被 MSIX 文件系统虚拟化到包私有目录（`C:\WpSystem\…\Packages\AnthropicPBC.Claude_…\LocalCache\Local\tauri`），改名时报 `os error 17`（无法将文件移到不同的驱动器）；另有一次下载中途 `unexpected end of file`（网络瞬时故障）。这是运行环境的限制，不是工程配置问题（打包配置已被 Tauri 解析通过，流程走到了「Verifying NSIS package」）。**需要在普通 PowerShell 里执行 `.\build.ps1 -Bundle` 确认安装包能生成**；GitHub Actions 的 windows-latest 上没有这个虚拟化。
   - 版本解析（`scripts/resolve-version.ps1` 与 `main.yml` 里的步骤，本地用 Windows PowerShell 5.1 模拟）：`v2.0.0`→`2.0.0`、`v1.3`→`1.3.0`、`v.1.0.0`→`1.0.0`、`V1.0.0`→`1.0.0`、`v2.0.0-rc.1`→`2.0.0-rc.1`、`v0.0.1-manual`→`0.0.1-manual`、`v1`→`1.0.0`；分支手动运行 → `2.0.0-manual.<运行序号>`；`v1.2.3.4`、`vfoo` 等非 SemVer 直接失败。两个 workflow 用 PyYAML 解析通过（结构、触发条件、权限、步骤顺序已核对）；**workflow 本身没有真正在 GitHub 上跑过**，首次推送后要看一次 Actions。
 
 ## 已知限制
 
-1. **`/weapi/login/token/refresh` 返回 `code=400`**（桌面端扫码得到的会话；请求与 C# 版完全一致，C# v1.3 同样受影响）：续期是否真的延长登录有效期尚未证实；登录态本身有效。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。（待修问题，见 `docs/TAURI_REWRITE.md`）
+1. ~~**`/weapi/login/token/refresh` 返回 `code=400`**~~ **已修复（2026-11-04）**：续期改走 eapi `/eapi/login/token/refresh`，实测换发新的 `MUSIC_U`（约 180 天）/ `__csrf` / `MUSIC_R_U`，旧令牌换发后仍有效；原问题（桌面端扫码会话在 weapi 同名端点返回 `code=400`，C# v1.3 同样受影响）与调查见 `docs/TAURI_REWRITE.md`「待修问题」与「登录续期修复」。仍需长期观察换发的 `MUSIC_U` 到期前是否稳定续上。
 2. ~~网易云搜索匿名不可用~~ **已修复（2026-11-04）**：网易云搜索改走匿名 eapi `/eapi/cloudsearch/pc`（不需要登录，海外 IP 下也是明文），原网页接口 `/api/search/get/web`（海外 IP 下返回密文）只作回退；编辑器默认搜索来源仍是 QQ 音乐，是否改回网易云留给用户决定。详见 `docs/TAURI_REWRITE.md`「待修问题」与「网易云搜索修复」。
 3. 扫码登录的 803 确认段需要真人手机扫码，自动化只能验证到出码与 801 轮询。
 4. 真实账号下的下载 / 同步 / 状态列 / 歌词预览 / 歌曲行「编」按钮、以及从资源管理器真实拖拽，没有在无人值守环境验证，需要用户真机确认。

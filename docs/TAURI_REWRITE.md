@@ -111,7 +111,8 @@ pnpm build           # 只构建前端（tsc + vite）
 
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
-- **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+- ~~**`/weapi/login/token/refresh` 实测返回 `code=400`**~~ **已修复（2026-11-04，提交 `Renew the login through eapi token refresh`）**：续期改走 **eapi** `POST https://interface.music.163.com/eapi/login/token/refresh`（签名路径 `/api/login/token/refresh`，`header` 里带 `os=pc` 桌面标识与会话的 `__csrf` / `MUSIC_U` / `NMTID`），实测真正换发新的 `MUSIC_U`（`Max-Age` 约 180 天）、`__csrf` 与 `MUSIC_R_U`，旧令牌换发后仍有效、可连续续期；同时修了 `CookieMerger` 对“同一响应里同名、不同 `Path` 的 `Set-Cookie`”的处理。调查、方案与验证见下面的「登录续期修复」。原始描述（保留）：
+  **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
 - ~~**网易云搜索当前匿名不可用**~~ **已修复（2026-11-04，提交 `Restore anonymous NetEase search through eapi`）**：搜索改走**匿名 eapi** `POST /eapi/cloudsearch/pc`（不需要登录，海外 IP 下也是明文），原网页接口 `/api/search/get/web` 只作回退；调查、方案与验证见下面的「网易云搜索修复」。原始描述（保留）：
   **网易云搜索当前匿名不可用**（模块 10a 联网探针发现，2026-11-04）：C# 与这里用的 `/api/search/get/web` 现在返回 `{"result":"<十六进制密文>"}`（C# 把它当成 0 条结果）；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的歌曲；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、或是否要改走 `eapi`，需要用户用真实账号验证后再定；目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源）。C# v1.3 同样受影响。详见“模块 10a”。
 
@@ -173,7 +174,58 @@ pnpm build           # 只构建前端（tsc + vite）
 2. **默认搜索来源**：建议**继续保持 QQ 音乐**（QRC 逐字歌词已在实网验证，网易云搜索的排序在上一条里有波动）；网易云现在可以在编辑器里手动选用。是否改回网易云留给用户决定，已有设置文件里写着的来源原样保留。
 3. eapi 仍是非公开接口，且网易云正在推 `xeapi` / `neapi` 新协议（社区实现里已经出现）；目前 `cloudsearch` 仍接受老 eapi。哪天失效，回退的网页接口只在国内 IP 下有用，届时需要实现新协议。
 4. 国内 IP 下网页接口是否返回明文、eapi 在国内是否同样可用，没能在本机验证（公开实现都说可用）。
-5. 搜索全程匿名，登录状态不影响搜索；`/weapi/login/token/refresh` 的续期问题（待修问题 ①）与此无关，没有改动。
+5. 搜索全程匿名，登录状态不影响搜索；`/weapi/login/token/refresh` 的续期问题（待修问题 ①）与此无关，没有改动（已在后续提交里修复，见下面的「登录续期修复」）。
+
+## 登录续期修复（待修问题 ①）实现记录
+
+> 2026-11-04，提交 `Renew the login through eapi token refresh`。只改登录续期与 `CookieMerger`，没有碰搜索。
+
+### 调查（只用 `D:\claude\lp-data` 里的测试登录态；探针放在 `.tmp\probe-refresh`，已连同 worktree 删除；全程没有打印、保存、上传任何 Cookie 值，也没有把续期结果写回 `session.dat`）
+
+会话里的 Cookie 名是 `MUSIC_U`、`__csrf`、`NMTID`、`MUSIC_R_U`、`MUSIC_R_T`、`MUSIC_A_T`（桌面端 type=3 扫码的新式令牌三件套）。共约 20 次请求，间隔几秒。
+
+| # | 变体 | HTTP / 业务 code | 结论 |
+|---|---|---|---|
+| 1 | 原实现：weapi 同名端点，浏览器 UA，仅会话 Cookie | 200 / `{"code":400}`（没有 message、没有 bizCode），无 `Set-Cookie` | 复现 |
+| 2 | weapi，会话 Cookie + 桌面标识（`os=pc; appver=2.10.6; osver; deviceId; channel=netease`），桌面 UA 或浏览器 UA | 200 / `code=200 bizCode=201`，下发二十多条 `MUSIC_A_T` / `MUSIC_R_T` | **不换发 `MUSIC_U`**（值与会话里完全相同），空操作；说明 400 的原因是会话 Cookie 里缺桌面标识，**差异在 Cookie 而不在 UA**（桌面 UA + 纯会话 Cookie 仍是 400；只带 `os=pc; appver=…` 就够 200） |
+| 3 | weapi + `?csrf_token=` + `Origin` / `Referer` | 200 / `{"code":400}` | 无效 |
+| 4 | **eapi**：`/eapi/login/token/refresh`，`interface.music.163.com`（桌面 UA）与 `interfacepc.music.163.com`（iPhone UA）都试 | 200 / **`code=200 bizCode=200`** | **成功**：换发新的 `MUSIC_U`（`Max-Age=15552000`，约 180 天）、`__csrf`（约 15 天）、`MUSIC_R_U`（两条，`Path=/eapi/login/token/refresh` 与 `/api/login/token/refresh`），另有一条会话里没有的 `MUSIC_SNS` 删除指令 |
+| 5 | 链式：用换发后的 Cookie 调 `account/get`，再 eapi 续期一次 | 都 OK | 新令牌可用；第二次续期再次换发（`MUSIC_U` / `MUSIC_R_U` / `__csrf` 每次都变）；旧 `MUSIC_U` 在多次换发后仍有效 |
+
+明文 `/api/login/token/refresh` 与 linuxapi 没有测（eapi 已经成功，预算留给链式验证）。`e_r:false`（让服务端返回明文 JSON）沿用 NeteaseCloudMusicApi 的写法；`header` 对象里放了 `os`/`appver`/`osver`/`deviceId`/`channel`/`versioncode`/`mobilename`/`buildver`/`resolution`/`requestId`/`__csrf`/`MUSIC_U`/`NMTID`，Cookie 头就是这些键值对（不带 `MUSIC_R_U` / `MUSIC_A_T` / `MUSIC_R_T`，实测不需要）；不发 `Referer`。
+
+还发现一个 `CookieMerger` 的真实隐患（与续期无关，weapi 带桌面标识的响应也有）：服务端会对 `MUSIC_A_T` / `MUSIC_R_T` 在**同一个响应里**下发二十多条不同 `Path`（`/api/feedback`、`/neapi/clientlog` …）的设值，其中夹一条 `Path=/` 的 `Max-Age=0` 删除，**顺序每次不同**。`CookieMerger` 不区分 `Path`，按名字顺序执行时，删除排在最后一条设值之后就会把令牌整个删掉（探针里实际出现过一次 `MUSIC_A_T` 被合并掉）。
+
+### 方案
+
+- **续期改走 eapi**：`NeteaseClient::try_refresh_login` → 新增的 `post_eapi_with_session`（与搜索用的匿名 `post_eapi` 共用 `build_eapi_request`，加密沿用 `crypto::eapi_encrypt`，没有重复实现）：`POST https://interface.music.163.com/eapi/login/token/refresh`，表单只有 `params`；UA 用 `DESKTOP_USER_AGENT`，不发 `Referer`；`header` 取 `eapi_client_header()`（桌面身份来自 `PLAYBACK_COOKIE_SUFFIX`），再覆盖会话的 `__csrf`，加上 `MUSIC_U`、`NMTID`。响应里的 `Set-Cookie` 照旧经 `absorb_set_cookies` 合并并通知 `SessionAutoSaver` 落盘；没有登录态时不发请求，直接返回“当前没有登录态”。
+- **不变量不动**：失败仍然非致命（`refresh_login` 返回 `false`，`try_refresh_login` 带出原因）；只认业务 `code == 301` 才算“登录失效”；续期仍在启动校验成功后调用一次、之后约每 12 小时一次；清除登录态前仍先续期再复核；“合并后会丢 `MUSIC_U` 则忽略”的保险保留。
+- **`CookieMerger` 的 Path 规则**（`netease::cookie_merger` 模块文档里也写了）：①**带非根 `Path` 的删除永远忽略**——它只清理那个子路径下的 Cookie，与根路径的同名 Cookie 无关；②**同一个响应里既有删除又有设值（非空）的名字，删除忽略、设值生效**——服务端是在迁移作用域，不是在撤销；③其余删除（没写 `Path` 或 `Path=/`，且本响应没有同名设值）照常执行；设值（任意 `Path`）照旧覆盖同名 Cookie，所以带 `Path=/eapi/login/token/refresh` 的 `MUSIC_R_U` 新值会被采用。刻意取“更安全”的一侧：宁可多留一个令牌，也不让随机顺序把令牌删掉。
+
+### 改动
+
+| 文件 | 内容 |
+|---|---|
+| `lp-core/src/netease/client.rs` | 新增 `post_eapi_with_session`；抽出 `build_eapi_request`（匿名 `post_eapi` 改用它，行为不变）；`push_common_headers` 加 `with_referer` 参数 |
+| `lp-core/src/netease/login.rs` | `try_refresh_login` 改调 `post_eapi_with_session("/api/login/token/refresh", {"e_r":false})`；文档写明 weapi 端点为什么不能用；测试见下 |
+| `lp-core/src/netease/cookie_merger.rs` | `Path` 解析与上面的两条规则；模块文档补充 |
+| `lp-core/src/auth.rs`、`playlist.rs`（测试） | 断言路径从 `/weapi/login/token/refresh` 改成 `/eapi/login/token/refresh`；`request_paths` 同时剥掉 `interface.music.163.com` 前缀 |
+| `AGENTS.md`、`README.md`、`docs/ARCHITECTURE.md`、`docs/IMPLEMENTATION_STATUS.md`、本文件 | 同步 |
+
+没有新增依赖。
+
+### 验证
+
+- 单测（离线，`FakeTransport`）：`lp-core` 库内 **969**（+11）、集成 36、外壳 33，workspace 合计 **1038**（修复前 1027）。新增 / 改写：`login.rs` +5（旧的 weapi 成功用例换成 6 个：eapi 请求结构——URL 主机与路径、桌面 UA、无 Referer、表单只有 `params`、解密后的签名路径与摘要、`header` 里 `os=pc` / `appver` / `__csrf` / `MUSIC_U` / `NMTID` / `requestId` / `buildver`、Cookie 头与 `header` 一致且不带 `MUSIC_R_U` 等；成功时 `MUSIC_U` / `__csrf` / `MUSIC_R_U` 被换发、其余令牌保留、只通知一次落盘；连续两次续期第二次带第一次换发的令牌；响应会丢 `MUSIC_U` 时保险生效；`code=400` 软失败并带原因；`code=301` 报“未登录”但不清除会话；失败表里补了 400），`cookie_merger.rs` +6（Path=/ 删除夹在八个子路径设值里，位置前 / 中 / 后都不丢令牌；迁移时新值仍就地生效；非根 `Path` 的删除永远忽略；没有同名设值的根删除照常；空值不算设值；整份续期响应的真实形状）。
+- `.\build.ps1 -Test`（fmt、clippy `-D warnings`、`cargo test --workspace`、`pnpm build`）通过，输出 `All checks passed.`，退出码 0。
+- **实机**（`.\build.ps1` 的发布版 exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，WebView2 远程调试端口读 `get_logs`；用的就是测试登录态）：启动日志 `已恢复登录状态` → `账号信息同步完成` → **`登录态已续期`**（不再有 `code=400` 的警告）→ `已加载 16 个歌单`（`account/get` 与歌单接口在续期后仍可用，大歌单 1235 首补全完成）；`session.dat` 的修改时间在启动后更新（17:17 → 18:12，应用自己把换发的令牌落了盘）；**再重启一次**（这次从落盘的新令牌出发）同样 `登录态已续期`、歌单正常、`session.dat` 再次更新（18:14），说明可以链式续期。全程没有输出 Cookie 值。
+
+### 遗留与建议
+
+1. 换发的 `MUSIC_U` 有效期约 180 天、`__csrf` 约 15 天（续期每 12 小时一次，`__csrf` 会一直被换新）；**到期前是否一直续得上**要长期观察，真正过期或被服务端作废（业务 `code == 301`）时仍需重新扫码。
+2. `MUSIC_R_U` 是路径限定（`/eapi/login/token/refresh`、`/api/login/token/refresh`）的刷新令牌：当前请求不发它也能续期，但会话里保存并更新它；如果哪天服务端开始要求带它，再把它加进 `header`。
+3. 这是非公开接口：`appver` / 加密格式 / 域名随时可能变（网易云在推 `xeapi` / `neapi`）；失败只会让续期回到“只记日志、继续用当前登录”，不会掉线。
+4. weapi 取链请求（`use_playback_cookie`）带桌面标识时，响应里同样有上面那种同名多 `Path` 的 Set-Cookie，现在由 `CookieMerger` 的新规则兜住。
 
 ## 模块 12（CI 打包、文档、删除 C#）实现记录
 
@@ -786,7 +838,7 @@ C# 是就地 `file.Save()`，写到一半失败会损坏文件。Rust 版：复�
 
 ### 已知问题与待真机观察
 
-- **`/weapi/login/token/refresh` 对这次桌面端扫码得到的会话返回 `code=400`**（日志：`登录态续期未成功（续期登录状态失败：接口返回 code=400）`）。请求与 C# 完全一致，所以 C# 版大概率同样如此；登录态本身有效（`account/get` 成功）。这正是 AGENTS.md 里“续期效果需真机长期观察”的那一点：目前能确认的是“Set-Cookie 合并 + 落盘”这条路径有单测，但服务端是否真的靠 refresh 下发新 `MUSIC_U` 还没有实证。若长期观察发现 `MUSIC_U` 到期掉线，需要改查 `eapi` 续期端点。
+- **`/weapi/login/token/refresh` 对这次桌面端扫码得到的会话返回 `code=400`**（日志：`登录态续期未成功（续期登录状态失败：接口返回 code=400）`）。请求与 C# 完全一致，所以 C# 版大概率同样如此；登录态本身有效（`account/get` 成功）。这正是 AGENTS.md 里“续期效果需真机长期观察”的那一点：目前能确认的是“Set-Cookie 合并 + 落盘”这条路径有单测，但服务端是否真的靠 refresh 下发新 `MUSIC_U` 还没有实证。若长期观察发现 `MUSIC_U` 到期掉线，需要改查 `eapi` 续期端点。**（已修复：就是 eapi 续期端点，见「登录续期修复」。）**
 - 需要用户真机验证的点：**①** 长时间运行（超过 12 小时 / 数天）后登录是否保持；**②** 真正的 301（`MUSIC_U` 被服务端作废）时“先续期再复核、仍未登录才清除”的体验与日志；**③** 对话框关闭后确实不再发轮询请求（实现上由 `cancelled` 标志保证，未做网络层抓包）。
 - 前端没有自动化测试（与 C# 的 ViewModel 一样靠实机验证）。
 

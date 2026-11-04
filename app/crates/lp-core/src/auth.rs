@@ -618,7 +618,11 @@ mod tests {
         transport
             .requests()
             .iter()
-            .map(|r| r.url.replace("https://music.163.com", ""))
+            .map(|r| {
+                r.url
+                    .replace("https://interface.music.163.com", "")
+                    .replace("https://music.163.com", "")
+            })
             .collect()
     }
 
@@ -714,7 +718,7 @@ mod tests {
         assert_eq!(outcome, ValidationOutcome::Valid);
         assert_eq!(
             request_paths(&f.transport),
-            vec!["/weapi/nuser/account/get", "/weapi/login/token/refresh"]
+            vec!["/weapi/nuser/account/get", "/eapi/login/token/refresh"]
         );
         assert!(has_log(&f.logs, LogLevel::Success, "账号信息同步完成"));
         assert!(has_log(&f.logs, LogLevel::Success, "登录态已续期"));
@@ -816,7 +820,7 @@ mod tests {
             request_paths(&f.transport),
             vec![
                 "/weapi/nuser/account/get",
-                "/weapi/login/token/refresh",
+                "/eapi/login/token/refresh",
                 "/weapi/nuser/account/get"
             ]
         );

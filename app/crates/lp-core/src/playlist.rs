@@ -332,13 +332,17 @@ mod tests {
             .transport
             .requests()
             .iter()
-            .map(|r| r.url.replace("https://music.163.com", ""))
+            .map(|r| {
+                r.url
+                    .replace("https://interface.music.163.com", "")
+                    .replace("https://music.163.com", "")
+            })
             .collect();
         assert_eq!(
             paths,
             [
                 "/weapi/user/playlist",
-                "/weapi/login/token/refresh",
+                "/eapi/login/token/refresh",
                 "/weapi/nuser/account/get"
             ]
         );

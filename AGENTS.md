@@ -15,16 +15,16 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1027 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过。**2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版） |
+| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1038 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**2.0.0 尚未打 tag、未发 Release**（发版时机由用户决定） |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0.0` 起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1027 个测试全部通过**：lp-core 库内 958 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1038 个测试全部通过**：lp-core 库内 969 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
-4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（已确认、暂不处理的两个问题，不要在别的改动里顺手修）。
+4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
 6. **如果仓库放在 Edge 的下载文件夹里**（或任何带低完整性标签的目录）：程序与测试以低完整性运行，不能写 `%LOCALAPPDATA%` / `%TEMP%`。`build.ps1` 已把 `TMP` / `TEMP` 指到工作区 `.tmp`；直接运行 exe 时数据会落到程序目录 `data\`。细节见 `docs/TAURI_REWRITE.md` 末尾的「已知环境问题」。最省事的办法是把仓库搬出该文件夹。
 
@@ -183,7 +183,7 @@ pnpm dev                                                           # 只开前�
 
 ### 关键流程（改代码前先确认这些不变量）
 
-- **扫码登录**：`unikey(type=3)` → 二维码（失败降级 web `type=1`）→ 每约 2 秒轮询 `801/802/803/800` → 803 时合并 Set-Cookie 与响应体 cookie → `NeteaseSession` → 先落盘再让登录态生效；启动时用 `/weapi/nuser/account/get` 校验。**登录续期与 Cookie 合并**：`NeteaseClient` 对每个带会话的响应调用 `CookieMerger`（按名覆盖、Max-Age 优先于 Expires、空值不覆盖、合并后会丢 `MUSIC_U` 则忽略），变化时通知 `SessionAutoSaver` 串行落盘；`refresh_login` 调 `/weapi/login/token/refresh`，启动校验成功后调用一次，运行期每约 12 小时一次（间隔可注入，单测用暂停时钟）。**「登录失效」只认接口业务 `code == 301`，或 `account/get` 返回 200 但 account/profile 为空**；HTTP 401/302/5xx、406、-460、超时、网络错误一律只记「暂时无法验证登录状态，已保留登录」；清除前先续期并复核一次；清除顺序是 `set_session(None)` → `flush` → 删 `session.dat`。
+- **扫码登录**：`unikey(type=3)` → 二维码（失败降级 web `type=1`）→ 每约 2 秒轮询 `801/802/803/800` → 803 时合并 Set-Cookie 与响应体 cookie → `NeteaseSession` → 先落盘再让登录态生效；启动时用 `/weapi/nuser/account/get` 校验。**登录续期与 Cookie 合并**：`NeteaseClient` 对每个带会话的响应调用 `CookieMerger`（按名覆盖、Max-Age 优先于 Expires、空值不覆盖、合并后会丢 `MUSIC_U` 则忽略；同一响应里同名的 `Path=/` 删除与设值并存时删除忽略、带非根 `Path` 的删除永远忽略，见 `netease::cookie_merger` 文档），变化时通知 `SessionAutoSaver` 串行落盘；`refresh_login` 走 **eapi** `POST interface.music.163.com/eapi/login/token/refresh`（签名路径 `/api/login/token/refresh`，`header` 里带 `os=pc` 桌面标识与会话的 `__csrf` / `MUSIC_U` / `NMTID`，桌面 UA、无 Referer；weapi 同名端点只会 `code=400` 或 `bizCode=201` 空操作，不换发令牌），成功时服务端换发新的 `MUSIC_U`（约 180 天）/ `__csrf` / `MUSIC_R_U` 并经 `CookieMerger` 落盘；启动校验成功后调用一次，运行期每约 12 小时一次（间隔可注入，单测用暂停时钟）。**「登录失效」只认接口业务 `code == 301`，或 `account/get` 返回 200 但 account/profile 为空**；HTTP 401/302/5xx、406、-460、超时、网络错误一律只记「暂时无法验证登录状态，已保留登录」；清除前先续期并复核一次；清除顺序是 `set_session(None)` → `flush` → 删 `session.dat`。
 - **歌单**：`/weapi/user/playlist` 翻页（最多 10 页）；大歌单先取 `trackIds`，再按 500 首 / 批调用 `/weapi/v3/song/detail` 补齐并保持原顺序，某批失败重试一次，仍失败置 `is_partial`（界面给横幅与「重新加载」）。
 - **本地对比**：扫描（并行读标签，结果按路径排序）→ 匹配。优先用网易云 ID（本程序写入的 `LunaticPrincess:<id>` 注释，或客户端文件里的 `163 key(Don't modify)` 解出的 `musicId`）精确匹配；否则标题 0.55 / 歌手 0.30 / 时长 0.15 综合评分，**阈值固定 0.72**，每首本地文件最多匹配一首歌单曲。没扫描过显示「—」而不是「需下载」。
 - **下载**：九档音质 → `/weapi/song/enhance/player/url/v1`（取链请求带桌面客户端 Cookie，否则 Hi-Res 会被静默降级）→ 逐级降档 → 服务端 `level` 与请求不同时提示「实际音质」→ 试听片段判失败 → 流式写 `.part` 临时文件 → 文件头是 NCM 就解密 → 歌词 / 翻译 / 封面 → lofty 写标签 → 原子落盘 → 按设置在线补全（QQ 逐字优先、网易云兜底）。补全失败只作提示，不影响下载成功。取消时保留已完成结果并清理临时文件。
@@ -225,7 +225,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1027 个**——`lp-core` 库内 958、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1038 个**——`lp-core` 库内 969、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -240,7 +240,7 @@ pnpm dev                                                           # 只开前�
 - **QQ 音乐**：搜索旧接口 `client_search_cp` 已下线，现用 `/soso/fcgi-bin/search_cp` + `new_json=1`；`c.y.qq.com` 连接失败 / 非 2xx 自动切 `c6.y.qq.com`。歌词用 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`），QRC 是 3DES 变体：字节编号 / 位序与标准 DES 不同（已知向量：key `133457799BBCDFF1`、plain `0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），解出后 zlib 解压再按 QRC 行 / 词时间戳解析。保留的怪癖：PlayLyricInfo 没有译文时双语版本等同原文，所以 QQ 的 `has_translation` 恒为真。
 - **酷狗**：三段链路 `mobilecdn.kugou.com/api/v3/search/song` → `krcs.kugou.com/search` → `lyrics.kugou.com/download?fmt=krc`；KRC 前 4 字节明文 `krc1`，之后 16 字节固定密钥 XOR 再 zlib；**候选的 `duration` 是毫秒**（C# 版当秒，导致酷狗在实网永远没结果，Tauri 版已修）；本机偶发证书域名不匹配（`SEC_E_WRONG_PRINCIPAL`）与 `unexpected EOF during handshake`，异常吞掉后回落下一个词源，不加重试。
 - **LRCLIB**：只有逐行 `syncedLyrics`；先用 `?q=` 多变体检索，落空再用 `track_name/artist_name` 兜底；429/503 属瞬时失败，退避后重试一次。
-- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；`/weapi/login/token/refresh` 实测返回 `code=400`（C# 版同样），续期是否生效尚未证实，见「待修问题」；`MUSIC_U` 真正过期或被服务端作废时仍需重新扫码。
+- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；登录续期走 eapi `/eapi/login/token/refresh`（2026-11-04 联网实测：换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，旧令牌换发后仍有效，可连续续期）；weapi 的 `/weapi/login/token/refresh` 对桌面端会话返回 `code=400`（C# 版同样，原「待修问题 ①」，已修复），带桌面 Cookie 时返回 `code=200 bizCode=201` 却不换发令牌；`MUSIC_U` 真正过期或被服务端作废时仍需重新扫码。服务端在同一响应里会对同名 Cookie 下发多条不同 `Path` 的 `Set-Cookie`（含 `Path=/` 的删除指令，顺序随机），`CookieMerger` 已按 `Path` 处理。
 - 网络偶发 `tls handshake eof`：重试即可，不是代码问题。
 - **版权**：不绕过会员 / 版权限制；试听片段直接判失败。
 - 所有在线请求都有独立超时与可读的中文错误；封面下载限制 10 MB；解析失败保留本地已有内容。
@@ -267,7 +267,7 @@ pnpm dev                                                           # 只开前�
   - `main.yml`（名称 Release）：推送 `v*` tag 或手动运行 → 同样的环境 → 解析版本号 → `./build.ps1 -Test` → `./build.ps1 -Bundle -Version <版本>` → `actions/upload-artifact`（总是）→ 有 tag 时 `softprops/action-gh-release@v2` 建 Release（自动生成 release notes，版本带 `-` 的标为预发布）。**手动运行（分支上）不建 Release**，版本是 `tauri.conf.json` 的版本加 `-manual.<运行序号>`，只影响产物命名。
   - 版本解析在 `scripts/resolve-version.ps1`：兼容 `v1.3`（补成 `1.3.0`）、`V1.0.0`、旧的 `v.1.0.0`（去前导点）、`v2.0.0-rc.1`；不是 SemVer 的 tag 直接报错。外部输入（tag 名）一律通过 `env:` 传入脚本，不直接拼进命令。
   - Release 资产（名字不含空格）：`LunaticPrincess-<版本>-win-x64-setup.exe`、`LunaticPrincess-<版本>-win-x64-portable.zip`、`SHA256SUMS.txt`。
-- **发版流程**：先确认「待修问题」是否要在此版本处理 → 把 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json` 的版本改成同一个数字并提交（CI 以 tag 为准、会临时覆盖，但仓库里的数字应与发布一致，`Cargo.lock` 里成员版本随 cargo 构建更新，一并提交）→ 本地 `.\build.ps1 -Test -Bundle` → `git push origin main` → `git tag -a v2.0.0 -m "Lunatic Princess v2.0.0"` → `git push origin v2.0.0` → 在 Actions 里确认通过、到 Releases 核对资产并试装一次。**2.0.0 暂不发版**，等用户决定。
+- **发版流程**：先确认没有新的「待修问题」要在此版本处理 → 把 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json` 的版本改成同一个数字并提交（CI 以 tag 为准、会临时覆盖，但仓库里的数字应与发布一致，`Cargo.lock` 里成员版本随 cargo 构建更新，一并提交）→ 本地 `.\build.ps1 -Test -Bundle` → `git push origin main` → `git tag -a v2.0.0 -m "Lunatic Princess v2.0.0"` → `git push origin v2.0.0` → 在 Actions 里确认通过、到 Releases 核对资产并试装一次。**2.0.0 暂不发版**，等用户决定。
 - 安装包说明：NSIS、当前用户安装（不要管理员权限）、简体中文 / 英文、WebView2 缺失时联网下载引导程序（Tauri 默认 `downloadBootstrapper`）；未做代码签名，SmartScreen 可能提示未知发布者。
 
 ## 13. 常见修改配方
@@ -282,7 +282,7 @@ pnpm dev                                                           # 只开前�
 
 ## 14. 已知限制与技术债
 
-- **待修问题（已确认、暂不处理）**：`/weapi/login/token/refresh` 返回 `code=400`，续期效果未证实。详情与线索见 `docs/TAURI_REWRITE.md`「待修问题」。**用户决定统一修复，别在别的改动里顺手改。** 另一项「网易云搜索匿名不可用」已于 2026-11-04 修复（改走匿名 eapi，见同一节），编辑器默认搜索来源仍是 QQ 音乐，是否改回网易云留给用户决定。
+- **待修问题（已全部修复，记录保留在 `docs/TAURI_REWRITE.md`「待修问题」）**：①登录续期 `/weapi/login/token/refresh` 返回 `code=400` 已于 2026-11-04 修复（改走 eapi `/eapi/login/token/refresh`，见「登录续期修复」；仍待长期观察 180 天后的实际掉线情况，以及 `MUSIC_R_U` 路径限定令牌的用途）；②「网易云搜索匿名不可用」已于同日修复（改走匿名 eapi，见「网易云搜索修复」），编辑器默认搜索来源仍是 QQ 音乐，是否改回网易云留给用户决定。
 - 没有本地播放功能：定位是「歌单同步 / 下载 / 解密 / 标签管理」。
 - 前端**没有自动化测试**（逻辑集中在 `lp-core` 单测；界面靠假后端 + 实机验证）；纯逻辑（Shift 连选、进度并入）已放在可导出的函数里，需要时可补前端测试框架。
 - 真实账号下的下载、同步、状态列、歌词预览、歌曲行「编」按钮、资源管理器真实拖拽，历来无法在无人值守环境验证，**需要用户真机确认**（清单在 `docs/TAURI_REWRITE.md` 各模块「验证」）。
@@ -302,6 +302,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1027 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1038 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。
