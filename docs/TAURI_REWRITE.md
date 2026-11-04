@@ -55,6 +55,7 @@ app/
 | `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；模块 9：`media` = `MediaFileHelper`、`fetch` = 其中的 HTTP 下载、`service` = `DownloadService`、`pool` = 并发上限的任务池、`task` = `MainWindowViewModel` 里下载 / 同步命令的编排） |
 | `sync` | `Core/Sync/`（模块 9：`service` = `MusicSyncService`） |
 | `online` | `Core/Online/`（模块 10a：`model` / `service`（`OnlineMusicSearchService`）/ `qq` / `kugou` / `lrclib` / `net` / `manager` / `view`）；`netease::search` = `NeteaseApiClient.Search.cs` |
+| `editor` | 模块 10b：`LyricsEditorViewModel` 里记住来源与歌词格式、`HandleDroppedTargetsAsync` / `LoadDroppedPathsAsync` 的拖入解析、`Program.GetStartupLyricsFile`、`ElevationHelper`；另有封面图片文件读取 |
 | `error` | `Core/Utilities/ErrorText.cs` 的错误类型部分（判定与文案在 `utilities::error_text`） |
 
 构建产物（`app/target`、`app/dist`、`app/node_modules`、`app/src-tauri/gen/schemas`）都已 gitignore。
@@ -96,7 +97,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
 | 8 | 本地曲库与对比 | 曲库扫描（并行读标签）、与歌单一对一匹配、状态列 / 统计 / 对比与重新扫描按钮 | 完成 |
 | 9 | 下载与同步 | 九档音质取链下载（逐级降档、试听判失败、NCM 自动解密）、一键同步（跳过 / NCM 解密 / 下载三分支）、多选 + 工具栏 + 逐行进度 | 完成（真实下载需用户真机验证） |
-| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | **进行中**：10a 后端核心完成（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面待做 |
+| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配、拖放与启动参数 | 完成：10a 后端核心（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面、拖放、`--edit` / `--lyrics` 启动参数（网易云匿名搜索不可用见「待修问题」） |
 | 11 | 设置与外观 | 设置窗口、主题切换、帧率等 | 待做 |
 | 12 | CI 打包、文档、删除 C# | 安装包 / zip、GitHub Actions、更新 AGENTS.md 与 README、删除 C# 代码 | 待做 |
 
@@ -109,7 +110,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ## 模块 10a（在线匹配：后端核心）实现记录
 
-> 模块 10 分两步：**10a（本节）= `lp-core` + Tauri 命令 + TS 类型，已完成**；10b = 歌词与标签编辑器、批量获取窗口的界面，**待做**。模块 10 整体待 10b 完成后再标记完成。
+> 模块 10 分两步：**10a（本节）= `lp-core` + Tauri 命令 + TS 类型**；10b = 歌词与标签编辑器、批量获取窗口的界面、拖放与启动参数，见下一节。两步都已完成，模块 10 完成。
 
 ### 内容
 
@@ -177,9 +178,67 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ### 已知限制 / 留给 10b 与后续模块
 
-- **界面未做**：歌词与标签编辑器、批量获取窗口、设置里的“在线匹配度 / 备用词源”输入都在 10b / 模块 11；设置保存命令还没有（模块 11），目前阈值与备用词源开关只能改 `settings.json` 后重启，但运行期读取与“保存后即时生效”的机制（共享设置对象 + 每次调用时读取）已经就绪并有测试。
-- 拖放载入、`--lyrics` / `--edit` 启动参数属于主窗口，不在本模块。
+- 歌词与标签编辑器、批量获取窗口、拖放与启动参数已在 10b 完成；设置里的“在线匹配度 / 备用词源”输入在模块 11：设置保存命令还没有，目前阈值与备用词源开关只能改 `settings.json` 后重启，但运行期读取与“保存后即时生效”的机制（共享设置对象 + 每次调用时读取）已经就绪并有测试。
 - 网易云搜索当前不可用（见“待修问题”）；备用词源是否启用只影响“批量与自动补全”，编辑器里的备用词源检索不受开关限制（与 C# 一致）。
+
+## 模块 10b（歌词与标签编辑器、批量获取窗口、拖放与启动参数）实现记录
+
+### 形态选择：主窗口内的模态面板，不是独立 Tauri 窗口
+
+编辑器与批量窗口都是叠在主窗口上的大型模态面板（批量窗口再叠在编辑器之上）。理由：
+
+- 拖放事件（`tauri://drag-*`）、IPC、主题 token 与「未保存修改」确认都在同一个 WebView 里，主窗口与编辑器共用一套逻辑；独立窗口要另配 capabilities、无边框自绘标题栏、窗口材质（Mica / Acrylic）与 WebView 数据目录，收益只是可以同时摆在两处，而 C# 版的编辑器本来就是 `ShowDialog` 的模态窗口。
+- `Modal` 组件新增了模态栈：Esc 只关最上面一个，编辑器上叠着批量窗口 / 确认框时不会一起关掉。
+- 编辑器与批量窗口内容很多，玻璃底改成 97% 不透明（`color-mix`），小对话框保持原来的通透。
+
+### 内容
+
+| 位置 | 对照 C# | 要点 |
+|---|---|---|
+| `lp-core::editor` | `LyricsEditorViewModel` 的记忆逻辑、`HandleDroppedTargetsAsync` / `LoadDroppedPathsAsync`、`Program.GetStartupLyricsFile`、`ElevationHelper` | `remember_editor_options`（只改 `lyricsEditorSearchSource` / `lyricsEditorPreferWordLyrics`，没变化返回 `false` 不写盘）；`resolve_drop`（文件直接取，文件夹取按名排序的第一个音频，多个目标取第一个可用并报告 `resolvedCount`；一个都没有且拖入了 `.ncm` → 提示改用「导入 NCM」，否则第一个失败原因）；`parse_startup_args`（`--lyrics` / `--edit <文件>`，从第二项起找，文件必须存在，取完整路径；文件不存在只在日志里警告）；`read_cover_file`（PNG / JPEG / WebP / GIF / BMP，按文件头校验，≤ 10 MB，返回 Base64 与 MIME）；`is_elevated`（`OpenProcessToken` + `TokenElevation`，非 Windows 恒为 `false`）；`EditorStateView`（上次来源 / 歌词格式 / 阈值 / 来源优先级文案 / 是否管理员 / 受支持扩展名）。 |
+| `tags`（扩展） | — | `AudioTagData::remove_cover` / `WriteTagsRequest.removeCover`：保存时删除文件里的全部封面（同时给了新封面时以新封面为准）。**没提供封面时封面保持原样**（`replace_all` 也不例外），所以前端不必把原封面来回传，封面过大不能预览时也不会丢。 |
+| Tauri 命令 | — | `editor_get_state`、`editor_remember_options(source, preferWordLyrics)`、`resolve_drop(targets, log)`（`log` 为真时写运行日志，主窗口拖放用）、`read_cover_file(path)`、`take_startup_file()`（只交出一次）。提权运行时启动日志里写一条拖放受限警告（同 C#）。 |
+| `src/api/editor.ts`、`api/tags.ts` | — | 新增 `writeTags`、`pickAudioFile(title)`、封面 / 文件夹选择、`keywordFromFileName`（同 C# `BuildSearchKeywordFromFileName`）等。 |
+| `state/useLyricsEditor.ts` + `components/LyricsEditorDialog.tsx` | `LyricsEditorViewModel`、`LyricsEditorWindow.axaml` | 读取（标题、艺术家、专辑、专辑艺术家、年份、音轨 / 碟号、风格、作曲家、注释、封面、歌词、格式 / 时长 / 码率 / 大小）、编辑、保存（`replaceAll: true`，保留网易云 ID，清空即删除，数字字段校验「年份必须是数字。」等）、更换 / 移除 / 还原封面、在线搜索（四个来源下拉、逐行 / 逐字优先，两者记忆到设置；Enter 触发）、打开文件后用清理过的文件名自动搜索一次、结果按匹配度降序显示「匹配度 xx%」（悬停四路分值）、低于阈值标「（低于阈值）」、点击结果填入标签 / 封面 / 歌词（备用词源只填歌词并标「仅歌词」，切换歌词格式时重新载入已选结果）、只显示当前阈值、右上角「批量获取」（以当前文件所在目录为初始目录）、提权时顶部提示拖放受限。未保存的修改在关闭 / 打开别的文件 / 重新读取 / 拖入新文件前确认；底栏显示「● 有未保存的修改」。保存成功后重新读取文件，表单与封面反映文件里的真实内容。 |
+| `components/BatchLyricsDialog.tsx` | `BatchLyricsViewModel`、`BatchLyricsWindow.axaml` | 音乐目录（浏览 / 手输）、包含子文件夹、覆盖已有、同时获取歌词、歌词格式、来源优先级与阈值文案（取自设置）、`batch_scan` → `batch_run`，`batch:progress` 驱动逐文件状态（处理中 / 成功绿 / 跳过灰 / 失败红）与进度条，**列表虚拟滚动**（复用 NCM 导入的表格样式），取消后没处理到的行标「已取消」，结束后以汇总结果为准（事件与返回值不保证先后）；关闭时若在运行会先取消。 |
+| `state/useFileDrop.ts` + `components/DropOverlay.tsx` | `DropOverlayController` | 监听 `tauri://drag-enter / over / drop / leave`（系统文件拖入网页时 WebView 自己收不到）；离开后 **180 ms** 才隐藏提示层，期间再次进入就取消。主窗口拖入音频直接用编辑器打开，拖入 `.ncm` 在顶部提示条与运行日志里提示改用「导入 NCM」，多个文件只取第一个并写日志；编辑器已打开时拖入文件载入到编辑器（多个时状态栏说明只载入第一个）。登录 / NCM 导入 / 歌词预览等对话框占着界面时不接收拖放。 |
+| 主窗口入口 | `MainWindow.axaml` 的「歌词编辑」 | 标题栏「歌词编辑」按钮（打开空编辑器，里面点「打开音频文件」）；歌曲表格里本地状态为「已存在」的行尾多一个「编」按钮，在编辑器中打开匹配到的本地文件；`--edit` / `--lyrics` 启动参数启动后直接打开编辑器。所有可交互控件都有中文 `aria-label`。 |
+| `dev/mockBackend.ts` | — | 编辑器与批量窗口的全部场景：内存里的标签存储（保存后重新读取能看到）、在线搜索（带打分，低于阈值 / 超长标题 / 无时长 / 无结果）、载入结果（封面是真 PNG）、备用词源、批量（失败 / 跳过 / 取消 / 3000 个文件）、拖放解析。`?mock=neteasefail`（网易云报“加密数据”）、`startup`（`--edit`）、`kugounone`、`batchbig`、`elevated`；控制台 `__lpMock.drop([...])` / `dragEnter` / `dragLeave` 模拟拖放。 |
+
+### 与 C# 行为的差异（有意为之）
+
+- **任何搜索都不自动应用结果**：C# 手动搜索会自动选中第一个达到阈值的结果并立即填入表单（打开文件后的自动搜索同样如此）；这里只高亮排序、让用户点击后再载入，避免悄悄覆盖正在编辑的内容。备用词源也一样。
+- **「移除封面」「还原封面」「更换封面」是新增**：C# 编辑器只能显示封面。`removeCover` 是 module 6 写入接口的新增字段（见上）。
+- **拖入 `.ncm` 到编辑器**也提示改用「导入 NCM」（C# 编辑器里只会说“不支持 .ncm 格式”）。
+- **没有标题标签的文件用备用词源检索**时，标题取清理过的文件名（C# 会因标题为空而无结果）。
+- 启动参数指向的文件不存在时在运行日志里警告（C# 静默忽略）。
+- 「歌词编辑」入口打开空编辑器（C# 打开所选歌曲的本地文件；这里表格是勾选模型，没有单一“当前歌曲”，所以改为行尾的「编」按钮）。
+- 批量窗口默认勾选「覆盖已有标签与歌词」「包含子文件夹」，与 C# 一致；来源次序不再由窗口传入，后端用设置里的值。
+
+### 新增依赖
+
+无。`windows-sys` 只多开了两个 feature（`Win32_Security`、`Win32_System_Threading`，用于查询进程令牌是否提权），不是新 crate。前端没有引入测试框架：界面用假后端在浏览器里手测并截图（理由：逻辑已放在 `lp-core` 里单测，前端只做编排与展示，与既有模块一致）。
+
+### 验证
+
+- 单测：`lp-core` lib **942** 个（模块 10b 新增 25：`editor` 21——记忆只改两个字段 / 无变化不写盘、编辑器状态序列化、四种来源优先级文案、拖入解析（单文件 / 文件夹按名排序 / 多目标 / `.ncm` / 音频优先于 `.ncm` / 不支持 · 空文件夹 · 不存在 · 空列表的中文提示 / camelCase）、启动参数（`--edit` / `--lyrics`、相对路径转完整路径、文件不存在、缺值与未知参数、第一项是程序自己、多个取第一个存在的）、封面文件（PNG 读取 / 非图片 · 空 · 不存在 · 目录 · 超 10 MB 的中文提示 / 各格式文件头）、提权检测不崩；`tags` 4——`remove_cover` 在 MP3 / FLAC / M4A / OGG / OPUS / WAV 每种容器里删光图片且不动其它字段、新封面优先于 `remove_cover`、没提供封面时 `replace_all` 也不清封面、请求 JSON 解析），外壳 **30** 个（新增 5：记住编辑器选项只写两个字段、没变化不写盘、设置没读出来时不覆盖磁盘、启动文件只交出一次、启动文件不存在只记警告），集成测试 36 个（不变）；workspace 合计 **1008** 个（模块 10a 为 978，净增 30）。`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm build`、`.\build.ps1 -Tauri` 通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **浏览器假后端手测**（1280×800，深色 + 浅色）：`--edit` 启动直接打开；搜索结果带匹配度与低于阈值标注；点击结果填入标签 / 封面 / 歌词，状态栏文案同后端；保存后重新读取（假后端内存）；更换 / 移除 / 还原封面；备用词源只填歌词；修改后拖入文件弹出未保存确认，放弃后载入并在状态栏说明“拖入了 2 个文件”；拖入 `.ncm` / 不支持的格式给出提示；拖离后 180 ms 才隐藏提示层；批量窗口运行 / 取消 / 虚拟滚动，Esc 只关最上面的窗口；`neteasefail` 场景下搜索失败显示中文错误而不是崩溃；歌曲行的「编」按钮。
+- **实机**（exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，`settings.json` 只指向 `D:\claude` 下的目录，合成 MP3 样本放在 `D:\claude\samples`，**没有触碰真实登录态与用户目录**，测完已清空 `D:\claude`；通过 WebView2 远程调试端口驱动界面、调用命令）：
+  - `--edit "D:\claude\samples\Lemon - 米津玄師.mp3"` 启动后直接打开编辑器，文件名、格式信息「MP3 · 0:01 · 128 kbps」正确，并用清理后的文件名“Lemon - 米津玄師”自动搜索了一次、没有自动应用。
+  - 网易云（记忆的默认来源）搜索在这台机器上失败，界面显示中文错误「搜索失败：网络连接失败…」；改选 QQ 音乐：20 条结果按匹配度降序（71%，悬停显示「标题 93% · 歌手 50% · 专辑 50% · 时长 0%」）；点击第一条填入标题 Lemon / 艺术家 米津玄師 / 专辑 レモン / 年份 2018 / 歌词 1263 字符 / 封面 13.2 KB；切换逐字优先会重新载入已选结果。QQ 在第一次尝试时遇到 `unexpected EOF during handshake`（与“外部接口”里已记录的瞬时 TLS 故障同类），重试成功。
+  - 来源与歌词格式记忆：`settings.json` 里 `lyricsEditorSearchSource` 变为 `QQMusic`、`lyricsEditorPreferWordLyrics` 变为 `true`，其它字段原样保留。
+  - 保存：「已保存」后用 `read_tags` 读回，标题 / 艺术家 / 专辑 / 年份 / 封面 13543 字节 / 歌词 1263 字符与表单一致。
+  - 拖放：直接向真实 WebView 发送 `tauri://drag-*` 事件（没有从资源管理器真实拖拽，系统层的 OLE 拖放无法在无人值守时模拟）：提示层出现、离开后 180 ms 内仍在、之后隐藏；拖入 2 个文件载入第一个并说明；`.txt` 给出「暂不支持「.txt」格式…」；`.ncm` 给出改用「导入 NCM」的提示；拖入文件夹载入其中按名排序的第一个音频。
+  - 批量：编辑器里点「批量获取」，初始目录是当前文件所在目录；对含 2 个合成 MP3 的子目录运行：「Lemon - 米津玄師.mp3」匹配到 QQ 音乐并写入标签、封面与歌词，虚构名的那个「未找到匹配度足够的在线歌曲」，汇总「完成：成功 1，跳过 0，失败 1。」。
+  - 深色与浅色截图确认（见下“已知限制”里的玻璃底说明）。
+
+### 已知限制 / 留给后续模块
+
+- **没有从资源管理器真实拖拽过**（只验证了事件链路与解析逻辑）；提权运行时 Windows 会阻断拖放，界面只能提示。
+- **「歌曲行的『编』按钮」没有用真实登录态验证**（不碰真实账号），只在假后端里验证。
+- 网易云匿名搜索不可用（见「待修问题」）：它是记忆的默认来源，所以全新设置下打开编辑器时自动搜索会先报错，用户需要手动切到 QQ 音乐；是否把默认来源改成 QQ 音乐留给用户决定。
+- `online::qq` 在 QQ 搜索不可用时，错误文案里带有 reqwest 的英文原文（10a 的行为，未改）。
+- 设置里的「在线匹配度」「备用词源」「来源优先级」输入还在模块 11。
 
 ## 模块 9（按音质下载与一键同步）实现记录
 

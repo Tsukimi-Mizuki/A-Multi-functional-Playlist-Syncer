@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
 import { setQuality, type TransferSummary } from './api/transfer'
+import { errorMessage, resolveDrop, takeStartupFile } from './api/editor'
 import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
+import DropOverlay from './components/DropOverlay'
+import LyricsEditorDialog, { type EditorRequest } from './components/LyricsEditorDialog'
 import LyricsDialog from './components/LyricsDialog'
 import NcmImportDialog from './components/NcmImportDialog'
 import LogPanel from './components/LogPanel'
@@ -15,6 +18,7 @@ import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
 import TitleBar from './components/TitleBar'
 import { useAuth } from './state/useAuth'
+import { useFileDrop } from './state/useFileDrop'
 import { useLogs } from './state/useLogs'
 import { useLocalMatch } from './state/useLocalMatch'
 import { usePlaylists } from './state/usePlaylists'
@@ -51,6 +55,12 @@ export default function App() {
   const [lyricsSong, setLyricsSong] = useState<Song | null>(null)
   // 标签查看同样是只读的临时对话框：保存的是用户选中的本地音频路径。
   const [tagsPath, setTagsPath] = useState<string | null>(null)
+  // 歌词与标签编辑器（大型模态面板）：`initialPath` 是打开时直接载入的文件，`request` 是打开期间拖进来的文件。
+  const [editor, setEditor] = useState<{ key: number; initialPath: string | null } | null>(null)
+  const [editorRequest, setEditorRequest] = useState<EditorRequest | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const editorKey = useRef(0)
+  const requestSeq = useRef(0)
   const { account, validated } = useAuth()
   const logs = useLogs()
   const playlists = usePlaylists(account, validated)
@@ -125,6 +135,78 @@ export default function App() {
       .catch(() => undefined) // 非 Tauri 环境（纯浏览器预览）没有系统对话框。
   }, [])
 
+  const openEditor = useCallback((path: string | null) => {
+    editorKey.current += 1
+    setEditorRequest(null)
+    setEditor({ key: editorKey.current, initialPath: path })
+  }, [])
+  const closeEditor = useCallback(() => {
+    setEditor(null)
+    setEditorRequest(null)
+  }, [])
+
+  // `--lyrics/--edit <文件>` 启动参数：启动后直接打开编辑器（后端只交出一次）。
+  useEffect(() => {
+    let cancelled = false
+    takeStartupFile()
+      .then((path) => {
+        if (!cancelled && path) openEditor(path)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [openEditor])
+
+  // 提示条 8 秒后自动消失。
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 8000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  // 拖放：编辑器打开时把文件交给编辑器；否则解析后直接用编辑器打开，.ncm 提示改用「导入 NCM」。
+  const editorOpen = editor !== null
+  const editorOpenRef = useRef(editorOpen)
+  useEffect(() => {
+    editorOpenRef.current = editorOpen
+  })
+  const onDrop = useCallback(
+    (paths: string[]) => {
+      const inEditor = editorOpenRef.current
+      resolveDrop(paths, !inEditor)
+        .then((result) => {
+          if (inEditor) {
+            requestSeq.current += 1
+            setEditorRequest({
+              seq: requestSeq.current,
+              path: result.kind === 'audio' ? result.path : null,
+              message: result.kind === 'audio' ? null : result.message,
+              resolvedCount: result.resolvedCount,
+            })
+          } else if (result.kind === 'audio' && result.path) {
+            setNotice(null)
+            openEditor(result.path)
+          } else {
+            setNotice(result.message)
+          }
+        })
+        .catch((raised: unknown) => {
+          const message = `载入拖入的文件失败：${errorMessage(raised, '请重试')}`
+          if (inEditor) {
+            requestSeq.current += 1
+            setEditorRequest({ seq: requestSeq.current, path: null, message, resolvedCount: 0 })
+          } else {
+            setNotice(message)
+          }
+        })
+    },
+    [openEditor],
+  )
+  // 登录 / NCM 导入 / 歌词预览等对话框占着界面时不接收拖放（编辑器自己接收）。
+  const dropEnabled = editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath)
+  const { dragging } = useFileDrop(dropEnabled, onDrop)
+
   const openLogin = useCallback(() => setDialog('login'), [])
   const openNcm = useCallback(() => setDialog('ncm'), [])
   const closeDialog = useCallback(() => setDialog('none'), [])
@@ -145,6 +227,9 @@ export default function App() {
       <TitleBar
         toolsSlot={
           <>
+            <button type="button" className="btn" aria-label="打开歌词与标签编辑器" onClick={() => openEditor(null)}>
+              歌词编辑
+            </button>
             <button type="button" className="btn" aria-label="导入并解密 NCM 文件" onClick={openNcm}>
               导入 NCM
             </button>
@@ -163,6 +248,11 @@ export default function App() {
       {appState?.settingsWarning && (
         <p className="app-banner" role="alert">
           设置读取失败，已使用默认设置：{appState.settingsWarning}
+        </p>
+      )}
+      {notice && (
+        <p className="app-banner app-banner-info" role="status">
+          {notice}
         </p>
       )}
       <main className="workspace">
@@ -186,6 +276,7 @@ export default function App() {
             onRetryList={playlists.reloadList}
             onRetryDetail={playlists.reloadDetail}
             onShowLyrics={setLyricsSong}
+            onEditFile={openEditor}
             local={local}
             selection={selection}
             transfer={transfer}
@@ -199,6 +290,8 @@ export default function App() {
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
       {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
+      {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
+      {dragging && <DropOverlay editorOpen={editorOpen} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {dialog === 'logout' && (

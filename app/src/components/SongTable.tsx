@@ -101,6 +101,7 @@ const SongRow = memo(function SongRow({
   checked,
   transfer,
   onShowLyrics,
+  onEditFile,
   onToggle,
 }: {
   song: Song
@@ -111,6 +112,8 @@ const SongRow = memo(function SongRow({
   /** 这首歌的下载状态；`null` 表示没有任务涉及它。 */
   transfer: RowState | null
   onShowLyrics: (song: Song) => void
+  /** 在歌词与标签编辑器中打开这首歌的本地文件。 */
+  onEditFile: (path: string) => void
   /** 点复选框：第二个参数是点击时是否按着 Shift。 */
   onToggle: (index: number, extend: boolean) => void
 }) {
@@ -162,6 +165,18 @@ const SongRow = memo(function SongRow({
       </span>
       <TransferCell state={transfer} />
       <span className="song-cell song-action" role="cell">
+        {match?.availability === 'available' && match.path !== null && (
+          <button
+            type="button"
+            className="song-lyrics-btn"
+            aria-label={`在编辑器中打开：${name}`}
+            title={`在歌词与标签编辑器中打开本地文件
+${match.path}`}
+            onClick={() => onEditFile(match.path ?? '')}
+          >
+            编
+          </button>
+        )}
         <button
           type="button"
           className="song-lyrics-btn"
@@ -203,6 +218,7 @@ export default function SongTable({
   allSelected,
   transfers,
   onShowLyrics,
+  onEditFile,
   onToggle,
   onToggleAll,
 }: {
@@ -216,6 +232,8 @@ export default function SongTable({
   transfers: TransferRows
   /** 双击一行或点行尾的「词」按钮时打开歌词预览。 */
   onShowLyrics: (song: Song) => void
+  /** 点行尾的「编」按钮：在编辑器中打开已匹配到的本地文件。 */
+  onEditFile: (path: string) => void
   onToggle: (index: number, extend: boolean) => void
   onToggleAll: () => void
 }) {
@@ -271,6 +289,7 @@ export default function SongTable({
                 checked={selected.has(song.id)}
                 transfer={transfers.get(song.id) ?? null}
                 onShowLyrics={onShowLyrics}
+                onEditFile={onEditFile}
                 onToggle={onToggle}
               />
             )

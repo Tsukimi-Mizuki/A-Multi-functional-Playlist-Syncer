@@ -8,6 +8,7 @@ import './styles/lyrics.css'
 import './styles/tags.css'
 import './styles/ncm.css'
 import './styles/transfer.css'
+import './styles/editor.css'
 
 const container = document.getElementById('root')
 if (!container) {

@@ -19,6 +19,8 @@ interface PlaylistViewProps {
   onRetryList: () => void
   onRetryDetail: () => void
   onShowLyrics: (song: Song) => void
+  /** 在歌词与标签编辑器中打开本地文件。 */
+  onEditFile: (path: string) => void
   /** 当前歌单与本地曲库的对比状态与操作。 */
   local: ReturnType<typeof useLocalMatch>
   /** 歌曲表格的多选状态。 */
@@ -118,6 +120,7 @@ export default function PlaylistView({
   onRetryList,
   onRetryDetail,
   onShowLyrics,
+  onEditFile,
   local,
   selection,
   transfer,
@@ -280,6 +283,7 @@ export default function PlaylistView({
             allSelected={selection.allSelected}
             transfers={transfer.rows}
             onShowLyrics={onShowLyrics}
+            onEditFile={onEditFile}
             onToggle={selection.toggle}
             onToggleAll={selection.toggleAll}
           />

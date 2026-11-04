@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
+/** 当前打开的模态对话框（后打开的在末尾）：Esc 只关最上面一个，编辑器上叠着批量窗口 / 确认框时不会一起关掉。 */
+const openModals: symbol[] = []
+
 interface ModalProps {
   /** 无障碍名称，同时显示为标题。 */
   title: string
@@ -21,6 +24,8 @@ export default function Modal({ title, onClose, children, footer, className }: M
   })
 
   useEffect(() => {
+    const token = Symbol('modal')
+    openModals.push(token)
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
     // 焦点优先给对话框里第一个按钮，没有则给对话框本身。
@@ -28,7 +33,7 @@ export default function Modal({ title, onClose, children, footer, className }: M
     target?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && openModals[openModals.length - 1] === token) {
         event.stopPropagation()
         onCloseRef.current()
       }
@@ -36,6 +41,8 @@ export default function Modal({ title, onClose, children, footer, className }: M
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
+      const index = openModals.indexOf(token)
+      if (index >= 0) openModals.splice(index, 1)
       previous?.focus()
     }
   }, [])

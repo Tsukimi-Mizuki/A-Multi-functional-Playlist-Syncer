@@ -122,6 +122,17 @@ fn write_request_converts_to_tag_data() {
         Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A][..])
     );
     assert_eq!(data.plain_lyrics.as_deref(), Some("[00:01.00]x"));
+    assert!(!data.remove_cover);
+}
+
+#[test]
+fn write_request_can_ask_to_remove_the_cover() {
+    let request: WriteTagsRequest =
+        serde_json::from_value(serde_json::json!({ "removeCover": true, "replaceAll": true }))
+            .unwrap();
+    let data = request.into_data().unwrap();
+    assert!(data.remove_cover && data.replace_all);
+    assert!(data.cover_data.is_none());
 }
 
 #[test]

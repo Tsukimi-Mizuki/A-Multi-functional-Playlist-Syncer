@@ -741,9 +741,15 @@ fn set_comment(tag: &mut Tag, comment: &str) {
     tag.push(item);
 }
 
-/// 封面：提供了就**替换全部图片**，只留这一张正面封面（描述 `Cover`）；没提供就不动。
+/// 封面：提供了就**替换全部图片**，只留这一张正面封面（描述 `Cover`）；没提供就不动，
+/// 除非 `remove_cover`（编辑器的“移除封面”）要求删光全部图片。
 fn apply_cover(tag: &mut Tag, data: &AudioTagData) {
     let Some(cover) = data.cover_data.as_ref().filter(|bytes| !bytes.is_empty()) else {
+        if data.remove_cover {
+            while tag.picture_count() > 0 {
+                tag.remove_picture(0);
+            }
+        }
         return;
     };
     let mime = data

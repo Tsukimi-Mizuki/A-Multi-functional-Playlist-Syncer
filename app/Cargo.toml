@@ -16,7 +16,7 @@ serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 # 0.61 与 Cargo.lock 中 Tauri 已引入的版本一致。
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Com", "Win32_UI_Shell"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Cryptography", "Win32_System_Com", "Win32_System_Threading", "Win32_UI_Shell"] }
 
 [profile.release]
 codegen-units = 1

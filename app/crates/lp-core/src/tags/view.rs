@@ -135,6 +135,8 @@ pub struct WriteTagsRequest {
     /// 封面图片字节的 Base64（不带 `data:` 前缀）。
     pub cover_base64: Option<String>,
     pub cover_mime_type: Option<String>,
+    /// 删除文件里的全部封面；同时提供了 `coverBase64` 时以新封面为准。
+    pub remove_cover: bool,
     pub plain_lyrics: Option<String>,
     pub word_lyrics: Option<String>,
     pub netease_id: Option<i64>,
@@ -167,6 +169,7 @@ impl WriteTagsRequest {
             year: self.year,
             cover_data,
             cover_mime_type: self.cover_mime_type,
+            remove_cover: self.remove_cover,
             plain_lyrics: self.plain_lyrics,
             word_lyrics: self.word_lyrics,
             netease_id: self.netease_id,

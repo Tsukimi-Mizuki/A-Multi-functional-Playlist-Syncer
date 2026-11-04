@@ -9,6 +9,9 @@
  * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
  * 本地曲库对比：默认自动扫描（约 3 秒，带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；
  * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
+ * 歌词与标签编辑器 / 批量获取：`neteasefail` 网易云搜索报“加密数据”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
+ * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
+ * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
  */
 import { emit } from '@tauri-apps/api/event'
@@ -17,6 +20,7 @@ import type { AccountSummary } from '../api/auth'
 import type { LibrarySummary, LocalMatch, MatchOutcome } from '../api/library'
 import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
+import type { TagView } from '../api/tags'
 import type { DownloadProgress, TransferItem, TransferKind, TransferSummary } from '../api/transfer'
 
 const ACCOUNT: AccountSummary = {
@@ -105,7 +109,7 @@ const MOCK_AUDIO_FILES = [
   'D:\\mock\\音乐\\大封面.ogg',
 ]
 
-function mockTagView(path: string) {
+function mockTagView(path: string): TagView {
   const fileName = path.split('\\').pop() ?? path
   const bare = fileName.startsWith('无标签')
   const hugeCover = fileName.startsWith('大封面')
@@ -414,6 +418,173 @@ async function runMockTransfer(options: MockTransferOptions): Promise<TransferSu
   }
 }
 
+/* ---- 歌词与标签编辑器 / 批量获取的假实现 ----
+ * `?mock=neteasefail` 网易云搜索返回“加密数据”错误（实网现状）；`startup` 模拟 `--edit` 启动参数；
+ * `kugounone` 酷狗没有结果；`batchbig` 批量目录有 3000 个文件。
+ * 浏览器控制台里的 `window.__lpMock.drop([...路径])` 模拟拖入文件，`dragEnter([...])` / `dragLeave()` 只触发提示层。
+ */
+const mockTagStore = new Map<string, TagView>()
+
+function currentTagView(path: string): TagView {
+  return mockTagStore.get(path) ?? mockTagView(path)
+}
+
+/** 一张真正的 PNG（渐变），用来模拟在线封面与本地图片。 */
+function mockPng(hue: number): { base64: string; size: number } {
+  const canvas = document.createElement('canvas')
+  canvas.width = 96
+  canvas.height = 96
+  const context = canvas.getContext('2d')
+  if (context) {
+    const gradient = context.createLinearGradient(0, 0, 96, 96)
+    gradient.addColorStop(0, `hsl(${hue},70%,62%)`)
+    gradient.addColorStop(1, `hsl(${hue + 60},70%,32%)`)
+    context.fillStyle = gradient
+    context.fillRect(0, 0, 96, 96)
+  }
+  const base64 = canvas.toDataURL('image/png').split(',')[1] ?? ''
+  return { base64, size: Math.round(base64.length * 0.75) }
+}
+
+interface MockOnlineSpec {
+  title: string
+  artist: string
+  album: string
+  durationMs: number
+  year: number | null
+  track: number | null
+  total: number
+}
+
+const MOCK_ONLINE_SPECS: MockOnlineSpec[] = [
+  { title: '晴天', artist: '周杰伦', album: '叶惠美', durationMs: 269_000, year: 2003, track: 3, total: 0.97 },
+  { title: '晴天 (Live)', artist: '周杰伦', album: '2004 无与伦比演唱会', durationMs: 285_000, year: 2005, track: 12, total: 0.81 },
+  { title: '晴天', artist: '某翻唱歌手', album: '翻唱合集', durationMs: 254_000, year: 2019, track: 1, total: 0.64 },
+  { title: '晴天 (伴奏)', artist: '周杰伦', album: '叶惠美 伴奏版', durationMs: 269_000, year: 2003, track: 3, total: 0.52 },
+  { title: '七里香', artist: '周杰伦', album: '七里香', durationMs: 299_000, year: 2004, track: 1, total: 0.31 },
+  { title: '这是一首名字特别特别特别长用来测试省略号的歌曲名称', artist: '艺人 A/艺人 B/艺人 C', album: '', durationMs: 0, year: null, track: null, total: 0.22 },
+]
+
+function mockOnlineSong(source: 'Netease' | 'QQMusic', spec: MockOnlineSpec, index: number) {
+  const label = source === 'QQMusic' ? 'QQ 音乐' : '网易云音乐'
+  return {
+    source,
+    sourceId: source === 'QQMusic' ? `00${index}ABCmid` : String(186_000 + index),
+    title: spec.title,
+    artist: spec.artist,
+    album: spec.album,
+    durationMs: spec.durationMs,
+    year: spec.year,
+    trackNumber: spec.track,
+    discNumber: spec.track ? 1 : null,
+    genre: null,
+    composer: null,
+    coverUrl: null,
+    numericSourceId: null,
+    sourceLabel: label,
+    displayTitle: spec.title,
+    subtitle: spec.album ? `${spec.artist} · ${spec.album}` : spec.artist,
+    durationText: spec.durationMs > 0 ? `${Math.floor(spec.durationMs / 60000)}:${String(Math.floor(spec.durationMs / 1000) % 60).padStart(2, '0')}` : '--:--',
+  }
+}
+
+function mockScore(total: number) {
+  return {
+    title: Math.min(1, total + 0.03),
+    artist: Math.min(1, total + 0.1),
+    album: Math.max(0, total - 0.2),
+    duration: total > 0.5 ? 1 : 0.4,
+    total,
+    percent: String(Math.round(total * 100)),
+    rejected: false,
+    rejectReason: null,
+    confident: total >= 0.6,
+  }
+}
+
+const MOCK_LINE_LYRICS = [
+  '[00:12.580]故事的小黄花',
+  '[00:12.580]The little yellow flower of the story',
+  '[00:16.960]从出生那年就飘着',
+  '[00:16.960]Has drifted since the year it was born',
+].join('\n')
+const MOCK_WORD_LYRICS = [
+  '[00:12.580]<00:12.580>故<00:12.830>事<00:13.130>的<00:13.500>小<00:13.900>黄<00:14.300>花',
+  '[00:12.580]The little yellow flower of the story',
+  '[00:16.960]<00:16.960>从<00:17.200>出<00:17.550>生<00:18.020>那<00:18.510>年<00:19.300>就<00:19.570>飘<00:20.100>着',
+  '[00:16.960]Has drifted since the year it was born',
+].join('\n')
+
+/** 拖放解析的假实现：.ncm 提示改用导入；没有扩展名的当作文件夹；其余只认常见音频扩展名。 */
+function mockResolveDrop(targets: string[]) {
+  const total = targets.length
+  const fail = (kind: 'ncm' | 'error', message: string) => ({
+    kind, path: null, fileName: null, message, resolvedCount: 0, total,
+  })
+  if (total === 0) return fail('error', '没有识别到拖入的文件路径。')
+  const audio = /\.(mp3|flac|m4a|mp4|ogg|opus|wav|aac|wma)$/i
+  const resolved: string[] = []
+  let ncm = false
+  let firstError: string | null = null
+  for (const target of targets) {
+    if (/\.ncm$/i.test(target)) ncm = true
+    if (audio.test(target)) resolved.push(target)
+    else if (!/\.[^\\/.]+$/.test(target)) resolved.push(`${target}\\第一首.mp3`)
+    else firstError ??= `暂不支持「${target.slice(target.lastIndexOf('.'))}」格式，请拖入 MP3 / FLAC / M4A / MP4 / OGG / OPUS / WAV / AAC / WMA 格式的音频文件。`
+  }
+  if (resolved.length === 0) {
+    return ncm ? fail('ncm', 'NCM 文件需要先解密：请使用工具栏的「导入 NCM」处理。') : fail('error', firstError ?? '没有识别到拖入的文件路径。')
+  }
+  const path = resolved[0] as string
+  const fileName = path.split('\\').pop() ?? path
+  return {
+    kind: 'audio',
+    path,
+    fileName,
+    message: total > 1 ? `拖入 ${total} 个目标，打开其中的「${fileName}」` : `拖入文件：${path}`,
+    resolvedCount: resolved.length,
+    total,
+  }
+}
+
+interface MockBatchState {
+  running: boolean
+  cancelled: boolean
+}
+
+function mockBatchFiles(folder: string, recursive: boolean, big: boolean): Array<{ path: string; name: string; size: number }> {
+  const count = big ? 3000 : recursive ? 36 : 24
+  return Array.from({ length: count }, (_, index) => {
+    const name = index % 9 === 0 ? `这是一个名字特别特别特别长用来测试省略号的歌曲文件名 ${index + 1} - 某位歌手.mp3` : `${String(index + 1).padStart(2, '0')} - 歌曲 ${index + 1}.${index % 4 === 0 ? 'flac' : 'mp3'}`
+    const sub = recursive && index >= 24 ? `\\子文件夹` : ''
+    return { path: `${folder}${sub}\\${name}`, name, size: 4_000_000 + ((index * 7919) % 30_000_000) }
+  })
+}
+
+/** 假的批量结果：每 5 个失败一个、每 4 个跳过一个，其余成功。 */
+function mockBatchResult(path: string, index: number, overwrite: boolean) {
+  const fileName = path.split('\\').pop() ?? path
+  const base = { filePath: path, fileName, matchedTitle: null, matchedArtist: null, sourceLabel: null, lyricsFormat: null }
+  if (index % 5 === 3) {
+    return { ...base, status: 'failed', success: false, skipped: false, message: '未找到匹配度足够的在线歌曲' }
+  }
+  if (!overwrite && index % 4 === 1) {
+    return { ...base, status: 'skipped', success: false, skipped: true, message: '标签、封面与歌词已完整，跳过' }
+  }
+  const qq = index % 2 === 0
+  return {
+    ...base,
+    status: 'success',
+    success: true,
+    skipped: false,
+    message: `已写入标签、封面、${qq ? '双语逐字歌词' : '逐行歌词'}（歌词来源：${qq ? 'QQ 音乐' : '酷狗音乐'}）`,
+    matchedTitle: `歌曲 ${index + 1}`,
+    matchedArtist: '歌手',
+    sourceLabel: qq ? 'QQ 音乐' : '酷狗音乐',
+    lyricsFormat: qq ? '双语逐字歌词' : '逐行歌词',
+  }
+}
+
 /** 安装假后端；必须在 React 渲染之前调用。 */
 export function installMockBackend(scenario: string | null): void {
   const account = scenario === 'loggedout' ? LOGGED_OUT : ACCOUNT
@@ -434,6 +605,20 @@ export function installMockBackend(scenario: string | null): void {
   let mockQuality = 'ExHigh'
   let transferRunning = false
   let transferCancelled = false
+  let editorSource = scenario === 'neteasefail' ? 'Netease' : 'QQMusic'
+  let editorPreferWord = false
+  const batchState: MockBatchState = { running: false, cancelled: false }
+
+  // 浏览器里没有真实的文件拖放：控制台调用 `__lpMock.drop(['D:\\mock\\音乐\\晴天 - 周杰伦.mp3'])` 模拟。
+  ;(window as unknown as { __lpMock: unknown }).__lpMock = {
+    dragEnter: (paths: string[]) => emit('tauri://drag-enter', { paths, position: { x: 10, y: 10 } }),
+    dragLeave: () => emit('tauri://drag-leave'),
+    drop: async (paths: string[]) => {
+      await emit('tauri://drag-enter', { paths, position: { x: 10, y: 10 } })
+      await sleep(50)
+      await emit('tauri://drag-drop', { paths, position: { x: 10, y: 10 } })
+    },
+  }
 
   /** 假的下载 / 同步任务：只允许一个；没有可处理的歌曲时与后端一样返回 noSongs。 */
   async function mockTransferCommand(kind: TransferKind, playlistId: number, ids: number[] | null): Promise<TransferSummary> {
@@ -578,9 +763,15 @@ export function installMockBackend(scenario: string | null): void {
           transferCancelled = transferRunning
           return transferRunning
         case 'plugin:dialog|open': {
-          const options = (args.options ?? {}) as { directory?: boolean; multiple?: boolean }
+          const options = (args.options ?? {}) as {
+            directory?: boolean
+            multiple?: boolean
+            title?: string
+            filters?: Array<{ name: string }>
+          }
+          if (options.filters?.[0]?.name === '图片') return 'D:\\mock\\封面\\新封面.png'
           if (options.directory) {
-            if (!options.multiple) return MOCK_NCM_OUTPUT_PICKS[0]
+            if (!options.multiple) return options.title?.includes('批量') ? 'D:\\mock\\音乐' : MOCK_NCM_OUTPUT_PICKS[0]
             const picked = `D:\\mock\\NCM\\第 ${(ncmFolderPick += 1)} 个新增的文件夹`
             return [picked]
           }
@@ -654,6 +845,205 @@ export function installMockBackend(scenario: string | null): void {
             matchedOnline: 0,
           }
         }
+        case 'editor_get_state':
+          return {
+            searchSource: editorSource,
+            preferWordLyrics: editorPreferWord,
+            threshold: { threshold: 0.6, percent: '60', min: 0.3, max: 1, default: 0.6 },
+            tagPriorityText: '网易云音乐优先',
+            lyricsPriorityText: 'QQ 音乐优先',
+            isElevated: scenario === 'elevated',
+            dragDropBlockedHint:
+              '当前以管理员身份运行，Windows 会阻止从资源管理器拖入文件；请改用界面上的按钮选择文件，或以普通权限重新启动。',
+            extensions: ['mp3', 'flac', 'm4a', 'mp4', 'ogg', 'opus', 'wav', 'aac', 'wma'],
+            extensionHint: 'MP3 / FLAC / M4A / MP4 / OGG / OPUS / WAV / AAC / WMA',
+          }
+        case 'editor_remember_options':
+          editorSource = String(args.source)
+          editorPreferWord = Boolean(args.preferWordLyrics)
+          return undefined
+        case 'take_startup_file':
+          return scenario === 'startup' ? (MOCK_AUDIO_FILES[0] ?? null) : null
+        case 'resolve_drop':
+          return mockResolveDrop((args.targets as string[]) ?? [])
+        case 'read_cover_file': {
+          const path = String(args.path)
+          if (path.includes('损坏')) throw '「损坏.png」不是支持的图片格式，请选择 PNG / JPEG / WebP / GIF / BMP 图片。'
+          const png = mockPng(330)
+          return { mimeType: 'image/png', base64: png.base64, size: png.size, fileName: path.split('\\').pop() ?? path }
+        }
+        case 'write_tags': {
+          const path = String(args.path)
+          const request = args.request as Record<string, unknown>
+          await sleep(450)
+          if (path.includes('无权限')) {
+            throw { kind: 'failed', message: '保存标签失败：没有写入权限，请检查文件夹权限，或换一个目录「无权限.m4a」。' }
+          }
+          const base = currentTagView(path)
+          const text = (value: unknown) => (typeof value === 'string' && value.trim() !== '' ? value : null)
+          const next = {
+            ...base,
+            title: text(request.title),
+            artist: ((request.artists as string[]) ?? []).join('/') || null,
+            album: text(request.album),
+            albumArtist: text(request.albumArtist),
+            year: (request.year as number | null) ?? null,
+            trackNumber: (request.trackNumber as number | null) ?? null,
+            discNumber: (request.discNumber as number | null) ?? null,
+            genre: text(request.genre),
+            composer: text(request.composer),
+            comment: text(request.comment),
+            lyrics: text(request.plainLyrics),
+          }
+          if (typeof request.coverBase64 === 'string' && request.coverBase64 !== '') {
+            const mime = String(request.coverMimeType ?? 'image/png')
+            Object.assign(next, {
+              hasCover: true,
+              coverDataUrl: `data:${mime};base64,${request.coverBase64}`,
+              coverSize: Math.round(request.coverBase64.length * 0.75),
+              coverTooLarge: false,
+              coverMimeType: mime,
+            })
+          } else if (request.removeCover === true) {
+            Object.assign(next, { hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null })
+          }
+          mockTagStore.set(path, next)
+          return undefined
+        }
+        case 'get_match_threshold':
+          return { threshold: 0.6, percent: '60', min: 0.3, max: 1, default: 0.6 }
+        case 'online_search': {
+          const source = String(args.source)
+          const query = String(args.query ?? '').trim()
+          await sleep(600)
+          if (source !== 'Netease' && source !== 'QQMusic') {
+            throw { kind: 'fallbackSource', message: '酷狗音乐和 LRCLIB 只提供歌词，请在备用词源里检索。' }
+          }
+          if (query === '') throw { kind: 'emptyQuery', message: '请输入要搜索的歌曲、歌手或专辑。' }
+          if (source === 'Netease' && scenario === 'neteasefail') {
+            throw { kind: 'failed', message: '网易云音乐搜索接口返回了加密数据，暂时无法使用，请改用 QQ 音乐。' }
+          }
+          const specs = query.includes('没有结果') ? [] : MOCK_ONLINE_SPECS
+          const scored = args.fileContext != null
+          return {
+            source,
+            query,
+            scored,
+            threshold: 0.6,
+            thresholdPercent: '60',
+            items: specs.map((spec, index) => ({
+              song: mockOnlineSong(source, spec, index),
+              score: scored ? mockScore(spec.total) : null,
+              belowThreshold: scored && spec.total < 0.6,
+            })),
+          }
+        }
+        case 'online_load_result': {
+          const source = String(args.source) as 'Netease' | 'QQMusic'
+          const sourceId = String(args.id)
+          const word = Boolean(args.wordLyrics)
+          await sleep(700)
+          const song = (args.song as ReturnType<typeof mockOnlineSong> | null) ?? mockOnlineSong(source, MOCK_ONLINE_SPECS[0] as MockOnlineSpec, 0)
+          const png = mockPng(200)
+          const hasWord = source === 'QQMusic'
+          const useWord = word && hasWord
+          const formatLabel = word ? (hasWord ? '逐字歌词' : '逐行歌词（该来源无逐字）') : '逐行歌词'
+          const label = `双语${formatLabel}`
+          return {
+            song: { ...song, sourceId, genre: 'Pop', composer: '周杰伦', year: song.year ?? 2003 },
+            lyrics: useWord ? MOCK_WORD_LYRICS : MOCK_LINE_LYRICS,
+            lyricsLabel: label,
+            wordFallback: word && !hasWord,
+            hasWordLyrics: hasWord,
+            hasTranslation: true,
+            lineLyrics: MOCK_LINE_LYRICS,
+            wordLyrics: hasWord ? MOCK_WORD_LYRICS : null,
+            bilingualLineLyrics: MOCK_LINE_LYRICS,
+            bilingualWordLyrics: hasWord ? MOCK_WORD_LYRICS : null,
+            cover: { mimeType: 'image/png', base64: png.base64, size: png.size },
+            statusText: `已载入${song.sourceLabel}的标签${label}、封面，请确认后保存。`,
+          }
+        }
+        case 'lyrics_source_fetch': {
+          const source = String(args.source)
+          await sleep(650)
+          if (String(args.title ?? '').trim() === '') throw { kind: 'noFile', message: '请先打开要编辑的音频文件。' }
+          if (source === 'Kugou' && scenario === 'kugounone') return null
+          const label = source === 'Kugou' ? '酷狗音乐' : 'LRCLIB'
+          const word = source === 'Kugou'
+          return {
+            sourceLabel: label,
+            title: String(args.title),
+            artist: String(args.artist ?? ''),
+            album: '',
+            durationMs: Number(args.durationMs ?? 0),
+            score: mockScore(0.93),
+            lyrics: MOCK_LINE_LYRICS,
+            lyricsLabel: word ? '双语逐字歌词' : '逐行歌词（该来源无翻译）',
+            hasWordLyrics: word,
+            hasTranslation: word,
+            lineLyrics: word ? MOCK_LINE_LYRICS : MOCK_LINE_LYRICS.split('\n').filter((_, i) => i % 2 === 0).join('\n'),
+            wordLyrics: word ? MOCK_WORD_LYRICS : null,
+            bilingualLineLyrics: word ? MOCK_LINE_LYRICS : null,
+            bilingualWordLyrics: word ? MOCK_WORD_LYRICS : null,
+            statusText: `已从${label}载入歌词（仅歌词，标签与封面保持当前内容），请确认后保存。`,
+          }
+        }
+        case 'batch_scan': {
+          await sleep(300)
+          const folder = String(args.folder ?? '')
+          return {
+            folder,
+            recursive: Boolean(args.recursive),
+            directoryMissing: folder.trim() === '' || folder.includes('不存在'),
+            files: folder.includes('不存在') ? [] : mockBatchFiles(folder, Boolean(args.recursive), scenario === 'batchbig'),
+          }
+        }
+        case 'batch_run': {
+          const options = args.options as { files: string[]; overwriteExisting?: boolean }
+          if (batchState.running) throw { kind: 'busy', message: '已有一个批量任务正在进行，请等待它完成或先取消。' }
+          if (options.files.length === 0) throw { kind: 'noFiles', message: '没有可处理的音频文件。' }
+          batchState.running = true
+          batchState.cancelled = false
+          const results: ReturnType<typeof mockBatchResult>[] = []
+          const total = options.files.length
+          try {
+            for (let index = 0; index < total; index += 3) {
+              if (batchState.cancelled) break
+              const group = options.files.slice(index, index + 3)
+              for (const [offset, path] of group.entries()) {
+                await emit('batch:progress', {
+                  completed: results.length, total, index: index + offset, path,
+                  fileName: path.split('\\').pop() ?? path, stage: 'started', result: null,
+                })
+              }
+              await sleep(scenario === 'batchbig' ? 10 : 700)
+              for (const [offset, path] of group.entries()) {
+                const result = mockBatchResult(path, index + offset, options.overwriteExisting !== false)
+                results.push(result)
+                await emit('batch:progress', {
+                  completed: results.length, total, index: index + offset, path,
+                  fileName: result.fileName, stage: 'finished', result,
+                })
+              }
+            }
+          } finally {
+            batchState.running = false
+          }
+          const count = (status: string) => results.filter((item) => item.status === status).length
+          return {
+            total,
+            processed: results.length,
+            success: count('success'),
+            skipped: count('skipped'),
+            failed: count('failed'),
+            cancelled: batchState.cancelled,
+            results,
+          }
+        }
+        case 'batch_cancel':
+          batchState.cancelled = batchState.running
+          return batchState.running
         case 'read_tags': {
           const path = String(args.path)
           await sleep(300)
@@ -661,7 +1051,7 @@ export function installMockBackend(scenario: string | null): void {
           if (path.includes('无权限')) {
             throw { kind: 'failed', message: '文件操作失败：没有权限访问该位置，请检查文件夹权限，或换一个目录' }
           }
-          return mockTagView(path)
+          return currentTagView(path)
         }
         case 'get_song_lyrics': {
           // 歌曲 ID 能被 11 整除：失败；能被 7 整除：没有歌词；能被 5 整除：只有逐行歌词；其余：逐字 + 翻译。

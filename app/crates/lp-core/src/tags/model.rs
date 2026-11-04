@@ -35,6 +35,8 @@ pub struct AudioTagData {
     pub cover_data: Option<Vec<u8>>,
     /// 封面 MIME 类型；为空时按文件头自动判断。
     pub cover_mime_type: Option<String>,
+    /// 删除文件里的全部封面（编辑器的“移除封面”）。同时提供了 `cover_data` 时以新封面为准。
+    pub remove_cover: bool,
     /// 普通 LRC 歌词。
     pub plain_lyrics: Option<String>,
     /// 逐字（增强 LRC）歌词；非空白时优先于 `plain_lyrics` 写入。

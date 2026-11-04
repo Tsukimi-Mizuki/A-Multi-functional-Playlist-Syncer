@@ -427,7 +427,7 @@
 
 .song-grid {
   display: grid;
-  grid-template-columns: 32px 44px minmax(120px, 2.2fr) minmax(70px, 1.2fr) minmax(70px, 1.3fr) 52px 100px minmax(120px, 1.5fr) 32px;
+  grid-template-columns: 32px 44px minmax(120px, 2.2fr) minmax(70px, 1.2fr) minmax(70px, 1.3fr) 52px 100px minmax(120px, 1.5fr) 60px;
   column-gap: 10px;
   align-items: center;
 }

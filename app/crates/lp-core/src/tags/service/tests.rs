@@ -525,6 +525,104 @@ fn partial_write_keeps_other_fields_in_every_container() {
 }
 
 #[test]
+fn remove_cover_deletes_every_picture_but_leaves_other_fields_alone() {
+    for (ext, bytes) in fixtures::all_formats() {
+        let dir = TempDir::new();
+        let path = create(&dir, &format!("cover.{ext}"), &bytes);
+        service()
+            .write(
+                &path,
+                &AudioTagData {
+                    title: Some("保留的标题".into()),
+                    cover_data: Some(PNG_COVER.to_vec()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert!(read(&path).has_cover, "{ext}");
+
+        // 编辑器“移除封面”：不带新封面、`remove_cover` 为真。
+        service()
+            .write(
+                &path,
+                &AudioTagData {
+                    replace_all: true,
+                    title: Some("保留的标题".into()),
+                    remove_cover: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let info = read(&path);
+        assert!(!info.has_cover, "{ext}");
+        assert!(info.cover_data.is_none(), "{ext}");
+        assert_eq!(info.title.as_deref(), Some("保留的标题"), "{ext}");
+        let tagged = lofty_file(&path);
+        let total: usize = tagged.tags().iter().map(|t| t.pictures().len()).sum();
+        assert_eq!(total, 0, "{ext}");
+    }
+}
+
+#[test]
+fn a_new_cover_wins_over_remove_cover() {
+    let dir = TempDir::new();
+    let path = create_mp3(&dir, "both.mp3");
+    service()
+        .write(
+            &path,
+            &AudioTagData {
+                cover_data: Some(PNG_COVER.to_vec()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let second = png_cover_2();
+
+    service()
+        .write(
+            &path,
+            &AudioTagData {
+                cover_data: Some(second.clone()),
+                remove_cover: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert_eq!(read(&path).cover_data.as_deref(), Some(&second[..]));
+}
+
+#[test]
+fn without_remove_cover_a_missing_cover_leaves_the_existing_one() {
+    let dir = TempDir::new();
+    let path = create_mp3(&dir, "keep.mp3");
+    service()
+        .write(
+            &path,
+            &AudioTagData {
+                cover_data: Some(PNG_COVER.to_vec()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    // 编辑器保存时封面未改动：`replace_all` 也不能清掉封面。
+    service()
+        .write(
+            &path,
+            &AudioTagData {
+                replace_all: true,
+                title: Some("x".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert_eq!(read(&path).cover_data.as_deref(), Some(&PNG_COVER[..]));
+}
+
+#[test]
 fn cover_is_replaced_not_duplicated_in_every_container() {
     for (ext, bytes) in fixtures::all_formats() {
         let dir = TempDir::new();

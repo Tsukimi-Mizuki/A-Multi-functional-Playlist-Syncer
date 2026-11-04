@@ -84,15 +84,47 @@ export async function readTags(path: string): Promise<TagView | null> {
 export const TAG_FILE_EXTENSIONS = ['mp3', 'flac', 'm4a', 'mp4', 'ogg', 'opus', 'wav', 'aac']
 
 /** 弹出系统「打开文件」对话框选一个音频文件；取消返回 null。 */
-export async function pickAudioFile(): Promise<string | null> {
+export async function pickAudioFile(title = '选择要查看标签的音频文件'): Promise<string | null> {
   const selected = await open({
     multiple: false,
     directory: false,
-    title: '选择要查看标签的音频文件',
+    title,
     filters: [
       { name: '音频文件', extensions: TAG_FILE_EXTENSIONS },
       { name: '所有文件', extensions: ['*'] },
     ],
   })
   return typeof selected === 'string' ? selected : null
+}
+
+/** 与 Rust 端 `WriteTagsRequest`（camelCase）对应：编辑器保存用 `replaceAll: true`，界面上展示的字段整体替换。 */
+export interface WriteTagsRequest {
+  title?: string | null
+  artists?: string[]
+  album?: string | null
+  albumArtist?: string | null
+  trackNumber?: number | null
+  discNumber?: number | null
+  year?: number | null
+  /** 新封面图片字节的 Base64（不带 `data:` 前缀）；不传就不动文件里的封面。 */
+  coverBase64?: string | null
+  coverMimeType?: string | null
+  /** 删除文件里的全部封面（同时给了 `coverBase64` 时以新封面为准）。 */
+  removeCover?: boolean
+  plainLyrics?: string | null
+  neteaseId?: number | null
+  comment?: string | null
+  genre?: string | null
+  composer?: string | null
+  /** 编辑器保存的语义：没填的字段会被清除，但没传封面时封面保持原样。 */
+  replaceAll?: boolean
+}
+
+/** 写入标签（先写同目录临时副本再原子替换，失败保留原文件）。失败抛 {@link TagLoadError}，`message` 是中文说明。 */
+export async function writeTags(path: string, request: WriteTagsRequest): Promise<void> {
+  try {
+    await invoke<void>('write_tags', { path, request })
+  } catch (error) {
+    throw toTagLoadError(error)
+  }
 }

@@ -1,7 +1,7 @@
 //! Tauri 外壳：只做命令转发、事件推送、窗口与插件，业务逻辑一律在 `lp-core`。
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use std::time::Duration;
 
 use lp_core::auth::{
@@ -19,6 +19,10 @@ use lp_core::download::service::{
 };
 use lp_core::download::task::{
     TransferChannels, TransferError, TransferManager, TransferStarted, TransferSummaryView,
+};
+use lp_core::editor::{
+    CoverFile, DropKind, DropResolution, EditorStateView, is_elevated, parse_startup_args,
+    read_cover_file as read_cover_image, remember_editor_options, resolve_drop as resolve_targets,
 };
 use lp_core::library::{
     LibraryCommandError, LibraryManager, LibrarySummaryView, LocalLibraryService, MatchOutcomeView,
@@ -121,6 +125,8 @@ struct AppState {
     batch: Arc<BatchManager>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
+    /// 命令行 `--lyrics/--edit <文件>` 指定的、启动后直接打开编辑器的文件（前端取走一次）。
+    startup_file: Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -280,6 +286,52 @@ impl AppState {
             online,
             batch,
             session_error: restored.load_failure,
+            startup_file: Mutex::new(None),
+        }
+    }
+
+    /// 解析命令行里的 `--lyrics/--edit <文件>`：文件存在就记下来等前端取走；给了但不存在只记一条警告。
+    fn apply_startup_args<I, S>(&self, args: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let request = parse_startup_args(args);
+        if let Some(missing) = request.missing {
+            self.logs
+                .warning(format!("启动参数指定的文件不存在，已忽略：{missing}"));
+        }
+        if let Some(file) = request.file {
+            self.logs
+                .info(format!("按启动参数打开编辑器：{}", display_path(&file)));
+            *self
+                .startup_file
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                Some(file.to_string_lossy().into_owned());
+        }
+    }
+
+    /// 把编辑器的在线搜索来源与歌词格式写回 `settings.json`（只改这两个字段，其余设置原样保留）。
+    ///
+    /// 记忆只是便利功能：没有变化不写盘；设置文件当初没能读出来（正在使用默认设置）时只改内存不写盘，
+    /// 免得把用户真正的设置覆盖成默认值；写盘失败只记日志。
+    fn remember_editor_options(&self, source: LyricsSourceKind, prefer_word_lyrics: bool) {
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if !remember_editor_options(&mut settings, source, prefer_word_lyrics) {
+            return;
+        }
+        if self.settings_warning.is_some() {
+            return;
+        }
+        match self.settings_store.save(&settings) {
+            Ok(saved) => *settings = saved,
+            Err(error) => self
+                .logs
+                .warning(format!("记住编辑器的搜索来源失败：{error}")),
         }
     }
 
@@ -1071,6 +1123,59 @@ fn batch_cancel(state: State<'_, AppState>) -> bool {
     state.batch.cancel()
 }
 
+/// 编辑器打开时需要恢复的内容：上次的搜索来源与歌词格式、匹配度阈值、是否管理员运行（拖放会被系统阻断）、受支持的扩展名。
+#[tauri::command]
+fn editor_get_state(state: State<'_, AppState>) -> EditorStateView {
+    EditorStateView::new(&state.settings(), is_elevated())
+}
+
+/// 记住编辑器的在线搜索来源与歌词格式（只改这两个设置）。
+#[tauri::command]
+fn editor_remember_options(
+    state: State<'_, AppState>,
+    source: LyricsSourceKind,
+    prefer_word_lyrics: bool,
+) {
+    state.remember_editor_options(source, prefer_word_lyrics);
+}
+
+/// 把拖入的文件 / 文件夹解析成要载入编辑器的音频文件；`log` 为真时（主窗口拖放）顺便写运行日志。
+#[tauri::command]
+async fn resolve_drop(
+    state: State<'_, AppState>,
+    targets: Vec<String>,
+    log: bool,
+) -> Result<DropResolution, String> {
+    let resolution = tauri::async_runtime::spawn_blocking(move || resolve_targets(&targets))
+        .await
+        .map_err(|_| "解析拖入的文件时程序内部出错，请重试。".to_owned())?;
+    if log {
+        match resolution.kind {
+            DropKind::Audio => state.logs.info(&resolution.message),
+            DropKind::Ncm | DropKind::Error => state.logs.warning(&resolution.message),
+        }
+    }
+    Ok(resolution)
+}
+
+/// 读取用户选的封面图片（PNG / JPEG / WebP / GIF / BMP，最大 10 MB），返回 Base64 与 MIME。失败时 `Err` 是中文说明。
+#[tauri::command]
+async fn read_cover_file(path: String) -> Result<CoverFile, String> {
+    tauri::async_runtime::spawn_blocking(move || read_cover_image(Path::new(&path)))
+        .await
+        .map_err(|_| "读取图片时程序内部出错，请重试。".to_owned())?
+}
+
+/// 命令行 `--lyrics/--edit <文件>` 指定的文件；只返回一次（前端取走后清空），没有时为 `null`。
+#[tauri::command]
+fn take_startup_file(state: State<'_, AppState>) -> Option<String> {
+    state
+        .startup_file
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .take()
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -1087,6 +1192,11 @@ pub fn run() {
         .expect("无法准备数据目录：设置、登录态与 WebView 缓存都没有可写的位置");
     let webview_dir = paths.webview_dir();
     let state = AppState::load(paths);
+    state.apply_startup_args(std::env::args());
+    if is_elevated() {
+        // 提权运行时 Windows 会阻止资源管理器向本程序拖放文件，提前在日志里说明（同 C#）。
+        state.logs.warning(lp_core::editor::DRAG_DROP_BLOCKED_HINT);
+    }
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -1155,7 +1265,12 @@ pub fn run() {
             get_match_threshold,
             batch_scan,
             batch_run,
-            batch_cancel
+            batch_cancel,
+            editor_get_state,
+            editor_remember_options,
+            resolve_drop,
+            read_cover_file,
+            take_startup_file
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -1613,6 +1728,91 @@ mod tests {
         }))
         .unwrap();
         assert!(batch.fetch_lyrics && batch.overwrite_existing && batch.prefer_word_lyrics);
+    }
+
+    #[test]
+    fn remembering_the_editor_options_writes_only_its_two_fields() {
+        let dir = ScratchDir::new("editor-remember");
+        let state = AppState::load(dir.paths());
+        {
+            let mut settings = state.settings().clone();
+            settings.max_concurrency = 6;
+            settings.match_threshold = 0.8;
+            settings.ncm_import_folders = vec![r"D:\in".to_owned()];
+            state.settings_store.save(&settings).unwrap();
+            *state.settings.write().unwrap() = settings;
+        }
+
+        state.remember_editor_options(LyricsSourceKind::QqMusic, true);
+
+        let saved = state.settings_store.load().unwrap();
+        assert_eq!(saved.lyrics_editor_search_source, LyricsSourceKind::QqMusic);
+        assert!(saved.lyrics_editor_prefer_word_lyrics);
+        assert_eq!(saved.max_concurrency, 6);
+        assert_eq!(saved.match_threshold, 0.8);
+        assert_eq!(saved.ncm_import_folders, [r"D:\in"]);
+        // 下次打开编辑器读到的就是新值。
+        let view = serde_json::to_value(EditorStateView::new(&state.settings(), false)).unwrap();
+        assert_eq!(view["searchSource"], "QQMusic");
+        assert_eq!(view["preferWordLyrics"], true);
+    }
+
+    #[test]
+    fn unchanged_editor_options_do_not_touch_the_disk() {
+        let dir = ScratchDir::new("editor-unchanged");
+        let state = AppState::load(dir.paths());
+
+        // 默认值（网易云、逐行）再记一次：没有变化，不创建设置文件。
+        state.remember_editor_options(LyricsSourceKind::Netease, false);
+
+        assert!(!state.paths.settings_file().exists());
+    }
+
+    #[test]
+    fn untrusted_settings_are_never_overwritten_by_the_editor_memory() {
+        let dir = ScratchDir::new("editor-untrusted");
+        let mut state = AppState::load(dir.paths());
+        state.settings_warning = Some("读取失败".to_owned());
+
+        state.remember_editor_options(LyricsSourceKind::Lrclib, true);
+
+        assert!(!state.paths.settings_file().exists());
+        assert_eq!(
+            state.settings().lyrics_editor_search_source,
+            LyricsSourceKind::Lrclib
+        );
+    }
+
+    #[test]
+    fn the_startup_file_is_handed_to_the_frontend_exactly_once() {
+        let dir = ScratchDir::new("startup");
+        let state = AppState::load(dir.paths());
+        let file = dir.0.join("x.mp3");
+        std::fs::write(&file, b"x").unwrap();
+        let file_text = file.to_string_lossy().into_owned();
+
+        state.apply_startup_args(["LunaticPrincess.exe", "--edit", file_text.as_str()]);
+
+        let taken = state.startup_file.lock().unwrap().take();
+        assert_eq!(taken.as_deref(), Some(file_text.as_str()));
+        assert!(state.startup_file.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn a_missing_startup_file_only_logs_a_warning() {
+        let dir = ScratchDir::new("startup-missing");
+        let state = AppState::load(dir.paths());
+
+        state.apply_startup_args(["LunaticPrincess.exe", "--lyrics", r"D:\不存在\x.mp3"]);
+
+        assert!(state.startup_file.lock().unwrap().is_none());
+        assert!(
+            state
+                .logs
+                .recent()
+                .iter()
+                .any(|entry| entry.message.contains("启动参数指定的文件不存在"))
+        );
     }
 
     #[test]
