@@ -88,12 +88,37 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # Release 正文用 tag 的说明（annotated tag 的注释，例如 v1.3 的改动列表）。checkout 只留下轻量 tag，
+      # 所以再单独取一次 tag 对象；取不到时写空文件，正文就只剩自动生成的变更链接。
+      - name: 读取 tag 说明
+        if: github.ref_type == 'tag'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          NOTES_PATH: ${{ runner.temp }}/release-notes.md
+        run: |
+          # git 输出 UTF-8；不设的话 pwsh 按控制台代码页解码，中文说明会变成乱码。
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $notes = ''
+          try {
+            git fetch --force --no-tags --depth=1 origin "refs/tags/$($env:REF_NAME):refs/tags/$($env:REF_NAME)"
+            if ((git cat-file -t "refs/tags/$($env:REF_NAME)") -eq 'tag') {
+              # 第一行（subject）与 Release 标题重复，只取正文。
+              $notes = (git tag -l --format='%(contents:body)' $env:REF_NAME) -join "`n"
+            }
+          }
+          catch { Write-Warning "Could not read the tag message: $_" }
+          [System.IO.File]::WriteAllText($env:NOTES_PATH, $notes.Trim() + "`n", [System.Text.UTF8Encoding]::new($false))
+          Write-Host "Release notes: $($notes.Trim().Length) characters"
+          # 读不到说明不算失败（Actions 会用最后一个原生命令的退出码作为步骤结果）。
+          $global:LASTEXITCODE = 0
+
       - name: 创建 GitHub Release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Lunatic Princess v${{ env.VERSION }}
+          body_path: ${{ runner.temp }}/release-notes.md
           files: dist-release/*
           fail_on_unmatched_files: true
           generate_release_notes: true
