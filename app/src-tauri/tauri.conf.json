@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "useLocalToolsDir": true,
     "publisher": "Tsukimi-Mizuki",
     "copyright": "Copyright (c) Tsukimi-Mizuki. Licensed under AGPL-3.0.",
     "category": "Music",
