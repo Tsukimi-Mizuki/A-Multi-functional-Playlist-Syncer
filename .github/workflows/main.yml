@@ -76,7 +76,7 @@ jobs:
         run: ./build.ps1 -Test
 
       # 临时把版本号写进 Cargo.toml / tauri.conf.json / package.json，生成
-      # dist-release\LunaticPrincess-<版本>-win-x64-setup.exe、...-portable.zip（只含 exe，不含 data）与 SHA256SUMS.txt。
+      # dist-release\LunaticPrincess-<版本>-win-x64-setup.exe、...-portable.zip（exe + 空的 data\）与 SHA256SUMS.txt。
       - name: 打包安装包与便携版
         run: ./build.ps1 -Bundle -Version $env:VERSION
 

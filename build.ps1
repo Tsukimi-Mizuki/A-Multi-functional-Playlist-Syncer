@@ -6,7 +6,7 @@
 .DESCRIPTION
   .\build.ps1                      pnpm install, then pnpm tauri build --no-bundle  -> app\target\release\LunaticPrincess.exe
   .\build.ps1 -Test                checks only: cargo fmt --check, clippy -D warnings, cargo test, pnpm build
-  .\build.ps1 -Bundle              portable zip (exe only, no data) + NSIS installer + SHA256SUMS.txt in dist-release\
+  .\build.ps1 -Bundle              portable zip (exe + empty data\) + NSIS installer + SHA256SUMS.txt in dist-release\
   .\build.ps1 -Test -Bundle        checks first, then the bundle
   .\build.ps1 -Bundle -Version v2.1.0
                                    stamp this version (a tag such as v1.3 or v.1.0.0 is normalised to SemVer) into
@@ -139,11 +139,21 @@ try {
     New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
     Get-ChildItem -LiteralPath $releaseDir -Force | Where-Object { $_.Name -like 'LunaticPrincess-*' -or $_.Name -eq 'SHA256SUMS.txt' } | Remove-Item -Force
 
-    # Asset names carry no spaces (GitHub turns them into dots). The zip holds the executable only: no data\ folder, so a
-    # login cookie can never end up in a package. It is made before the NSIS step because bundling patches the exe in place
-    # (a "bundle type" marker for the updater) and the portable build should stay pristine.
+    # Asset names carry no spaces (GitHub turns them into dots). The zip holds the executable and an empty data\ folder,
+    # which makes the extracted app keep its settings, login and downloads next to itself. The folder is only an empty
+    # entry, so a real data directory (and its login cookie) can never end up in a package. The zip is made before the
+    # NSIS step because bundling patches the exe in place (a "bundle type" marker for the updater) and the portable build
+    # should stay pristine.
     $zipOut = Join-Path $releaseDir "LunaticPrincess-$Version-win-x64-portable.zip"
-    Compress-Archive -LiteralPath $exe -DestinationPath $zipOut -CompressionLevel Optimal
+    # Entries are written by hand: Compress-Archive cannot add an empty folder, and ZipFile.CreateFromDirectory on
+    # Windows PowerShell 5.1 names entries with backslashes, which the zip format does not allow.
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::Open($zipOut, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $exe, 'LunaticPrincess.exe', [System.IO.Compression.CompressionLevel]::Optimal)
+        [void]$zip.CreateEntry('data/')
+    }
+    finally { $zip.Dispose() }
 
     $started = Get-Date
     Invoke-Step 'pnpm tauri bundle --bundles nsis' { pnpm tauri bundle --bundles nsis }
