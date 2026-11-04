@@ -2,142 +2,135 @@
 
 > 本文件既是**长期协作约定**，也是**交接说明书**。接手本项目的人或 AI 助手请先通读，再按 §2 做一遍自检。
 >
-> 配套文档：`docs/ARCHITECTURE.md`（分层、关键流程、窗口效果细节）、`docs/IMPLEMENTATION_STATUS.md`（逐项实现与验证记录、已知限制）、
-> `README.md`（面向用户的说明）、`THIRD_PARTY_NOTICES.md`（第三方组件与许可证）。
+> 配套文档：`docs/ARCHITECTURE.md`（分层、命令与事件、关键流程、窗口效果）、`docs/IMPLEMENTATION_STATUS.md`（实现与验证记录、已知限制）、
+> `docs/TAURI_REWRITE.md`（重写期间逐模块的实现记录、**「待修问题」**）、`README.md`（面向用户的说明）、`THIRD_PARTY_NOTICES.md`（第三方组件与许可证）。
 
 ## 1. 项目概况
 
 | 项目 | 内容 |
 |---|---|
-| 名称 | **Lunatic Princess**（旧名 NeteaseMusicManager，已整体更名；设置/登录态目录会自动迁移） |
+| 名称 | **Lunatic Princess**（旧名 NeteaseMusicManager，已整体更名；设置 / 登录态目录会自动迁移） |
 | 定位 | Windows 桌面端网易云音乐管理器：扫码登录 → 歌单浏览 → 本地曲库对比 → 按音质下载 → NCM 解密 → 歌词/标签/封面写入；另带在线歌词与标签匹配（网易云 / QQ 音乐 / 酷狗 / LRCLIB） |
-| 平台 | Windows 10/11 x64（Avalonia 桌面）。Android 只在 Core 层预留接口，**未实现** |
-| 技术栈 | .NET 8 / C# 12、Avalonia 11.3、CommunityToolkit.Mvvm、TagLibSharp、xUnit |
+| 平台 | Windows 10/11 x64（Tauri 2 桌面，WebView2 渲染）。其他平台不支持，也没有计划 |
+| 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | v1.2 已发布（GitHub Release 自包含单文件 zip）；桌面端功能完整；**404/404 单测通过**，0 warning / 0 error |
-| 分支 | `main` 为开发与发布主分支；`tauri-experiment` 已删除；`GUI-Tauri` 为 Rust + Tauri 2 + React 的彻底重写分支，进度见 `docs/TAURI_REWRITE.md` |
+| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1014 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过。**2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版） |
+| 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
+| 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0.0` 起 |
 
-## 2. 接手后先做的自检（约 15 分钟）
+## 2. 接手后先做的自检（约 20 分钟）
 
-1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上。SDK 版本由 `global.json` 锁定（8.0.426，rollForward = latestFeature）；仓库自带 `.dotnet\dotnet.exe`（8.0.426），`build.ps1` 会优先使用它，无需另外安装。
-2. **跑基线**：`.\build.ps1 -Test` → 预期 0 warning / 0 error、**404/404 通过**（1–2 分钟）。
-3. **出包并试用**：`.\build.ps1 -Publish` → `publish\win-x64\LunaticPrincess.exe` 与 `publish\LunaticPrincess-win-x64.zip`；双击 exe，用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用。
-4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，再看 `docs/IMPLEMENTATION_STATUS.md` 的「验证记录 / 已知限制」。
-5. **确认干净**：`git status` 应无改动；`publish/`、`.tmp/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本或登录态。
+1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1014 个测试全部通过**：lp-core 库内 945 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
+4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（已确认、暂不处理的两个问题，不要在别的改动里顺手修）。
+5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
+6. **如果仓库放在 Edge 的下载文件夹里**（或任何带低完整性标签的目录）：程序与测试以低完整性运行，不能写 `%LOCALAPPDATA%` / `%TEMP%`。`build.ps1` 已把 `TMP` / `TEMP` 指到工作区 `.tmp`；直接运行 exe 时数据会落到程序目录 `data\`。细节见 `docs/TAURI_REWRITE.md` 末尾的「已知环境问题」。最省事的办法是把仓库搬出该文件夹。
 
 ## 3. 技术栈与版本（改依赖前先看这里）
 
 | 项 | 版本 / 说明 |
 |---|---|
-| .NET SDK | 8.0.426（`global.json`，rollForward latestFeature，allowPrerelease false） |
-| 目标框架 | `net8.0`（Core / Desktop / Tests 一致） |
-| C# | `LangVersion=latest`；`Nullable` 与 `ImplicitUsings` 开启（`Directory.Build.props`） |
-| Avalonia | 11.3.22（`Avalonia.Controls.DataGrid` 11.3.13；`Avalonia.Diagnostics` 仅在 Debug 引入） |
-| MVVM | CommunityToolkit.Mvvm 8.4.2（源生成器：`[ObservableProperty]` / `[RelayCommand]`） |
-| 标签读写 | TagLibSharp 2.3.0 |
-| 二维码 | QRCoder 1.8.1 |
-| 登录态加密 | System.Security.Cryptography.ProtectedData 8.0.0（DPAPI，CurrentUser） |
-| 测试 | xUnit 2.9.2 + Microsoft.NET.Test.Sdk 17.11.1 + coverlet.collector 6.0.2 |
-| 其他全局设置 | `Deterministic=true`、`NuGetAudit=false`、`GenerateDocumentationFile=false`、单一 NuGet 源（`NuGet.Config` 清空了默认源） |
+| Rust | stable，开发用 1.99.1；`edition = "2024"`；需要 rustfmt、clippy |
+| Tauri | crate `tauri` 2.12.5、`tauri-build` 2.7、`tauri-plugin-dialog` 2.8.4；npm `@tauri-apps/cli` / `@tauri-apps/api` 2.12.4、`@tauri-apps/plugin-dialog` 2.8.4 |
+| 前端 | React 19.3、TypeScript 7.0（严格模式）、Vite 8.3、`@vitejs/plugin-react` 6.1；**不引入 UI 组件库**，样式是手写 CSS（`app/src/styles/`） |
+| 包管理 | pnpm 11，锁文件 `app/pnpm-lock.yaml`（CI 与 `build.ps1` 用 `--frozen-lockfile`） |
+| 异步 / HTTP | tokio 1（`rt` `sync` `time`）、reqwest 0.13（`native-tls` 即 Windows Schannel，系统证书与系统代理；不启用 cookie 容器） |
+| 加密 / 编码 | `aes` 0.9 + `cbc` 0.2（weapi）、`num-bigint` 0.5（无填充 RSA）、`base64` 0.23、`rand` 0.10、`flate2` 1.1（zlib）、`regex` 1.13 |
+| 标签读写 | lofty 0.25.5 |
+| 二维码 | `qrcode` 0.14（只开 `svg`），前端用 `data:image/svg+xml` 显示 |
+| Unicode | `icu_normalizer` / `icu_properties` 2.4（NFKC 与字符类别，用来复现 .NET 的匹配语义） |
+| Windows API | `windows-sys` 0.61（DPAPI、已知文件夹、进程令牌提权检测） |
+| 序列化 / 错误 | serde 1、serde_json 1、thiserror 2 |
+| 发布 profile | `lto = true`、`codegen-units = 1`、`opt-level = "s"`、`panic = "abort"`、`strip = true` |
+| 打包 | Tauri bundler 的 NSIS（`bundle.targets = ["nsis"]`，当前用户安装，简体中文 / 英文）；便携版 zip 由 `build.ps1` 生成 |
 
 ## 4. 目录结构与职责
 
 ```
-LunaticPrincess.sln
-global.json / Directory.Build.props / NuGet.Config / build.ps1
-src/
-  LunaticPrincess.Core/          # 与 UI 无关的业务层，必须可单测
-    Netease/                     # 登录、weapi 加密、歌单/歌曲/歌词/专辑 API
-    Ncm/                         # NCM 解密、客户端注释里的 musicId 解析
-    Lyrics/                      # LRC / 增强 LRC / YRC / QRC / KRC 解析、匹配打分、批量匹配
-    Tags/                        # TagLib 标签读写
-    Library/                     # 本地扫描、歌单差异匹配
-    Download/                    # 下载、NCM 导入
-    Sync/                        # 一键同步编排（本地命中 / NCM 解密 / 下载）
-    Online/                      # 网易云 + QQ 搜索、酷狗与 LRCLIB 备用词源
-    Storage/ Settings/ Models/   # DPAPI 登录态、设置、领域模型与枚举
-    Utilities/                   # 错误文案、文件名净化、音频类型判定
-  LunaticPrincess.Desktop/       # Avalonia GUI（View + ViewModel + Services）
-tests/
-  LunaticPrincess.Core.Tests/    # Core 单测，不依赖网络
-.github/workflows/main.yml       # tag 触发的自动构建与 Release
-docs/                            # ARCHITECTURE / IMPLEMENTATION_STATUS / design
-publish/                         # 发布产物（gitignore；data 子目录是运行时登录态，勿删勿传）
+build.ps1                          # 唯一的构建 / 测试 / 打包入口
+scripts/resolve-version.ps1        # tag -> SemVer（CI 与 build.ps1 -Version 共用）
+.github/workflows/ci.yml           # main 的 push / PR：build.ps1 -Test
+.github/workflows/main.yml         # v* tag 与手动运行：检查 + 打包 (+ Release)
+app/
+  Cargo.toml  Cargo.lock           # 工作区（members = src-tauri, crates/lp-core），共享版本号 / 许可证 / profile
+  package.json  pnpm-lock.yaml  vite.config.ts  tsconfig*.json  index.html
+  crates/lp-core/                  # 与界面无关的业务库，必须可单测（见下表）
+    src/                           # 业务代码；测试在同目录的 tests.rs / <模块>/tests.rs 里
+    tests/                         # 集成测试：csharp_*.rs 对照 C# 版生成的「黄金」夹具
+    tests/fixtures/                # 夹具（合成数据，没有任何真实歌曲 / 歌词），每个子目录有 README
+  src-tauri/                       # Tauri 外壳：命令、事件、窗口、打包配置
+    src/lib.rs                     # 全部命令 + AppState 组合根 + 窗口材质 + 外壳单测
+    tauri.conf.json  capabilities/ icons/
+  src/                             # React 前端
+    api/*.ts                       # 与后端命令一一对应的类型化 invoke 封装 + DTO 类型
+    state/*.ts                     # 业务 hook：登录、歌单、本地对比、下载同步、选择、日志、拖放、编辑器、外观
+    components/*.tsx               # 标题栏、侧栏、歌曲表格、各对话框（登录 / NCM / 标签 / 歌词 / 编辑器 / 批量 / 设置）
+    styles/*.css                   # theme.css（主题 token 与动效）、glass.css（液态玻璃）及各区域样式
+    dev/mockBackend.ts             # 普通浏览器里的假后端（仅开发，生产构建会被摘除）
+    lib/                           # 格式化、虚拟滚动
+docs/                              # ARCHITECTURE / IMPLEMENTATION_STATUS / TAURI_REWRITE / design
+dist-release/                      # build.ps1 -Bundle 的输出（gitignore）
 ```
 
-Core 各命名空间的关键类型：
+`lp-core` 的模块（每个模块的细节、与 C# 版的差异见 `docs/TAURI_REWRITE.md` 对应章节）：
 
-| 目录 | 主要类型 | 说明 |
-|---|---|---|
-| Netease | `NeteaseApiClient`（分文件：Login/Playlists/Songs/Lyrics/Albums/Search）、`WeapiCrypto`、`NeteaseMappers`、`NeteaseJson` | 非公开接口，按端点分 partial 文件维护 |
-| Ncm | `NcmDecoder`、`INcmDecoder`、`NeteaseClientComment` | AES-128-ECB 密钥盒 + 元数据，32 KB 分块 XOR |
-| Lyrics | `LyricParser`、`KrcLyricsParser`、`QrcDecryptor`、`QqTripleDes`、`LyricsMatchScorer`、`BatchLyricsService`、`ILyricsSource` | 逐行/逐字、双语、打分与批量匹配 |
-| Tags | `AudioTagService`、`IAudioTagService` | MP3/FLAC/M4A/OGG 等容器 |
-| Library | `LocalLibraryService`、`SongMatcher` | 扫描 + 一对一匹配 |
-| Download | `DownloadService`、`NcmImportService`、`MediaFileHelper` | 取链、写标签、NCM 导入 |
-| Sync | `MusicSyncService` | 按本地状态编排三种分支 |
-| Online | `OnlineMusicSearchService`、`KugouLyricsSource`、`LrclibLyricsSource`、`LyricsSourceKind` | 主源 + 备用词源 |
-| Storage / Settings | `ProtectedSessionStore`、`JsonSettingsStore`、`AppSettings`、`AppPaths` | 登录态、设置、路径解析 |
-
-Desktop 侧重点文件：
-
-| 文件 | 职责 |
+| 模块 | 职责 |
 |---|---|
-| `Services/AppServices.cs` | **组合根**：唯一构造真实实现的地方，ViewModel 只拿 Core 接口（新建服务的顺序在这里，见 §13） |
-| `ViewModels/MainWindowViewModel.cs` | 登录/歌单/对比/下载同步/拖放载入/日志/工具栏命令 |
-| `ViewModels/LyricsEditorViewModel.cs` | 歌词与标签编辑器、在线搜索、保存 |
-| `ViewModels/BatchLyricsViewModel.cs` | 批量获取标签/封面/歌词窗口 |
-| `ViewModels/NcmImportViewModel.cs` | NCM 导入窗口（文件夹记忆、解密后自动匹配） |
-| `ViewModels/SettingsViewModel.cs` | 设置窗口（**保存时构造新的 AppSettings，必须显式带回不在界面上的字段**） |
-| `Services/ThemeService.cs`、`ThemeBrushes.cs`、`VisualThemeManager.cs` | 主题切换、DWM 客户区颜色、二级窗口 Acrylic |
-| `Services/RenderTimerInstaller.cs` | 帧率上限（Win32 渲染计时器接管） |
-| `Services/DropOverlayController.cs`、`ElevationHelper.cs` | 拖放遮罩延迟隐藏、管理员运行时的拖放限制提示 |
-| `Services/DesktopUiService.cs`、`ErrorFormatter.cs`、`CoverImageService.cs` | 文件选择器、异常转中文、封面下载 |
-| `MainWindow.axaml(.cs)`、`App.axaml(.cs)` | 主窗口与全局资源（两套主题字典）、启动流程、`--lyrics/--edit` 参数 |
+| `paths` / `settings` / `models` | 数据目录解析、`settings.json`（`AppSettings` + `JsonSettingsStore` + 严格补丁 `apply_patch`）、领域枚举（`AudioQuality`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` …） |
+| `session` / `auth` | DPAPI `session.dat`、`SessionAutoSaver`；登录编排 `LoginManager`（启动校验、续期、扫码、退出、运行期复核） |
+| `netease` | 非公开接口：`crypto`（weapi）、`http`（传输 trait + reqwest 实现）、`client`（会话 / Cookie 合并 / 超时）、`login` `playlists` `songs` `player`（取链）`lyrics` `search`，以及 `mappers` / `models` |
+| `playlist` | 歌单加载编排（取列表 / 曲目、写日志、301 走登录复核） |
+| `lyrics` | `parser`（LRC / 增强 LRC / YRC / QRC / 译文）、`qrc`（QQ 3DES 变体）、`krc`（酷狗）、`zlib`、`html`、`service`（网易云歌词预览）、`scorer`（匹配打分）、`batch`（批量服务 + 任务编排 + 在线补全挂钩） |
+| `tags` | `LoftyTagService`：MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词、网易云 ID（原子写入）；`text` 辅助、`view` DTO |
+| `ncm` | `decoder`（流式解密）、`client_comment`（客户端文件注释里的 `163 key`）、`synthetic`（测试用合成 NCM） |
+| `library` | `scanner`（并行读标签）、`matcher`（一对一匹配）、`text`（.NET 语义的文本归一化）、`manager`（扫描缓存与对比）、`view` |
+| `download` | `service`（单曲下载）、`fetch`（流式取文件）、`media`（文件名 / 原子落盘 / 标签数据）、`pool`（并发任务池）、`task`（下载 / 同步任务编排）、`ncm_import`（NCM 导入） |
+| `sync` | `SyncService`：本地命中 / NCM 解密 / 下载三分支 |
+| `online` | `service`（网易云 + QQ 搜索与详情）、`qq`、`kugou`、`lrclib`、`net`（超时与取消）、`manager`（编辑器 / 批量用的编排）、`view` |
+| `editor` | 编辑器记忆、拖入解析、启动参数、封面文件读取、提权检测 |
+| `logs` / `qr` / `error` / `utilities` | 运行日志（内存 400 条）、二维码、错误类型、`error_text`（中文错误文案）/ `file_name_sanitizer` / `audio_file_types` / `cancel` |
 
 ## 5. 构建 / 测试 / 发布
 
-### build.ps1（推荐入口）
+### build.ps1（推荐入口，PowerShell 5.1 与 7 都能跑）
 
-| 参数 | 作用 |
+| 命令 | 作用 |
 |---|---|
-| `-Configuration` | `Debug`（默认）或 `Release` |
-| `-Test` | 构建后跑全量单测 |
-| `-Publish` | 发布到 `publish\win-x64` 并打包 zip |
-| `-SelfContained` | 与 `-Publish` 合用；默认是框架依赖包（zip 约 11 MB，目标机需 .NET 8 Desktop Runtime），自包含包约 45 MB |
+| `.\build.ps1` | `pnpm install --frozen-lockfile` + `pnpm tauri build --no-bundle`（前端构建 + `cargo build --release`）→ `app\target\release\LunaticPrincess.exe` |
+| `.\build.ps1 -Test` | 只检查不打包：`cargo fmt --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`pnpm build`（tsc + vite） |
+| `.\build.ps1 -Bundle` | 先 `pnpm tauri build --no-bundle` 编译，从**未被打包器改写**的 exe 做便携版 zip，再 `pnpm tauri bundle --bundles nsis`，在 `dist-release\` 得到 `LunaticPrincess-<版本>-win-x64-portable.zip`（**只含 exe，不含 data**）、`LunaticPrincess-<版本>-win-x64-setup.exe`、`SHA256SUMS.txt`。首次需要联网下载 NSIS 工具（缓存在 `%LOCALAPPDATA%\tauri`）。注意：在 MSIX 打包应用（例如 Claude 桌面版）的子进程里跑会失败——`%LOCALAPPDATA%` 被虚拟化，Tauri 改名 NSIS 目录时报 `os error 17`——请在普通 PowerShell 里打包 |
+| `.\build.ps1 -Test -Bundle` | 先检查测试，再打包 |
+| `-Version <tag 或版本>` | 与 `-Bundle` 合用。经 `scripts/resolve-version.ps1` 归一成 SemVer（`v1.3` → `1.3.0`，`v.1.0.0` → `1.0.0`，`V2.0.0-rc.1` → `2.0.0-rc.1`），**临时**写进 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json`（`Cargo.lock` 也会被 cargo 更新），构建结束后原样恢复，工作区不会变脏 |
+| `-Tauri` | 旧开关，保留但已无作用（Tauri 构建现在就是默认行为），会给出警告，计划以后删除 |
 
-脚本做的事：把 `DOTNET_CLI_HOME / TMP / TEMP / NUGET_PACKAGES / NUGET_HTTP_CACHE_PATH / NUGET_PLUGINS_CACHE_PATH` 全部指到工作区目录（用户临时目录在受限环境可能不可写）→
-`dotnet restore --configfile NuGet.Config` → `dotnet build --no-restore` → 可选 `test --no-build` → 可选 `publish -c Release -r win-x64` 到 `publish\win-x64`
-（先清空除 `data` 外的旧文件，再裁掉 `Avalonia.FreeDesktop/Native/X11`、`Tmds.DBus.Protocol`、`Avalonia.DesignerSupport` 等非 Windows 程序集）→ `Compress-Archive` 生成 `publish\LunaticPrincess-win-x64.zip`（**排除 data**，避免把登录态打进包）。
+脚本还做了：刷新 PATH（只追加，不覆盖 CI 里 `GITHUB_PATH` 加的项）、`TMP`/`TEMP` 指向工作区 `.tmp`、在 GitHub Actions 里用 `::group::` 折叠每个步骤的日志。
+脚本只服务 Tauri 版，**不会碰** `publish\`、`.dotnet\` 等 C# 版遗留的本地目录。
 
-注意事项：
-- 发布前先停掉正在运行的程序：`Get-Process LunaticPrincess | Stop-Process -Force`（否则 DLL 被占用，publish 失败）。
-- `publish\win-x64\data`（`session.dat`、`settings.json`）是**真实用户的登录态与设置**：脚本会保留它，不要手删；也不要提交或上传。
-- 本地发布不设置 `Version`（程序集版本仍是 1.0.0.0），只有 CI 用 `-p:Version` 打版本号。
-
-### 手动 dotnet 命令
-
-必须先把 `DOTNET_CLI_HOME / TMP / TEMP / NUGET_PACKAGES / NUGET_HTTP_CACHE_PATH / NUGET_PLUGINS_CACHE_PATH` 指到工作区目录，并使用仓库内 SDK：
+### 手动命令（在 `app\` 目录下）
 
 ```powershell
-$env:DOTNET_CLI_HOME = (Join-Path (Get-Location) '.dotnet-home')
-$env:TMP = (Join-Path (Get-Location) '.tmp'); $env:TEMP = $env:TMP
-$env:NUGET_PACKAGES = (Join-Path (Get-Location) '.nuget-packages')
-$env:NUGET_HTTP_CACHE_PATH = (Join-Path (Get-Location) '.nuget-http-cache')
-$env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache')
-.\.dotnet\dotnet.exe test tests\LunaticPrincess.Core.Tests\LunaticPrincess.Core.Tests.csproj -c Debug --filter "FullyQualifiedName~LyricsMatchScorer"
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')   # 新 shell 找不到 cargo/pnpm 时
+$env:TMP = (Resolve-Path ..\.tmp).Path; $env:TEMP = $env:TMP      # 仓库在低完整性目录时必须
+pnpm install
+cargo test -p lp-core --lib download::service                      # 跑一部分测试
+cargo test -p lp-core --test csharp_lyrics                         # 跑某个集成测试
+pnpm tauri dev                                                     # 桌面开发窗口（Vite 固定端口 1420）
+pnpm dev                                                           # 只开前端，浏览器里用假后端预览
 ```
 
 ### 运行与调试
 
-- Debug 可执行文件：`src\LunaticPrincess.Desktop\bin\Debug\net8.0\LunaticPrincess.exe`。
-- 支持 `--lyrics <文件>` / `--edit <文件>` 启动后直接打开歌词编辑器（`Program.GetStartupLyricsFile`）。
-- 运行日志只在内存（最多 400 条，不落盘）；只有未处理异常会写入 `<数据目录>\logs\desktop-fatal.log`。
+- 发布版 exe：`app\target\release\LunaticPrincess.exe`；开发版：`app\target\debug\LunaticPrincess.exe`（需要前端已构建或 dev server 在跑）。
+- 命令行参数：`--edit <文件>` / `--lyrics <文件>` 启动后直接打开歌词与标签编辑器（文件必须存在，不存在只在运行日志里警告）。
+- 实机测试请把 exe **复制到别处**（例如 `D:\claude\lp-run\`）并设 `LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，不要动真实登录态和音乐目录；测完清空这些目录。
+- 驱动真实界面：给被测进程设 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<端口>`，再用 CDP 调命令 / 读 DOM / 截图（历史验证都这么做，探针脚本验证完即删）。
+- 运行日志只在内存（最多 400 条，不落盘）；`panic = "abort"`，目前**没有**致命异常落盘日志（`<数据目录>\logs` 路径已预留但没人写入）。
 
 ## 6. 运行时数据、路径与隐私
 
-数据目录解析顺序（`Core/AppPaths.cs`）：
+数据目录解析顺序（`lp-core/src/paths.rs`，每个候选都会做真实写入探测，不可写就降级）：
 
 1. 环境变量 `LUNATIC_PRINCESS_DATA_DIR`（旧名 `NETEASE_MUSIC_MANAGER_DATA_DIR` 仍兼容，新变量为空时才看旧变量）；
 2. 程序目录下已存在 `data\` → 便携模式，固定使用它（保证换启动方式后登录态不变）；
@@ -149,150 +142,166 @@ $env:NUGET_PLUGINS_CACHE_PATH = (Join-Path (Get-Location) '.nuget-plugins-cache'
 
 | 文件 | 说明 |
 |---|---|
-| `settings.json` | 明文 JSON（`JsonSerializerDefaults.Web` 即 camelCase + 枚举按名字序列化） |
-| `session.dat` | 登录 Cookie，DPAPI（CurrentUser）加密；换 Windows 账号或换机器**无法解密**，需重新扫码 |
-| `logs\desktop-fatal.log` | 仅致命异常追加日志 |
+| `settings.json` | 明文 JSON（camelCase，枚举按名字序列化，读取时键名不区分大小写）。与 C# 版互通：C# 读取时忽略 Tauri 版新增的 `windowMaterial` / `glassOpacity` / `reduceMotion` |
+| `session.dat` | 登录 Cookie，DPAPI（CurrentUser，entropy `LunaticPrincess.Session.v1`）加密，文件头 `NMMSES01`；换 Windows 账号或换机器**无法解密**，需重新扫码。C# 版写的文件 Tauri 版能读，反之亦然 |
+| `webview\` | WebView2 用户数据目录（缓存、localStorage）。显式放在数据目录下，见 `docs/TAURI_REWRITE.md` 的低完整性说明 |
+| `logs\` | 预留，目前没有代码写入 |
 
-默认下载/曲库目录：便携模式为 `data\Music`；否则首选 `%MyMusic%\LunaticPrincess`（旧目录 `%MyMusic%\NeteaseMusicManager` 已存在则沿用，避免文件分裂）；再退到 `data\Music`；最后 `%TEMP%\LunaticPrincess\Music`。
+默认下载 / 曲库目录：便携模式为 `data\Music`；否则首选 `%MyMusic%\LunaticPrincess`（旧目录 `%MyMusic%\NeteaseMusicManager` 已存在则沿用，避免文件分裂）；再退到 `data\Music`；最后 `%TEMP%\LunaticPrincess\Music`。
 
-`settings.json` 键（全部有默认值，缺字段就取默认；未知枚举值会被 `Normalize()` 归位）：
+`settings.json` 键（全部有默认值，缺字段就取默认；某字段类型错误只让该字段回落默认，其余保持；`normalize()` 校验并夹取）：
 
 | 键 | 含义 | 默认 |
 |---|---|---|
 | downloadDirectory / libraryDirectory | 下载 / 曲库目录 | 见上 |
-| quality | 音质档（`Standard/ExHigh/Lossless/HiRes/SpatialAudio/SurroundAudio/Master/AudioVivid/DolbyAtmos`） | ExHigh |
+| quality | 音质档（`Standard/ExHigh/Lossless/HiRes/SpatialAudio/SurroundAudio/Master/AudioVivid/DolbyAtmos`；旧值 `Higher` 迁移为 `ExHigh`） | ExHigh |
 | lyricsMode | `None/Line/Word` | Line |
 | writeCover / overwriteExisting / skipExisting | 封面与覆盖策略 | true / false / true |
-| fileNameTemplate | 文件名模板 | `{artist} - {title}` |
+| fileNameTemplate | 文件名模板（占位符 title/artist/album/track/year/id） | `{artist} - {title}` |
 | maxConcurrency | 下载并发（1–8） | 3 |
-| autoMatchLocal | 启动后自动对比本地曲库 | true |
+| autoMatchLocal | 加载歌单后自动对比本地曲库 | true |
 | tagSourcePriority / lyricsSourcePriority | `NeteaseFirst/QQMusicFirst/NeteaseOnly/QQMusicOnly` | NeteaseFirst |
 | ncmImportFolders / ncmImportOutputDirectory | NCM 导入窗口记忆 | [] / 空（回退下载目录） |
-| lyricsEditorSearchSource / lyricsEditorPreferWordLyrics | 编辑器记忆的搜索来源与歌词格式 | Netease / false |
+| lyricsEditorSearchSource / lyricsEditorPreferWordLyrics | 编辑器记忆的搜索来源与歌词格式 | **QQMusic** / false |
 | fallbackKugouLyrics / fallbackLrclibLyrics | 备用词源开关 | true / true |
-| matchThreshold | 在线匹配度阈值（0.30–1.00） | 0.60 |
+| matchThreshold | 在线匹配度阈值（0.30–1.00，银行家舍入到两位） | 0.60 |
 | theme | `Dark/Light/System` | Dark |
-| renderFrameRate | `VSync` 或固定帧率 | VSync |
+| renderFrameRate | 沿用的旧键，Tauri 版界面不使用 | VSync |
+| windowMaterial | `Acrylic/Mica/None`（Tauri 版新增） | Acrylic |
+| glassOpacity | 玻璃浓度 0.10–0.95（Tauri 版新增） | 0.45 |
+| reduceMotion | 减少动效（Tauri 版新增） | false |
 
-隐私与交接注意：`publish\win-x64\data` 里有本人账号的 `session.dat` 与个人路径，**转交仓库/机器前请删除或更换**；下载目录里可能有受版权保护的文件，同样不要随项目一起交付。
+隐私与交接注意：`session.dat` 与个人路径属于用户数据，**不要提交、不要放进发布包**（便携版 zip 只含 exe，`build.ps1` 也不会打包 `data\`）；下载目录里可能有受版权保护的文件，不要随项目交付；
+本地的 `publish\win-x64\data`（C# 版遗留）里是用户真实的登录态与设置，**不要删除或修改**。
 
 ## 7. 架构速查（详细见 docs/ARCHITECTURE.md）
 
 ### 分层与组合根
 
-`Desktop（Avalonia + MVVM）→ Core 接口 → Core 实现`。所有真实依赖在 `Services/AppServices.Create()` 里构造一次（HttpClient 由它持有并释放），ViewModel 只接收接口；Core 不引用 Avalonia（唯一的 Windows 相关依赖是 DPAPI 的 ProtectedData，Android 需替换 `ISessionStore`）。
+`React 前端 → Tauri 命令 / 事件（src-tauri） → lp-core`。`src-tauri/src/lib.rs` 里的 `AppState` 是**组合根**：启动时解析路径、加载设置与登录态，构造 `NeteaseClient`、各服务和管理器并交给 Tauri 托管；命令只做参数转换、调用 lp-core、把进度变成事件。
+`lp-core` 不引用 Tauri（Windows 相关的只有 DPAPI、已知文件夹、提权检测，都用 `windows-sys`），业务逻辑放这里并带单测；新业务逻辑写在命令函数或前端 hook 里通常说明位置放错了。
 
 ### 关键流程（改代码前先确认这些不变量）
 
-- **扫码登录**：`unikey(type=3)` → 二维码 → 每约 2 秒轮询 `801/802/803/800` → 收集 Cookie → `NeteaseSession` → DPAPI 落盘；启动时用 `/weapi/nuser/account/get` 校验。**登录续期与 Cookie 合并**：`NeteaseApiClient` 对每个带会话的 weapi/GET 响应调用 `CookieMerger` 合并 Set-Cookie（按名覆盖、Max-Age<=0/过期即删除、空值不覆盖；合并后会丢 MUSIC_U 则忽略），变化时触发 `SessionChanged`，由 `SessionAutoSaver`（`AppServices.Create()` 装配）串行落盘；`RefreshLoginAsync` 调 `/weapi/login/token/refresh`，启动校验成功后调用一次，运行期每约 12 小时一次。**「登录失效」只认接口 `code==301` 或 `account/get` 返回 200 但 account/profile 为空**（`NeteaseApiException.IsNotLoggedIn`；HTTP 401/302/5xx、406、-460、超时一律不清除登录态）；清除前先续期并复核一次。
-- **歌单**：大歌单先取 `trackIds`，再按 500 首/批调用 `/weapi/v3/song/detail` 补齐并保持原顺序。
-- **本地对比**：优先用网易云 ID（本程序写入的 `LunaticPrincess:<id>` 注释，或客户端文件里的 `163 key(Don't modify)` 解出的 `musicId`）精确匹配；否则标题/歌手/时长评分；再否则文件名猜测。每首本地文件最多匹配一首歌单曲。
-- **下载**：九档音质 → `/api/song/enhance/player/url/v1`（取链请求带桌面客户端 Cookie，否则 Hi-Res 会被静默降级）→ 服务端降档时提示「实际音质」→ 临时文件 → 文件头是 NCM 就解密 → 歌词/翻译/封面/元数据 → TagLib 写入 → 原子移动 → 按 `BatchLyricsOptions.AutoEnrich` 在线补全（QQ 逐字优先、网易云兜底）。失败只作提示，不影响下载成功。
-- **NCM 解密**：输出格式看首块（ID3 → mp3，fLaC → flac）；先写回内嵌元数据/封面/网易云 ID；导入窗口默认勾选「解密后自动获取在线标签、封面与歌词」。
-- **在线匹配**：主源 `OnlineMusicSearchService`（网易云 `/api/search/get/web`、QQ `/soso/fcgi-bin/search_cp`）；都拿不到歌词时按 `ILyricsSource` 顺序回落酷狗 KRC、LRCLIB。打分与候选筛选集中在 `LyricsMatchScorer`，阈值来自设置。
-- **同步**：`MusicSyncService` 按本地状态分三支（已存在且无覆盖 → 跳过；NCM → 解密 + 写标签 + 在线补全；缺失 → 下载）。
-- **错误文案**：Core 的 `ErrorText` 识别权限不足/空间不足/文件占用/路径过长，Desktop 的 `ErrorFormatter` 统一转成中文说明与建议，**不把英文异常抛给用户**。
+- **扫码登录**：`unikey(type=3)` → 二维码（失败降级 web `type=1`）→ 每约 2 秒轮询 `801/802/803/800` → 803 时合并 Set-Cookie 与响应体 cookie → `NeteaseSession` → 先落盘再让登录态生效；启动时用 `/weapi/nuser/account/get` 校验。**登录续期与 Cookie 合并**：`NeteaseClient` 对每个带会话的响应调用 `CookieMerger`（按名覆盖、Max-Age 优先于 Expires、空值不覆盖、合并后会丢 `MUSIC_U` 则忽略），变化时通知 `SessionAutoSaver` 串行落盘；`refresh_login` 调 `/weapi/login/token/refresh`，启动校验成功后调用一次，运行期每约 12 小时一次（间隔可注入，单测用暂停时钟）。**「登录失效」只认接口业务 `code == 301`，或 `account/get` 返回 200 但 account/profile 为空**；HTTP 401/302/5xx、406、-460、超时、网络错误一律只记「暂时无法验证登录状态，已保留登录」；清除前先续期并复核一次；清除顺序是 `set_session(None)` → `flush` → 删 `session.dat`。
+- **歌单**：`/weapi/user/playlist` 翻页（最多 10 页）；大歌单先取 `trackIds`，再按 500 首 / 批调用 `/weapi/v3/song/detail` 补齐并保持原顺序，某批失败重试一次，仍失败置 `is_partial`（界面给横幅与「重新加载」）。
+- **本地对比**：扫描（并行读标签，结果按路径排序）→ 匹配。优先用网易云 ID（本程序写入的 `LunaticPrincess:<id>` 注释，或客户端文件里的 `163 key(Don't modify)` 解出的 `musicId`）精确匹配；否则标题 0.55 / 歌手 0.30 / 时长 0.15 综合评分，**阈值固定 0.72**，每首本地文件最多匹配一首歌单曲。没扫描过显示「—」而不是「需下载」。
+- **下载**：九档音质 → `/weapi/song/enhance/player/url/v1`（取链请求带桌面客户端 Cookie，否则 Hi-Res 会被静默降级）→ 逐级降档 → 服务端 `level` 与请求不同时提示「实际音质」→ 试听片段判失败 → 流式写 `.part` 临时文件 → 文件头是 NCM 就解密 → 歌词 / 翻译 / 封面 → lofty 写标签 → 原子落盘 → 按设置在线补全（QQ 逐字优先、网易云兜底）。补全失败只作提示，不影响下载成功。取消时保留已完成结果并清理临时文件。
+- **NCM 解密**：输出格式看首块（ID3 / 帧同步字 → mp3，`fLaC` → flac）；音频不整文件读入内存，32 KB 分块边读边解边写临时文件，成功后原子改名；先写回内嵌元数据 / 封面 / 网易云 ID；导入窗口默认勾选「解密后自动获取在线标签、封面与歌词」。
+- **在线匹配**：主源 `OnlineMusicSearchService`（网易云 `/api/search/get/web`、QQ `/soso/fcgi-bin/search_cp`）；都拿不到歌词时按 `LyricsSource` 顺序回落酷狗 KRC、LRCLIB。打分与候选筛选集中在 `lyrics::scorer`，阈值来自设置（运行期读共享设置对象，保存后下一首歌就生效）。**任何搜索都不自动应用结果**，编辑器里由用户点选后再载入。
+- **同步**：`SyncService` 按本地状态分三支（已存在且无覆盖 → 跳过；NCM → 解密到临时子目录 + 写标签 + 在线补全；缺失 → 下载），与下载共用并发任务池，结果顺序与输入一致。
+- **标签写入**：复制成同目录临时副本 → 写副本 → 重新解析确认类型没变 → 原子替换；任何一步失败都保留原文件。`replace_all` 保存时保留网易云 ID 标记与封面（没提供封面就不动封面）。
+- **错误文案**：`utilities::error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出「是什么 + 怎么办」；命令的 `Err` 统一是 `{ kind, message }`（message 为中文），**不把英文异常抛给用户**。
+- **取消**：长任务（扫描、下载、同步、NCM 导入、批量）各自一个任务槽，同时只有一个（`busy`）；取消用 `CancelToken`，在每个网络请求处立刻生效，已完成的结果保留。
 
 ### 关键常量
 
 | 项 | 值 | 位置 |
 |---|---|---|
-| 匹配度阈值 | 默认 0.60，范围 0.30–1.00 | `LyricsMatchScorer.DefaultMinScore/MinThreshold/MaxThreshold` |
-| 打分权重 | 有歌手：标题 0.55 / 歌手 0.25 / 时长 0.20；无歌手：标题 0.72 / 时长 0.20 / 专辑 0.08；歌手相似度 < 0.30 整体 ×0.75 | `LyricsMatchScorer` |
-| 单源候选数 | 每来源前 10 条、最多 3 组查询变体 | `LyricsMatchScorer` |
-| 批量匹配并发 | 3 | `BatchLyricsService` |
-| 下载并发 | 默认 3，clamp 1–8 | `AppSettings.Normalize` |
-| 运行日志条数 | 400（只在内存） | `MainWindowViewModel` |
-| NCM 分块 | 32 KB | `NcmDecoder` |
-| 歌单详情批量 | 500 首/批 | `NeteaseApiClient.Playlists` |
-| 二维码轮询 | 约 2 秒 | `QrLoginViewModel` / 登录服务 |
+| 匹配度阈值 | 默认 0.60，范围 0.30–1.00 | `lyrics::scorer` |
+| 在线打分权重 | 有歌手：标题 0.55 / 歌手 0.25 / 时长 0.20；无歌手：标题 0.72 / 时长 0.20 / 专辑 0.08；歌手相似度 < 0.30 整体 ×0.75；时长容差 ±8 s | `lyrics::scorer` |
+| 本地对比阈值 | 0.72（与设置无关），时长容差 12 s | `library::matcher` |
+| 单源候选数 | 每来源前 10 条、最多 3 组查询变体（`build_queries` 至多 6 组） | `lyrics::scorer` / `lyrics::batch` |
+| 批量匹配并发 | 3 | `lyrics::batch::task` |
+| 下载并发 | 默认 3，clamp 1–8 | `AppSettings::normalize` |
+| 运行日志条数 | 400（只在内存） | `logs` |
+| NCM 分块 | 32 KB | `ncm::decoder` |
+| 歌单详情批量 | 500 首 / 批 | `netease::playlists` |
+| 登录续期间隔 | 12 小时 | `auth` |
+| 二维码轮询 | 约 2 秒 | 前端 `useAuth` |
+| 接口超时 | weapi 20 s；QQ / 封面 20 s；酷狗 / LRCLIB 10 s；音频下载连接 15 s、读取间隔 60 s、总 30 分钟 | `netease::client` / `online::net` / `netease::http` |
 
 ## 8. 代码约定
 
-- **能力先落 Core，并带单测**；Desktop 只做编排与展示。新业务逻辑写在 ViewModel 里通常说明位置放错了。
-- **依赖注入**：Core 构造函数接收接口（`HttpClient`、`ISettingsStore` 等），不 new 单例、不读环境变量（路径由调用方传入或走 `AppPaths`）；新服务必须同时加进 `AppServices.Create()`。
-- **异步与取消**：I/O 一律 `async/await` + `CancellationToken`，进度用 `IProgress<T>`；不要使用 `.Result/.Wait()`；UI 更新走 `UiThread` / Avalonia Dispatcher。
-- **中文文案**：所有用户可见文字用中文；异常经 `ErrorText`（Core）/ `ErrorFormatter`（Desktop）转换。
-- **MVVM**：CommunityToolkit 源生成器（`[ObservableProperty]` 字段名小写、`[RelayCommand]` 生成 `XxxAsync` 命令）；可空引用保持开启，尽量不用 `null!` 压警告。
-- **注释与文档**：XML 注释用中文摘要，解释「为什么」而不是复述代码；不提交注释掉的旧代码。
-- **依赖**：不轻易加包。测试不引入 mock 框架（手写 Fake 够了），UI 不引入第二套控件库。
-- **可访问性**：新增的可交互控件请补 `AutomationProperties.Name`：既是无障碍要求，也是本项目历史验证（UIA 自动化读控件/文案）依赖的锚点。
+- **能力先落 `lp-core`，并带单测**；`src-tauri` 只做命令转发与事件，前端只做编排与展示。
+- **Rust**：`cargo fmt` 默认风格；`clippy --all-targets -D warnings` 必须干净；错误用 `thiserror`，面向用户的文本一律中文；不写 `unwrap()` / `expect()` 于生产路径（测试里可以）；I/O 密集的同步代码（标签、解密、扫描）在调用方用 `spawn_blocking`；网络与长任务 `async` + `CancelToken`，进度走回调 / 事件；依赖用 trait 注入（传输层 `HttpTransport`、`TagService`、`NcmDecoder`、`OnlineMusicSearch`、`Downloader` …），测试写手写 Fake，不引入 mock 框架。
+- **新增命令**：在 `lp-core` 里实现 → `src-tauri/src/lib.rs` 写 `#[tauri::command]` 并加进 `generate_handler!` → `app/src/api/*.ts` 加类型化封装与 DTO → `dev/mockBackend.ts` 加假实现 → 外壳单测（请求结构 / 设置写入范围）。DTO 一律 camelCase（`#[serde(rename_all = "camelCase")]`）。
+- **TypeScript / React**：严格模式，函数组件 + hook；业务状态放 `state/` 的 hook，组件只渲染；后端数据结构只在 `api/` 里定义；高频事件（下载进度）先写进 ref，每帧最多刷新一次；长列表用 `lib/virtual.ts` 的虚拟滚动。
+- **中文文案**：所有用户可见文字用中文；注释用中文摘要，解释「为什么」而不是复述代码；不提交注释掉的旧代码。构建脚本（`build.ps1`、`scripts/`）保持 **ASCII**，因为 Windows PowerShell 5.1 会把无 BOM 的脚本按 ANSI 读。
+- **依赖**：不轻易加包（Rust 与 npm 都一样），加了要写进 `docs/TAURI_REWRITE.md` 对应模块的「新增依赖」和 `THIRD_PARTY_NOTICES.md`。
+- **可访问性**：新增的可交互控件补中文 `aria-label`：既是无障碍要求，也是本项目历史验证（读控件名 / 文案）依赖的锚点。
 - **提交前**：跑 `.\build.ps1 -Test`；工作区不留临时脚本、探针、日志。
 
 ## 9. 测试约定
 
-- 位置：`tests/LunaticPrincess.Core.Tests`（xUnit，只测 Core）。**不依赖网络、不依赖真实音频文件**。
-- 测试夹具（都在测试项目内）：
-  - `Tags/Mp3Fixture.cs`：生成 TagLib 可解析的最小合法 MP3（真实帧头）与 1×1 PNG 封面；
-  - `Ncm/SyntheticNcmFile.cs`：按格式规范做**逆运算**生成真实可解的 .ncm（AES + RC4 变体），与生产实现互相独立；
-  - `Lyrics/KrcFixture.cs`、`Netease/TestHttp.cs`（假 HttpMessageHandler 响应）、`Ncm/TempDirectory.cs`（临时目录帮手）。
-- 双打：`Download/TestDoubles.cs`、`Sync/TestDoubles.cs`、`Library/TestDoubles.cs` 手写 Fake，记录调用参数用于断言。
-- 当前分布（2026-10 记录，合计 404）：Netease API 101（含 Cookie 合并、续期、登录判定）/ NCM·歌词·标签 127 / 本地扫描·下载·同步 71 / 存储·设置·文件名 27（含 `SessionAutoSaver`、会话读取失败区分） / 音质映射 30 / 在线搜索 23 / 工具类 25。
-- 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的「自动化测试」总数与分项，以及本文件 §2 的数字。
-- 真实网络验证：可以临时写探针跑一次（本项目历次都是这么验证的），**验证完立刻删除**，不要把依赖网络的测试提交进仓库，也不要放进会被 `dotnet test` 全量执行的路径。
-- 跑单个测试：`--filter "FullyQualifiedName~ClassName"`（完整环境变量见 §5）。
+- 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
+- 现状（2026-11）：**1014 个**——`lp-core` 库内 945、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
+- **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
+- 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
+- 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
+- 真实网络验证：可以临时写探针跑一次（本项目历次都是这么验证的），**验证完立刻删除**，不要把依赖网络的测试提交进仓库，也不要放进会被 `cargo test` 全量执行的路径；歌词正文有版权，不打印不入库。
+- 跑单个测试：`cargo test -p lp-core --lib <路径片段>`、`--test csharp_online`（环境变量见 §5）。
 
 ## 10. 外部接口与实网经验（最容易失效的部分）
 
 这些接口都不是公开 API，随时可能变；出问题优先怀疑接口而不是本地逻辑。
 
-- **网易云**：`weapi` 需要 AES-CBC 双重加密 + 无填充 RSA 的 `encSecKey`；搜索接口连续多变体请求会返回 `code=406` 限流（匿名与登录态都可能）；取链 `/api/song/enhance/player/url/v1` 需要桌面客户端 Cookie 才能拿到 Hi-Res 及以上，无会员特权时服务端**静默降档**，所以要读响应里的 `level` 并提示实际音质。
-- **QQ 音乐**：搜索旧接口 `client_search_cp` 已下线（两个域名都 500），现用 `/soso/fcgi-bin/search_cp` + `new_json=1`；`c.y.qq.com` 失败要自动切 `c6.y.qq.com`。歌词用 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`），QRC 是 3DES 变体：字节编号/位序与标准 DES 不同（已知向量：key `133457799BBCDFF1`、plain `0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），解出后 zlib 解压再按 QRC 行/词时间戳解析。
-- **酷狗**：三段链路 `mobilecdn.kugou.com/api/v3/search/song` → `krcs.kugou.com/search` → `lyrics.kugou.com/download?fmt=krc`；KRC 前 4 字节明文 `krc1`，之后 16 字节固定密钥 XOR 再 zlib；本机偶发证书域名不匹配，异常吞掉后回落下一个词源。
+- **网易云**：`weapi` 需要 AES-CBC 双重加密 + 无填充 RSA 的 `encSecKey`；取链 `/weapi/song/enhance/player/url/v1` 需要桌面客户端 Cookie 才能拿到 Hi-Res 及以上，无会员特权时服务端**静默降档**（实测匿名请求 Hi-Res 得到 `exhigh`），所以要读响应里的 `level` 并提示实际音质。**搜索端点 `/api/search/get/web` 现在匿名返回十六进制密文**（见 `docs/TAURI_REWRITE.md`「待修问题」），`search_songs` 遇到密文会报明确错误，QQ 音乐是当前真正可用的主词源；搜索接口连续多变体请求还会 `code=406` 限流。
+- **QQ 音乐**：搜索旧接口 `client_search_cp` 已下线，现用 `/soso/fcgi-bin/search_cp` + `new_json=1`；`c.y.qq.com` 连接失败 / 非 2xx 自动切 `c6.y.qq.com`。歌词用 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`），QRC 是 3DES 变体：字节编号 / 位序与标准 DES 不同（已知向量：key `133457799BBCDFF1`、plain `0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），解出后 zlib 解压再按 QRC 行 / 词时间戳解析。保留的怪癖：PlayLyricInfo 没有译文时双语版本等同原文，所以 QQ 的 `has_translation` 恒为真。
+- **酷狗**：三段链路 `mobilecdn.kugou.com/api/v3/search/song` → `krcs.kugou.com/search` → `lyrics.kugou.com/download?fmt=krc`；KRC 前 4 字节明文 `krc1`，之后 16 字节固定密钥 XOR 再 zlib；**候选的 `duration` 是毫秒**（C# 版当秒，导致酷狗在实网永远没结果，Tauri 版已修）；本机偶发证书域名不匹配（`SEC_E_WRONG_PRINCIPAL`）与 `unexpected EOF during handshake`，异常吞掉后回落下一个词源，不加重试。
 - **LRCLIB**：只有逐行 `syncedLyrics`；先用 `?q=` 多变体检索，落空再用 `track_name/artist_name` 兜底；429/503 属瞬时失败，退避后重试一次。
-- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；登录态靠 `login/token/refresh` + 合并后续响应的 Set-Cookie 续期（实际续期效果需真机长期观察）；若 `MUSIC_U` 真正过期或被服务端作废，仍需重新扫码。
-- **版权**：不绕过会员/版权限制；试听片段直接判失败。
-- 所有在线请求都应有独立超时与可读的中文错误；封面下载限制大小；解析失败保留本地已有内容。
+- **登录**：803 确认段必须真人手机扫码，自动化只能验证到 801；`/weapi/login/token/refresh` 实测返回 `code=400`（C# 版同样），续期是否生效尚未证实，见「待修问题」；`MUSIC_U` 真正过期或被服务端作废时仍需重新扫码。
+- 网络偶发 `tls handshake eof`：重试即可，不是代码问题。
+- **版权**：不绕过会员 / 版权限制；试听片段直接判失败。
+- 所有在线请求都有独立超时与可读的中文错误；封面下载限制 10 MB；解析失败保留本地已有内容。
 
 ## 11. 界面设计与视觉基线
 
-- **界面设计一律以用户提供的设计参考为准**：对话中给出的设计稿/截图就是视觉基准，改配色、圆角、间距、控件形态、排版前先对照，不要自行更换视觉语言。
-- 设计稿存 `docs/design/`（命名 `ui-<窗口或场景>.png`，如 `ui-main.png`），并在 `docs/design/README.md` 登记文件名与文字要点——无法看图的人（包括 AI）靠这些文字实现。
-- 参考没覆盖到的细节沿用现有基线：Salt UI 风格卡片 + 胶囊控件 + 紧凑列表行；**液态玻璃**主题（深色 / 浅色 / 跟随系统，`App.axaml` 的 `ThemeDictionaries`，界面一律 `{DynamicResource *Brush}`，转换器资源才用 `StaticResource`）；无边框自绘标题栏（68px 顶栏即标题栏，自绘最小化/最大化/关闭按钮，DPI 感知）。
-- 二级窗口统一走 `VisualThemeManager.ApplyDialog`（Acrylic + 半透明 `DialogGlassBrush`）与 `ScheduleClamp`（高 DPI 下夹回工作区）；受限环境（远程桌面/关闭透明效果）自动回退不透明背景。
-- **改 UI 必须实机验证**：本项目历史做法是启动发布版，用 Windows UI 自动化读控件名称/文本/数值、必要时截图像素采样；至少确认窗口能开、关键文案正确、设置能保存、深色/浅色都不崩。
-- 管理员身份运行时 Windows 会用 UIPI 阻断「资源管理器 → 应用」的拖放，这是系统限制，客户端只能提示（`ElevationHelper`），不要试图绕过。
+- **界面设计一律以用户提供的设计参考为准**：对话中给出的设计稿 / 截图就是视觉基准，改配色、圆角、间距、控件形态、排版前先对照，不要自行更换视觉语言。设计稿存 `docs/design/`（命名 `ui-<窗口或场景>.png`），并在 `docs/design/README.md` 登记文件名与文字要点——无法看图的人（包括 AI）靠这些文字实现。目前该目录还没有设计稿，视觉基线以下面这一节为准。
+- **液态玻璃**主题（深色 / 浅色 / 跟随系统）：主窗口透明无边框，Rust 侧给窗口铺系统材质（亚克力 / 云母 / 无，`windowMaterial`），失败自动退到另一种；`theme.css` 只定义每套主题的底色三元组与高光，各层不透明度由 `--glass-strength`（`glassOpacity`）推导；`glass.css` 统一给标题栏、侧栏、歌曲区、对话框、设置卡片加顶部柔光、内侧高光、投影与 1px 边缘折光。颜色一律用 CSS 变量，不写死色值。
+- **WebView2 在透明窗口里不支持 `backdrop-filter`**（实机确认）。景深改为给「下一层」加 `filter`：有对话框时整个 `#root` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) #root`），叠放对话框时被盖住的也虚化。对话框用 `createPortal` 挂到 `body`，避免被上一个对话框的 filter 截成局部定位容器。普通浏览器里 `backdrop-filter` 仍生效，两者叠加无妨。**不要为了「更像玻璃」把对话框底色改回高不透明度，也不要依赖 `backdrop-filter` 做模糊。**
+- **动效**：时长（120 / 200 / 320 / 460 ms）与缓动统一在 `theme.css`；对话框进场缩放 + 淡入，退场靠卸载时留下的静态「残影」播放淡出；主题切换用 View Transition 整窗交叉淡化；「减少动效」（`reduceMotion` 或系统开启「减少动画」）把所有过渡缩到 1 ms。
+- 窗口：无边框自绘标题栏（`TitleBar`，68 px 顶栏即标题栏，自绘最小化 / 最大化 / 关闭，可拖动，双击最大化），窗口最小 960×600；弹出层用 `Modal` 组件（模态栈：Esc 只关最上面一个）。
+- 受限环境（远程桌面 / 关闭透明效果）下系统材质不可用，窗口退化为纯透明 + 界面自身的玻璃底色。
+- **改 UI 必须实机验证**：①普通浏览器 `pnpm dev` + 假后端（`mockBackend.ts`，`?mock=loggedout|empty|listerror|slow|libmanual|libmissing|libbig|dlslow|dlnote|ncmempty|ncmbig|neteasefail|startup|kugounone|batchbig|elevated` 等场景）检查渲染与状态，深色 / 浅色都看；②启动发布版 exe（复制到独立目录 + 独立数据目录），用 WebView2 远程调试端口读 DOM / 调命令 / 截图，至少确认窗口能开、关键文案正确、设置能保存、深色 / 浅色都不崩。
+- 管理员身份运行时 Windows 用 UIPI 阻断「资源管理器 → 应用」的拖放，这是系统限制，界面只能提示（`editor::is_elevated`），不要试图绕过。
 
 ## 12. Git、版本与 CI 发布
 
-- 提交信息：**英文祈使句、一次提交一件事**（例：`Prefer QQ word lyrics for automatic online matching`、`Move the match threshold into settings as a text input`）。
-- 提交身份：`Tsukimi-Mizuki <Tsukimi_Mizuki@outlook.com>`（仓库级 `git config`）。**交接后由新维护者改成自己的身份**，并考虑是否同步改 `LICENSE`/README 与仓库地址。
-- 提交前：`.\build.ps1 -Test` 通过；`git status` 干净；不提交 `publish/`、`.tmp/`、`.dotnet/`、缓存与临时脚本（`.gitignore` 已覆盖）。
-- **本地发版流程**：`git push origin main` → `git tag -a v1.3 -m "Lunatic Princess v1.3"` → `git push origin v1.3`。
-  推送 `v*` tag 会触发 `.github/workflows/main.yml`（windows-latest）：`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=<tag 去掉 v/V 与前导点>` → 打包 `Lunatic Princess-v<ver>.zip` → `softprops/action-gh-release@v2` 建 Release（自动生成 release notes）。
-  手动 `workflow_dispatch` 没有 tag 时版本号固定为 `v0.0.1-manual`。
-- Release 资产名里的空格在下载 URL 中会变成点：`Lunatic.Princess-v1.2.zip`（按 `/releases/expanded_assets/<tag>` 查真实资产名，直接拼 `%20` 会 404）。
-- 历史 tag：`v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点，CI 已兼容去点）、`v1.1`、`v1.2`。CI 只跑构建与发布，**不跑单元测试**；打 tag 前务必本地 `-Test`。
-- 不要 force push 主分支。
+- 提交信息：**英文祈使句、一次提交一件事**（例：`Prefer QQ word lyrics for automatic online matching`、`Rewrite build.ps1 for the Tauri app`）；**不加** `Co-Authored-By` 之类的署名行。
+- 提交身份：`Tsukimi-Mizuki <Tsukimi_Mizuki@outlook.com>`（仓库级 `git config`）。**交接后由新维护者改成自己的身份**，并考虑是否同步改 `LICENSE` / README 与仓库地址。
+- 提交前：`.\build.ps1 -Test` 通过；`git status` 干净；不提交 `dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、缓存与临时脚本（`.gitignore` 已覆盖；`bin/`、`obj/`、`.dotnet/`、`publish/` 等 C# 版遗留目录也留在忽略表里，切回 `CSharp-GUI` 分支时它们还要用）。
+- 不要 force push `main`；不要往 `CSharp-GUI` 加新功能。
+- **CI（`.github/workflows/`）**：
+  - `ci.yml`：`main` 的 push 与 pull request → windows-latest，pnpm / Node / Rust stable（带 rustfmt、clippy，`Swatinem/rust-cache` 缓存）→ `./build.ps1 -Test`。
+  - `main.yml`（名称 Release）：推送 `v*` tag 或手动运行 → 同样的环境 → 解析版本号 → `./build.ps1 -Test` → `./build.ps1 -Bundle -Version <版本>` → `actions/upload-artifact`（总是）→ 有 tag 时 `softprops/action-gh-release@v2` 建 Release（自动生成 release notes，版本带 `-` 的标为预发布）。**手动运行（分支上）不建 Release**，版本是 `tauri.conf.json` 的版本加 `-manual.<运行序号>`，只影响产物命名。
+  - 版本解析在 `scripts/resolve-version.ps1`：兼容 `v1.3`（补成 `1.3.0`）、`V1.0.0`、旧的 `v.1.0.0`（去前导点）、`v2.0.0-rc.1`；不是 SemVer 的 tag 直接报错。外部输入（tag 名）一律通过 `env:` 传入脚本，不直接拼进命令。
+  - Release 资产（名字不含空格）：`LunaticPrincess-<版本>-win-x64-setup.exe`、`LunaticPrincess-<版本>-win-x64-portable.zip`、`SHA256SUMS.txt`。
+- **发版流程**：先确认「待修问题」是否要在此版本处理 → 把 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json` 的版本改成同一个数字并提交（CI 以 tag 为准、会临时覆盖，但仓库里的数字应与发布一致，`Cargo.lock` 里成员版本随 cargo 构建更新，一并提交）→ 本地 `.\build.ps1 -Test -Bundle` → `git push origin main` → `git tag -a v2.0.0 -m "Lunatic Princess v2.0.0"` → `git push origin v2.0.0` → 在 Actions 里确认通过、到 Releases 核对资产并试装一次。**2.0.0 暂不发版**，等用户决定。
+- 安装包说明：NSIS、当前用户安装（不要管理员权限）、简体中文 / 英文、WebView2 缺失时联网下载引导程序（Tauri 默认 `downloadBootstrapper`）；未做代码签名，SmartScreen 可能提示未知发布者。
 
 ## 13. 常见修改配方
 
-1. **新增/调整音质档**：改 `Core/Models/AudioQuality.cs`（枚举 + `ToApiLevel()/ToApiLevels()/ToDisplayName()/ToBitrate()/FromApiLevel()`）→ 设置下拉自动枚举 → 补 `tests/.../Models/AudioQualityTests.cs` → 更新 `docs/ARCHITECTURE.md` 音质映射表。
-2. **新增设置项**：`AppSettings` 加属性 + `Normalize()` 校验（非法值归默认）→ `SettingsViewModel` 读入、以及在 `SaveAsync` 构造新 `AppSettings` 时**显式带回**（不写就等于每次保存都重置）→ `SettingsWindow.axaml` 加卡片 → 若是枚举改名，在 `JsonSettingsStore.MigrateLegacyValues` 里做旧值迁移 → 补设置往返测试。
-3. **新增在线词源**：实现 `ILyricsSource`（`Label` + 获取方法）→ 加进 `AppServices.Create()` 的 `fallbackLyrics` 数组 → 若要可开关，加 `AppSettings` 布尔项并在 `AppServices.ApplyFallbackLyricsSettings` 里映射 → 若要出现在编辑器下拉，扩展 `LyricsSourceKind` 与 `LyricsEditorViewModel`。
-4. **新增窗口**：`Views/XxxWindow.axaml(.cs)` + `ViewModels/XxxViewModel.cs` + 在组合根注入依赖 → 打开时设置 Owner 并调用 `VisualThemeManager.ApplyDialog` → 可交互控件补 `AutomationProperties.Name` → 实机验证深色/浅色。
-5. **改错误提示**：优先扩 `Core/Utilities/ErrorText.cs`（把异常映射成「是什么 + 怎么办」的中文），Desktop 侧只经 `ErrorFormatter` 转发；补 `Utilities/ErrorTextTests.cs`。
-6. **动 NCM / 歌词写入**：先读 `docs/ARCHITECTURE.md` 对应章节与现有测试；`SyntheticNcmFile` + `Mp3Fixture` 可以造出真实可用的样本做端到端验证。
+1. **新增 / 调整音质档**：改 `lp-core/src/models/audio_quality.rs`（枚举 + `api_level()/api_levels()/display_name()/bitrate()/from_api_level()/fallback_chain()`）→ 设置下拉与工具栏下拉由 `qualityOptions` 自动带出 → 补该文件的测试 → 更新 `docs/ARCHITECTURE.md` 的音质映射表。
+2. **新增设置项**：`AppSettings` 加字段 + `new()` 默认值 + `normalize()` 校验（非法值归默认）→ `apply_patch` 里加这个键的严格校验（类型 / 枚举 / 范围）→ 若是枚举改名，在设置读取的迁移处理旧值 → `src-tauri` 的 `SettingsDto` 如需额外选项一并带出 → 前端 `api/settings.ts` 类型、`SettingsDialog.tsx` 加控件（补 `aria-label`）、`mockBackend.ts` → 补默认值 / 夹取 / 补丁 / C# 兼容读取的测试（`csharp_compat` 只比较 C# 认识的键）。
+3. **新增在线词源**：在 `lp-core/src/online/` 实现 `LyricsSource`（`label()` + `fetch(&LyricsQuery, &CancelToken)`；任何网络 / 证书 / JSON 错误都回落成「没有结果」，只有取消才是 `Err`）→ 加进 `AppState` 装配的备用词源列表 → 若要可开关，加 `AppSettings` 布尔项并接进 `online::fallback_source_enabled` → 若要出现在编辑器下拉，扩展 `LyricsSourceKind`、`online_search` / `lyrics_source_fetch` 与 `LyricsEditorDialog` → 测试用 `FakeTransport` 脚本化响应。
+4. **新增对话框**：`components/XxxDialog.tsx`（用 `Modal`，别自己写遮罩）+ `state/useXxx.ts` + `api/xxx.ts` + 后端命令（配方见 §8「新增命令」）→ 可交互控件补 `aria-label` → 假后端加场景 → 深色 / 浅色实机检查，叠放时 Esc 只关最上面一个。
+5. **改错误提示**：优先扩 `utilities/error_text.rs`（把错误映射成「是什么 + 怎么办」的中文），补对应测试；命令返回 `{ kind, message }`。
+6. **动 NCM / 歌词 / 标签写入**：先读 `docs/TAURI_REWRITE.md` 对应模块章节与现有测试；`ncm/synthetic.rs` + `tags/fixtures.rs` 可以造出真实可用的样本做端到端验证；改了行为要重跑 `csharp_*` 集成测试，它们是与 C# 版逐字节对照的护栏。
+7. **改打包 / 版本**：安装包选项在 `app/src-tauri/tauri.conf.json` 的 `bundle`；产物命名与便携版组装在 `build.ps1` 的 `-Bundle` 段；版本解析在 `scripts/resolve-version.ps1`；改完用 `.\build.ps1 -Bundle -Version v9.9.9-test` 本地演练（构建完会自动恢复清单）。
 
 ## 14. 已知限制与技术债
 
+- **待修问题（已确认、暂不处理）**：①`/weapi/login/token/refresh` 返回 `code=400`，续期效果未证实；②网易云搜索匿名不可用（返回密文），在线匹配实际靠 QQ。详情与线索见 `docs/TAURI_REWRITE.md`「待修问题」。**用户决定全部模块完成后统一修复，别在别的改动里顺手改。**
 - 没有本地播放功能：定位是「歌单同步 / 下载 / 解密 / 标签管理」。
-- Android 只做了接口预留（见 ARCHITECTURE「Android 复用边界」），没有任何实现。
-- 单测只覆盖 Core；Desktop 的 ViewModel/窗口**没有自动化测试**，历史验证都是临时 UIA 脚本，未入库。
-- 文档引用了两个仓库里不存在的文件：`docs/IMPLEMENTATION_STATUS.md` 提到 `docs/screenshots/main-window.png`，`THIRD_PARTY_NOTICES.md` 提到开发期参考 `.research/netease-integration-research.md`（`.research/` 已 gitignore）。补图或改文档二者取一。
-- 网易云 / QQ / 酷狗接口随时可能变（见 §10）；匹配成功率依赖第三方可用性，网易云 406 限流时以 QQ 为主。
-- 单账号：没有账号切换/多账号；`session.dat` 绑定 Windows 用户，换用户或换机器必须重新扫码（启动时读取失败会在日志里给出原因与数据目录）；账号 Cookie 的续期依赖非公开接口，长期有效性尚待真机观察。
-- 本地发布产物不带版本号（1.0.0.0），只有 CI 包带 `-p:Version`。
-- 逐字歌词取决于源是否提供 YRC/QRC/KRC；都没有时回退逐行 LRC。
-- 无损/ Hi-Res 以上档位受会员权益限制：无权限时降档或失败，程序不绕过。
-- FLAC 封面走 VorbisComment `METADATA_BLOCK_PICTURE`（TagLibSharp 2.3.0 无原生 PICTURE block API），主流播放器兼容。
+- 前端**没有自动化测试**（逻辑集中在 `lp-core` 单测；界面靠假后端 + 实机验证）；纯逻辑（Shift 连选、进度并入）已放在可导出的函数里，需要时可补前端测试框架。
+- 真实账号下的下载、同步、状态列、歌词预览、歌曲行「编」按钮、资源管理器真实拖拽，历来无法在无人值守环境验证，**需要用户真机确认**（清单在 `docs/TAURI_REWRITE.md` 各模块「验证」）。
+- 外部接口随时可能变（见 §10）；匹配成功率依赖第三方可用性。
+- 单账号：没有账号切换；`session.dat` 绑定 Windows 用户，换用户或换机器必须重新扫码。
+- 没有致命异常落盘日志；运行日志只在内存。
+- 无损 / Hi-Res 以上档位受会员权益限制：无权限时降档或失败，程序不绕过。
+- 不支持 WMA 标签读写（lofty 不支持 ASF）；FLAC 封面是原生 PICTURE 块；Windows 资源管理器只认 RIFF INFO 的 WAV 标签。
+- 玻璃「透出」只能看到被虚化的下一层，做不了真正的局部折射；亚克力在拖动 / 缩放时比云母更耗电（设置里有说明）。
+- 安装包与便携版未签名；没有自动更新。
+- `lp-core` 的 `csharp_*.rs` 与夹具名里的 `csharp` 是历史命名，指的是「C# 版生成的黄金数据」。
+- Android 等平台没有实现：`lp-core` 与 Tauri 外壳分离，理论上可复用，但 DPAPI、已知文件夹、提权检测需要替换。
 
 ## 15. 交接清单（转交前逐项确认）
 
 - [ ] 仓库所有权 / 协作者权限、GitHub Actions 与 Releases 权限已移交（CI 只用默认 `GITHUB_TOKEN`，无额外 secret）。
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改。
-- [ ] 删除个人数据：`publish\win-x64\data`（含 `session.dat`）、`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容；检查 `settings.json` 里有没有个人路径。
-- [ ] `git status` 干净，仓库里没有临时脚本/日志/发布产物；`git log` 与远端一致。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（404/404）与 `.\build.ps1 -Publish`，并在一台**没装 .NET** 的机器上验证 CI 风格自包含 zip 能直接运行。
-- [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责后续 tag/Release。
-- [ ] 约定后续节奏：分支策略（是否引入 develop/PR 流程）、发版频率、以及是否继续推进 Android 与本地播放。
+- [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
+- [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1014 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
+- [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。
