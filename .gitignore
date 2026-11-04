@@ -1,25 +1,31 @@
-bin/
-obj/
-.dotnet/
-.dotnet-home/
-.deps/
-.research/
-*.user
-*.suo
-TestResults/
-artifacts/
-.tmp/
-.nuget-packages/
-.nuget-http-cache/
-.nuget-plugins-cache/
-
-publish/
-.idea/
-.vs/
-.tmp-avalonia-research/
-
-# Tauri rewrite (app/)
+# Tauri app (app/)
 app/target/
 app/dist/
 app/node_modules/
 app/src-tauri/gen/schemas/
+
+# Release output of build.ps1 -Bundle (installer, portable zip, checksums)
+dist-release/
+
+# Workspace-local caches and scratch space used by build.ps1 (TMP/TEMP point to .tmp)
+.tmp/
+.tmp-avalonia-research/
+.research/
+.deps/
+.idea/
+.vs/
+*.user
+*.suo
+TestResults/
+artifacts/
+
+# Local leftovers of the C# version (CSharp-GUI branch). They are not tracked on main, but they stay on disk
+# and must not turn into untracked files when switching branches.
+bin/
+obj/
+.dotnet/
+.dotnet-home/
+.nuget-packages/
+.nuget-http-cache/
+.nuget-plugins-cache/
+publish/
