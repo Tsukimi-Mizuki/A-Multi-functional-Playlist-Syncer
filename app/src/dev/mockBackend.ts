@@ -9,7 +9,7 @@
  * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
  * 本地曲库对比：默认自动扫描（约 3 秒，带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；
  * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
- * 歌词与标签编辑器 / 批量获取：`neteasefail` 网易云搜索报“加密数据”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
+ * 歌词与标签编辑器 / 批量获取：`neteasefail` 网易云搜索报“接口暂时无法使用”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
  * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
  * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
@@ -419,7 +419,7 @@ async function runMockTransfer(options: MockTransferOptions): Promise<TransferSu
 }
 
 /* ---- 歌词与标签编辑器 / 批量获取的假实现 ----
- * `?mock=neteasefail` 网易云搜索返回“加密数据”错误（实网现状）；`startup` 模拟 `--edit` 启动参数；
+ * `?mock=neteasefail` 网易云搜索返回“接口暂时无法使用”错误（模拟网易云不可用）；`startup` 模拟 `--edit` 启动参数；
  * `kugounone` 酷狗没有结果；`batchbig` 批量目录有 3000 个文件。
  * 浏览器控制台里的 `window.__lpMock.drop([...路径])` 模拟拖入文件，`dragEnter([...])` / `dragLeave()` 只触发提示层。
  */
@@ -971,7 +971,7 @@ export function installMockBackend(scenario: string | null): void {
           }
           if (query === '') throw { kind: 'emptyQuery', message: '请输入要搜索的歌曲、歌手或专辑。' }
           if (source === 'Netease' && scenario === 'neteasefail') {
-            throw { kind: 'failed', message: '网易云音乐搜索接口返回了加密数据，暂时无法使用，请改用 QQ 音乐。' }
+            throw { kind: 'failed', message: '网易云音乐搜索接口暂时无法使用，请稍后再试，或改用 QQ 音乐。' }
           }
           const specs = query.includes('没有结果') ? [] : MOCK_ONLINE_SPECS
           const scored = args.fileContext != null

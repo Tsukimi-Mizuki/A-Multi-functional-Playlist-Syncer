@@ -524,6 +524,17 @@ struct RoutedTransport {
 impl HttpTransport for RoutedTransport {
     fn send(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, TransportError>> {
         Box::pin(async move {
+            // 有意的差异：网易云搜索的主路径现在是匿名 eapi（`/eapi/cloudsearch/pc`），C# 版只有网页接口
+            // （`GET /api/search/get/web`）。这里让 eapi 一律被拒绝（404），Rust 就会回退到网页接口，
+            // 于是网页接口的解析与请求序列仍能与 C# 的黄金输出逐项比较；eapi 的那次尝试不计入请求序列
+            // （eapi 自己的请求与解析由 `netease::search` 的单测覆盖）。
+            if request.url.contains("/eapi/cloudsearch/pc") {
+                return Ok(HttpResponse {
+                    status: 200,
+                    set_cookies: Vec::new(),
+                    body: br#"{"code":404}"#.to_vec(),
+                });
+            }
             self.requests.lock().unwrap().push(format!(
                 "{} {}",
                 request.method.as_str(),

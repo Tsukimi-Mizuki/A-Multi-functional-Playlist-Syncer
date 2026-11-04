@@ -103,7 +103,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
 | 8 | 本地曲库与对比 | 曲库扫描（并行读标签）、与歌单一对一匹配、状态列 / 统计 / 对比与重新扫描按钮 | 完成 |
 | 9 | 下载与同步 | 九档音质取链下载（逐级降档、试听判失败、NCM 自动解密）、一键同步（跳过 / NCM 解密 / 下载三分支）、多选 + 工具栏 + 逐行进度 | 完成（真实下载需用户真机验证） |
-| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配、拖放与启动参数 | 完成：10a 后端核心（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面、拖放、`--edit` / `--lyrics` 启动参数（网易云匿名搜索不可用见「待修问题」） |
+| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配、拖放与启动参数 | 完成：10a 后端核心（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面、拖放、`--edit` / `--lyrics` 启动参数（网易云匿名搜索不可用已修复，见「待修问题」与「网易云搜索修复」） |
 | 11 | 设置与外观 | 液态玻璃视觉体系、设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、窗口材质与主题实时预览、统一动效 | 完成 |
 | 12 | CI 打包、文档、删除 C# | NSIS 安装包 + 便携版 zip、`build.ps1` 重写、`ci.yml` / `main.yml`、`scripts/resolve-version.ps1`、文档全部改写、`main` 上删除 C# 代码 | 完成（见「模块 12 实现记录」） |
 
@@ -112,7 +112,68 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
-- **网易云搜索当前匿名不可用**（模块 10a 联网探针发现，2026-11-04）：C# 与这里用的 `/api/search/get/web` 现在返回 `{"result":"<十六进制密文>"}`（C# 把它当成 0 条结果）；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的歌曲；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、或是否要改走 `eapi`，需要用户用真实账号验证后再定；目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源）。C# v1.3 同样受影响。详见“模块 10a”。
+- ~~**网易云搜索当前匿名不可用**~~ **已修复（2026-11-04，提交 `Restore anonymous NetEase search through eapi`）**：搜索改走**匿名 eapi** `POST /eapi/cloudsearch/pc`（不需要登录，海外 IP 下也是明文），原网页接口 `/api/search/get/web` 只作回退；调查、方案与验证见下面的「网易云搜索修复」。原始描述（保留）：
+  **网易云搜索当前匿名不可用**（模块 10a 联网探针发现，2026-11-04）：C# 与这里用的 `/api/search/get/web` 现在返回 `{"result":"<十六进制密文>"}`（C# 把它当成 0 条结果）；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的歌曲；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、或是否要改走 `eapi`，需要用户用真实账号验证后再定；目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源）。C# v1.3 同样受影响。详见“模块 10a”。
+
+## 网易云搜索修复（待修问题 ②）实现记录
+
+> 2026-11-04，提交 `Restore anonymous NetEase search through eapi`。只改搜索，没有碰登录续期（待修问题 ①）。
+
+### 调查（全部匿名，不用任何登录态；一次性探针在 `.tmp\probe`，已删除）
+
+关键背景：这台机器的公网 IP 在日本，服务端判定为**海外访问**（网页搜索响应里带 `"abroad":true`）。公开的实现（Rust 版 `lyrics-search` 的网易云搜索器）也写明“网页接口在海外 IP 下返回加密结果，改用 eapi 接口兜底”。所以“密文”是**海外 IP 才有的现象**，国内 IP 下网页接口多半仍是明文（没法在本机验证）。每个方案用了 2–3 个关键词（“夜に駆ける YOASOBI”“晴天 周杰伦”“Lemon 米津玄師”），请求之间留 1–2 秒，总共几十次请求，没有出现 `406`。
+
+| # | 方案 | 做法 | 结论 |
+|---|---|---|---|
+| 1 | 本地解密网页接口的密文 | `GET /api/search/get/web` 得 `{"abroad":true,"code":200,"result":"<9088 位 hex>","trp":{…}}`（4544 字节，是 16 的整数倍）；分别用 eapi key `e82ckenh8dichen8`、weapi 内层 key `0CoJUm6Qyw8W8jud`、linuxapi key `rFgB&h#%2?^eDg:Q` 做 AES-128-ECB，并对后续分组做 CBC 判断 | **不可行**：三个固定 key 的 ECB / CBC 解出来都不是明文（可打印字节比例与随机数据一致，eapi key 的 PKCS#7 填充也不对）。这是服务端对海外请求加的响应加密，key 不公开（NeteaseCloudMusicApi Enhanced 里新协议 `neapi` 的 key 还会轮换），不值得逆向。 |
+| 2 | **eapi 搜索** | `POST https://interface.music.163.com/eapi/cloudsearch/pc`，表单 `params=HEX(AES-128-ECB(PKCS#7, "/api/cloudsearch/pc-36cd479b6b5-<JSON>-36cd479b6b5-<MD5>"))`，`MD5 = md5("nobody/api/cloudsearch/pc use<JSON>md5forencrypt")`（对照 NeteaseCloudMusicApi `util/crypto.js` 的 `eapi()`，并用 Node 内置 crypto 独立生成向量核对） | **成功，匿名可用，海外 IP 下也是明文 JSON。** 主机 `interface` / `interfacepc` / `interface3` / `music.163.com` 四个都可以；`header` 放对象、放字符串、完全不带（只带 `os=pc; appver=…` Cookie）都可以；UA 用安卓、桌面客户端、Chrome 都可以。结果 `result.songs[]` 是 `ar` / `al` / `dt` / `alia` / `publishTime` 结构（与歌曲详情接口一致），带 id、歌名、歌手、专辑（含 `picUrl` 封面）、时长；`limit` 取 5 / 10 / 30 / 50 都行。 |
+| 2b | eapi 的老搜索端点 | `/eapi/search/get` | 返回与关键词无关的歌曲（搜“Lemon 米津玄師”得到一串叫“42”的），不可用。 |
+| 3 | weapi cloudsearch | `/weapi/cloudsearch/get/web`：Chrome UA、桌面客户端 UA（`NeteaseMusicDesktop/3.0.18`）、`os=pc` Cookie、先访问首页再带 `NMTID` | **不可行**：一律 `code=50000005`（首页不下发 `NMTID`，搜索响应才下发）。 |
+| 4 | 其他方案 | 查 NeteaseCloudMusicApi Enhanced（原仓库已下架的分支）`util/request.js` / `module/cloudsearch.js`：`cloudsearch` 现在就是 `request('/api/cloudsearch/pc', …)`，默认加密方式 `eapi`；另有 `xeapi`（X25519）和 `neapi`（轮换 key）两种新协议 | 采用方案 2，与社区现状一致。`realIP` / `X-Real-IP` 伪装国内 IP 的做法**不采用**：那是在绕地域限制，与本项目“不绕过版权与会员限制”的原则不符。 |
+
+另外观察到：连接 `*.music.163.com` 时有大约一成请求报 `unexpected EOF during handshake`（和酷狗、`tls handshake eof` 是同一类瞬时故障），所以搜索对这类**连接失败**做了一次换主机重试（见下）。
+
+### 方案
+
+- **主路径：匿名 eapi 搜索**。`NeteaseClient::post_eapi`（`netease::client`）构造请求：桌面端 `header` 对象（身份取自取链用的 `PLAYBACK_COOKIE_SUFFIX`：`os=pc; appver=2.10.6; osver=…; deviceId=LunaticPrincessPc; channel=netease`，加 `versioncode`、`resolution`、`mobilename`、`__csrf`、每次都变的 `buildver` 与 `requestId=<毫秒>_<4 位随机>`）放进业务 JSON，同样的字段也作为 Cookie 发出；UA 用浏览器 UA。**不读取、不带、也不合并登录态**：搜索不需要账号，匿名响应里的 `Set-Cookie`（`NMTID`）直接丢弃，不会写进 `session.dat`。**所以这个修复不依赖登录**。
+- **主机重试**：先 `interface.music.163.com`，**连接 / TLS 失败**（`Network`）时换 `music.163.com` 再试一次；超时（已经等了 20 秒）与接口明确拒绝都不重试。
+- **回退：网页接口**。eapi 被明确拒绝（HTTP 非 2xx、业务 code 不是 200）或返回无法识别的内容时，再试一次 `GET /api/search/get/web`（国内 IP 下它仍是明文）。**限流 / 风控（`406` / `-460` / HTTP 429）与网络层失败不回退**——回退只会多发一次同样会被拒绝的请求。两条路都失败时报 eapi 的错误（它才是主路径）。
+- 响应映射与 `OnlineMusicSearch` 的接口、打分流程都没变：仍是 `result.songs` → `mappers::map_song` → `OnlineSongResult`；`result` 是字符串（密文）时仍报明确的中文错误“搜索网易云歌曲失败：接口返回了无法识别的加密数据”。
+- **编辑器默认搜索来源没有改**（仍是 QQ 音乐），见下面的建议。
+
+### 改动
+
+| 文件 | 内容 |
+|---|---|
+| `lp-core/src/netease/crypto.rs` | 新增 eapi：`eapi_encrypt(api_path, business_json)`（MD5 摘要 + AES-128-ECB PKCS#7 + 大写 hex）、私有的 `ecb_encrypt_pkcs7`、测试用的 `eapi_decrypt` |
+| `lp-core/src/netease/client.rs` | 新增 `post_eapi`（匿名 eapi POST）、`eapi_client_header`；`apply_headers` 拆出 `push_common_headers` |
+| `lp-core/src/netease/search.rs` | `search_songs` 改成“eapi 主路径 → 换主机重试 → 网页接口回退”；解析抽成 `parse_songs`；`should_fall_back` 决定哪些失败可以回退 |
+| `lp-core/tests/csharp_online.rs`、`tests/fixtures/online/README.md` | 网易云搜索场景的交叉验证：让 eapi 请求一律 404 且不计入请求序列，Rust 回退到网页接口后仍与 C# 的黄金输出逐项比较（回退路径的解析与请求序列没变）；README 补一段说明 |
+| `lp-core/src/online/tests/service.rs` | 两个网易云搜索用例改成断言 eapi 请求 / 回退行为 |
+| `lp-core/src/settings.rs`（注释）、`src/components/SettingsDialog.tsx`（提示文字）、`src/dev/mockBackend.ts`（`neteasefail` 场景文案） | 去掉“网易云匿名搜索不可用”的过时说法；默认来源不变 |
+| `AGENTS.md`、`README.md`、`docs/ARCHITECTURE.md`、`docs/IMPLEMENTATION_STATUS.md`、`THIRD_PARTY_NOTICES.md` | 同步 |
+
+### 新增依赖
+
+`md-5` **0.10.6**（eapi 的 MD5 摘要；crate 名 `md-5`，代码里是 `md5`）。选 0.10 而不是 0.11 是因为 Tauri 依赖树里已有 `digest 0.10.7`，0.10 只多这一个 crate；0.11 还会额外引入 `digest 0.11`、`block-buffer 0.12`、`const-oid`。AES-128-ECB 直接用已有的 `aes`（块加密，PKCS#7 填充自己做），没有加 `ecb` crate。已写进 `THIRD_PARTY_NOTICES.md`。
+
+### 验证
+
+- 单测（离线，全部用 `FakeTransport`）：`lp-core` 库内 **958**（+13：`netease::crypto` +4——两组 eapi 参考向量（Node.js 内置 crypto 按 NeteaseCloudMusicApi 算法独立生成）、明文结构与 MD5 摘要、大写 hex / 整分组、FIPS-197 AES-128 向量与 PKCS#7 补整块；`netease::search` 6 → 15，+9——eapi 请求结构（POST、URL、路径、业务 JSON、`header`、Cookie）、匿名且不碰登录态（带 `MUSIC_U` 的会话不会被发出，`NMTID` 不会合并进会话）、空白关键词、limit 夹取、缺 `result`、连接失败换主机重试、两个主机都失败不回退、超时不重试不回退、`406` / `-460` / 429 不回退、eapi 被拒 / 502 / 非 JSON / 密文后回退网页接口、回退也失败时报 eapi 的错、密文报明确错误），集成测试 36（`csharp_online` 的网易云场景改为经回退路径对照）、外壳 33；workspace 合计 **1027**（修复前 1014）。`.\build.ps1 -Test`（fmt、clippy `-D warnings`、`cargo test --workspace`、`pnpm build`）输出 `All checks passed.`，退出码 0。
+- **联网（生产代码路径）**：用 `lp-core` 的 `NeteaseClient::search_songs` 对“夜に駆ける YOASOBI”“晴天 周杰伦”“Lemon 米津玄師”“周杰伦 晴天 叶惠美”各查一遍（匿名、间隔 1.5 秒）：全部返回，字段齐全（id、歌名、歌手、专辑、时长、发行日期、封面 URL）。
+- **实机**（`.\build.ps1` 的发布版 exe 复制到 `D:\claude\search-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\search-data`，`settings.json` 只指向 `D:\claude` 下的目录，没有登录态、没有碰真实音乐目录；WebView2 远程调试端口 + CDP 调用 `online_search`；测完已关进程并清空这两个目录）：
+  - `Netease` + `fileContext` “夜に駆ける / YOASOBI”：20 条，首条 `夜に駆ける / YOASOBI` 100%，其后 95% / 69%（可信）、56% 以下标 `belowThreshold`，按总分降序；
+  - “Lemon / 米津玄師”：首条 `Lemon` 100%，第二条 `STRAY SHEEP` 版 97%；“周杰伦 晴天 叶惠美”：唯一一条 `晴天 / 周杰伦 / 叶惠美`（id 186016）100%；
+  - 不带 `fileContext` 的“Lemon”：19 条、`scored=false`；空白关键词仍是 `emptyQuery`。
+  - 以前这些调用都是“接口返回了加密数据”的错误。
+
+### 遗留问题与建议
+
+1. **海外 IP 下 cloudsearch 的排序**：热门原曲会被翻唱 / 钢琴版挤到后面。实测“晴天 周杰伦”“周杰伦 晴天”“晴天”的前 50 条里都没有原曲（id 186016），只有带专辑名的“晴天 周杰伦 叶惠美”才命中；而 `lyrics::scorer::build_queries` 的变体里没有“标题 歌手 专辑”，所以类似的歌在批量 / 自动补全里网易云可能匹配不到、转由 QQ 兜底。这是第三方排序，不是本次修复引入的；要改就得动 `build_queries`，会牵动与 C# 黄金夹具的对照，所以没有顺手改。
+2. **默认搜索来源**：建议**继续保持 QQ 音乐**（QRC 逐字歌词已在实网验证，网易云搜索的排序在上一条里有波动）；网易云现在可以在编辑器里手动选用。是否改回网易云留给用户决定，已有设置文件里写着的来源原样保留。
+3. eapi 仍是非公开接口，且网易云正在推 `xeapi` / `neapi` 新协议（社区实现里已经出现）；目前 `cloudsearch` 仍接受老 eapi。哪天失效，回退的网页接口只在国内 IP 下有用，届时需要实现新协议。
+4. 国内 IP 下网页接口是否返回明文、eapi 在国内是否同样可用，没能在本机验证（公开实现都说可用）。
+5. 搜索全程匿名，登录状态不影响搜索；`/weapi/login/token/refresh` 的续期问题（待修问题 ①）与此无关，没有改动。
 
 ## 模块 12（CI 打包、文档、删除 C#）实现记录
 
@@ -221,7 +282,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 | Rust | 对照 C# | 要点 |
 |---|---|---|
-| `netease::search` | `NeteaseApiClient.Search.cs` | `NeteaseClient::search_songs(keyword, limit)`：`GET /api/search/get/web`，数量夹在 1–50，空白关键词不发请求，丢弃 id 非法或歌名为空白的项；**`result` 是字符串（密文）时报明确错误**（见下“联网探针”）。 |
+| `netease::search` | `NeteaseApiClient.Search.cs` | `NeteaseClient::search_songs(keyword, limit)`：`GET /api/search/get/web`，数量夹在 1–50，空白关键词不发请求，丢弃 id 非法或歌名为空白的项；**`result` 是字符串（密文）时报明确错误**（见下“联网探针”；**已修复**：主路径换成匿名 eapi，网页接口只作回退，见「网易云搜索修复」）。 |
 | `lyrics::scorer` | `LyricsMatchScorer`（`LyricsMatchScore`） | 与 C# **逐项一致**：归一化（NFKC → 小写 → 只留字母数字，按 UTF-16 码元判定）、`strip_brackets` / `core_title`、`is_instrumental`、`build_queries`（至多 6 组变体）、`duration_matches`（±8 s）、四路分值（标题 / 歌手 / 专辑 / 时长）与总分（有歌手 0.55 / 0.25 / 0.20，无歌手 0.72 / 0.20 / 0.08；专辑不符 ×0.97；版本标记多出 ×0.86、缺少 ×0.94；歌手相似度 < 0.30 ×0.75；伴奏直接排除）、`split_multi_value`、`try_parse_threshold`（60 / 60% / 0.6，银行家舍入到两位）、`format_threshold_percent`。阈值常量 0.30 / 0.60 / 1.00。 |
 | `online::model` | `OnlineMusicSearch.cs`、`ILyricsSource.cs`、`LyricsSourceKind` 扩展 | `OnlineMusicSource`（序列化名 `Netease` / `QQMusic`）、`OnlineSongResult`、`OnlineSongDetails`（`get_lyrics(prefer_word, bilingual)` 的选择顺序与 C# 相同）、`LyricsSourceCandidate`、trait `LyricsSource`（`label()` + `fetch(&LyricsQuery, &CancelToken)`）、`OnlineError { Cancelled, Failed(中文) }`、`music_source_of`。 |
 | `online::service` | `OnlineMusicSearchService` | trait `OnlineMusicSearch`（`search` / `get_details`，测试用手写假实现）+ `OnlineMusicSearchService`：网易云走 `NeteaseClient`（详情失败回落搜索摘要、歌词失败仍应用标签与封面），QQ 走下面的 `qq`。 |
@@ -238,7 +299,7 @@ pnpm build           # 只构建前端（tsc + vite）
 ### 与 C# 行为的差异（有意为之）
 
 - **实网修正：酷狗候选的 `duration` 现在是毫秒**（如 255582），C# 当秒乘 1000，所有候选都被时长过滤掉，酷狗源在实网上永远“没有结果”。这里 ≥ 10000 按毫秒、更小按秒（旧接口 / 夹具），交叉验证夹具（秒）结果不变。
-- **网易云搜索端点失效时给明确错误**：C# 把密文当成“0 条结果”。这里报“接口返回了加密数据，暂时无法使用，请改用 QQ 音乐”（见“联网探针”与“待修问题”）。
+- **网易云搜索端点失效时给明确错误**：C# 把密文当成“0 条结果”。这里报“接口返回了加密数据，暂时无法使用，请改用 QQ 音乐”（见“联网探针”与“待修问题”）。**后来已修复**：主路径换成匿名 eapi，网页接口只作回退，见「网易云搜索修复」。
 - **下载 / 同步的在线补全也用设置里的匹配度阈值**：C# 的下载与同步路径用 `AutoEnrich` 的固定 0.60（只有 NCM 导入窗口用了设置值）；这里三条路径一致读设置。
 - **取消**：`CancelToken`，在每个网络请求处立刻生效（C# 靠 `CancellationToken`）；标签写入在阻塞线程里，开始前检查一次。取消不再被“吞掉所有异常”的 catch 吃掉（C# 用 `when (!IsCancellationRequested)` 达到同样效果）。
 - **超时不换镜像 / 不静默重试**：与 C# 一致，QQ 搜索超时直接报错（只有连接失败与非 2xx 才换 `c6`）；PlayLyricInfo 超时直接让详情失败（批量会换下一个来源）。
@@ -278,13 +339,13 @@ pnpm build           # 只构建前端（tsc + vite）
   - **QQ 音乐**：搜索 10 条、最佳匹配分 1.000；详情拿到标签（专辑、2018 / 2003 年）、封面（13 KB / 33 KB）、**逐字 QRC 解密成功**（57 / 63 行）、译文；`PlayLyricInfo` 路径可用。
   - **LRCLIB**：两首都命中（92 / 44 行同步歌词，时长差 ≤ 1 s），无逐字、无译文。
   - **酷狗**：首轮探针发现“永远没有结果”的原因是候选 `duration` 为毫秒（已修，见上）；修后三段链路在实网上走通（`krcs` 候选 → `lyrics.kugou.com` 下载，命中 `Lemon - 米津玄師` 255582 ms）。本机 `mobilecdn.kugou.com`（hash 步骤）证书域名不匹配（`SEC_E_WRONG_PRINCIPAL`），被当作“没有 hash”继续；`lyrics.kugou.com` 的 KRC 下载偶发 `unexpected EOF during handshake`，当次回落 LRC（无逐字）——和 `docs` 里已有的“tls handshake eof”是同一类瞬时故障，**没有加重试**（与 C# 一致）。
-  - **网易云搜索：当前匿名不可用**。`/api/search/get/web`（C# 与这里用的端点）现在返回 `{"result":"<十六进制密文>"}`；旧的 `/api/search/get` 与 `/weapi/search/get` 返回与关键词无关的结果（搜“Lemon 米津玄師”得到一串叫“42”的歌）；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。**C# v1.3 同样受影响**（C# 把密文当 0 条结果，批量里网易云优先时每个文件白白多发 3 次搜索）。登录态下 `cloudsearch` 是否可用没有验证（不碰真实登录态），已记入“待修问题”。QQ 音乐不受影响，所以当前真正可用的主词源是 QQ 音乐。
+  - **网易云搜索：当前匿名不可用**。`/api/search/get/web`（C# 与这里用的端点）现在返回 `{"result":"<十六进制密文>"}`；旧的 `/api/search/get` 与 `/weapi/search/get` 返回与关键词无关的结果（搜“Lemon 米津玄師”得到一串叫“42”的歌）；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。**C# v1.3 同样受影响**（C# 把密文当 0 条结果，批量里网易云优先时每个文件白白多发 3 次搜索）。登录态下 `cloudsearch` 是否可用没有验证（不碰真实登录态），已记入“待修问题”。QQ 音乐不受影响，所以当时真正可用的主词源是 QQ 音乐。**（已修复，见「网易云搜索修复」。）**
 - **实机**（exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，`settings.json` 只指向 `D:\claude` 下的目录，**没有触碰真实登录态与用户目录**，测完已清空 `D:\claude`）：用 WebView2 远程调试端口对真实 exe 调用新命令：`get_match_threshold` → `{0.6, "60"}`；`ncm_get_state` → `onlineMatchAvailable: true` + 新提示；`online_search`（`Kugou` → `fallbackSource`；空白 → `emptyQuery`；`Netease` → 加密数据错误；`QQMusic` + `fileContext` → 20 条、总分 1.0 / 0.84 / 0.83 降序、`belowThreshold` 标注）；`online_load_result` → 双语逐字、封面 JPEG、状态文案；未搜索过的 QQ ID → `unknownSong`；`lyrics_source_fetch`（LRCLIB → 命中并打分；空标题 → `noFile`）；`batch_cancel` 空闲为 `false`。**NCM 导入 4 个合成样本（勾选在线补全）**：3 个带元数据的虚构歌曲给出“在线匹配失败：未找到匹配度足够的在线歌曲”，1 个没有元数据的样本按文件名“no metadata”匹配到了 QQ 上的同名歌曲（“匹配「NO METADATA (Explicit) - GRINX」：已写入标签、封面（未获取到歌词）（QQ 音乐）”——C# 的同一逻辑也会这样），`ncm:progress` 依次出现 `decrypting` → `matching` → `finished`。**批量**：`batch_scan` 找到 2 个合成 MP3；`batch_run`（逐字优先）按文件名“Lemon - 米津玄師”的合成 MP3 写入标签 / 封面 / 双语逐字歌词（`read_tags` 读回标题 Lemon、专辑レモン、2018、有封面、歌词 8994 字符以 `[00:00.000]<` 开头），虚构名的那个“未找到匹配度足够的在线歌曲”；`batch:progress` 事件 `started` ×2 → `finished` ×2，`completed` 0 → 1 → 2；空文件列表 → `noFiles`。
 
 ### 已知限制 / 留给 10b 与后续模块
 
 - 歌词与标签编辑器、批量获取窗口、拖放与启动参数已在 10b 完成；设置里的“在线匹配度 / 备用词源”输入在模块 11：设置保存命令还没有，目前阈值与备用词源开关只能改 `settings.json` 后重启，但运行期读取与“保存后即时生效”的机制（共享设置对象 + 每次调用时读取）已经就绪并有测试。（模块 11 已补上设置面板与保存命令。）
-- 网易云搜索当前不可用（见“待修问题”）；备用词源是否启用只影响“批量与自动补全”，编辑器里的备用词源检索不受开关限制（与 C# 一致）。
+- 网易云搜索当时不可用（已修复，见“网易云搜索修复”）；备用词源是否启用只影响“批量与自动补全”，编辑器里的备用词源检索不受开关限制（与 C# 一致）。
 
 ## 模块 10b（歌词与标签编辑器、批量获取窗口、拖放与启动参数）实现记录
 
@@ -341,7 +402,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 - **没有从资源管理器真实拖拽过**（只验证了事件链路与解析逻辑）；提权运行时 Windows 会阻断拖放，界面只能提示。
 - **「歌曲行的『编』按钮」没有用真实登录态验证**（不碰真实账号），只在假后端里验证。
-- 网易云匿名搜索不可用（见「待修问题」）：它是记忆的默认来源，所以全新设置下打开编辑器时自动搜索会先报错，用户需要手动切到 QQ 音乐；是否把默认来源改成 QQ 音乐留给用户决定。
+- 网易云匿名搜索当时不可用（已修复，见「网易云搜索修复」）：它是记忆的默认来源，所以全新设置下打开编辑器时自动搜索会先报错，用户需要手动切到 QQ 音乐；是否把默认来源改成 QQ 音乐留给用户决定。
 - `online::qq` 在 QQ 搜索不可用时，错误文案里带有 reqwest 的英文原文（10a 的行为，未改）。
 - 设置里的「在线匹配度」「备用词源」「来源优先级」输入已在模块 11 完成。
 

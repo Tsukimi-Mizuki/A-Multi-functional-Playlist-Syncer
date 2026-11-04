@@ -18,6 +18,8 @@ cbc = { version = "0.2", features = ["alloc"] }
 num-bigint = "0.5"
 base64 = "0.23"
 rand = "0.10"
+# eapi（网易云客户端接口，目前只给搜索用）：请求摘要 MD5（crate 名 md-5，代码里是 `md5`；0.10 与 Tauri 依赖树里已有的 digest 0.10 共用，只多这一个 crate），AES-128-ECB 复用上面的 aes。
+md-5 = "0.10"
 # HTTP：TLS 走系统 Schannel（native-tls），使用系统证书与系统代理设置；不启用 cookie 容器，Cookie 由 NeteaseClient 自行管理。
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "http2", "system-proxy", "form", "gzip", "deflate"] }
 # 登录二维码：只需要 SVG 渲染。

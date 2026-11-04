@@ -97,11 +97,18 @@ async fn netease_search_maps_results_and_ignores_blank_keywords() {
     assert_eq!(songs[0].duration_ms, 269_000);
     assert_eq!(songs[0].year, Some(2003));
     assert_eq!(songs[0].track_number, None);
-    assert!(
-        rig.netease.requests()[0]
-            .url
-            .contains("s=%E6%99%B4%E5%A4%A9&type=1&limit=10")
+    // 网易云搜索走匿名 eapi：POST 到 /eapi/cloudsearch/pc，关键词已去掉首尾空白。
+    let request = &rig.netease.requests()[0];
+    assert_eq!(
+        request.url,
+        "https://interface.music.163.com/eapi/cloudsearch/pc"
     );
+    let (path, json, _) =
+        crate::netease::crypto::eapi_decrypt(request.form_value("params").unwrap());
+    assert_eq!(path, "/api/cloudsearch/pc");
+    let payload: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(payload["s"], "晴天");
+    assert_eq!(payload["limit"], 10);
 
     let blank = rig
         .service
@@ -130,7 +137,8 @@ async fn netease_rate_limits_get_a_specific_message() {
     );
 
     let rig = self::rig();
-    rig.netease.enqueue_status(500);
+    // eapi 与回退的网页接口都返回 500：报的是主路径（eapi）的错误。
+    rig.netease.enqueue_status(500).enqueue_status(500);
     let error = rig
         .service
         .search(OnlineMusicSource::Netease, "晴天", 10, &CancelToken::new())

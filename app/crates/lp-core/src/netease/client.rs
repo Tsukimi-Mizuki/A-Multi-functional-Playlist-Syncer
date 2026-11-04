@@ -311,6 +311,49 @@ impl NeteaseClient {
         Ok(document)
     }
 
+    /// 以桌面客户端的身份发送**匿名** eapi POST 请求（目前只有搜索用），返回已校验 `code` 的 JSON。
+    ///
+    /// `base_url` 是主机（`https://interface.music.163.com`）；`api_path` 是网页风格的接口路径（`/api/cloudsearch/pc`），
+    /// 摘要与密文基于它，实际 URL 是把 `/api/` 换成 `/eapi/` 的结果。请求体里会补一个 `header` 对象
+    /// （客户端标识、`buildver`、`requestId`），同样的字段也以 Cookie 发出，与官方客户端一致。
+    ///
+    /// 不读取、不带、也不合并登录态：搜索不需要账号，匿名请求不会拿账号去撞风控或限流。
+    pub(crate) async fn post_eapi(
+        &self,
+        base_url: &str,
+        api_path: &str,
+        payload: &Value,
+        operation: &str,
+    ) -> Result<Value, NeteaseError> {
+        let route = api_path
+            .strip_prefix("/api/")
+            .ok_or_else(|| NeteaseError::protocol("eapi 接口路径必须以 /api/ 开头"))?;
+        let header = eapi_client_header();
+        let cookie = header
+            .iter()
+            .map(|(name, value)| format!("{name}={}", value.as_str().unwrap_or_default()))
+            .collect::<Vec<_>>()
+            .join("; ");
+
+        let mut body: Map<String, Value> = payload.as_object().cloned().unwrap_or_default();
+        body.insert("header".to_owned(), Value::Object(header));
+        let params = crypto::eapi_encrypt(api_path, &Value::Object(body).to_string());
+
+        let mut request = HttpRequest {
+            method: HttpMethod::Post,
+            url: format!("{base_url}/eapi/{route}"),
+            headers: Vec::new(),
+            form: Some(vec![("params".to_owned(), params)]),
+            body: None,
+        };
+        push_common_headers(&mut request, BROWSER_USER_AGENT, cookie);
+
+        let response = self.send(request).await?;
+        let document = parse_json_or_throw(&response, operation)?;
+        ensure_success_code(&document, operation)?;
+        Ok(document)
+    }
+
     /// 发送 GET 请求并返回已校验 `code` 的 JSON。
     pub async fn get_json(&self, url: &str, operation: &str) -> Result<Value, NeteaseError> {
         let (session, generation) = self.snapshot_session();
@@ -398,6 +441,10 @@ fn apply_headers(
     } else {
         NeteaseClient::build_cookie_header(session)
     };
+    push_common_headers(request, user_agent, cookie);
+}
+
+fn push_common_headers(request: &mut HttpRequest, user_agent: &str, cookie: String) {
     request.headers.extend([
         ("User-Agent".to_owned(), user_agent.to_owned()),
         ("Referer".to_owned(), REFERER.to_owned()),
@@ -408,6 +455,40 @@ fn apply_headers(
         ),
         ("Cookie".to_owned(), cookie),
     ]);
+}
+
+/// eapi 请求里的客户端标识（`header` 对象，同时作为 Cookie）：桌面端身份取自 [`PLAYBACK_COOKIE_SUFFIX`]，
+/// 另有每次都变的 `buildver`（Unix 秒）与 `requestId`（`<Unix 毫秒>_<4 位随机数>`）。
+fn eapi_client_header() -> Map<String, Value> {
+    use rand::RngExt;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let mut header = Map::new();
+    header.insert("__csrf".to_owned(), Value::String(String::new()));
+    for (name, value) in parse_cookie_string(PLAYBACK_COOKIE_SUFFIX) {
+        header.insert(name, Value::String(value));
+    }
+    header.insert("versioncode".to_owned(), Value::String("140".to_owned()));
+    header.insert("mobilename".to_owned(), Value::String(String::new()));
+    header.insert(
+        "buildver".to_owned(),
+        Value::String(now.as_secs().to_string()),
+    );
+    header.insert(
+        "resolution".to_owned(),
+        Value::String("1920x1080".to_owned()),
+    );
+    header.insert(
+        "requestId".to_owned(),
+        Value::String(format!(
+            "{}_{:04}",
+            now.as_millis(),
+            rand::rng().random_range(0..1000u32)
+        )),
+    );
+    header
 }
 
 /// 非 2xx 抛 HTTP 状态错误；响应体不是合法 JSON 抛协议错误。

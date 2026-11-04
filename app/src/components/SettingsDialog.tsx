@@ -476,7 +476,7 @@ export default function SettingsDialog({ onClose, onSaved }: SettingsDialogProps
                         ))}
                       </select>
                     </SettingRow>
-                    <SettingRow title="编辑器默认搜索来源" hint="网易云匿名搜索目前不可用，建议保持 QQ 音乐。">
+                    <SettingRow title="编辑器默认搜索来源" hint="编辑器打开文件后自动检索所用的来源，可在编辑器里随时切换。">
                       <select
                         className="settings-select"
                         aria-label="歌词编辑器默认搜索来源"

@@ -15,14 +15,14 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1014 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过。**2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版） |
+| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1027 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过。**2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版） |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0.0` 起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1014 个测试全部通过**：lp-core 库内 945 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1027 个测试全部通过**：lp-core 库内 958 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（已确认、暂不处理的两个问题，不要在别的改动里顺手修）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
@@ -37,7 +37,7 @@
 | 前端 | React 19.3、TypeScript 7.0（严格模式）、Vite 8.3、`@vitejs/plugin-react` 6.1；**不引入 UI 组件库**，样式是手写 CSS（`app/src/styles/`） |
 | 包管理 | pnpm 11，锁文件 `app/pnpm-lock.yaml`（CI 与 `build.ps1` 用 `--frozen-lockfile`） |
 | 异步 / HTTP | tokio 1（`rt` `sync` `time`）、reqwest 0.13（`native-tls` 即 Windows Schannel，系统证书与系统代理；不启用 cookie 容器） |
-| 加密 / 编码 | `aes` 0.9 + `cbc` 0.2（weapi）、`num-bigint` 0.5（无填充 RSA）、`base64` 0.23、`rand` 0.10、`flate2` 1.1（zlib）、`regex` 1.13 |
+| 加密 / 编码 | `aes` 0.9 + `cbc` 0.2（weapi；aes 的 ECB 用于 eapi）、`md-5` 0.10（eapi 摘要）、`num-bigint` 0.5（无填充 RSA）、`base64` 0.23、`rand` 0.10、`flate2` 1.1（zlib）、`regex` 1.13 |
 | 标签读写 | lofty 0.25.5 |
 | 二维码 | `qrcode` 0.14（只开 `svg`），前端用 `data:image/svg+xml` 显示 |
 | Unicode | `icu_normalizer` / `icu_properties` 2.4（NFKC 与字符类别，用来复现 .NET 的匹配语义） |
@@ -80,7 +80,7 @@ dist-release/                      # build.ps1 -Bundle 的输出（gitignore）
 |---|---|
 | `paths` / `settings` / `models` | 数据目录解析、`settings.json`（`AppSettings` + `JsonSettingsStore` + 严格补丁 `apply_patch`）、领域枚举（`AudioQuality`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` …） |
 | `session` / `auth` | DPAPI `session.dat`、`SessionAutoSaver`；登录编排 `LoginManager`（启动校验、续期、扫码、退出、运行期复核） |
-| `netease` | 非公开接口：`crypto`（weapi）、`http`（传输 trait + reqwest 实现）、`client`（会话 / Cookie 合并 / 超时）、`login` `playlists` `songs` `player`（取链）`lyrics` `search`，以及 `mappers` / `models` |
+| `netease` | 非公开接口：`crypto`（weapi + eapi）、`http`（传输 trait + reqwest 实现）、`client`（会话 / Cookie 合并 / 超时）、`login` `playlists` `songs` `player`（取链）`lyrics` `search`，以及 `mappers` / `models` |
 | `playlist` | 歌单加载编排（取列表 / 曲目、写日志、301 走登录复核） |
 | `lyrics` | `parser`（LRC / 增强 LRC / YRC / QRC / 译文）、`qrc`（QQ 3DES 变体）、`krc`（酷狗）、`zlib`、`html`、`service`（网易云歌词预览）、`scorer`（匹配打分）、`batch`（批量服务 + 任务编排 + 在线补全挂钩） |
 | `tags` | `LoftyTagService`：MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词、网易云 ID（原子写入）；`text` 辅助、`view` DTO |
@@ -188,7 +188,7 @@ pnpm dev                                                           # 只开前�
 - **本地对比**：扫描（并行读标签，结果按路径排序）→ 匹配。优先用网易云 ID（本程序写入的 `LunaticPrincess:<id>` 注释，或客户端文件里的 `163 key(Don't modify)` 解出的 `musicId`）精确匹配；否则标题 0.55 / 歌手 0.30 / 时长 0.15 综合评分，**阈值固定 0.72**，每首本地文件最多匹配一首歌单曲。没扫描过显示「—」而不是「需下载」。
 - **下载**：九档音质 → `/weapi/song/enhance/player/url/v1`（取链请求带桌面客户端 Cookie，否则 Hi-Res 会被静默降级）→ 逐级降档 → 服务端 `level` 与请求不同时提示「实际音质」→ 试听片段判失败 → 流式写 `.part` 临时文件 → 文件头是 NCM 就解密 → 歌词 / 翻译 / 封面 → lofty 写标签 → 原子落盘 → 按设置在线补全（QQ 逐字优先、网易云兜底）。补全失败只作提示，不影响下载成功。取消时保留已完成结果并清理临时文件。
 - **NCM 解密**：输出格式看首块（ID3 / 帧同步字 → mp3，`fLaC` → flac）；音频不整文件读入内存，32 KB 分块边读边解边写临时文件，成功后原子改名；先写回内嵌元数据 / 封面 / 网易云 ID；导入窗口默认勾选「解密后自动获取在线标签、封面与歌词」。
-- **在线匹配**：主源 `OnlineMusicSearchService`（网易云 `/api/search/get/web`、QQ `/soso/fcgi-bin/search_cp`）；都拿不到歌词时按 `LyricsSource` 顺序回落酷狗 KRC、LRCLIB。打分与候选筛选集中在 `lyrics::scorer`，阈值来自设置（运行期读共享设置对象，保存后下一首歌就生效）。**任何搜索都不自动应用结果**，编辑器里由用户点选后再载入。
+- **在线匹配**：主源 `OnlineMusicSearchService`（网易云匿名 eapi `/eapi/cloudsearch/pc`，失败再回退网页接口 `/api/search/get/web`；QQ `/soso/fcgi-bin/search_cp`）；都拿不到歌词时按 `LyricsSource` 顺序回落酷狗 KRC、LRCLIB。打分与候选筛选集中在 `lyrics::scorer`，阈值来自设置（运行期读共享设置对象，保存后下一首歌就生效）。**任何搜索都不自动应用结果**，编辑器里由用户点选后再载入。
 - **同步**：`SyncService` 按本地状态分三支（已存在且无覆盖 → 跳过；NCM → 解密到临时子目录 + 写标签 + 在线补全；缺失 → 下载），与下载共用并发任务池，结果顺序与输入一致。
 - **标签写入**：复制成同目录临时副本 → 写副本 → 重新解析确认类型没变 → 原子替换；任何一步失败都保留原文件。`replace_all` 保存时保留网易云 ID 标记与封面（没提供封面就不动封面）。
 - **错误文案**：`utilities::error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出「是什么 + 怎么办」；命令的 `Err` 统一是 `{ kind, message }`（message 为中文），**不把英文异常抛给用户**。
@@ -225,7 +225,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1014 个**——`lp-core` 库内 945、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1027 个**——`lp-core` 库内 958、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -236,7 +236,7 @@ pnpm dev                                                           # 只开前�
 
 这些接口都不是公开 API，随时可能变；出问题优先怀疑接口而不是本地逻辑。
 
-- **网易云**：`weapi` 需要 AES-CBC 双重加密 + 无填充 RSA 的 `encSecKey`；取链 `/weapi/song/enhance/player/url/v1` 需要桌面客户端 Cookie 才能拿到 Hi-Res 及以上，无会员特权时服务端**静默降档**（实测匿名请求 Hi-Res 得到 `exhigh`），所以要读响应里的 `level` 并提示实际音质。**搜索端点 `/api/search/get/web` 现在匿名返回十六进制密文**（见 `docs/TAURI_REWRITE.md`「待修问题」），`search_songs` 遇到密文会报明确错误，QQ 音乐是当前真正可用的主词源；搜索接口连续多变体请求还会 `code=406` 限流。
+- **网易云**：`weapi` 需要 AES-CBC 双重加密 + 无填充 RSA 的 `encSecKey`；取链 `/weapi/song/enhance/player/url/v1` 需要桌面客户端 Cookie 才能拿到 Hi-Res 及以上，无会员特权时服务端**静默降档**（实测匿名请求 Hi-Res 得到 `exhigh`），所以要读响应里的 `level` 并提示实际音质。**搜索走匿名 eapi `POST /eapi/cloudsearch/pc`**（`netease::crypto::eapi_encrypt`：`params = HEX(AES-128-ECB(key e82ckenh8dichen8, "</api/ 路径>-36cd479b6b5-<JSON>-36cd479b6b5-<md5>"))`，请求体里带桌面端 `header` 对象，不带登录态；实测匿名可用、海外 IP 也是明文）。**网页接口 `/api/search/get/web` 在海外 IP 下返回十六进制密文**（`{"result":"<hex>","abroad":true}`，eapi / weapi / linuxapi 的固定 key 都解不开），所以它只作回退；`/weapi/cloudsearch/get/web` 匿名恒返回 `code=50000005`，别再试。搜索接口连续多变体请求仍可能 `code=406` 限流（限流 / 风控不回退）；eapi 偶发 TLS `unexpected EOF during handshake` 时会换 `music.163.com` 主机再试一次。
 - **QQ 音乐**：搜索旧接口 `client_search_cp` 已下线，现用 `/soso/fcgi-bin/search_cp` + `new_json=1`；`c.y.qq.com` 连接失败 / 非 2xx 自动切 `c6.y.qq.com`。歌词用 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`），QRC 是 3DES 变体：字节编号 / 位序与标准 DES 不同（已知向量：key `133457799BBCDFF1`、plain `0123456789ABCDEF` → `F63A972CE52AA327`，而非教科书的 `85E813540F0AB405`），解出后 zlib 解压再按 QRC 行 / 词时间戳解析。保留的怪癖：PlayLyricInfo 没有译文时双语版本等同原文，所以 QQ 的 `has_translation` 恒为真。
 - **酷狗**：三段链路 `mobilecdn.kugou.com/api/v3/search/song` → `krcs.kugou.com/search` → `lyrics.kugou.com/download?fmt=krc`；KRC 前 4 字节明文 `krc1`，之后 16 字节固定密钥 XOR 再 zlib；**候选的 `duration` 是毫秒**（C# 版当秒，导致酷狗在实网永远没结果，Tauri 版已修）；本机偶发证书域名不匹配（`SEC_E_WRONG_PRINCIPAL`）与 `unexpected EOF during handshake`，异常吞掉后回落下一个词源，不加重试。
 - **LRCLIB**：只有逐行 `syncedLyrics`；先用 `?q=` 多变体检索，落空再用 `track_name/artist_name` 兜底；429/503 属瞬时失败，退避后重试一次。
@@ -282,7 +282,7 @@ pnpm dev                                                           # 只开前�
 
 ## 14. 已知限制与技术债
 
-- **待修问题（已确认、暂不处理）**：①`/weapi/login/token/refresh` 返回 `code=400`，续期效果未证实；②网易云搜索匿名不可用（返回密文），在线匹配实际靠 QQ。详情与线索见 `docs/TAURI_REWRITE.md`「待修问题」。**用户决定全部模块完成后统一修复，别在别的改动里顺手改。**
+- **待修问题（已确认、暂不处理）**：`/weapi/login/token/refresh` 返回 `code=400`，续期效果未证实。详情与线索见 `docs/TAURI_REWRITE.md`「待修问题」。**用户决定统一修复，别在别的改动里顺手改。** 另一项「网易云搜索匿名不可用」已于 2026-11-04 修复（改走匿名 eapi，见同一节），编辑器默认搜索来源仍是 QQ 音乐，是否改回网易云留给用户决定。
 - 没有本地播放功能：定位是「歌单同步 / 下载 / 解密 / 标签管理」。
 - 前端**没有自动化测试**（逻辑集中在 `lp-core` 单测；界面靠假后端 + 实机验证）；纯逻辑（Shift 连选、进度并入）已放在可导出的函数里，需要时可补前端测试框架。
 - 真实账号下的下载、同步、状态列、歌词预览、歌曲行「编」按钮、资源管理器真实拖拽，历来无法在无人值守环境验证，**需要用户真机确认**（清单在 `docs/TAURI_REWRITE.md` 各模块「验证」）。
@@ -302,6 +302,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1014 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1027 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。

@@ -106,7 +106,8 @@ impl AppSettings {
             lyrics_source_priority: OnlineSourcePriority::NeteaseFirst,
             ncm_import_folders: Vec::new(),
             ncm_import_output_directory: String::new(),
-            // 网易云匿名搜索目前不可用（见 docs/TAURI_REWRITE.md「待修问题」），默认改用 QQ 音乐；C# 版默认网易云。
+            // 默认来源是 QQ 音乐（C# 版默认网易云）：当初网易云匿名搜索不可用才改的；该问题已在 2026-11 修复（见 docs/TAURI_REWRITE.md「待修问题」），
+            // 是否改回网易云留给用户决定，已有设置文件里写着的来源原样保留。
             lyrics_editor_search_source: LyricsSourceKind::QqMusic,
             fallback_kugou_lyrics: true,
             fallback_lrclib_lyrics: true,

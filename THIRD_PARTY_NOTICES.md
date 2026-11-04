@@ -16,7 +16,8 @@
 | reqwest | 0.13.5 | MIT OR Apache-2.0 | HTTP（TLS 走 Windows Schannel，使用系统证书与代理） |
 | serde / serde_json | 1.0.229 / 1.0.154 | MIT OR Apache-2.0 | 序列化与 JSON |
 | thiserror | 2.0.21 | MIT OR Apache-2.0 | 错误类型 |
-| aes / cbc | 0.9.3 / 0.2.1 | MIT OR Apache-2.0 | weapi 的 AES-128-CBC、NCM 的 AES-128-ECB |
+| aes / cbc | 0.9.3 / 0.2.1 | MIT OR Apache-2.0 | weapi 的 AES-128-CBC、NCM 与 eapi 的 AES-128-ECB |
+| md-5 | 0.10.6 | MIT OR Apache-2.0 | eapi（网易云搜索）请求摘要的 MD5 |
 | num-bigint | 0.5.1 | MIT OR Apache-2.0 | weapi 的无填充 RSA 模幂 |
 | base64 | 0.23.1 | MIT OR Apache-2.0 | Base64 编解码 |
 | rand | 0.10.3 | MIT OR Apache-2.0 | 随机 secret |
@@ -61,7 +62,7 @@ NCM 解密与网易云 / QQ / 酷狗接口协议来自社区公开研究，代�
 
 - taurusxin/ncmdump — NCM 文件格式与解密流程参考
 - chenmozhijin/LDDC — 歌词下载 / 逐字歌词与 QQ QRC 解密（3DES 变体）、酷狗 KRC 的产品形态与实现参考
-- Binaryify/NeteaseCloudMusicApi 及其社区继任者 — weapi 加密与接口端点语义参考
+- Binaryify/NeteaseCloudMusicApi 及其社区继任者（NeteaseCloudMusicApi Enhanced） — weapi / eapi 加密与接口端点语义参考；网易云搜索的 eapi 请求格式与海外 IP 下改走 eapi 的做法另参考了 lyrics-search / Lyrics-Helper
 - MusicTag 桌面端 / 音樂標籤 — 在线匹配打分、多变体检索与客户端 `163 key` 注释的思路参考
 
 ## 界面设计参考

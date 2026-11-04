@@ -41,7 +41,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `settings` / `models` | `AppSettings`（24 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
 | `session` | `NeteaseSession`、`SessionStore`（`NMMSES01` 头 + DPAPI CurrentUser / 明文）、`SessionAutoSaver`（订阅会话变化、串行落盘、`flush`） |
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
-| `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
+| `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
 | `playlist` | `PlaylistService`：歌单列表与曲目加载、写运行日志、301 走登录复核 |
 | `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（网易云歌词预览）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
 | `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL） |
@@ -148,7 +148,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 ### 在线歌词与标签匹配
 
-- `OnlineMusicSearchService` 支持网易云与 QQ 音乐：网易云搜索 `/api/search/get/web`（目前匿名返回密文，见「待修问题」），详情 / 封面 / 歌词复用 `NeteaseClient`；QQ 搜索 `/soso/fcgi-bin/search_cp`（`new_json=1`，`c.y.qq.com` 失败切 `c6.y.qq.com`），歌词 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`，QRC 密文由 `lyrics::qrc` 解出逐字），旧 `fcg_query_lyric_new` 作回退。
+- `OnlineMusicSearchService` 支持网易云与 QQ 音乐：网易云搜索走匿名 eapi `POST /eapi/cloudsearch/pc`（桌面端 `header`、不带登录态，海外 IP 下也是明文；`interface.music.163.com` 连接失败换 `music.163.com` 再试一次；eapi 被明确拒绝或返回无法识别的内容时回退网页接口 `/api/search/get/web`，它在海外 IP 下返回密文所以只作回退；`406` / `-460` / 429 限流风控不回退），详情 / 封面 / 歌词复用 `NeteaseClient`；QQ 搜索 `/soso/fcgi-bin/search_cp`（`new_json=1`，`c.y.qq.com` 失败切 `c6.y.qq.com`），歌词 `music.musichallSong.PlayLyricInfo`（`qrc=1&crypt=1&roma=1`，QRC 密文由 `lyrics::qrc` 解出逐字），旧 `fcg_query_lyric_new` 作回退。
 - 歌词格式「逐行」与「逐字优先」，默认生成双语：译文行追加在原文之后，所有时间戳统一 3 位毫秒（`[mm:ss.fff]` / `<mm:ss.fff>`），`//` 等占位译文不写入。
 - 打分（`lyrics::scorer`）：标题里的 `A / B`、`A & B` 按分隔符切段取最佳段，歌手字段的 `A/B`、`feat.`、`·`、`CV:` 切成多值两两比较；有歌手时标题 0.55 / 歌手 0.25 / 时长 0.20，无歌手时标题 0.72 / 时长 0.20 / 专辑 0.08；歌手相似度 < 0.30 整体 ×0.75；伴奏 / 纯音乐版本直接排除；阈值默认 0.60（0.30–1.00，设置里以百分数输入）。查询变体最多 6 组，每源最多 3 组、每组前 10 条。
 - 网易云 / QQ 都拿不到歌词时按顺序回落备用词源 `LyricsSource`：酷狗（KRC 逐字 + 译文，三段链路）、LRCLIB（逐行，`?q=` 多变体 → `track_name` 兜底，429 / 503 退避重试一次）。备用词源命中的候选同样经打分，写回时标注「（歌词来源：酷狗音乐 / LRCLIB）」，可在设置里单独开关（运行期读共享设置，保存后下一首歌生效）。
