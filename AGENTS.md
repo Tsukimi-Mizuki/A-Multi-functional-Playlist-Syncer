@@ -26,7 +26,7 @@
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
-6. **如果仓库放在 Edge 的下载文件夹里**（或任何带低完整性标签的目录）：程序与测试以低完整性运行，不能写 `%LOCALAPPDATA%` / `%TEMP%`。`build.ps1` 已把 `TMP` / `TEMP` 指到工作区 `.tmp`；直接运行 exe 时数据会落到程序目录 `data\`。细节见 `docs/TAURI_REWRITE.md` 末尾的「已知环境问题」。最省事的办法是把仓库搬出该文件夹。
+6. **如果仓库放在 Edge 的下载文件夹里**（或任何带低完整性标签的目录）：程序与测试以低完整性运行，不能写 `%LOCALAPPDATA%` / `%TEMP%`。`build.ps1` 已把 `TMP` / `TEMP` 指到工作区 `.tmp`；直接运行 exe 时数据会落到程序目录 `data\`。细节见 `docs/TAURI_REWRITE.md` 末尾的「已知环境问题」。最省事的办法是把仓库搬出该文件夹：用不复制安全信息的方式复制（例如 `robocopy /E /COPY:DAT`，跳过 `app\target`、`app\node_modules` 后在新位置重新 `pnpm install` / 构建），新文件会继承新目录的权限、不再带低完整性标签（本机 2026-11-04 已这样搬到 `D:\claude\workspace`）。
 
 ## 3. 技术栈与版本（改依赖前先看这里）
 
@@ -124,7 +124,7 @@ pnpm dev                                                           # 只开前�
 
 - 发布版 exe：`app\target\release\LunaticPrincess.exe`；开发版：`app\target\debug\LunaticPrincess.exe`（需要前端已构建或 dev server 在跑）。
 - 命令行参数：`--edit <文件>` / `--lyrics <文件>` 启动后直接打开歌词与标签编辑器（文件必须存在，不存在只在运行日志里警告）。
-- 实机测试请把 exe **复制到别处**（例如 `D:\claude\lp-run\`）并设 `LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，不要动真实登录态和音乐目录；测完清空这些目录。
+- 实机测试请把 exe **复制到别处**（例如 `D:\claude\lp-run\`）并设 `LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，不要动真实登录态和音乐目录；测完清空这些测试目录。本机的仓库自 2026-11-04 起就在 `D:\claude\workspace`，清理时只删自己建的测试子目录，**绝不要清空整个 `D:\claude`**。
 - 驱动真实界面：给被测进程设 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<端口>`，再用 CDP 调命令 / 读 DOM / 截图（历史验证都这么做，探针脚本验证完即删）。
 - 运行日志只在内存（最多 400 条，不落盘）；`panic = "abort"`，目前**没有**致命异常落盘日志（`<数据目录>\logs` 路径已预留但没人写入）。
 
