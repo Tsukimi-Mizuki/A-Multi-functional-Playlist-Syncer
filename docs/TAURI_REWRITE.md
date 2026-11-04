@@ -1,7 +1,10 @@
 # Tauri 重写计划
 
-`GUI-Tauri` 分支正在把 Lunatic Princess **彻底重写**：业务层改用 Rust，界面改用 Tauri 2 + React + TypeScript。
-C# / Avalonia 版（`src/`、`tests/`、`LunaticPrincess.sln`、`build.ps1` 的 .NET 部分）在整个重写期间**原样保留**，供逐模块对照，直到最后一个模块才删除。
+> **状态：模块 1–12 全部完成（版本 2.0.0）。** 重写分支已并入 `main`，C# / Avalonia 版（v1.x，含 v1.3）保留在 `CSharp-GUI` 分支，只作历史与维护用途。
+> 本文件现在是逐模块的**实现记录**：为什么这样做、与 C# 版有哪些有意差异、怎么验证的。日常协作约定见 `AGENTS.md`，当前架构见 `ARCHITECTURE.md`，实现状态与已知限制见 `IMPLEMENTATION_STATUS.md`。
+> 文中提到的 C# 路径（`src/`、`tests/`、`LunaticPrincess.sln`、`build.ps1` 的 .NET 部分）和「C# 探针」都指 `CSharp-GUI` 分支上的内容，在 `main` 上已删除。
+
+`GUI-Tauri` 分支把 Lunatic Princess **彻底重写**：业务层改用 Rust，界面改用 Tauri 2 + React + TypeScript。重写期间 C# 版原样保留，供逐模块对照；最后一个模块（12）才把它从 `main` 上删除。
 
 ## 目标
 
@@ -34,7 +37,7 @@ app/
   src-tauri/              # Tauri 外壳：命令、窗口、capabilities、图标；二进制名 LunaticPrincess
 ```
 
-`lp-core` 模块与 C# 目录的对应关系：
+`lp-core` 模块与 C# 目录的对应关系（C# 目录在 `CSharp-GUI` 分支上）：
 
 | Rust 模块 | C# 目录 |
 |---|---|
@@ -58,31 +61,34 @@ app/
 | `editor` | 模块 10b：`LyricsEditorViewModel` 里记住来源与歌词格式、`HandleDroppedTargetsAsync` / `LoadDroppedPathsAsync` 的拖入解析、`Program.GetStartupLyricsFile`、`ElevationHelper`；另有封面图片文件读取 |
 | `error` | `Core/Utilities/ErrorText.cs` 的错误类型部分（判定与文案在 `utilities::error_text`） |
 
-构建产物（`app/target`、`app/dist`、`app/node_modules`、`app/src-tauri/gen/schemas`）都已 gitignore。
+仓库根目录另有 `build.ps1`（构建 / 测试 / 打包入口）、`scripts/resolve-version.ps1`（tag → SemVer）、`.github/workflows/`（`ci.yml`、`main.yml`）和 `docs/`。
+构建产物（`app/target`、`app/dist`、`app/node_modules`、`app/src-tauri/gen/schemas`、`dist-release`）都已 gitignore。
 
 ## 构建与测试
 
 ```powershell
-.\build.ps1 -Tauri          # pnpm install → cargo fmt --check → clippy -D warnings → cargo test → pnpm tauri build --no-bundle
-.\build.ps1 -Tauri -Test    # 只跑检查与测试，不打包
+.\build.ps1                 # pnpm install → pnpm tauri build --no-bundle → app\target\release\LunaticPrincess.exe
+.\build.ps1 -Test           # cargo fmt --check → clippy --all-targets -D warnings → cargo test --workspace → pnpm build
+.\build.ps1 -Bundle         # NSIS 安装包 + 便携版 zip + SHA256SUMS.txt → dist-release\
+.\build.ps1 -Bundle -Version v2.1.0   # 指定版本（v1.3、v.1.0.0 等 tag 写法会被归一成 SemVer），构建后恢复清单
 ```
 
-产物：`app\target\release\LunaticPrincess.exe`（单个 exe，前端已内嵌）。安装包 / zip 留到模块 12。
+产物：`app\target\release\LunaticPrincess.exe`（单个 exe，前端已内嵌）；`-Bundle` 的产物统一放在 `dist-release\`（gitignore）。`-Tauri` 是重写期间的旧开关，已无作用。
 
 手动命令（在 `app/` 下）：
 
 ```powershell
 pnpm install
-cargo fmt --check; cargo clippy --workspace -- -D warnings; cargo test --workspace
+cargo fmt --check; cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace
 pnpm tauri dev       # 开发（Vite 固定端口 1420）
 pnpm build           # 只构建前端（tsc + vite）
 ```
 
 开发注意事项：
 
-- 新开的 shell 若找不到 `cargo` / `pnpm`，先刷新 PATH：`$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`。
-- **仓库位于 Edge 下载文件夹（低完整性级别）时的行为**：见下文「已知环境问题」。构建脚本会把 `TMP` 指到工作区 `.tmp`，原因相同。
-- 窗口背景：Tauri 窗口为透明无边框，Rust 侧在 `setup` 中给窗口铺 Mica，失败回退 Acrylic；前端 `body` 保持透明，由半透明 token 叠加。
+- 新开的 shell 若找不到 `cargo` / `pnpm`，先刷新 PATH：`$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`（`build.ps1` 会自动处理）。
+- **仓库位于 Edge 下载文件夹（低完整性级别）时的行为**：见下文「已知环境问题」。构建脚本在本地会把 `TMP` 指到工作区 `.tmp`，原因相同（GitHub Actions 上不覆盖）。
+- 窗口背景：Tauri 窗口为透明无边框，Rust 侧在 `setup` 中给窗口铺 Mica，失败回退 Acrylic（模块 11 起由设置 `windowMaterial` 决定首选）；前端 `body` 保持透明，由半透明 token 叠加。
 
 ## 模块清单与进度
 
@@ -99,7 +105,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 9 | 下载与同步 | 九档音质取链下载（逐级降档、试听判失败、NCM 自动解密）、一键同步（跳过 / NCM 解密 / 下载三分支）、多选 + 工具栏 + 逐行进度 | 完成（真实下载需用户真机验证） |
 | 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配、拖放与启动参数 | 完成：10a 后端核心（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面、拖放、`--edit` / `--lyrics` 启动参数（网易云匿名搜索不可用见「待修问题」） |
 | 11 | 设置与外观 | 液态玻璃视觉体系、设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、窗口材质与主题实时预览、统一动效 | 完成 |
-| 12 | CI 打包、文档、删除 C# | 安装包 / zip、GitHub Actions、更新 AGENTS.md 与 README、删除 C# 代码 | 待做 |
+| 12 | CI 打包、文档、删除 C# | NSIS 安装包 + 便携版 zip、`build.ps1` 重写、`ci.yml` / `main.yml`、`scripts/resolve-version.ps1`、文档全部改写、`main` 上删除 C# 代码 | 完成（见「模块 12 实现记录」） |
 
 ## 待修问题
 
@@ -107,6 +113,57 @@ pnpm build           # 只构建前端（tsc + vite）
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
 - **网易云搜索当前匿名不可用**（模块 10a 联网探针发现，2026-11-04）：C# 与这里用的 `/api/search/get/web` 现在返回 `{"result":"<十六进制密文>"}`（C# 把它当成 0 条结果）；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的歌曲；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、或是否要改走 `eapi`，需要用户用真实账号验证后再定；目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源）。C# v1.3 同样受影响。详见“模块 10a”。
+
+## 模块 12（CI 打包、文档、删除 C#）实现记录
+
+### 分支调整（模块开始前由用户完成）
+
+`main` = Tauri 重写版（旧 `main` 的快进延续，最新提交 `a241c06` 起）；`CSharp-GUI`（`3209592`）= 旧的 C# / Avalonia 版（v1.x，含 v1.3），以后只作历史 / 维护分支。本模块在 `main` 上完成，**不推送、不打 tag、不发 Release**。
+
+### 内容
+
+| 事项 | 做法 |
+|---|---|
+| 删除 C# | `git rm` 了被跟踪的 `src/`（`LunaticPrincess.Core` / `Desktop`，Server 目录只剩被忽略的 `bin/obj`）、`tests/`（`LunaticPrincess.Core.Tests`）、`LunaticPrincess.sln`、`global.json`、`Directory.Build.props`、`NuGet.Config`，共 155 个文件。只动被版本库跟踪的文件：`publish\`（含用户真实登录态的 `publish\win-x64\data`）、`.dotnet\`、`.dotnet-home\`、`.nuget-*`、各项目下被忽略的 `bin/obj` 都还在磁盘上，`.gitignore` 继续忽略它们，所以切回 `CSharp-GUI` 分支时不会变成未跟踪文件。`docs/design/README.md` 保留（界面设计参考的登记处，补了当前视觉基线的文字要点）。`lp-core/tests/csharp_*.rs` 与 `tests/fixtures/` 保留：它们是 C# 版生成的黄金数据，不依赖 C# 源码。 |
+| `build.ps1` 重写 | 只服务 Tauri：默认 `pnpm install --frozen-lockfile` + `pnpm tauri build --no-bundle`；`-Test` = `cargo fmt --check` + `clippy --workspace --all-targets --locked -- -D warnings` + `cargo test --workspace --locked` + `pnpm build`；`-Bundle` = 先编译、从**未被打包器改写**的 exe 做便携版 zip（只含 exe），再 `pnpm tauri bundle --bundles nsis`，把产物统一放到 `dist-release\` 并写 `SHA256SUMS.txt`；`-Version` 与 `-Bundle` 合用，把 tag 归一成 SemVer 后**临时**写进 `Cargo.toml` / `package.json` / `tauri.conf.json`，结束后按字节还原（带重试，见下）；旧 `-Tauri` 保留为带警告的空操作。本地把 `TMP` / `TEMP` 指到工作区 `.tmp`（低完整性目录的老问题），GitHub Actions 上不覆盖。脚本全部 ASCII（Windows PowerShell 5.1 按 ANSI 读无 BOM 脚本），并在 Actions 里用 `::group::` 折叠每步日志。 |
+| `scripts/resolve-version.ps1` | tag → SemVer：去 `refs/tags/`、前导 `v` / `V`、前导点，两段 / 一段补成三段，校验 SemVer（含预发布与构建元数据），不合法直接失败。CI 与 `build.ps1 -Version` 共用。 |
+| `ci.yml`（新增） | `main` 的 push 与 pull request；windows-latest；pnpm 11 + Node 26 + Rust stable（rustfmt、clippy）+ `Swatinem/rust-cache`（工作区 `app`）→ `./build.ps1 -Test`；`concurrency` 取消同一 ref 上的旧运行，权限只读。 |
+| `main.yml`（重写，名称 Release） | 触发：`v*` tag、`workflow_dispatch`。同样的环境；解析版本（tag 取自 `github.ref_name`，通过 `env` 传入脚本；没有 tag 时用 `tauri.conf.json` 的版本加 `-manual.<run_number>`）→ `./build.ps1 -Test` → `./build.ps1 -Bundle -Version $env:VERSION` → `actions/upload-artifact`（总是上传，保留 14 天）→ `github.ref_type == 'tag'` 时 `softprops/action-gh-release@v2`（自动生成 release notes，版本带 `-` 的标为预发布，`fail_on_unmatched_files`）。**旧 CI 不跑测试，新 CI 会先跑**。资产名不含空格：`LunaticPrincess-<版本>-win-x64-setup.exe`、`LunaticPrincess-<版本>-win-x64-portable.zip`、`SHA256SUMS.txt`。 |
+| 版本号 | `app/package.json`、`app/src-tauri/tauri.conf.json`、`app/Cargo.toml`（工作区版本，两个成员 crate 继承）本来就都是 `2.0.0`，没有改。应用显示的版本来自 `lp-core` 的 `CARGO_PKG_VERSION`，所以 CI 注入版本必须改 `Cargo.toml`，只传 `tauri build --config` 的 `version` 不够。 |
+| 打包配置 | `tauri.conf.json` 的 `bundle.targets` 由 `"all"` 改为 `["nsis"]`（不要 MSI / WiX）；补 `publisher`、`copyright`、`category`、描述；NSIS：`installMode: currentUser`（不要管理员权限）、语言 `SimpChinese` / `English`、不显示语言选择框。WebView2 缺失时沿用 Tauri 默认（`downloadBootstrapper`，联网下载微软的引导程序）。 |
+| `.gitignore` | 新增 `dist-release/`；按用途分组并加注释；C# 遗留目录（`bin/` `obj/` `.dotnet/` `.dotnet-home/` `.nuget-*` `publish/` `.tmp-avalonia-research/` 等）全部保留。 |
+| 文档 | `AGENTS.md`、`README.md`、`docs/ARCHITECTURE.md`、`docs/IMPLEMENTATION_STATUS.md`、`THIRD_PARTY_NOTICES.md` 按 Rust / Tauri 版整体改写；`docs/design/README.md` 补当前视觉基线；本文件标记模块 12 完成，**「待修问题」原样保留**，前面各模块的实现记录除修掉一个历史残留的控制字符外未改。 |
+
+### 决定与偏离
+
+- **便携版 zip 只含 exe，不含 `data\`**（按要求）。便携模式靠「exe 旁边存在 `data\` 文件夹」触发，所以解压后默认并不是便携模式，数据落在 `%LOCALAPPDATA%\LunaticPrincess`；README 说明了「新建 `data` 文件夹」或设 `LUNATIC_PRINCESS_DATA_DIR`。如果希望 zip 解压即便携，可以在 zip 里放一个空的 `data\` 文件夹（需要用户决定）。
+- **先做 zip、后做 NSIS**：`tauri build --bundles` / `tauri bundle` 会把「bundle type」标记原地补丁进 `LunaticPrincess.exe`（给更新插件用，本项目没用更新插件），先打 zip 可以保证便携版 exe 是未被改写的，同时 NSIS 失败时便携版仍然已经生成。
+- **`pnpm tauri bundle` 而不是 `tauri build --bundles`**：后者会再编译一次；`bundle` 子命令只打包已经编好的 exe。
+- **版本临时写入而不是 `--config`**：见上表「版本号」。`-Version` 恢复清单时曾遇到一次 `The requested operation cannot be performed on a file with a user-mapped section open`（某个进程暂时映射了清单文件），导致清单没还原；已改成对每个文件重试最长约 10 秒、失败也继续处理其余文件、最后一定 `Pop-Location`，并在无法还原时给出警告。
+- **本地 `TMP` 覆盖在 CI 上关掉**：workspace 在 `D:`、`%LOCALAPPDATA%` 在 `C:` 的 runner 上，临时目录跨盘会让「把临时文件移到 Tauri 工具缓存」之类的操作失败（这次本机排查 NSIS 时一度怀疑过它，实际原因是下面的虚拟化，但跨盘风险是真的）。
+- `cargo clippy` / `cargo test` 加了 `--locked`：`Cargo.lock` 与清单不一致时直接失败，而不是悄悄改锁文件。
+- Node 版本：CI 用 26（与开发机一致），pnpm 用 11；Actions 的版本固定到主版本号（`checkout@v4`、`setup-node@v4`、`pnpm/action-setup@v4`、`rust-cache@v2`、`upload-artifact@v4`、`action-gh-release@v2`）。
+- `lp-core` 里的 `csharp_*.rs` 测试名与夹具目录名没有改，仍叫 `csharp_*`（指「C# 版生成的黄金数据」），避免在本模块里动测试代码。
+
+### 新增依赖
+
+无（Rust 与前端都没有新增；只新增了 `scripts/resolve-version.ps1`）。
+
+### 验证
+
+- 单测：workspace 合计 **1014** 个（`lp-core` 库内 945、集成 36、外壳 33），与模块 11 相同（本模块没有改动任何 Rust / TS 代码）。`.\build.ps1 -Test` 退出码 0；`.\build.ps1` 默认构建成功。
+- **版本解析**（`scripts/resolve-version.ps1`，并用从 `main.yml` 里原样取出的步骤脚本在 Windows PowerShell 5.1 里模拟 Actions 的环境变量）：`v2.0.0`→`2.0.0`、`v1.3`→`1.3.0`、`v.1.0.0`→`1.0.0`、`V1.0.0`→`1.0.0`、`v2.0.0-rc.1`→`2.0.0-rc.1`、`v0.0.1-manual`→`0.0.1-manual`、`v1`→`1.0.0`、`refs/tags/v2.1.0`→`2.1.0`、`v1.2.3+build.5`→`1.2.3+build.5`；分支手动运行 `main` 第 7 次 → `2.0.0-manual.7`；`v1.2.3.4`、`v01.2.3`、`vfoo`、`v1.2.3-` 报错退出。模拟时发现并修掉一个 bug：脚本调用不会设置 `$LASTEXITCODE`，`if ($LASTEXITCODE -ne 0 …)` 对 `$null` 为真，会让每次版本解析都误报失败。
+- **YAML**：`ci.yml`、`main.yml` 用 PyYAML 解析通过，触发条件 / 权限 / 步骤顺序 / `if` 条件 / `with` 参数逐项核对；没有 actionlint，表达式（`${{ … }}`）人工核对。**workflow 没有真正在 GitHub 上跑过**，推送后需要看一次 Actions。
+- **`.\build.ps1 -Bundle -Version v2.0.0-manual.1`**：版本被写进三个清单并参与编译（`lp-core v2.0.0-manual.1`），便携版 zip 生成成功（3.0 MB，只含 `LunaticPrincess.exe`）；解压到 `D:\claude\lp-portable\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data` 启动，窗口标题 `Lunatic Princess`、进程 `Responding`，`webview\EBWebView` 创建在指定数据目录；测完已清空 `D:\claude`。
+- **NSIS 安装包没能在本机生成**：先是一次下载 `nsis-3.13.zip` 中途 `unexpected end of file`（网络瞬时故障，同一 URL 随后 `HEAD` 200、2.3 MB）；之后每次都在「extracting NSIS」后失败：`系統無法將檔案移到不同的磁碟機。 (os error 17)`。原因是这台机器上 Claude 桌面版（MSIX 打包应用）的子进程对 `%LOCALAPPDATA%` 的写入被文件系统虚拟化到包私有目录（`C:\WpSystem\…\Packages\AnthropicPBC.Claude_…\LocalCache\Local\tauri\nsis-3.13`），Tauri 解压后把该目录改名成 `NSIS` 时失败。按任务要求没有硬绕（只试过一次手工复制目录，打包器随即判定缺文件而重建，仍失败，没有继续）。**用户需要在普通 PowerShell 里跑一次 `.\build.ps1 -Bundle` 确认安装包**；Actions 的 windows-latest 上没有这个虚拟化。打包配置本身已被 Tauri 解析通过（流程走到 `Verifying NSIS package`）。
+- 未在本机安装安装包（按要求）。
+
+### 已知限制 / 需要用户决定
+
+- NSIS 安装包尚未在真实环境生成（见上）；两个 workflow 尚未在 GitHub 上运行。
+- 便携版解压后默认不是「便携模式」（见「决定与偏离」）。
+- 安装包与便携版没有代码签名；没有自动更新。
+- 2.0.0 暂不发版，等「待修问题」处理完再决定。
 
 ## 模块 11（设置与外观）实现记录
 
@@ -147,7 +204,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ### 验证
 
-- 单测：`lp-core` lib 945 个（新增 3：外观字段默认值与夹紧、`apply_patch` 只改提交的键、非法修改整份拒绝），外壳 33 个（新增 3：保存只写补丁且保留其他字段、非法补丁不改内存与文件、主动保存取代读取失败的设置并清除警告），集成测试 36 个（`csharp_compat` 适配新增键）。`.uild.ps1 -Tauri` 通过；`.uild.ps1 -Test` C# 仍 404/404。
+- 单测：`lp-core` lib 945 个（新增 3：外观字段默认值与夹紧、`apply_patch` 只改提交的键、非法修改整份拒绝），外壳 33 个（新增 3：保存只写补丁且保留其他字段、非法补丁不改内存与文件、主动保存取代读取失败的设置并清除警告），集成测试 36 个（`csharp_compat` 适配新增键）。`.\build.ps1 -Tauri` 通过；`.\build.ps1 -Test` C# 仍 404/404。
 - 浏览器假后端：设置面板各分区、导航指示条滑动、浅色预览与取消还原（含退场残影出现后自动移除、缓存不被预览污染）、保存后设置与缓存一致；发现并修复连续快速修改丢失前一次的问题，以及新分段控件与歌词预览旧样式撞名。
 - 实机（`D:\claude` 独立数据目录，UI 自动化 + 屏幕截图）：亚克力材质生效（窗口后面的内容被模糊透上来）；打开设置后主界面平滑虚化、设置面板为半透明玻璃；浅色主题实时预览与取消还原；编辑器上叠批量窗口时编辑器虚化、批量窗口不被截断；保存「云母」后 `settings.json` 正确写入且材质即时切换、日志「设置已保存」。发现并修复：滚动条碰到窗口右下角时 WebView2 画出的方形“缩放角”（日志列表右下留出边距）。
 
