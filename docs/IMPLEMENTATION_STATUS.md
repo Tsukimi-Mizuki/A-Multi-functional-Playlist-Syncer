@@ -1,193 +1,82 @@
 # 实现状态
 
-> 最后更新：2026-10-30。当前状态：**v1.0 桌面端功能完成，构建/单测/真实网络冒烟/UI 启动均通过**。
+> 最后更新：2026-11-04。当前状态：**2.0.0（Rust + Tauri 2 + React 重写版）功能完整**：重写模块 1–12 全部完成，
+> `cargo test --workspace` **1014 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
+> **2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版）。
+>
+> 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
+> 逐模块的实现细节、与 C# 版的有意差异和验证过程见 `docs/TAURI_REWRITE.md`。
 
 ## 模块
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| 解决方案 / 契约 / 构建 | ✅ 完成 | .NET 8，Core/Desktop/Tests 三项目，Debug/Release 0 warning / 0 error |
-| 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复登录态；后续响应 Set-Cookie 合并并自动落盘；`login/token/refresh` 启动及每约 12 小时续期；仅接口明确“未登录”才清除会话 |
-| 歌单读取与曲目补齐 | ✅ 完成 | 我的歌单分页、大歌单 trackIds 按 500/批补齐、保持顺序 |
-| 本地扫描与歌单差异匹配 | ✅ 完成 | 标签/文件名/NCM 元数据、网易云 ID 精确匹配、模糊匹配、一对一 |
-| 音质选择下载 | ✅ 完成 | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 (SpatialAudio) / 沉浸环绕声 (Surround Audio) / 超清母带 (Master) / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；映射 level 见 ARCHITECTURE.md，不可用时自动降档并提示实际音质；取链请求带桌面客户端 Cookie，Hi-Res 实际返回 24bit/48–96kHz FLAC；旧设置 "Higher" 迁移为 ExHigh；试听片段拒收 |
-| NCM 解密 | ✅ 完成 | AES/RC4 变体流式解密，MP3/FLAC 识别，封面/元数据提取，原子输出；导入窗口可选解锁后自动在线匹配标签/封面/歌词 |
-| 逐行/逐字歌词解析与写入 | ✅ 完成 | LRC/增强 LRC/YRC v0+v1、QQ QRC 逐字（3DES 变体解密）、翻译全局贪心对齐、时间戳精确到毫秒（译文与原文同戳）；多变体检索 + 可调匹配度阈值（0.30–1.00，默认 0.60，设置窗口文本框输入）作用于编辑器/批量/NCM 自动匹配；普通/逐字写入标签 |
-| 标签/封面自动写入 | ✅ 完成 | MP3 ID3v2、FLAC VorbisComment/METADATA_BLOCK_PICTURE、M4A 等容器；中文标签往返 |
-| Avalonia GUI | ✅ 完成 | Salt UI 风格卡片/胶囊控件/紧凑 Item；液态玻璃主题（深色 / 浅色 / 跟随系统）；登录/歌单/歌曲表/本地状态/设置/NCM 导入/进度日志/独立歌词标签编辑器（拖入音频文件或文件夹即可载入，主窗口也支持拖放载入并直接打开编辑器；提权时提示改用按钮）；无边框自绘标题栏（自绘窗口按钮、可拖动、双击最大化） |
-| 错误提示与运行日志 | ✅ 完成 | ErrorText 统一识别权限不足 / 磁盘空间不足 / 文件被占用 / 路径过长并给出中文说明与处理建议（不再暴露 Access to the path … is denied），覆盖下载、同步、NCM 导入与 UI 一层 ErrorFormatter；运行日志可收起（完全隐藏、不占空间）/ 展开（默认 92 DIP 原样式） |
-| Windows 发布 | ✅ 完成 | 轻量框架依赖 win-x64 发布目录 + zip（可用 -SelfContained 生成独立包） |
-| Android 复用 | 🧩 预留 | Core 与 UI/存储通过接口隔离，见 ARCHITECTURE.md |
+| 工程骨架与构建 | ✅ 完成 | Cargo 工作区（`lp-core` + `src-tauri`）、React + TS 前端、`build.ps1`（默认构建 / `-Test` / `-Bundle`）、`ci.yml` + `main.yml`、`scripts/resolve-version.ps1`；Rust 1.99 / edition 2024，clippy `-D warnings` 干净 |
+| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（24 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
+| 扫码登录与 Cookie 持久化 | ✅ 完成（续期效果待观察） | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；`login/token/refresh` 启动及每约 12 小时续期；仅接口 `code==301` 才清除会话。实测 refresh 返回 `code=400`，见下 |
+| 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
+| 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框 |
+| 标签读写 | ✅ 完成 | MP3 / FLAC / M4A / OGG / OPUS / WAV（lofty）；封面、歌词、网易云 ID；原子写入；标签查看对话框 |
+| NCM 解密与导入 | ✅ 完成 | 流式解密（音频不整文件入内存）、元数据 / 封面 / 网易云 ID 回写、导入对话框（文件夹记忆、取消保留已完成结果、解密后自动在线补全） |
+| 本地曲库与对比 | ✅ 完成 | 并行扫描、网易云 ID 精确匹配 + 标题 / 歌手 / 时长评分、一对一、「已存在 / NCM 待解密 / 需下载」状态列与统计 |
+| 音质选择下载与一键同步 | ✅ 完成（真实下载待用户真机验证） | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 / 沉浸环绕声 / 超清母带 / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；逐级降档并提示实际音质；取链带桌面客户端 Cookie；试听片段拒收；NCM 自动解密；同步三分支；多选 + 工具栏 + 逐行进度；并发任务池；取消保留已完成结果 |
+| 在线匹配（歌词 / 标签 / 封面） | ✅ 完成（网易云搜索匿名不可用） | 网易云 / QQ 主源 + 酷狗 / LRCLIB 备用词源；多变体检索与打分（阈值 0.30–1.00，默认 0.60）；歌词与标签编辑器、批量获取窗口、拖放、`--edit` / `--lyrics` 启动参数 |
+| 设置与外观 | ✅ 完成 | 设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、深色 / 浅色 / 跟随系统、窗口材质（亚克力 / 云母 / 无）、玻璃浓度、减少动效、实时预览与取消还原 |
+| 界面（液态玻璃） | ✅ 完成 | 透明无边框窗口 + 自绘标题栏；玻璃层叠 + 景深虚化（WebView2 不支持 `backdrop-filter` 的替代方案）；统一动效体系；所有可交互控件有中文 `aria-label` |
+| 错误提示与运行日志 | ✅ 完成 | `error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出处理建议；运行日志 400 条（内存），可收起 |
+| Windows 打包与发布 | ✅ 完成（见验证记录里的环境说明） | `build.ps1 -Bundle` 生成便携版 zip（只含 exe）+ NSIS 安装包 + `SHA256SUMS.txt` 到 `dist-release\`；`main.yml` 在 `v*` tag 上自动检查、打包并建 Release |
+| 其他平台 | ➖ 不做 | `lp-core` 与外壳分离，理论上可复用，目前没有任何实现 |
 
 ## 验证记录
 
 ### 自动化测试
-- `dotnet test`：**404 / 404 通过，0 skipped**。
-  - Netease API：101（含 Cookie 合并 CookieMerger、Set-Cookie 合并与 SessionChanged、RefreshLoginAsync、登录失效判定、播放 Cookie 去重）
-  - NCM / Lyrics / Tags：127
-  - Library / Download / Sync：71
-  - Storage / Settings / Filename：27（含 SessionAutoSaver、会话读取失败区分）
-  - 音质映射（Models）：30
-  - Online 搜索（含酷狗 / LRCLIB 备用词源）：23
-  - Utilities（错误文案 + 音频类型判定）：25
-- Debug 与 Release 全解决方案构建均 0 warning / 0 error。
 
-### 真实网络冒烟（匿名，官方域名）
-- 扫码出码 + 轮询 801：通过（确认段需本人手机扫码，自动化环境无法完成）。
-- 用户歌单 uid=1（848 个，分页逻辑生效）。
-- 热歌榜 playlist 3778678（200 首，trackIds 与 songs 一致）。
-- 歌曲详情 186016（晴天/周杰伦/叶惠美/999000 maxbr）。
-- 取链 33894312 ExHigh -> 320k mp3。
-- 歌词 33894312：LRC 1032 字符 + YRC 6473 字符。
-- 专辑 18875（跨时代/周杰伦）。
-- **完整链路**：下载 33894312（约 15.8MB 320k mp3）→ 写中文标签/封面/逐字歌词 →
-  TagLib 读回 title/artist/album/cover/lyrics/NeteaseId 全部正确。
-- **真实歌曲歌词时间戳**：对 4 个真实文件（含 FLAC/MP3、日语/韩语/纯音乐）实网匹配并写入，
-  输出全部为 3 位毫秒时间戳（`[mm:ss.fff]`，2 位为 0 条），双语行与原文行时间戳完全一致、
-  无 10ms 偏移；逐字歌曲（网易云 YRC）写出 884 个 `<mm:ss.fff>` 词标签、同样无 2 位残留。
+`cargo test --workspace`（离线，不依赖真实音频）：**1014 个，全部通过，0 ignored**。
 
-### UI
-- 客户端真实启动成功、窗口响应、无 fatal 日志。
-- 主界面截图：docs/screenshots/main-window.png。
-- 对话框（扫码/设置/NCM 导入）已实现并编译通过。
-- **真实扫码登录已验证**：扫码确认后成功加载账号、VIP 状态和歌单；完全退出并重启客户端后，
-  从便携数据目录的 DPAPI 加密 session.dat 自动恢复登录，无需再次扫码。
-- 歌单侧栏支持收起/展开；最左上角不再有独立菜单按钮，“我的歌单”文字被单个歌单图标按钮替代。
-  收起后的 88px 封面栏纵向显示全部歌单封面，点击封面即可切换歌单；顶部展开箭头/Ctrl+B 恢复侧栏。
-  已用 UI 自动化验证收起/展开两种布局。
-- 设置中的文件名模板新增“标题 - 作者”预设，并提供作者-标题、标题-作者、含年份和自定义选项；
-  选择预设会同步写入模板值，且输入框默认隐藏，只有选中「自定义」时才出现并允许编辑
-  （已用 UI 自动化验证：预设时输入框不存在，切换到自定义后出现）。
-- 帧率上限设置已从设置窗口隐藏（配置项 `AppSettings.RenderFrameRate` 保留并继续生效，
-  默认垂直同步；`RenderTimerInstaller` 的垂直同步/节流分支未改动）。
-- 二级窗口（设置、歌词与标签编辑器、批量获取、NCM 导入、扫码登录、提示框）统一使用液态玻璃：
-  `ApplyDialog` 设置 AcrylicBlur，窗口底色为半透明 `DialogGlassBrush`（浅色为 #DCF2F5FA）；已用 UI 自动化读取
-  `ActualTransparencyLevel` 确认设置、编辑器、批量获取、NCM 导入四个窗口均为 AcrylicBlur。
-- 新增独立歌词/标签编辑器：可从主界面或 `--lyrics <file>` 打开，读取封面/全部常用标签/歌词，
-  编辑后写回；已验证标签读取、歌词保存回读和 ReplaceAll 清空字段行为。
-- 新增批量获取窗口：入口在歌词编辑窗口右上角，扫描目录、标签/封面与歌词分别使用设置中的
-  来源优先级、标题/歌手/时长匹配、逐行/逐字双语歌词、覆盖已有、并发 3 和取消。
-  已用测试目录验证：标签/封面来自 QQ 优先、歌词来自网易云优先，标签、封面和双语歌词均写回。
-  网易云 / QQ 都取不到歌词时按顺序回落到备用词源（酷狗音乐 KRC、LRCLIB 逐行）：对本地曲库中
-  30 首缺歌词文件实测，QQ 单源 27/30（27 首为逐字双语），叠加备用词源后 29/30
-  （`レッド・パージ！！！` 由 LRCLIB 补齐），唯一未命中的是各源都没有的地下曲目；
-  酷狗在部分网络下报证书域名不匹配，异常被吞掉后自动回落到下一个源。
-- 备用词源开关与编辑器入口：设置窗口新增「备用词源」卡片（酷狗音乐（逐字歌词 + 译文）、
-  LRCLIB（逐行歌词），默认都勾选），批量获取标签、封面与歌词和 NCM 解锁后自动匹配按此过滤；
-  歌词编辑器的“在线搜索来源”下拉加入酷狗音乐 / LRCLIB，选中后按当前文件的标题、歌手与时长检索，
-  结果标注“仅歌词”，载入只填歌词框、不改标签与封面。单测覆盖过滤器（关掉酷狗后只问 LRCLIB）、
-  两个源都关掉时不写歌词，以及设置往返与旧值 `"lyricsEditorSearchSource":"QQMusic"` 的兼容读取。
-  窗口内显示当前生效的“匹配度阈值 xx%”，取自设置窗口「在线匹配度」文本框（默认 60%，范围 30–100）。
-- NCM 导入窗口的输入文件夹列表与输出目录自动记忆（默认启用、无开关）：打开窗口恢复上次内容并重新扫描，
-  添加文件夹、开始解密或关闭窗口时写回 `settings.json`（`ncmImportFolders` / `ncmImportOutputDirectory`，
-  自动去重去空白）；设置窗口保存其他设置时也会原样保留这两个字段。已用预置记忆的 settings.json
-  启动验证：窗口打开即显示上次文件夹路径、输出目录正确恢复，关闭后设置文件仍保留记忆。
-- NCM 导入窗口新增“解密后自动获取在线标签、封面与歌词”（默认开启）：每个文件解密成功后按
-  `BatchLyricsOptions.AutoEnrich`（QQ 音乐逐字歌词优先、网易云音乐兜底）自动在线匹配并写回标题、歌手、
-  专辑、封面与双语歌词；解密/匹配失败都逐条展示。
-- “下载/同步选中”与 NCM 解密后都会自动在线补全（`DownloadOptions.AutoMatchOnline`，默认开启）：
-  `DownloadService` / `MusicSyncService` 写标签后调用同一个批量匹配服务，固定 QQ 音乐逐字歌词优先、
-  网易云兜底；结果提示带来源（如「（QQ 音乐）」）并逐首写进主界面日志。已用真实 .ncm + 真实网络验证：
-  同步解密后写回 `source=QQ 音乐、format=双语逐字歌词`，TagLib 读回 4925 字符含逐字时间轴的歌词。
-  已用合成 .ncm + 真实网络端到端验证：解密 → 自动匹配「Lemon - 米津玄師」（网易云音乐）→
-  TagLib 读回标题/歌手/专辑、封面与 2000 字符双语歌词全部成功。
-- 评分与标签读取参考 MusicTag 桌面端 / 音樂標籤：标题的 “A / B”“A & B” 与歌手的
-  “A/B”“A feat. B”“A · B”“CV:” 都按分隔符切段后取最佳组合，避免并列写法拖低相似度；
-  本地文件注释里的客户端 `163 key(Don't modify)` 元数据可解出 `musicId`，网易云客户端
-  下载/解密出来的文件也能按 ID 精确匹配（`NeteaseClientComment`，已单测覆盖）。
-- QQ 音乐搜索修复（对照 LDDC 排查）：旧的 `client_search_cp` 已被 QQ 下线（`c.y.qq.com`、`c6.y.qq.com`
-  都返回 HTTP 500），搜索必然抛网络异常，界面只显示“网络连接失败”。改用 `/soso/fcgi-bin/search_cp`
-  + `new_json=1` 解析 `songname/songmid/albumname/albummid/songid/pubtime/interval/singer`，年份由
-  `pubtime` 折算；`c.y.qq.com` 失败自动切 `c6.y.qq.com`，都失败才提示“QQ 音乐搜索接口不可用”。
-  实网验证：编辑器里选 QQ 音乐搜索 “Lemon” 返回 Lemon / Lemon (Live) / Lemon (国语)，详情可取
-  逐行 1235 字符、逐字（QRC）7923 字符、双语 2306 字符与 13.5KB 封面。
-- 搜索准确率改造（参考 音樂標籤）：新增 `LyricsMatchScorer` 统一构造多变体查询并打分——
-  “标题+歌手 → 标题 → 歌手+标题 → 标题主体 → 去 feat. 版本 → 并列第一段”最多 3 组查询、每源前 10 条候选；
-  权重 标题 0.55 / 歌手 0.25 / 时长 0.20（无歌手时 标题 0.72 / 时长 0.20 / 专辑 0.08），
-  歌手相似度 < 0.30 整体 ×0.75（同名不同人直接淘汰），候选为伴奏版本时直接拒绝。
-  实网抽查 `D:\音乐` 中 12 个真实文件：11 个正确匹配（10 个 1.000、1 个 0.995）、0 个错配；
-  原先会错配的「レッド・パージ！！！/+α あるふぁきゅん。」从 0.750 降到 0.563，被正确拒绝。
-- 匹配度阈值改为在设置窗口「在线匹配度」用文本框输入（30–100 的百分数，默认 60，可写 “60” 或 “60%”）：
-  歌词编辑窗口的滑块已删除，窗口只显示当前阈值；结果按总分从高到低排序并显示“匹配度 xx%”，悬停可看
-  四路分值，低于阈值的结果标注“（低于阈值）”且不会被自动选中。输入值解析后写入 `settings.json` 的
-  `matchThreshold`（`LyricsMatchScorer.TryParseThreshold` / `FormatThresholdPercent`，越界或非法时设置窗口
-  提示“匹配度需在 30–100 之间”并拒绝保存），同时作为批量匹配与 NCM 解锁后自动匹配的命中阈值。
-- 注意：网易云搜索在多变体连续请求下会触发 `code=406` 限流（匿名与登录态均出现），
-  QQ 源同日稳定可用；实测因此以 QQ 为主。
-- 歌词编辑窗口的记忆：在线搜索来源（网易云 / QQ 音乐）与歌词格式（逐行 / 逐字优先）跟随上次选择，
-  默认开启、无开关；保存在 `settings.json` 的 `lyricsEditorSearchSource` / `lyricsEditorPreferWordLyrics`，
-  设置窗口保存其他设置时会原样带回这两个字段。已验证：预置 QQ + 逐字重启后窗口即显示 QQ 音乐 /
-  逐字歌词（有则优先），改回网易云后 `settings.json` 立刻写成 `Netease`。
-- 编辑器新增网易云音乐 / QQ 音乐联网搜索：点击搜索结果可同时载入标签、封面与歌词；
-  歌词格式可选逐行或逐字（网易云 YRC、QQ QRC 逐字均可用），默认生成双语歌词（原文 + 翻译）。
-  已验证两个来源的实际搜索结果、封面下载、两种歌词格式切换，以及日文歌曲原文 + 中文翻译的
-  双语歌词（无翻译的歌曲自动回退原文）。QQ 翻译改为 `PlayLyricInfo` 接口，已用 Lemon /
-  Shape of You 验证能获取翻译。打开本地音频时会以文件名自动搜索，已验证直接打开测试文件后
-  自动填入关键词并返回 3 条结果。
-- 移除了所有多主题/多材质逻辑与未使用的背景光斑、动画和颜色资源，只保留一套磨砂玻璃外观。
-  主窗口使用 Windows AcrylicBlur，窗口后的内容变化会实时反映到磨砂背景上。
-- 歌单侧栏加入 240ms 宽度过渡与淡入淡出动画；展开/收起列表用 `OpacityMask` 在上下边缘渐隐，图标渐隐/渐显；
-  收起为 88px 封面栏，纵向展示全部歌单并可点击切换；
-  按钮和列表项也增加了轻量颜色过渡。
-- Salt UI 风格控件（卡片、胶囊按钮、紧凑 Item）保留；设置窗口同步改为卡片式布局。
-- 主题：新增深色 / 浅色 / 跟随系统三套选择（默认深色），`App.axaml` 用 `ThemeDictionaries` 提供两套
-  调色板，界面统一改为 `DynamicResource`；启动前应用 `settings.Theme` 避免闪烁，设置窗口下拉即时预览、
-  取消回退、保存写入 `settings.json` 的 `theme`。GUI 实测（截图像素亮度均值，同一区域）：深色 30.2、
-  浅色 201.4、从深色切回浅色 201.4；选择「跟随系统」保存为 `System`，取消预览后亮度回到 201.3
-  且 `settings.json` 仍为 `Light`；删除设置值重启后按 `Light` 启动（190.2），歌词编辑器等二级窗口
-  在浅色下正常渲染（233.5）。
-- 浅色主题视觉修正（DPI 感知截图采样，物理像素）：① 删除歌单栏/封面栏上下共 4 条渐变色带
-  （与列表 `OpacityMask` 重复，浅色下是比面板更亮的硬边白条）；② `WindowVeilBrush` 由深色
-  #26020609 改为亮色 #CCF3F6FB、`DialogGlassBrush` 由 #B8F5F7FB 提到 #DCF2F5FA，面板/输入框
-  同步提亮。修正后浅色主窗口间隔区 203、面板 217、内容卡片 250，设置窗口玻璃 241 与下拉 223–230、
-  输入框 230、按钮 211 处于同一亮度层次（修前玻璃仅 185，与 233 的卡片形成暗灰边框式割裂）；
-  深色主题数值不变（间隔 28、面板 88），未受影响。
-- 顶栏/底栏背景色曾统一为不透明的 `ChromeBarBrush`（深色 #151A23、浅色 #FEFEFE），`CaptionBrush` 取同一个色值。
-  该画刷后来被液态玻璃 `ChromeGlassBrush` 取代并删除。统一前半透明时三条栏随玻璃背景漂移：
-  深色标题栏 #161C26(27.3) 对顶栏 #14191E(24.1) 对底栏 #131923(24.3)，浅色标题栏 #EFF3F8(242.4)、
-  顶栏 #F1F3F6(242.7) 对底栏 #FCFCFD(252.1)，肉眼是两层色；统一后发布版实测深色三条栏均为
-  #151A23、浅色均为 #FEFEFE，完全一致，且不再随壁纸变化。
-- 标题栏不再与窗口割裂：早先 `DwmCaptionColor` 填 `AppBackgroundBrush` 时，深色标题栏比正文暗
-  24 个亮度单位（14.4 对 38），像贴了一条黑条；改成 `DWMWA_COLOR_NONE` 让系统 Acrylic 画标题栏
-  又按**系统**主题着色（深色 84、浅色 152，客户区 27–38 与 241），两个方向都更割裂。
-  最终由 `CaptionBrush` 直接取与三条栏相同的实色（见上一条），DWM 标题栏与顶栏/底栏像素级一致；
-  运行时切换主题（设置里预览/取消）标题栏同步更新，已实测深色 ↔ 浅色双向切换。
-- 主窗口改为无边框自绘标题栏（`ExtendClientAreaToDecorationsHint` + `NoChrome`，保留 `CanResize`）：
-  68px 顶栏同时是标题栏，按下只记录位置、移动超过 4 DIP 才 `BeginMoveDrag`（直接按下即拖动会
-  进入系统移动循环并吞掉第二次按下，双击永远失效），双击在按下事件里切换最大化/还原；三个自绘
-  按钮的自动化名称为「最小化窗口 / 最大化窗口 / 还原窗口 / 关闭窗口」，最大化时图标切成双框。
-  发布版 DPI 感知截图：深色窗口顶部 y+0..3 与栏中均为 #151A23、浅色均为 #FEFEFE，无 DWM 亮线
-  也没有壁纸透出；最大化 rect -9,-9 / 2578x1398（工作区 0,0 / 2560x1380）时屏幕 y=0..3 仍为
-  #151A23（根 Grid 的 `OffScreenMargin` 生效）；最大化/还原/最小化用 UIA Invoke 验证，双击用
-  PostMessage 投递 WM_LBUTTONDOWN/UP 验证；DWM 1px 边框以 `DWMWA_COLOR_NONE (0xFFFFFFFE)` 关闭。
-- 顶栏改为液态玻璃：新增 `ChromeGlassBrush`（深色 #A6151A23 即 65%、浅色 #D0FEFEFE 即 82%），
-  68px 顶栏（项目名称 + 账号信息 + 窗口按钮）改用它，Acrylic 模糊从这一栏透出、颜色随桌面内容轻微变化；
-  两套主题字典都定义了该键，运行期用 `PrintWindow` 抓窗口内容确认解析成功（深色栏渲染为 #1F232A 一档、
-  浅色为 #F3F3F4，并随水平位置轻微波动）。当时桌面被全屏游戏覆盖，真实屏幕采样不可用，故“透出模糊背景”
-  只做了结构验证与两主题解析验证，未做逐像素对比。随后按需求把底部「进度 / 日志」栏也换成同一个
-  `ChromeGlassBrush`，并删掉不再被引用的 `ChromeBarBrush`（`CaptionBrush` 保留纯色供 DWM 使用）。
-- 发布改为轻量框架依赖模式：发布目录约 29MB、zip 约 11.7MB；
-  需要独立运行时可用 -SelfContained 切换回自包含模式；发布目录约 27MB、zip 约 11MB。
+| 范围 | 数量 | 说明 |
+|---|---|---|
+| `lp-core` 库内 | 945 | `netease` 152（weapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 177（解析、QRC、KRC、zlib、打分、批量、歌词服务）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
+| `lp-core` 集成测试 | 36 | `csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4——与 C# 版生成的「黄金」夹具逐字节 / 逐字段对照 |
+| `src-tauri` 外壳 | 33 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘、任务槽、事件名等 |
 
-### NCM
-- 使用合成 NCM fixture（对算法做逆变换生成）验证密钥盒、元数据、封面、MP3/FLAC 识别、
-  32KB 分块边界、截断/坏数据、取消/原子输出。
-- 未使用真实账号下载的 .ncm 文件（版权原因，未随附样本）。
+- `cargo fmt --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`pnpm build`（tsc + vite）通过，`.\build.ps1 -Test` 退出码 0。
+- 前端没有自动化测试：逻辑集中在 `lp-core`，界面靠浏览器假后端 + 实机验证。
 
-## 已修复的集成问题
+### 与 C# 版的交叉验证（重写期间完成）
 
-- **受限运行环境下“没有访问权限”**：客户端进程若无法写入 `%LOCALAPPDATA%` 或“音乐”目录，
-  登录 Cookie 保存会抛出 `UnauthorizedAccessException`。现已增加启动时目录可写性探测与自动降级：
-  标准 AppData → 程序目录 `data` → 临时目录；“音乐”目录不可写时下载目录同步降级到 `data\Music`，
-  界面日志会显示当前数据目录。真实扫码登录后会话已成功保存；完全退出并重启客户端后
-  自动恢复账号和歌单，已验证。便携模式会固定使用程序目录 `data`；发布 zip 会排除该目录，
-  避免把用户的加密登录 Cookie 打进安装包。
+用临时 C# 探针（直接引用 C# 版 `LunaticPrincess.Core`，已删除）在同样输入上跑出结果并固化为夹具，Rust 版必须一致：
+
+- 设置 / 登录态文件互读（C# 写 → Rust 读、Rust 写 → C# 读）。
+- 歌词：92 个解析用例、22 个 KRC、31 个解密、5 组 3DES 随机向量逐字节一致；10 首真实歌曲实网对比一致。
+- 标签：六种容器的写 / 读、局部更新、`replace_all` 清空，双向互读一致。
+- NCM：32 个合成样本的解密输出长度与 SHA-256 完全一致，17 种损坏样本的错误文案逐字相同。
+- 曲库：385 首随机歌单 + 79 个文件的合成曲库，匹配结果完全一致，分数最大差 1.1e-16；全部 65536 个 BMP 码元的字符类别对比（仅 .NET 8 之后才分配的字符有已知差异）。
+- 下载 / 同步：12 个场景完全一致。
+- 在线匹配：打分 1156 组、批量选择 30 个场景、词源解析 31 个场景全部一致。
+
+### 实机验证
+
+- 重写期间每个模块都用「exe 复制到独立目录 + 独立数据目录」的方式实机跑过（WebView2 远程调试端口驱动界面 / 调命令，Windows UI 自动化读控件，截图确认）：登录（含**真实 803 扫码确认流程**、重启后 DPAPI 恢复、退出登录）、歌单（真实账号 16 个歌单、1235 首大歌单分批补齐）、标签、NCM 导入、本地曲库、编辑器与批量、设置与材质切换。细节见 `docs/TAURI_REWRITE.md` 各模块「验证」。
+- **模块 12（本次）**：
+  - `.\build.ps1 -Test` 全过（上面的 1014）；`.\build.ps1` 默认构建成功，`app\target\release\LunaticPrincess.exe` 约 6.8 MB。
+  - `.\build.ps1 -Bundle -Version v2.0.0-manual.1`：版本号写入 `Cargo.toml` / `tauri.conf.json` / `package.json` 并参与编译（构建输出为 `lp-core v2.0.0-manual.1`），**便携版 zip 生成成功**（`LunaticPrincess-2.0.0-manual.1-win-x64-portable.zip`，3.0 MB，里面只有 `LunaticPrincess.exe`，没有 `data`）。解压到 `D:\claude\lp-portable\`、`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data` 启动：窗口标题 `Lunatic Princess`、进程 `Responding`，数据落在指定目录的 `webview\EBWebView`；测完已清空 `D:\claude`。
+  - **NSIS 安装包在本次自动化环境里没能生成**：Tauri 打包器把下载的 NSIS 工具解压到 `%LOCALAPPDATA%\tauri\nsis-3.13` 后要把目录改名为 `NSIS`，而这台机器上 Claude 桌面版的子进程对 `%LOCALAPPDATA%` 的写入被 MSIX 文件系统虚拟化到包私有目录（`C:\WpSystem\…\Packages\AnthropicPBC.Claude_…\LocalCache\Local\tauri`），改名时报 `os error 17`（无法将文件移到不同的驱动器）；另有一次下载中途 `unexpected end of file`（网络瞬时故障）。这是运行环境的限制，不是工程配置问题（打包配置已被 Tauri 解析通过，流程走到了「Verifying NSIS package」）。**需要在普通 PowerShell 里执行 `.\build.ps1 -Bundle` 确认安装包能生成**；GitHub Actions 的 windows-latest 上没有这个虚拟化。
+  - 版本解析（`scripts/resolve-version.ps1` 与 `main.yml` 里的步骤，本地用 Windows PowerShell 5.1 模拟）：`v2.0.0`→`2.0.0`、`v1.3`→`1.3.0`、`v.1.0.0`→`1.0.0`、`V1.0.0`→`1.0.0`、`v2.0.0-rc.1`→`2.0.0-rc.1`、`v0.0.1-manual`→`0.0.1-manual`、`v1`→`1.0.0`；分支手动运行 → `2.0.0-manual.<运行序号>`；`v1.2.3.4`、`vfoo` 等非 SemVer 直接失败。两个 workflow 用 PyYAML 解析通过（结构、触发条件、权限、步骤顺序已核对）；**workflow 本身没有真正在 GitHub 上跑过**，首次推送后要看一次 Actions。
 
 ## 已知限制
 
-1. 扫码登录的 803 确认段需要真实手机扫码；自动化只能验证出码与轮询，无法验证最终 Cookie 获取。登录续期（Cookie 合并 + token/refresh）仅有单测覆盖，实际能延长多久需真机长期观察；Cookie 真正过期或被作废时仍须重新扫码。
-2. 无损/Hi-Res 取决于账号会员权益；无权限时会降级或明确失败，程序不绕过版权限制。
-3. 逐字歌词取决于网易云是否为该曲目提供 YRC、QQ 音乐是否提供可解密的 QRC；都没有时回退逐行 LRC。
-4. FLAC 封面按 VorbisComment METADATA_BLOCK_PICTURE 写入（TagLibSharp 2.3.0 不支持原生 PICTURE block API），主流播放器兼容。
-5. 网易云接口为非公开接口，未来可能变更；相关端点集中在 Core/Netease 便于维护。
-6. 客户端暂未加入本地播放功能；当前定位为“歌单同步 / 下载 / 解密 / 标签管理”。
+1. **`/weapi/login/token/refresh` 返回 `code=400`**（桌面端扫码得到的会话；请求与 C# 版完全一致，C# v1.3 同样受影响）：续期是否真的延长登录有效期尚未证实；登录态本身有效。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。（待修问题，见 `docs/TAURI_REWRITE.md`）
+2. **网易云搜索匿名不可用**：`/api/search/get/web` 现在返回十六进制密文；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的结果；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、是否要改走 `eapi`，需要真实账号验证。目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源），编辑器记忆的默认搜索来源也改成了 QQ 音乐。（待修问题）
+3. 扫码登录的 803 确认段需要真人手机扫码，自动化只能验证到出码与 801 轮询。
+4. 真实账号下的下载 / 同步 / 状态列 / 歌词预览 / 歌曲行「编」按钮、以及从资源管理器真实拖拽，没有在无人值守环境验证，需要用户真机确认。
+5. 无损 / Hi-Res 以上档位受账号会员权益限制：无权限时服务端静默降档或失败，程序不绕过（会提示实际音质）。
+6. 逐字歌词取决于来源是否提供 YRC / QRC / KRC；都没有时回退逐行 LRC。
+7. 不支持 WMA 标签读写（lofty 不支持 ASF）；FLAC 封面是原生 PICTURE 块；Windows 资源管理器只认 RIFF INFO 的 WAV 标签，RIFF INFO 没有总数、歌词、封面。
+8. 网易云 / QQ / 酷狗接口均为非公开接口，随时可能变更；酷狗在部分网络下报证书域名不匹配或握手 EOF，异常吞掉后回落下一个词源。
+9. 没有本地播放功能；单账号；`session.dat` 绑定 Windows 用户，换用户或换机器需要重新扫码。
+10. 没有致命异常落盘日志（`panic = "abort"`，运行日志只在内存）。
+11. 管理员身份运行时 Windows 阻断资源管理器向程序拖放（UIPI），界面只能提示。
+12. 玻璃「透出」只能看到被虚化的下一层，做不了真正的局部折射；系统材质的完整效果只在 Windows 11 上；亚克力在拖动 / 缩放窗口时比云母更耗电。
+13. 仓库放在带低完整性标签的目录（如 Edge 的下载文件夹）时，直接运行的 exe 会把数据落在程序目录 `data\`，见 `docs/TAURI_REWRITE.md` 的「已知环境问题」。
+14. 安装包与便携版没有代码签名（SmartScreen 可能提示未知发布者），没有自动更新。
+15. 前端没有自动化测试。
