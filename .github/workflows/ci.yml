@@ -1,0 +1,59 @@
+name: CI
+
+# 对 main 的每次推送与 pull request 跑检查和测试（不打包）。打包与发布见 main.yml。
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt / clippy / test / 前端构建
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: 安装 Rust（stable，MSVC）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 缓存 Cargo 构建
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app
+
+      # cargo fmt --check、clippy -D warnings、cargo test --workspace、pnpm build（tsc + vite）。
+      - name: 检查与测试
+        run: ./build.ps1 -Test
