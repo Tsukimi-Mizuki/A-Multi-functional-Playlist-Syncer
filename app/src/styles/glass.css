@@ -1,0 +1,342 @@
+/*
+ * 液态玻璃材质与全局动效。最后加载，统一覆盖各模块样式里的底色、边框与过渡。
+ *
+ * 一块“液态玻璃”由四层组成：
+ *   1. 半透明色调（--panel / --dialog-glass，浓度跟随 --glass-strength）；
+ *   2. 顶部的柔光（--glass-sheen 渐变），像光从上方照进玻璃；
+ *   3. 内侧 1px 高光（inset box-shadow）+ 外侧柔和投影，让玻璃浮起来；
+ *   4. 边缘折光（::after 上的 --glass-rim 渐变，用 mask 只留 1px 的环），左上与右下更亮。
+ * 窗口下面的桌面由系统亚克力材质实时模糊后透上来；对话框再用 backdrop-filter 模糊它下面的主界面，
+ * 所以每一层都能看见下一层。
+ *
+ * 注意：WebView2 在透明窗口里不支持 backdrop-filter（实机验证：对话框下面的内容依旧清晰），
+ * 所以“模糊下一层”改为直接给下一层加 filter：对话框打开时整个主界面（#root）虚化，
+ * 叠放对话框时，被盖住的那个对话框也一起虚化。普通浏览器里 backdrop-filter 仍然生效，两者叠加无妨。
+ */
+
+/* ---- 景深：上层打开时，下层平滑地失焦；上层关闭（含退场残影）时同步对焦回来 ---- */
+#root,
+.modal-backdrop > .modal {
+  transition: filter var(--dur-3) var(--ease-out);
+}
+
+body:has(> .modal-backdrop:not(.modal-leaving)) #root,
+body:has(> .drop-overlay) #root {
+  filter: blur(9px) saturate(135%);
+}
+
+.modal-backdrop:has(~ .modal-backdrop:not(.modal-leaving)) > .modal {
+  filter: blur(6px) saturate(130%);
+}
+
+/* ---- 窗口底：一层很薄的色调，加一点强调色的环境光 ---- */
+.app-shell {
+  background:
+    radial-gradient(900px 520px at 0% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 62%),
+    radial-gradient(800px 600px at 100% 100%, rgb(110 140 255 / 0.07), transparent 60%),
+    var(--window-veil);
+}
+
+/* ---- 标题栏与日志栏：贴边的长条玻璃 ---- */
+.titlebar {
+  position: relative;
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 75%), var(--chrome-glass);
+  box-shadow:
+    inset 0 -1px 0 var(--border),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.log-panel {
+  border-top-color: transparent;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 60%), var(--chrome-glass);
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+/* ---- 浮起的面板：侧栏、歌曲区 ---- */
+.sidebar,
+.main-pane {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 42%), var(--panel);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow-soft);
+}
+
+.sidebar::after,
+.main-pane::after,
+.modal::after,
+.settings-card::after,
+.segmented::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--glass-rim);
+  content: '';
+  pointer-events: none;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+/* ---- 模态对话框：浮在主界面上方、模糊它下面的一切 ---- */
+.modal-backdrop {
+  background: var(--scrim);
+  backdrop-filter: none;
+  animation: lp-backdrop-in var(--dur-3) var(--ease-out) both;
+}
+
+.modal {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 38%), var(--dialog-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(175%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow);
+  transform-origin: 50% 42%;
+  animation: lp-modal-in var(--dur-3) var(--ease-spring) both;
+}
+
+/* 内容很多的大面板（编辑器、批量获取）：色调稍浓、模糊更重，下面的主界面仍隐约可见。 */
+.editor-dialog,
+.batch-dialog,
+.ncm-dialog {
+  background:
+    linear-gradient(180deg, var(--glass-sheen), transparent 30%),
+    rgb(var(--tint-rgb) / calc(0.42 + var(--glass-strength) * 0.5));
+  backdrop-filter: blur(42px) saturate(170%);
+}
+
+/* 关闭时由 Modal 留下的“残影”播放退场动画，播完即移除。 */
+.modal-leaving {
+  pointer-events: none;
+  animation: lp-backdrop-out var(--dur-2) var(--ease-in) forwards;
+}
+
+.modal-leaving .modal {
+  animation: lp-modal-out var(--dur-2) var(--ease-in) forwards;
+}
+
+@keyframes lp-backdrop-in {
+  from {
+    background-color: transparent;
+  }
+}
+
+@keyframes lp-backdrop-out {
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes lp-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.955);
+  }
+}
+
+@keyframes lp-modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+/* ---- 按钮：玻璃胶囊，悬停提亮、按下回弹 ---- */
+.btn {
+  border-color: var(--border);
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 70%), var(--control);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-spring);
+}
+
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 70%), var(--control-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:active:not(:disabled) {
+  background: var(--control-pressed);
+  transform: scale(0.965);
+  transition-duration: var(--dur-1);
+}
+
+.btn-primary,
+.btn-primary:hover:not(:disabled),
+.btn-primary:active:not(:disabled) {
+  border-color: var(--accent-border);
+  color: #fff;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.24), transparent 62%), var(--accent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.38),
+    0 4px 16px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 62%), var(--accent-hover);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.42),
+    0 6px 22px color-mix(in srgb, var(--accent) 44%, transparent);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--accent-pressed);
+}
+
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--control);
+  border-color: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+.caption-button {
+  transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+/* ---- 列表行：悬停时柔和地亮起来 ---- */
+.pl-item,
+.song-row,
+.editor-result,
+.ncm-row {
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    padding 0.24s var(--ease-out);
+}
+
+/* ---- 输入框与下拉框：玻璃底，聚焦时外发光 ---- */
+input[type='text'],
+input[type='number'],
+input:not([type]),
+textarea,
+select {
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out);
+}
+
+input[type='text']:focus-visible,
+input:not([type]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+select option {
+  background: var(--app-background);
+  color: var(--text-primary);
+}
+
+/* ---- 顶部提示条：从标题栏下面滑出来 ---- */
+.app-banner {
+  backdrop-filter: none;
+  animation: lp-banner-in var(--dur-3) var(--ease-out) both;
+}
+
+@keyframes lp-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ---- 拖放提示层 ---- */
+.drop-overlay-card {
+  opacity: 1;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 40%), var(--dialog-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  animation: lp-modal-in var(--dur-3) var(--ease-spring) both;
+}
+
+/* ---- 滚动条：细长的玻璃条 ---- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--control-hover) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--control-pressed) padding-box;
+}
+
+::-webkit-scrollbar-corner,
+::-webkit-resizer {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* 滚动条一旦碰到窗口的右下角，WebView2 会在那里画一块方形的“缩放角”（实机可见）。
+   日志列表贴着窗口底边，所以右下各留一点距离，让滚动条停在角落之前。 */
+.log-list {
+  margin: 0 4px 6px 0;
+  overflow-x: hidden;
+}
+
+/* ---- 主题切换：整窗交叉淡化（View Transition） ---- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-4);
+  animation-timing-function: var(--ease-in-out);
+}
+
+/* ---- 减少动效：用户在设置里打开，或系统开启了“减少动画”。加载指示器照常转动。 ---- */
+:root[data-reduce-motion] *:not(.spinner, .spinner-small, .qr-placeholder),
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 1ms !important;
+  transition-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root *:not(.spinner, .spinner-small, .qr-placeholder),
+  :root *::before,
+  :root *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+}

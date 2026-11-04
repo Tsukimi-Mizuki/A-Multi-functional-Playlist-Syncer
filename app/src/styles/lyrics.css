@@ -85,42 +85,7 @@
   gap: 8px 16px;
 }
 
-/* 胶囊分段控件 */
-.segmented {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--control);
-}
-
-.segmented-item {
-  height: 26px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 13px;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: default;
-}
-
-.segmented-item:hover {
-  color: var(--text-primary);
-}
-
-.segmented-item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.segmented-item-active,
-.segmented-item-active:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
+/* 胶囊分段控件的样式在 settings.css（全局通用的 Segmented 组件）。 */
 .lyrics-meta {
   display: flex;
   flex-wrap: wrap;

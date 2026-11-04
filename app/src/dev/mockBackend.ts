@@ -680,6 +680,42 @@ export function installMockBackend(scenario: string | null): void {
     libraryScanned = true
     return { directory: 'D:\\mock\\Music', totalFiles: libraryFiles, ncmFiles: 36, skippedDirectories: 0 }
   }
+  // 设置面板用的完整设置（只在内存里，刷新页面即还原）。
+  let mockSettings: Record<string, unknown> = {
+    downloadDirectory: 'D:\\mock\\Music',
+    libraryDirectory: 'D:\\mock\\Music',
+    quality: mockQuality,
+    lyricsMode: 'Line',
+    writeCover: true,
+    overwriteExisting: false,
+    skipExisting: true,
+    fileNameTemplate: '{artist} - {title}',
+    maxConcurrency: 3,
+    autoMatchLocal: scenario !== 'libmanual',
+    tagSourcePriority: 'NeteaseFirst',
+    lyricsSourcePriority: 'NeteaseFirst',
+    ncmImportFolders: [],
+    ncmImportOutputDirectory: '',
+    lyricsEditorSearchSource: 'QQMusic',
+    fallbackKugouLyrics: true,
+    fallbackLrclibLyrics: true,
+    lyricsEditorPreferWordLyrics: false,
+    matchThreshold: 0.6,
+    theme: 'Dark',
+    renderFrameRate: 'VSync',
+    windowMaterial: 'Acrylic',
+    glassOpacity: 0.45,
+    reduceMotion: false,
+  }
+  const settingsState = () => ({
+    settings: { ...mockSettings, quality: mockQuality },
+    dataDir: 'D:\\mock\\data',
+    settingsFile: 'D:\\mock\\data\\settings.json',
+    isPortable: true,
+    defaultDownloadDir: 'D:\\mock\\Music',
+    warning: scenario === 'settingswarn' ? '设置文件已损坏（演示）' : null,
+    qualityOptions: QUALITY_OPTIONS,
+  })
   mockIPC(
     async (command, payload) => {
       const args = (payload ?? {}) as Record<string, unknown>
@@ -753,6 +789,20 @@ export function installMockBackend(scenario: string | null): void {
         case 'set_quality':
           mockQuality = String(args.quality)
           return undefined
+        case 'get_settings':
+          return settingsState()
+        case 'save_settings': {
+          const patch = (args.patch ?? {}) as Record<string, unknown>
+          if (typeof patch.maxConcurrency === 'number' && (patch.maxConcurrency < 1 || patch.maxConcurrency > 8)) {
+            throw '下载并发数必须是 1–8 之间的整数'
+          }
+          await sleep(350)
+          mockSettings = { ...mockSettings, ...patch }
+          if (typeof patch.quality === 'string') mockQuality = patch.quality
+          return settingsState()
+        }
+        case 'preview_appearance':
+          return args.material
         case 'download_tracks':
           return mockTransferCommand('selected', Number(args.playlistId), (args.trackIds as number[]) ?? [])
         case 'download_missing':

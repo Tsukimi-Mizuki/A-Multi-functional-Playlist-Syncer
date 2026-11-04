@@ -29,20 +29,39 @@ fn read_json(name: &str) -> Value {
     serde_json::from_slice(&std::fs::read(fixture(name)).unwrap()).unwrap()
 }
 
+/// Rust 重写版新增、C# 版没有的设置键（C# 读取时忽略它们，所以文件仍然互通）。
+const RUST_ONLY_KEYS: [&str; 3] = ["windowMaterial", "glassOpacity", "reduceMotion"];
+
+/// 去掉 Rust 新增的键，只留 C# 也认识的部分用于逐字段比较。
+fn csharp_view(settings: &AppSettings) -> Value {
+    let mut value = serde_json::to_value(settings).unwrap();
+    let object = value.as_object_mut().unwrap();
+    for key in RUST_ONLY_KEYS {
+        assert!(object.remove(key).is_some(), "Rust 设置应包含 {key}");
+    }
+    value
+}
+
+/// Rust 的默认设置，但编辑器搜索来源取 C# 的默认值（Rust 版默认改成了 QQ 音乐）。
+fn csharp_defaults() -> AppSettings {
+    let mut settings = AppSettings::new(DEFAULT_DIR);
+    settings.lyrics_editor_search_source = LyricsSourceKind::Netease;
+    settings
+}
+
 #[test]
 fn csharp_default_settings_load_as_defaults() {
     let loaded = JsonSettingsStore::new(fixture("settings.csharp-default.json"), DEFAULT_DIR)
         .load()
         .unwrap();
-    assert_eq!(loaded, AppSettings::new(DEFAULT_DIR));
+    assert_eq!(loaded, csharp_defaults());
 }
 
 #[test]
 fn rust_defaults_serialize_to_the_same_json_as_csharp() {
     // 值与键顺序都一致（serde_json 开启 preserve_order 之前用键列表比较顺序）。
     let csharp = read_json("settings.csharp-default.json");
-    let rust = serde_json::to_value(AppSettings::new(DEFAULT_DIR)).unwrap();
-    assert_eq!(rust, csharp);
+    assert_eq!(csharp_view(&csharp_defaults()), csharp);
 
     let csharp_text = std::fs::read_to_string(fixture("settings.csharp-default.json")).unwrap();
     let keys_in_file: Vec<&str> = csharp_text
@@ -51,7 +70,7 @@ fn rust_defaults_serialize_to_the_same_json_as_csharp() {
         .filter_map(|rest| rest.split('"').next())
         .filter(|key| csharp.get(*key).is_some())
         .collect();
-    let rust_text = serde_json::to_string_pretty(&AppSettings::new(DEFAULT_DIR)).unwrap();
+    let rust_text = serde_json::to_string_pretty(&csharp_defaults()).unwrap();
     let rust_keys: Vec<&str> = rust_text
         .lines()
         .filter_map(|line| line.trim_start().strip_prefix('"'))
@@ -93,7 +112,7 @@ fn csharp_custom_settings_round_trip_through_rust() {
 
     // 再序列化回去，与 C# 写出的内容逐字段一致（C# 会把非 ASCII 转义成 \uXXXX，解析后等价）。
     assert_eq!(
-        serde_json::to_value(&loaded).unwrap(),
+        csharp_view(&loaded),
         read_json("settings.csharp-custom.json")
     );
 }

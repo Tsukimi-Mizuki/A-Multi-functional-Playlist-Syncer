@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
+import { getSettings, type SettingsState } from './api/settings'
 import { setQuality, type TransferSummary } from './api/transfer'
 import { errorMessage, resolveDrop, takeStartupFile } from './api/editor'
 import { pickAudioFile } from './api/tags'
@@ -16,7 +17,9 @@ import TagsDialog from './components/TagsDialog'
 import PlaylistSidebar from './components/PlaylistSidebar'
 import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
+import SettingsDialog from './components/SettingsDialog'
 import TitleBar from './components/TitleBar'
+import { appearanceOf, applyAppearance } from './state/appearance'
 import { useAuth } from './state/useAuth'
 import { useFileDrop } from './state/useFileDrop'
 import { useLogs } from './state/useLogs'
@@ -25,7 +28,7 @@ import { usePlaylists } from './state/usePlaylists'
 import { useSelection } from './state/useSelection'
 import { useTransfer } from './state/useTransfer'
 
-type DialogState = 'none' | 'login' | 'logout' | 'ncm'
+type DialogState = 'none' | 'login' | 'logout' | 'ncm' | 'settings'
 
 const SIDEBAR_KEY = 'lp.sidebarCollapsed'
 const NO_SONGS: Song[] = []
@@ -102,9 +105,24 @@ export default function App() {
         setQualityState((current) => current ?? app.settings.quality)
       })
       .catch(() => undefined) // 非 Tauri 环境（纯浏览器预览）没有后端。
+    // 外观（主题、玻璃浓度、减少动效）以后端的设置为准；首帧已经用上次缓存的外观铺过了。
+    getSettings()
+      .then((loaded) => {
+        if (!cancelled) applyAppearance(appearanceOf(loaded.settings))
+      })
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // 设置保存后：刷新主界面用到的设置摘要（自动对比、目录等）与工具栏的下载音质。
+  const onSettingsSaved = useCallback((saved: SettingsState) => {
+    setQualityState(saved.settings.quality)
+    setQualityError(null)
+    getAppState()
+      .then(setAppState)
+      .catch(() => undefined)
   }, [])
 
   const toggleSidebar = useCallback(() => {
@@ -236,6 +254,24 @@ export default function App() {
             <button type="button" className="btn" aria-label="查看本地音频文件的标签" onClick={pickTagsFile}>
               查看标签
             </button>
+            <button
+              type="button"
+              className="btn btn-icon"
+              aria-label="打开设置"
+              title="设置"
+              onClick={() => setDialog('settings')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Zm7.4-3.2c0-.5 0-1-.1-1.4l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.4-1.4L14.2 2.6h-4l-.4 2.6c-.9.3-1.7.8-2.4 1.4l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.8l-2 1.6 2 3.4 2.4-1c.7.6 1.5 1.1 2.4 1.4l.4 2.6h4l.4-2.6c.9-.3 1.7-.8 2.4-1.4l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.4Z"
+                />
+              </svg>
+            </button>
           </>
         }
         accountSlot={<AccountButton account={account} onLogin={openLogin} onLogout={() => setDialog('logout')} />}
@@ -290,6 +326,7 @@ export default function App() {
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
       {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
+      {dialog === 'settings' && <SettingsDialog onClose={closeDialog} onSaved={onSettingsSaved} />}
       {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
       {dragging && <DropOverlay editorOpen={editorOpen} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}

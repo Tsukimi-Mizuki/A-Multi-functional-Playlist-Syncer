@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::error::{CoreError, CoreResult};
 use crate::models::{
     AudioQuality, LyricsSourceKind, LyricsWriteMode, OnlineSourcePriority, RenderFrameRateMode,
-    ThemeMode,
+    ThemeMode, WindowMaterial,
 };
 
 /// 默认文件名模板。
@@ -29,6 +29,10 @@ pub const MAX_CONCURRENCY: i64 = 8;
 pub const DEFAULT_MATCH_THRESHOLD: f64 = 0.60;
 pub const MIN_MATCH_THRESHOLD: f64 = 0.30;
 pub const MAX_MATCH_THRESHOLD: f64 = 1.00;
+/// 界面玻璃底色的浓度（0 = 完全通透，1 = 不透明）：默认值与合法范围。
+pub const DEFAULT_GLASS_OPACITY: f64 = 0.45;
+pub const MIN_GLASS_OPACITY: f64 = 0.10;
+pub const MAX_GLASS_OPACITY: f64 = 0.95;
 
 /// 应用设置。字段顺序与 C# 的 `AppSettings` 一致，序列化后的 JSON 键顺序也就一致。
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -76,6 +80,12 @@ pub struct AppSettings {
     pub theme: ThemeMode,
     /// 渲染帧率上限。
     pub render_frame_rate: RenderFrameRateMode,
+    /// 窗口背景材质（Rust 重写版新增；C# 版读取时会忽略这个键）。
+    pub window_material: WindowMaterial,
+    /// 界面玻璃底色浓度（0.10–0.95）：越低越能看清窗口下面的内容。
+    pub glass_opacity: f64,
+    /// 减少动效：关掉弹出、滑动等过渡动画（系统开启“减少动画”时界面也会自动减弱）。
+    pub reduce_motion: bool,
 }
 
 impl AppSettings {
@@ -96,13 +106,17 @@ impl AppSettings {
             lyrics_source_priority: OnlineSourcePriority::NeteaseFirst,
             ncm_import_folders: Vec::new(),
             ncm_import_output_directory: String::new(),
-            lyrics_editor_search_source: LyricsSourceKind::Netease,
+            // 网易云匿名搜索目前不可用（见 docs/TAURI_REWRITE.md「待修问题」），默认改用 QQ 音乐；C# 版默认网易云。
+            lyrics_editor_search_source: LyricsSourceKind::QqMusic,
             fallback_kugou_lyrics: true,
             fallback_lrclib_lyrics: true,
             lyrics_editor_prefer_word_lyrics: false,
             match_threshold: DEFAULT_MATCH_THRESHOLD,
             theme: ThemeMode::Dark,
             render_frame_rate: RenderFrameRateMode::VSync,
+            window_material: WindowMaterial::Acrylic,
+            glass_opacity: DEFAULT_GLASS_OPACITY,
+            reduce_motion: false,
         }
     }
 
@@ -135,6 +149,12 @@ impl AppSettings {
         // C# 的 Math.Round(x, 2) 是“银行家舍入”，这里保持一致。
         let rounded = (self.match_threshold * 100.0).round_ties_even() / 100.0;
         self.match_threshold = rounded.clamp(MIN_MATCH_THRESHOLD, MAX_MATCH_THRESHOLD);
+
+        if !self.glass_opacity.is_finite() {
+            self.glass_opacity = DEFAULT_GLASS_OPACITY;
+        }
+        let glass = (self.glass_opacity * 100.0).round() / 100.0;
+        self.glass_opacity = glass.clamp(MIN_GLASS_OPACITY, MAX_GLASS_OPACITY);
 
         self.ncm_import_output_directory = self.ncm_import_output_directory.trim().to_owned();
         let mut seen = HashSet::new();
@@ -231,9 +251,102 @@ impl AppSettings {
         if let Some(v) = get("renderFrameRate").and_then(RenderFrameRateMode::from_json) {
             settings.render_frame_rate = v;
         }
+        if let Some(v) = get("windowMaterial").and_then(WindowMaterial::from_json) {
+            settings.window_material = v;
+        }
+        if let Some(v) = get("glassOpacity").and_then(as_float) {
+            settings.glass_opacity = v;
+        }
+        if let Some(v) = get("reduceMotion").and_then(Value::as_bool) {
+            settings.reduce_motion = v;
+        }
 
         settings.normalize(default_download_dir);
         settings
+    }
+
+    /// 应用设置窗口提交的修改：`patch` 只含改动过的键（camelCase），其余字段原样保留。
+    ///
+    /// 与读取文件时的宽容策略不同，这里是用户刚在界面上做的选择，所以逐项严格校验：
+    /// 未知键、类型不对、枚举名无法识别、数值越界都返回中文说明，整份修改不生效。
+    pub fn apply_patch(
+        &self,
+        patch: &Value,
+        default_download_dir: &str,
+    ) -> Result<AppSettings, String> {
+        let Some(changes) = patch.as_object() else {
+            return Err("设置修改必须是键值对象".to_owned());
+        };
+        let mut root = serde_json::to_value(self).map_err(|error| error.to_string())?;
+        let Some(object) = root.as_object_mut() else {
+            return Err("当前设置无法序列化".to_owned());
+        };
+        for (key, value) in changes {
+            if !object.contains_key(key) {
+                return Err(format!("未知的设置项：{key}"));
+            }
+            validate_patch_value(key, value)?;
+            object.insert(key.clone(), value.clone());
+        }
+        Ok(AppSettings::from_json_value(&root, default_download_dir))
+    }
+}
+
+/// 校验设置窗口提交的单个字段。
+fn validate_patch_value(key: &str, value: &Value) -> Result<(), String> {
+    let invalid = || format!("设置项 {key} 的取值无效：{value}");
+    let name = || value.as_str().ok_or_else(invalid);
+    match key {
+        "downloadDirectory"
+        | "libraryDirectory"
+        | "fileNameTemplate"
+        | "ncmImportOutputDirectory" => name().map(drop),
+        "writeCover"
+        | "overwriteExisting"
+        | "skipExisting"
+        | "autoMatchLocal"
+        | "fallbackKugouLyrics"
+        | "fallbackLrclibLyrics"
+        | "lyricsEditorPreferWordLyrics"
+        | "reduceMotion" => value.as_bool().map(drop).ok_or_else(invalid),
+        "quality" => AudioQuality::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "lyricsMode" => LyricsWriteMode::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "tagSourcePriority" | "lyricsSourcePriority" => OnlineSourcePriority::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "lyricsEditorSearchSource" => LyricsSourceKind::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "theme" => ThemeMode::from_name(name()?).map(drop).ok_or_else(invalid),
+        "renderFrameRate" => RenderFrameRateMode::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "windowMaterial" => WindowMaterial::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "maxConcurrency" => match value.as_i64() {
+            Some(count) if (MIN_CONCURRENCY..=MAX_CONCURRENCY).contains(&count) => Ok(()),
+            _ => Err(format!(
+                "下载并发数必须是 {MIN_CONCURRENCY}–{MAX_CONCURRENCY} 之间的整数"
+            )),
+        },
+        "matchThreshold" => match value.as_f64() {
+            Some(t) if (MIN_MATCH_THRESHOLD..=MAX_MATCH_THRESHOLD).contains(&t) => Ok(()),
+            _ => Err("在线匹配度必须在 30%–100% 之间".to_owned()),
+        },
+        "glassOpacity" => match value.as_f64() {
+            Some(o) if (MIN_GLASS_OPACITY..=MAX_GLASS_OPACITY).contains(&o) => Ok(()),
+            _ => Err("玻璃浓度必须在 10%–95% 之间".to_owned()),
+        },
+        "ncmImportFolders" => match value.as_array() {
+            Some(items) if items.iter().all(Value::is_string) => Ok(()),
+            _ => Err(invalid()),
+        },
+        _ => Err(invalid()),
     }
 }
 
@@ -391,7 +504,7 @@ mod tests {
         assert!(!settings.lyrics_editor_prefer_word_lyrics);
         assert_eq!(
             settings.lyrics_editor_search_source,
-            LyricsSourceKind::Netease
+            LyricsSourceKind::QqMusic
         );
     }
 
@@ -421,6 +534,9 @@ mod tests {
             match_threshold: 0.78,
             theme: ThemeMode::System,
             render_frame_rate: RenderFrameRateMode::Fps144,
+            window_material: WindowMaterial::Mica,
+            glass_opacity: 0.62,
+            reduce_motion: true,
         };
 
         let saved = store.save(&settings).unwrap();
@@ -463,10 +579,13 @@ mod tests {
             "matchThreshold",
             "theme",
             "renderFrameRate",
+            "windowMaterial",
+            "glassOpacity",
+            "reduceMotion",
         ] {
             assert!(object.contains_key(key), "缺少键 {key}");
         }
-        assert_eq!(object.len(), 21);
+        assert_eq!(object.len(), 24);
         assert_eq!(root["quality"], "Lossless");
         assert_eq!(root["tagSourcePriority"], "QQMusicOnly");
         assert_eq!(root["lyricsEditorSearchSource"], "QQMusic");
@@ -574,7 +693,7 @@ mod tests {
         );
         assert_eq!(
             settings.lyrics_editor_search_source,
-            LyricsSourceKind::Netease
+            LyricsSourceKind::QqMusic
         );
         assert_eq!(
             settings.lyrics_source_priority,
@@ -828,5 +947,97 @@ mod tests {
         );
         store.save(&custom()).unwrap();
         assert!(store.file_path().is_file());
+    }
+
+    #[test]
+    fn appearance_defaults_and_glass_opacity_is_clamped() {
+        let defaults = AppSettings::new(r"D:\Music");
+        assert_eq!(defaults.window_material, WindowMaterial::Acrylic);
+        assert_eq!(defaults.glass_opacity, DEFAULT_GLASS_OPACITY);
+        assert!(!defaults.reduce_motion);
+
+        let read = |json: &str| {
+            AppSettings::from_json_value(&serde_json::from_str(json).unwrap(), r"D:\Music")
+        };
+        assert_eq!(
+            read(r#"{"glassOpacity":0.0}"#).glass_opacity,
+            MIN_GLASS_OPACITY
+        );
+        assert_eq!(
+            read(r#"{"glassOpacity":3}"#).glass_opacity,
+            MAX_GLASS_OPACITY
+        );
+        assert_eq!(read(r#"{"glassOpacity":0.333}"#).glass_opacity, 0.33);
+        let custom = read(r#"{"windowMaterial":"mica","reduceMotion":true}"#);
+        assert_eq!(custom.window_material, WindowMaterial::Mica);
+        assert!(custom.reduce_motion);
+        assert_eq!(
+            read(r#"{"windowMaterial":"Glass"}"#).window_material,
+            WindowMaterial::Acrylic
+        );
+    }
+
+    #[test]
+    fn apply_patch_changes_only_the_given_keys() {
+        let mut current = AppSettings::new(r"D:\Music");
+        current.ncm_import_folders = vec![
+            r"D:
+cm"
+            .to_owned(),
+        ];
+        let patch = serde_json::json!({
+            "theme": "Light",
+            "windowMaterial": "None",
+            "glassOpacity": 0.7,
+            "maxConcurrency": 6,
+            "matchThreshold": 0.75,
+            "downloadDirectory": r"E:\下载",
+            "fallbackKugouLyrics": false,
+        });
+        let next = current.apply_patch(&patch, r"D:\Music").unwrap();
+        assert_eq!(next.theme, ThemeMode::Light);
+        assert_eq!(next.window_material, WindowMaterial::None);
+        assert_eq!(next.glass_opacity, 0.7);
+        assert_eq!(next.max_concurrency, 6);
+        assert_eq!(next.match_threshold, 0.75);
+        assert_eq!(next.download_directory, r"E:\下载");
+        assert!(!next.fallback_kugou_lyrics);
+        // 没提交的字段原样保留（包括界面上不显示的 NCM 导入记忆）。
+        assert_eq!(next.ncm_import_folders, current.ncm_import_folders);
+        assert_eq!(next.quality, current.quality);
+        assert_eq!(next.library_directory, current.library_directory);
+    }
+
+    #[test]
+    fn apply_patch_rejects_invalid_input_without_changing_anything() {
+        let current = AppSettings::new(r"D:\Music");
+        let rejected = [
+            serde_json::json!({ "nope": 1 }),
+            serde_json::json!({ "theme": "Neon" }),
+            serde_json::json!({ "theme": 1 }),
+            serde_json::json!({ "quality": "Ultra" }),
+            serde_json::json!({ "maxConcurrency": 9 }),
+            serde_json::json!({ "maxConcurrency": 2.5 }),
+            serde_json::json!({ "matchThreshold": 0.2 }),
+            serde_json::json!({ "glassOpacity": 1.0 }),
+            serde_json::json!({ "writeCover": "yes" }),
+            serde_json::json!({ "ncmImportFolders": [1] }),
+            serde_json::json!([1, 2]),
+        ];
+        for patch in rejected {
+            assert!(
+                current.apply_patch(&patch, r"D:\Music").is_err(),
+                "应拒绝 {patch}"
+            );
+        }
+        // 空路径与空模板由 normalize 归位，而不是报错。
+        let next = current
+            .apply_patch(
+                &serde_json::json!({ "downloadDirectory": "  ", "fileNameTemplate": "" }),
+                r"D:\Music",
+            )
+            .unwrap();
+        assert_eq!(next.download_directory, r"D:\Music");
+        assert_eq!(next.file_name_template, DEFAULT_FILE_NAME_TEMPLATE);
     }
 }

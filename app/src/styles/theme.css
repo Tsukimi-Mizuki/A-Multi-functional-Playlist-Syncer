@@ -1,109 +1,157 @@
 /*
- * 主题 token。配色取自 C# 版 App.axaml 的 ThemeDictionaries（Default = 深色，Light = 浅色），
- * 变量名与那里的 *Brush 一一对应（去掉 Brush 后缀、转 kebab-case），后续模块直接复用。
- * 默认深色；系统为浅色时自动切换。后续设置界面可通过 <html data-theme="dark|light"> 强制覆盖。
- * 注意：颜色为 #AARRGGBB 写法的 Avalonia 习惯已转换成 CSS 的 #RRGGBBAA。
+ * 液态玻璃主题 token。
+ *
+ * 窗口本身是透明的，系统的亚克力材质铺在网页下面，会实时模糊并透出窗口后面的桌面与其他窗口；
+ * 界面上的每一层（标题栏、面板、对话框）都只是一层带色调的半透明玻璃，所以能一直“看见下一层”。
+ *
+ * 玻璃有多浓由 `--glass-strength`（0.10–0.95，设置里的「玻璃浓度」）统一控制：
+ * 各层的不透明度都从它推导出来，拖动滑块时整套界面一起变化。
+ * 每套主题只定义底色（RGB 三元组）与高光，推导公式写在 `:root` 里一次。
  */
 :root {
   color-scheme: dark;
+  --glass-strength: 0.45;
 
-  --app-background: #0a0f17;
-  --chrome-glass: #151a23a6;
-  --dialog-glass: #080d15a8;
-  --caption-button-hover: #ffffff33;
-  --caption-button-pressed: #ffffff4d;
+  /* ---- 深色底色 ---- */
+  --tint-rgb: 14 18 27;
+  --tint-2-rgb: 28 34 46;
+  --veil-rgb: 5 8 14;
+  --app-background: #0b0f17;
+
+  --glass-highlight: rgb(255 255 255 / 0.16);
+  --glass-rim-strong: rgb(255 255 255 / 0.42);
+  --glass-rim-weak: rgb(255 255 255 / 0.05);
+  --glass-sheen: rgb(255 255 255 / 0.07);
+  --glass-shadow: 0 12px 40px rgb(0 0 0 / 0.34), 0 2px 8px rgb(0 0 0 / 0.18);
+  --glass-shadow-soft: 0 6px 22px rgb(0 0 0 / 0.22);
+
+  --caption-button-hover: rgb(255 255 255 / 0.14);
+  --caption-button-pressed: rgb(255 255 255 / 0.24);
   --caption-close-hover: #e81123;
-  --panel: #151a23a3;
-  --panel-alt: #1d242fbf;
-  --panel-hover: #2b3442d9;
-  --input: #10151dcc;
-  --control: #ffffff1a;
-  --control-hover: #ffffff2b;
-  --control-pressed: #ffffff3d;
-  --row-hover: #ffffff14;
-  --border: #ffffff33;
-  --border-strong: #ffffff59;
-  --text-primary: #f4f7fb;
-  --text-secondary: #c2cbd7;
-  --text-tertiary: #96a1b0;
+  --control: rgb(255 255 255 / 0.09);
+  --control-hover: rgb(255 255 255 / 0.16);
+  --control-pressed: rgb(255 255 255 / 0.24);
+  --row-hover: rgb(255 255 255 / 0.07);
+  --border: rgb(255 255 255 / 0.14);
+  --border-strong: rgb(255 255 255 / 0.26);
+  --text-primary: #f5f7fb;
+  --text-secondary: #c9d1dc;
+  --text-tertiary: #9aa5b4;
   --accent: #ff6b7d;
   --accent-hover: #ff8a99;
   --accent-pressed: #e05569;
-  --accent-soft: #ec414133;
-  --accent-border: #ff7a7a66;
+  --accent-soft: rgb(255 107 125 / 0.18);
+  --accent-border: rgb(255 122 138 / 0.5);
   --success: #5bdb95;
   --warning: #f0b64d;
   --danger: #ff7d7d;
-  --danger-soft: #3b1c20;
-  --window-veil: #05080d33;
+  --danger-soft: rgb(255 92 92 / 0.16);
+  --text-shadow-glass: 0 1px 2px rgb(0 0 0 / 0.35);
+
+  /* ---- 由玻璃浓度推导出的各层底色 ---- */
+  --window-veil: rgb(var(--veil-rgb) / calc(var(--glass-strength) * 0.55));
+  --chrome-glass: rgb(var(--tint-rgb) / calc(0.12 + var(--glass-strength) * 0.6));
+  --panel: rgb(var(--tint-rgb) / calc(0.1 + var(--glass-strength) * 0.62));
+  --panel-alt: rgb(var(--tint-2-rgb) / calc(0.16 + var(--glass-strength) * 0.6));
+  --panel-hover: rgb(var(--tint-2-rgb) / calc(0.36 + var(--glass-strength) * 0.5));
+  --dialog-glass: rgb(var(--tint-rgb) / calc(0.26 + var(--glass-strength) * 0.56));
+  --input: rgb(var(--tint-rgb) / calc(0.3 + var(--glass-strength) * 0.5));
+  --scrim: rgb(var(--veil-rgb) / calc(0.12 + var(--glass-strength) * 0.3));
+
+  /* 玻璃边缘的折光：左上与右下亮、中间暗，像光线掠过一块弧面玻璃。 */
+  --glass-rim: linear-gradient(
+    145deg,
+    var(--glass-rim-strong) 0%,
+    var(--glass-rim-weak) 32%,
+    var(--glass-rim-weak) 68%,
+    color-mix(in srgb, var(--glass-rim-strong) 60%, transparent) 100%
+  );
+  --glass-blur: 26px;
+
+  /* ---- 动效：全局统一的时长与缓动，所有过渡都从这里取，动起来才连贯 ---- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 0.75, 0.3);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 460ms;
 }
 
-/* 系统为浅色且未手动指定主题时，使用浅色 token。 */
+/* 浅色底色：系统为浅色且未手动指定，或手动选了浅色。两段内容相同。 */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     color-scheme: light;
-
+    --tint-rgb: 255 255 255;
+    --tint-2-rgb: 243 246 251;
+    --veil-rgb: 232 238 247;
     --app-background: #f3f6fb;
-    --chrome-glass: #fefefed0;
-    --dialog-glass: #f2f5fadc;
-    --caption-button-hover: #00000017;
-    --caption-button-pressed: #00000029;
-    --panel: #ffffffc2;
-    --panel-alt: #f6f8fcd2;
-    --panel-hover: #e4e9f1e0;
-    --input: #ffffffe6;
-    --control: #00000014;
-    --control-hover: #0000001f;
-    --control-pressed: #00000029;
-    --row-hover: #00000012;
-    --border: #00000026;
-    --border-strong: #0000003d;
-    --text-primary: #151a22;
-    --text-secondary: #454e5c;
-    --text-tertiary: #6e7787;
+
+    --glass-highlight: rgb(255 255 255 / 0.9);
+    --glass-rim-strong: rgb(255 255 255 / 0.98);
+    --glass-rim-weak: rgb(255 255 255 / 0.3);
+    --glass-sheen: rgb(255 255 255 / 0.45);
+    --glass-shadow: 0 12px 36px rgb(28 44 72 / 0.16), 0 2px 8px rgb(28 44 72 / 0.08);
+    --glass-shadow-soft: 0 6px 20px rgb(28 44 72 / 0.1);
+
+    --caption-button-hover: rgb(0 0 0 / 0.07);
+    --caption-button-pressed: rgb(0 0 0 / 0.13);
+    --control: rgb(255 255 255 / 0.5);
+    --control-hover: rgb(255 255 255 / 0.78);
+    --control-pressed: rgb(225 231 241 / 0.9);
+    --row-hover: rgb(255 255 255 / 0.45);
+    --border: rgb(20 30 50 / 0.12);
+    --border-strong: rgb(20 30 50 / 0.2);
+    --text-primary: #141a23;
+    --text-secondary: #3f4958;
+    --text-tertiary: #677284;
     --accent: #e0354a;
     --accent-hover: #ec4a5e;
     --accent-pressed: #c22839;
-    --accent-soft: #ec41411f;
-    --accent-border: #e0354a66;
+    --accent-soft: rgb(224 53 74 / 0.13);
+    --accent-border: rgb(224 53 74 / 0.45);
     --success: #1b8a57;
     --warning: #a26800;
     --danger: #c62828;
-    --danger-soft: #fbe6e6;
-    --window-veil: #f3f6fbcc;
+    --danger-soft: rgb(198 40 40 / 0.12);
+    --text-shadow-glass: 0 1px 1px rgb(255 255 255 / 0.5);
   }
 }
 
-/* 手动强制浅色（预留给设置界面）。 */
 :root[data-theme='light'] {
   color-scheme: light;
-
+  --tint-rgb: 255 255 255;
+  --tint-2-rgb: 243 246 251;
+  --veil-rgb: 232 238 247;
   --app-background: #f3f6fb;
-  --chrome-glass: #fefefed0;
-  --dialog-glass: #f2f5fadc;
-  --caption-button-hover: #00000017;
-  --caption-button-pressed: #00000029;
-  --panel: #ffffffc2;
-  --panel-alt: #f6f8fcd2;
-  --panel-hover: #e4e9f1e0;
-  --input: #ffffffe6;
-  --control: #00000014;
-  --control-hover: #0000001f;
-  --control-pressed: #00000029;
-  --row-hover: #00000012;
-  --border: #00000026;
-  --border-strong: #0000003d;
-  --text-primary: #151a22;
-  --text-secondary: #454e5c;
-  --text-tertiary: #6e7787;
+
+  --glass-highlight: rgb(255 255 255 / 0.9);
+  --glass-rim-strong: rgb(255 255 255 / 0.98);
+  --glass-rim-weak: rgb(255 255 255 / 0.3);
+  --glass-sheen: rgb(255 255 255 / 0.45);
+  --glass-shadow: 0 12px 36px rgb(28 44 72 / 0.16), 0 2px 8px rgb(28 44 72 / 0.08);
+  --glass-shadow-soft: 0 6px 20px rgb(28 44 72 / 0.1);
+
+  --caption-button-hover: rgb(0 0 0 / 0.07);
+  --caption-button-pressed: rgb(0 0 0 / 0.13);
+  --control: rgb(255 255 255 / 0.5);
+  --control-hover: rgb(255 255 255 / 0.78);
+  --control-pressed: rgb(225 231 241 / 0.9);
+  --row-hover: rgb(255 255 255 / 0.45);
+  --border: rgb(20 30 50 / 0.12);
+  --border-strong: rgb(20 30 50 / 0.2);
+  --text-primary: #141a23;
+  --text-secondary: #3f4958;
+  --text-tertiary: #677284;
   --accent: #e0354a;
   --accent-hover: #ec4a5e;
   --accent-pressed: #c22839;
-  --accent-soft: #ec41411f;
-  --accent-border: #e0354a66;
+  --accent-soft: rgb(224 53 74 / 0.13);
+  --accent-border: rgb(224 53 74 / 0.45);
   --success: #1b8a57;
   --warning: #a26800;
   --danger: #c62828;
-  --danger-soft: #fbe6e6;
-  --window-veil: #f3f6fbcc;
+  --danger-soft: rgb(198 40 40 / 0.12);
+  --text-shadow-glass: 0 1px 1px rgb(255 255 255 / 0.5);
 }

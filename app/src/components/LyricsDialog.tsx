@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getSongLyrics, toLyricsLoadError, type LyricsMode, type LyricsPreview } from '../api/lyrics'
 import type { Song } from '../api/playlists'
 import { artistText } from '../lib/format'
+import { Segmented } from './controls'
 import Modal from './Modal'
 
 type LoadState =
@@ -70,22 +71,12 @@ export default function LyricsDialog({ song, onClose }: LyricsDialogProps) {
       </p>
 
       <div className="lyrics-toolbar">
-        <div className="segmented" role="radiogroup" aria-label="歌词形式">
-          {MODES.map((item) => (
-            <button
-              key={item.mode}
-              type="button"
-              role="radio"
-              aria-checked={mode === item.mode}
-              aria-label={item.label}
-              title={item.hint}
-              className={`segmented-item${mode === item.mode ? ' segmented-item-active' : ''}`}
-              onClick={() => setMode(item.mode)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="歌词形式"
+          value={mode}
+          options={MODES.map((item) => ({ value: item.mode, label: item.label, hint: item.hint }))}
+          onChange={setMode}
+        />
         <ul className="lyrics-meta" aria-label="歌词信息">
           <li>来源：{preview?.source ?? '网易云音乐'}</li>
           {preview && !preview.isEmpty && (

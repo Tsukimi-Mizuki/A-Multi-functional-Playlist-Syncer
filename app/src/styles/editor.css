@@ -11,12 +11,6 @@
   gap: 12px;
 }
 
-/* 编辑器与批量窗口内容很多：玻璃底几乎不透明，避免下面的主界面透出来干扰阅读（小对话框保持原来的通透）。 */
-.editor-dialog,
-.batch-dialog {
-  background: color-mix(in srgb, var(--app-background) 97%, transparent);
-}
-
 .editor-dialog .modal-body {
   flex: 1;
   align-items: stretch;

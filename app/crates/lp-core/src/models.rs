@@ -184,6 +184,19 @@ name_enum! {
 }
 
 name_enum! {
+    /// 主窗口铺在网页下面的系统背景材质（Rust 重写版新增，C# 版没有这个设置）。
+    pub enum WindowMaterial {
+        default Acrylic;
+        /// 亚克力：实时模糊并透出窗口下面的桌面与其他窗口（默认，液态玻璃效果依赖它）。
+        Acrylic = 0 => "Acrylic",
+        /// 云母：只取桌面壁纸的色调，不透出其他窗口，拖动 / 缩放时更省电。
+        Mica = 1 => "Mica",
+        /// 关闭系统材质，窗口完全透明，只剩界面自身的玻璃底色。
+        None = 2 => "None",
+    }
+}
+
+name_enum! {
     /// 歌词检索来源：主词源（网易云、QQ 音乐）与备用词源（酷狗、LRCLIB，只提供歌词）。
     pub enum LyricsSourceKind {
         default Netease;

@@ -1,6 +1,7 @@
 //! Tauri 外壳：只做命令转发、事件推送、窗口与插件，业务逻辑一律在 `lp-core`。
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use std::time::Duration;
 
@@ -34,7 +35,7 @@ use lp_core::lyrics::batch::{
     BatchRequest, BatchScanView, BatchSummaryView, SettingsProvider,
 };
 use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
-use lp_core::models::{AudioQuality, LyricsSourceKind, ThemeMode};
+use lp_core::models::{AudioQuality, LyricsSourceKind, ThemeMode, WindowMaterial};
 use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
 use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
@@ -55,6 +56,7 @@ use lp_core::sync::SyncService;
 use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
 use lp_core::utilities::CancelToken;
 use serde::{Deserialize, Serialize};
+use tauri::utils::config::WindowEffectsConfig;
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
 
@@ -101,6 +103,8 @@ struct AppState {
     settings_store: JsonSettingsStore,
     /// 设置文件读取失败时的中文原因（此时界面使用默认设置）。
     settings_warning: Option<String>,
+    /// 用户在设置窗口里主动保存过：读取失败的旧文件已被新设置取代，之后的自动记忆也可以照常写盘。
+    settings_recovered: AtomicBool,
     /// 运行日志（内存，最多 400 条）。
     logs: Arc<LogHub>,
     /// 登录编排；登录态（含 Cookie）只留在后端，前端永远拿不到。
@@ -274,6 +278,7 @@ impl AppState {
             settings,
             settings_store,
             settings_warning,
+            settings_recovered: AtomicBool::new(false),
             logs,
             login,
             playlists,
@@ -324,7 +329,7 @@ impl AppState {
         if !remember_editor_options(&mut settings, source, prefer_word_lyrics) {
             return;
         }
-        if self.settings_warning.is_some() {
+        if self.settings_unreadable() {
             return;
         }
         match self.settings_store.save(&settings) {
@@ -332,6 +337,42 @@ impl AppState {
             Err(error) => self
                 .logs
                 .warning(format!("记住编辑器的搜索来源失败：{error}")),
+        }
+    }
+
+    /// 设置文件当初没能读出来、用户也还没在设置窗口里保存过：此时自动记忆只改内存不写盘。
+    fn settings_unreadable(&self) -> bool {
+        self.settings_warning.is_some() && !self.settings_recovered.load(Ordering::Relaxed)
+    }
+
+    /// 仍然有效的设置读取警告（保存过新设置后就不再提示）。
+    fn active_settings_warning(&self) -> Option<&str> {
+        self.settings_warning
+            .as_deref()
+            .filter(|_| self.settings_unreadable())
+    }
+
+    /// 应用设置窗口提交的修改并写盘。这是用户的明确操作，所以即使设置文件当初读取失败也照常保存，
+    /// 保存成功后读取失败的提示随之消失。
+    fn save_settings_patch(&self, patch: &serde_json::Value) -> Result<AppSettings, String> {
+        let default_dir = display_path(&self.paths.default_download_dir);
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let next = settings.apply_patch(patch, &default_dir)?;
+        match self.settings_store.save(&next) {
+            Ok(saved) => {
+                *settings = saved.clone();
+                self.settings_recovered.store(true, Ordering::Relaxed);
+                self.logs.success("设置已保存");
+                Ok(saved)
+            }
+            Err(error) => {
+                let message = format!("保存设置失败：{error}");
+                self.logs.warning(&message);
+                Err(message)
+            }
         }
     }
 
@@ -345,7 +386,7 @@ impl AppState {
         build_app_state_dto(
             &self.paths,
             &self.settings(),
-            self.settings_warning.as_deref(),
+            self.active_settings_warning(),
             &self.login.account(),
             self.session_error.as_deref(),
         )
@@ -716,7 +757,7 @@ impl AppState {
     /// 记忆只是便利功能：失败只记日志，不打断导入。设置文件当初没能读出来（正在使用默认设置）时
     /// 不写盘，免得把用户真正的设置覆盖成默认值。
     fn remember_ncm_state(&self, folders: &[String], output_directory: &str) {
-        if self.settings_warning.is_some() {
+        if self.settings_unreadable() {
             return;
         }
         let mut settings = self
@@ -907,7 +948,7 @@ impl AppState {
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         settings.quality = quality;
-        if self.settings_warning.is_some() {
+        if self.settings_unreadable() {
             return Ok(());
         }
         match self.settings_store.save(&settings) {
@@ -1176,14 +1217,116 @@ fn take_startup_file(state: State<'_, AppState>) -> Option<String> {
         .take()
 }
 
-/// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
-fn apply_window_effects(window: &WebviewWindow) {
-    let mica = EffectsBuilder::new().effect(Effect::Mica).build();
-    if window.set_effects(mica).is_err() {
-        let acrylic = EffectsBuilder::new().effect(Effect::Acrylic).build();
-        // 两种材质都不可用（如远程桌面）时保持纯透明，由前端 CSS 背景兜底。
-        let _ = window.set_effects(acrylic);
+/// 给无边框透明窗口铺系统背景材质，返回实际生效的材质。
+///
+/// 亚克力会实时模糊并透出窗口下面的桌面与其他窗口，液态玻璃界面靠它“看见下一层”；云母只取壁纸色调。
+/// 首选材质不可用时退到另一种；两种都不可用（如远程桌面）时保持纯透明，由前端的玻璃底色兜底。
+fn apply_window_material(window: &WebviewWindow, material: WindowMaterial) -> WindowMaterial {
+    let try_effect = |effect: Effect| {
+        window
+            .set_effects(EffectsBuilder::new().effect(effect).build())
+            .is_ok()
+    };
+    let order: &[(Effect, WindowMaterial)] = match material {
+        WindowMaterial::Acrylic => &[
+            (Effect::Acrylic, WindowMaterial::Acrylic),
+            (Effect::Mica, WindowMaterial::Mica),
+        ],
+        WindowMaterial::Mica => &[
+            (Effect::Mica, WindowMaterial::Mica),
+            (Effect::Acrylic, WindowMaterial::Acrylic),
+        ],
+        WindowMaterial::None => &[],
+    };
+    for (effect, applied) in order {
+        if try_effect(*effect) {
+            return *applied;
+        }
     }
+    let _ = window.set_effects(None::<WindowEffectsConfig>);
+    WindowMaterial::None
+}
+
+/// 让系统材质的底色跟随界面主题（亚克力 / 云母会按窗口主题着色），`System` 交还给系统决定。
+fn apply_window_theme(window: &WebviewWindow, theme: ThemeMode) {
+    let theme = match theme {
+        ThemeMode::Dark => Some(tauri::Theme::Dark),
+        ThemeMode::Light => Some(tauri::Theme::Light),
+        ThemeMode::System => None,
+    };
+    let _ = window.set_theme(theme);
+}
+
+/// 主窗口的外观：主题 + 材质，返回实际生效的材质。
+fn apply_appearance(app: &AppHandle, material: WindowMaterial, theme: ThemeMode) -> WindowMaterial {
+    match app.get_webview_window("main") {
+        Some(window) => {
+            apply_window_theme(&window, theme);
+            apply_window_material(&window, material)
+        }
+        None => material,
+    }
+}
+
+/// 设置窗口需要的全部数据：完整设置、路径信息与可选项。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SettingsDto {
+    settings: AppSettings,
+    data_dir: String,
+    settings_file: String,
+    is_portable: bool,
+    default_download_dir: String,
+    /// 设置文件读取失败的原因（保存一次新设置后为空）。
+    warning: Option<String>,
+    quality_options: Vec<QualityOptionDto>,
+}
+
+impl AppState {
+    fn settings_dto(&self) -> SettingsDto {
+        SettingsDto {
+            settings: self.settings().clone(),
+            data_dir: display_path(&self.paths.data_dir),
+            settings_file: display_path(self.settings_store.file_path()),
+            is_portable: self.paths.is_portable,
+            default_download_dir: display_path(&self.paths.default_download_dir),
+            warning: self.active_settings_warning().map(str::to_owned),
+            quality_options: quality_options(),
+        }
+    }
+}
+
+/// 读取完整设置（设置窗口打开时调用）。
+#[tauri::command]
+fn get_settings(state: State<'_, AppState>) -> SettingsDto {
+    state.settings_dto()
+}
+
+/// 保存设置窗口里改动过的字段（只传改动的键，camelCase），保存后立即应用窗口主题与材质。
+/// 校验失败或写盘失败时 `Err` 是中文说明，内存与文件里的设置都保持原样。
+#[tauri::command]
+fn save_settings(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    patch: serde_json::Value,
+) -> Result<SettingsDto, String> {
+    let saved = state.save_settings_patch(&patch)?;
+    apply_appearance(&app, saved.window_material, saved.theme);
+    Ok(state.settings_dto())
+}
+
+/// 设置窗口里实时预览窗口主题与材质（不写盘）；取消时前端用已保存的值再调一次即可还原。
+/// 返回实际生效的材质名（首选材质不可用时会退到另一种）。
+#[tauri::command]
+fn preview_appearance(
+    app: AppHandle,
+    material: String,
+    theme: String,
+) -> Result<WindowMaterial, String> {
+    let material = WindowMaterial::from_name(&material)
+        .ok_or_else(|| format!("无法识别的窗口材质：{material}"))?;
+    let theme = ThemeMode::from_name(&theme).ok_or_else(|| format!("无法识别的主题：{theme}"))?;
+    Ok(apply_appearance(&app, material, theme))
 }
 
 /// 启动 Tauri 应用。
@@ -1228,7 +1371,19 @@ pub fn run() {
             let window = WebviewWindowBuilder::from_config(app.handle(), &window_config)?
                 .data_directory(webview_dir.clone())
                 .build()?;
-            apply_window_effects(&window);
+            let (material, theme) = {
+                let settings = state.settings();
+                (settings.window_material, settings.theme)
+            };
+            apply_window_theme(&window, theme);
+            let applied = apply_window_material(&window, material);
+            if applied != material {
+                state.logs.warning(format!(
+                    "窗口材质「{}」不可用，已改用「{}」",
+                    material.name(),
+                    applied.name()
+                ));
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1270,7 +1425,10 @@ pub fn run() {
             editor_remember_options,
             resolve_drop,
             read_cover_file,
-            take_startup_file
+            take_startup_file,
+            get_settings,
+            save_settings,
+            preview_appearance
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -1655,6 +1813,64 @@ mod tests {
     }
 
     #[test]
+    fn saving_settings_writes_only_the_patch_and_keeps_other_fields() {
+        let dir = ScratchDir::new("settings-save");
+        let state = AppState::load(dir.paths());
+        state.remember_ncm_state(&[r"D:".to_owned()], r"E:\out");
+
+        let dto = state
+            .save_settings_patch(&serde_json::json!({ "theme": "Light", "glassOpacity": 0.3 }))
+            .unwrap();
+
+        assert_eq!(dto.theme, ThemeMode::Light);
+        assert_eq!(dto.glass_opacity, 0.3);
+        let on_disk = JsonSettingsStore::new(state.paths.settings_file(), r"D:\Music")
+            .load()
+            .unwrap();
+        assert_eq!(on_disk.theme, ThemeMode::Light);
+        assert_eq!(on_disk.ncm_import_folders, [r"D:"]);
+        assert_eq!(on_disk.ncm_import_output_directory, r"E:\out");
+    }
+
+    #[test]
+    fn invalid_settings_patch_changes_nothing() {
+        let dir = ScratchDir::new("settings-invalid");
+        let state = AppState::load(dir.paths());
+        let before = state.settings_snapshot();
+
+        let error = state
+            .save_settings_patch(&serde_json::json!({ "theme": "Light", "maxConcurrency": 99 }))
+            .unwrap_err();
+
+        assert!(error.contains("并发"), "{error}");
+        assert_eq!(state.settings_snapshot(), before);
+        assert!(!state.paths.settings_file().exists());
+    }
+
+    #[test]
+    fn an_explicit_save_replaces_unreadable_settings_and_clears_the_warning() {
+        let dir = ScratchDir::new("settings-recover");
+        let mut state = AppState::load(dir.paths());
+        state.settings_warning = Some("读取失败".to_owned());
+        assert_eq!(state.settings_dto().warning.as_deref(), Some("读取失败"));
+
+        state
+            .save_settings_patch(&serde_json::json!({ "reduceMotion": true }))
+            .unwrap();
+
+        assert!(state.paths.settings_file().exists());
+        assert!(state.settings_dto().warning.is_none());
+        assert!(state.to_dto().settings_warning.is_none());
+        // 保存过之后，自动记忆也恢复写盘。
+        state.set_quality(AudioQuality::Lossless).unwrap();
+        let on_disk = JsonSettingsStore::new(state.paths.settings_file(), r"D:\Music")
+            .load()
+            .unwrap();
+        assert_eq!(on_disk.quality, AudioQuality::Lossless);
+        assert!(on_disk.reduce_motion);
+    }
+
+    #[test]
     fn untrusted_settings_are_never_overwritten_by_a_quality_change() {
         let dir = ScratchDir::new("quality-untrusted");
         let mut state = AppState::load(dir.paths());
@@ -1762,8 +1978,8 @@ mod tests {
         let dir = ScratchDir::new("editor-unchanged");
         let state = AppState::load(dir.paths());
 
-        // 默认值（网易云、逐行）再记一次：没有变化，不创建设置文件。
-        state.remember_editor_options(LyricsSourceKind::Netease, false);
+        // 默认值（QQ 音乐、逐行）再记一次：没有变化，不创建设置文件。
+        state.remember_editor_options(LyricsSourceKind::QqMusic, false);
 
         assert!(!state.paths.settings_file().exists());
     }

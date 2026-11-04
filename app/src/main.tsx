@@ -9,6 +9,12 @@ import './styles/tags.css'
 import './styles/ncm.css'
 import './styles/transfer.css'
 import './styles/editor.css'
+import './styles/settings.css'
+import './styles/glass.css'
+import { restoreCachedAppearance } from './state/appearance'
+
+// 后端设置还没读到之前，先用上次的外观铺首帧，避免主题闪一下。
+restoreCachedAppearance()
 
 const container = document.getElementById('root')
 if (!container) {
