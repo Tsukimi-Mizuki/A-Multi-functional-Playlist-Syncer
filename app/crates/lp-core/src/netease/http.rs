@@ -37,6 +37,8 @@ pub struct HttpRequest {
     pub headers: Vec<(String, String)>,
     /// `application/x-www-form-urlencoded` 表单字段（由传输层负责编码）；GET 为 `None`。
     pub form: Option<Vec<(String, String)>>,
+    /// 原始请求体（JSON 等，调用方自己在 `headers` 里写 `Content-Type`）；与 `form` 互斥，没有则为 `None`。
+    pub body: Option<Vec<u8>>,
 }
 
 impl HttpRequest {
@@ -199,6 +201,9 @@ impl HttpTransport for ReqwestTransport {
             if let Some(form) = &request.form {
                 builder = builder.form(form);
             }
+            if let Some(body) = request.body.clone() {
+                builder = builder.body(body);
+            }
 
             let response = builder.send().await.map_err(map_error)?;
             let status = response.status().as_u16();
@@ -232,6 +237,9 @@ impl HttpTransport for ReqwestTransport {
             }
             if let Some(form) = &request.form {
                 builder = builder.form(form);
+            }
+            if let Some(body) = request.body.clone() {
+                builder = builder.body(body);
             }
 
             let response = builder.send().await.map_err(map_error)?;

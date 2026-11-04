@@ -48,13 +48,13 @@ app/
 | `netease` | `Core/Netease/`（`models` / `mappers` / `playlists` / `songs` / `lyrics` 对应 `NeteaseModels`、`NeteaseMappers`、`NeteaseApiClient.Playlists/Songs/Lyrics`） |
 | `playlist` | 原来放在 `MainWindowViewModel` 里的歌单加载编排（取列表 / 曲目、写日志、301 时走登录复核） |
 | `ncm` | `Core/Ncm/`（模块 6：`client_comment` = `NeteaseClientComment`；模块 7：`decoder` = `NcmDecoder` / `INcmDecoder`） |
-| `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；`LyricsMatchScorer`、`BatchLyricsService` 在模块 10） |
+| `lyrics` | `Core/Lyrics/`（模块 5：`models` / `parser` / `qrc` / `krc` / `service`；模块 10a：`scorer` = `LyricsMatchScorer`、`batch` = `BatchLyricsService` + 任务编排 + 在线补全挂钩） |
 | `tags` | `Core/Tags/`（模块 6：`model` / `service` / `text` / `view`；`service` 对应 `AudioTagService`） |
 | `utilities` | `Core/Utilities/`（模块 6：`audio_file_types`；模块 7：`error_text`、`file_name_sanitizer`、`cancel`） |
 | `library` | `Core/Library/`（模块 8：`track` / `scanner` / `matcher` / `text` / `view` 对应 `ILocalLibraryService.cs`、`LocalLibraryService`、`SongMatcher`；`manager` 对应 `MainWindowViewModel` 里的扫描缓存与对比） |
 | `download` | `Core/Download/`（模块 7：`ncm_import` = `NcmImportService`；模块 9：`media` = `MediaFileHelper`、`fetch` = 其中的 HTTP 下载、`service` = `DownloadService`、`pool` = 并发上限的任务池、`task` = `MainWindowViewModel` 里下载 / 同步命令的编排） |
 | `sync` | `Core/Sync/`（模块 9：`service` = `MusicSyncService`） |
-| `online` | `Core/Online/` |
+| `online` | `Core/Online/`（模块 10a：`model` / `service`（`OnlineMusicSearchService`）/ `qq` / `kugou` / `lrclib` / `net` / `manager` / `view`）；`netease::search` = `NeteaseApiClient.Search.cs` |
 | `error` | `Core/Utilities/ErrorText.cs` 的错误类型部分（判定与文案在 `utilities::error_text`） |
 
 构建产物（`app/target`、`app/dist`、`app/node_modules`、`app/src-tauri/gen/schemas`）都已 gitignore。
@@ -96,7 +96,7 @@ pnpm build           # 只构建前端（tsc + vite）
 | 7 | NCM 解密与导入 | `.ncm` 流式解密、元数据 / 封面 / 网易云 ID 回写、导入对话框（在线补全挂钩待模块 10） | 完成 |
 | 8 | 本地曲库与对比 | 曲库扫描（并行读标签）、与歌单一对一匹配、状态列 / 统计 / 对比与重新扫描按钮 | 完成 |
 | 9 | 下载与同步 | 九档音质取链下载（逐级降档、试听判失败、NCM 自动解密）、一键同步（跳过 / NCM 解密 / 下载三分支）、多选 + 工具栏 + 逐行进度 | 完成（真实下载需用户真机验证） |
-| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | 待做 |
+| 10 | 在线匹配 | 网易云 / QQ / 酷狗 / LRCLIB、歌词与标签编辑器、批量匹配 | **进行中**：10a 后端核心完成（打分 / 搜索与备用词源 / 批量服务 / 在线补全接入 / 命令与 TS 类型）；10b 编辑器与批量窗口界面待做 |
 | 11 | 设置与外观 | 设置窗口、主题切换、帧率等 | 待做 |
 | 12 | CI 打包、文档、删除 C# | 安装包 / zip、GitHub Actions、更新 AGENTS.md 与 README、删除 C# 代码 | 待做 |
 
@@ -105,6 +105,81 @@ pnpm build           # 只构建前端（tsc + vite）
 以下问题已确认、暂不处理；**用户决定等全部模块完成后再统一修复**，不要在中途模块里顺手改。
 
 - **`/weapi/login/token/refresh` 实测返回 `code=400`**：桌面端扫码得到的会话调用续期接口时服务端拒绝（日志 `登录态续期未成功（续期登录状态失败：接口返回 code=400）`），请求与 C# 完全一致，所以 C# v1.3 同样受影响。续期是否真的生效尚未证实；登录态本身有效（`account/get` 成功）。需要长期观察 `MUSIC_U` 是否到期掉线，必要时改查 `eapi` 续期端点。详见「模块 3」的已知问题。
+- **网易云搜索当前匿名不可用**（模块 10a 联网探针发现，2026-11-04）：C# 与这里用的 `/api/search/get/web` 现在返回 `{"result":"<十六进制密文>"}`（C# 把它当成 0 条结果）；旧的 `/api/search/get`、`/weapi/search/get` 返回与关键词无关的歌曲；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。登录态下 `cloudsearch` 是否可用、或是否要改走 `eapi`，需要用户用真实账号验证后再定；目前 `search_songs` 遇到密文会报明确错误，QQ 音乐不受影响（当前真正可用的主词源）。C# v1.3 同样受影响。详见“模块 10a”。
+
+## 模块 10a（在线匹配：后端核心）实现记录
+
+> 模块 10 分两步：**10a（本节）= `lp-core` + Tauri 命令 + TS 类型，已完成**；10b = 歌词与标签编辑器、批量获取窗口的界面，**待做**。模块 10 整体待 10b 完成后再标记完成。
+
+### 内容
+
+| Rust | 对照 C# | 要点 |
+|---|---|---|
+| `netease::search` | `NeteaseApiClient.Search.cs` | `NeteaseClient::search_songs(keyword, limit)`：`GET /api/search/get/web`，数量夹在 1–50，空白关键词不发请求，丢弃 id 非法或歌名为空白的项；**`result` 是字符串（密文）时报明确错误**（见下“联网探针”）。 |
+| `lyrics::scorer` | `LyricsMatchScorer`（`LyricsMatchScore`） | 与 C# **逐项一致**：归一化（NFKC → 小写 → 只留字母数字，按 UTF-16 码元判定）、`strip_brackets` / `core_title`、`is_instrumental`、`build_queries`（至多 6 组变体）、`duration_matches`（±8 s）、四路分值（标题 / 歌手 / 专辑 / 时长）与总分（有歌手 0.55 / 0.25 / 0.20，无歌手 0.72 / 0.20 / 0.08；专辑不符 ×0.97；版本标记多出 ×0.86、缺少 ×0.94；歌手相似度 < 0.30 ×0.75；伴奏直接排除）、`split_multi_value`、`try_parse_threshold`（60 / 60% / 0.6，银行家舍入到两位）、`format_threshold_percent`。阈值常量 0.30 / 0.60 / 1.00。 |
+| `online::model` | `OnlineMusicSearch.cs`、`ILyricsSource.cs`、`LyricsSourceKind` 扩展 | `OnlineMusicSource`（序列化名 `Netease` / `QQMusic`）、`OnlineSongResult`、`OnlineSongDetails`（`get_lyrics(prefer_word, bilingual)` 的选择顺序与 C# 相同）、`LyricsSourceCandidate`、trait `LyricsSource`（`label()` + `fetch(&LyricsQuery, &CancelToken)`）、`OnlineError { Cancelled, Failed(中文) }`、`music_source_of`。 |
+| `online::service` | `OnlineMusicSearchService` | trait `OnlineMusicSearch`（`search` / `get_details`，测试用手写假实现）+ `OnlineMusicSearchService`：网易云走 `NeteaseClient`（详情失败回落搜索摘要、歌词失败仍应用标签与封面），QQ 走下面的 `qq`。 |
+| `online::qq`（私有） | 同上 QQ 部分 | 搜索 `/soso/fcgi-bin/search_cp`（`new_json=1`，兼容旧字段名；`c.y.qq.com` 连接失败 / 非 2xx 切 `c6.y.qq.com`；两个都失败报“QQ 音乐搜索接口不可用（…）”；pubtime 折算 UTC 年份、`index_cd` 从 0 起算 +1、专辑 mid 拼封面 CDN、限制 1–30）；歌词 `music.musichallSong.PlayLyricInfo`（POST JSON，`qrc=1&crypt=1&roma=1`，QRC 解密后得逐字，译文 / 罗马音可以是密文或 base64）失败回退旧 `fcg_query_lyric_new`（HTML 实体解码，有译文时合并成双语）。**保留 C# 的怪癖：PlayLyricInfo 没有译文时双语版本等同原文，所以 QQ 的 `has_translation` 恒为真，标签文案总是“双语…”。** |
+| `online::kugou` / `online::lrclib` | `KugouLyricsSource`、`LrclibLyricsSource` | 酷狗三段链路（hash 搜索 → `krcs` 候选 + accesskey → `lyrics.kugou.com/download` 的 KRC，KRC 解不出来退 LRC；最多 2 组关键词、检查前 8 个候选）；LRCLIB（`?q=` 最多 3 个变体 → `track_name` + `artist_name` 兜底，429 / 503 退避重试一次，重试等待算进同一个 10 秒超时）。任何网络 / 证书 / JSON 错误都回落成“没有结果”，**只有取消才是 `Err`**。 |
+| `online::net`（私有） | `HttpClient` + `CancelAfter` | 每次请求独立超时（QQ / 封面 20 s，酷狗 / LRCLIB 10 s）与取消；封面 ≤ 10 MB（声明超限不读，没声明边读边数）。 |
+| `lyrics::batch` | `BatchLyricsService`、`BatchLyricsOptions`、`BatchLyricsResult` | `BatchLyricsService::fetch_for_file(path, options, cancel)`：标签读取 → 本地标题 / 歌手（没有标题用文件名：去音轨前缀 `^\s*\d{1,3}[\s._-]+`、下划线换空格）→ `build_queries` → 按来源次序（`order_sources`）逐源多变体搜索（每源 ≤ 3 组、每组 10 条、可信匹配即停）→ 取详情 → 歌词（要求有歌词，逐字 / 双语优先级同 C#）→ 备用词源 → 只覆盖 / 补缺 → 写标签；消息文案（“已写入标签、封面、双语逐字歌词（歌词来源：酷狗音乐）”“标签、封面与歌词已完整，跳过”“未找到匹配度足够的在线歌曲”“（未获取到歌词）”）逐字同 C#。`set_fallback_filter` 是**运行期过滤器**（每次需要备用词源时才调用）。`BatchLyricsOptions::auto_enrich()`（QQ 优先、覆盖、逐字）与 `auto_enrich_with(&AppSettings)`（阈值取 `matchThreshold`，`lyricsMode == None` 时只补标签与封面）。 |
+| `lyrics::batch::BatchEnricher` | `DownloadService.TryEnrichAsync` / `NcmImportService` 的在线补全 | 实现模块 7 的 `OnlineEnricher` 挂钩：每次调用从**当前设置**（`SettingsProvider`）读阈值与歌词写入方式；结果映射成 `OnlineMatchOutcome`，所以 NCM 导入窗口显示“匹配「歌名 - 歌手」：已写入标签、封面、双语逐字歌词（QQ 音乐）”，下载 / 同步只显示成功说明或“在线匹配未完成：…”（失败只作提示，不影响主流程）。 |
+| `lyrics::batch::task` | `BatchLyricsViewModel` 里与界面无关的部分 | `BatchManager`：`scan`（递归 / 不递归，`.mp3 .flac .m4a .ogg .wav .aac .wma .opus`）、`run`（去重、最多 3 个文件并发、逐文件 `started` / `finished` 事件、统计成功 / 跳过 / 失败、取消后不再启动新文件并保留已完成结果）、`cancel`；同一时间一个任务（`busy`）。来源次序不传就用设置里的值，阈值取设置。 |
+| `online::manager` / `online::view` | `LyricsEditorViewModel` 里与界面无关的部分 | `OnlineManager`：`search`（带 `fileContext` 就逐条打分、按总分稳定降序排序、低于阈值的标 `belowThreshold`；`query` 留空用文件名推）、`load_result`（找回搜索摘要：请求里带 `song` 或最近 200 条搜索结果的缓存；网易云没有缓存也能按 ID 取）、`fetch_fallback`（备用词源，不受“备用词源”开关限制，与 C# 编辑器一致）、`threshold_view`；DTO 全是 camelCase。 |
+| `netease::http`（扩展）、`lyrics::krc`、`library::text` | — | `HttpRequest` 新增 `body: Option<Vec<u8>>`（原始请求体，QQ 的 PlayLyricInfo 是 JSON POST）；`krc::decode_base64_utf8`（= `Convert.FromBase64String` + UTF-8，忽略空白）；`library::text::is_dotnet_letter_or_digit`（= `char.IsLetterOrDigit`）。 |
+| `online::fallback_source_enabled` | `AppServices.ApplyFallbackLyricsSettings` | 按词源名读设置里的 `fallbackKugouLyrics` / `fallbackLrclibLyrics`，未知词源恒为开。外壳把它接成批量服务的过滤器，读的是共享的设置对象，所以保存设置后**下一首歌**就生效。 |
+
+### 与 C# 行为的差异（有意为之）
+
+- **实网修正：酷狗候选的 `duration` 现在是毫秒**（如 255582），C# 当秒乘 1000，所有候选都被时长过滤掉，酷狗源在实网上永远“没有结果”。这里 ≥ 10000 按毫秒、更小按秒（旧接口 / 夹具），交叉验证夹具（秒）结果不变。
+- **网易云搜索端点失效时给明确错误**：C# 把密文当成“0 条结果”。这里报“接口返回了加密数据，暂时无法使用，请改用 QQ 音乐”（见“联网探针”与“待修问题”）。
+- **下载 / 同步的在线补全也用设置里的匹配度阈值**：C# 的下载与同步路径用 `AutoEnrich` 的固定 0.60（只有 NCM 导入窗口用了设置值）；这里三条路径一致读设置。
+- **取消**：`CancelToken`，在每个网络请求处立刻生效（C# 靠 `CancellationToken`）；标签写入在阻塞线程里，开始前检查一次。取消不再被“吞掉所有异常”的 catch 吃掉（C# 用 `when (!IsCancellationRequested)` 达到同样效果）。
+- **超时不换镜像 / 不静默重试**：与 C# 一致，QQ 搜索超时直接报错（只有连接失败与非 2xx 才换 `c6`）；PlayLyricInfo 超时直接让详情失败（批量会换下一个来源）。
+- `OrdinalIgnoreCase`（`feat.` 等连接词匹配）只折叠 ASCII 大小写；`parse_year_from_unix` 对 `DateTimeOffset` 范围之外的 `pubtime` 返回无年份（C# 会抛 `ArgumentOutOfRangeException` 让整个搜索失败）。
+- 批量扫描按小写完整路径排序（C# 用当前区域的不区分大小写比较，中文区域的拼音顺序无法逐位复现）；不跟随目录符号链接，读不了的子目录跳过。
+- 批量任务多了 `started` 事件（C# 界面只有结果），界面可以据此显示“处理中”；`tagPriority` / `lyricsPriority` 不传时用设置里的值（C# 窗口构造时传入）。
+- 阈值文本只按 `.` 小数点解析（C# 还会退到当前区域，如 `0,6`）。
+
+### Tauri 命令与事件（给 10b 用；类型在 `app/src/api/online.ts`）
+
+| 命令 | 参数（前端 camelCase） | 返回 | 失败 `Err` |
+|---|---|---|---|
+| `online_search` | `source: 'Netease' \| 'QQMusic'`, `query: string`, `fileContext?: FileContext` | `OnlineSearchResponse { source, query, scored, threshold, thresholdPercent, items: [{ song, score: MatchScore \| null, belowThreshold }] }`。带 `fileContext`（`{ title?, artist?, album?, durationMs, filePath? }`）就逐条打分并按总分降序；`MatchScore { title, artist, album, duration, total, percent, rejected, rejectReason, confident }` | `{ kind, message }`：`emptyQuery` / `fallbackSource`（传了 `Kugou` / `Lrclib`）/ `failed` |
+| `online_load_result` | `source`, `id`（搜索结果的 `sourceId`）, `wordLyrics: boolean`, `song?: OnlineSong` | `LoadedResult { song（详情更全）, lyrics（按偏好选好：双语优先、逐字不可用回退逐行）, lyricsLabel, wordFallback, hasWordLyrics, hasTranslation, lineLyrics / wordLyrics / bilingualLineLyrics / bilingualWordLyrics, cover: { mimeType, base64, size } \| null, statusText }`，`cover.base64` 可直接填进 `write_tags` 的 `coverBase64` | `unknownSong`（QQ 没搜索过又没传 `song`）/ `primarySource` / `failed` |
+| `lyrics_source_fetch` | `source: 'Kugou' \| 'Lrclib'`, `title`, `artist`, `durationMs`, `album?`, `wordLyrics?` | `FallbackLyrics \| null`（`null` = 没有匹配；带 `score`、`lyrics`、`lyricsLabel`、`statusText`，**只有歌词**） | `noFile`（标题空白）/ `primarySource` / `failed` |
+| `get_match_threshold` | — | `{ threshold, percent, min, max, default }` | — |
+| `batch_scan` | `folder`, `recursive` | `{ folder, recursive, directoryMissing, files: [{ path, name, size }] }` | — |
+| `batch_run` | `options: { files, tagPriority?, lyricsPriority?, overwriteExisting?, fetchLyrics?(默认 true), preferWordLyrics? }` | `BatchSummary { total, processed, success, skipped, failed, cancelled, results: [BatchResult] }` | `{ kind: 'busy' \| 'noFiles', message }` |
+| `batch_cancel` | — | `boolean`（没有任务为 `false`） | — |
+
+事件 **`batch:progress`**：`{ completed, total, index, path, fileName, stage: 'started' \| 'finished', result: BatchResult \| null }`；`BatchResult { filePath, fileName, status: 'success' \| 'skipped' \| 'failed', success, skipped, message, matchedTitle, matchedArtist, sourceLabel, lyricsFormat }`。
+
+编辑器保存仍用模块 6 的 `write_tags`（`replaceAll: true`）。NCM 导入窗口的 `ncm_get_state` 现在返回 `onlineMatchAvailable: true`，提示文案换成“在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 N%…”；`ncm_import` 的 `enrichmentMessage` 是真实的匹配说明；下载 / 同步的 `onlineMatchSkipped` 恒为 `false`，前端去掉了“将在后续版本提供”的提示（开发假后端同步更新；**批量与编辑器命令的假后端留给 10b**）。
+
+### 新增依赖
+
+无（Rust 与前端都没有新增）。
+
+### 验证
+
+- 单测：`lp-core` lib **917** 个（模块 10a 新增 178：`lyrics::scorer` 42——C# `LyricsMatchScorerTests` 全部移植，另加归一化 / 补充平面字符 / 括号 / 版本标记 / 多值切段 / 阈值银行家舍入的边界；`lyrics::batch` 42——C# `BatchLyricsServiceTests` 全部移植，另加来源次序、多变体上限与可信即停、搜索 / 详情失败跳过、覆盖与补缺逐字段、逐字 / 双语标签、阈值夹取、取消、写标签失败、文件名推断、扫描、`BatchEnricher` 的设置实时生效与 C# 文案、`BatchManager` 的并发 3 / 去重 / busy / 取消；`online` 88——QQ 22（搜索字段、**c6 域名回退**、两个域名都失败的文案、业务 code、超时不换域名、PlayLyricInfo 请求体 / 头、QRC 逐字、密文译文、旧接口回退、封面 10 MB 上限）、网易云经 `OnlineMusicSearchService` 8、酷狗 16（**异常回落**、LRC 兜底、候选过滤、至多 2 组关键词 / 8 个候选、毫秒时长）、LRCLIB 17（**429 / 503 重试一次**、`track_name` 兜底、候选筛选、重试等待计入超时）、编排 17（打分排序、文件名关键词、缓存找回、备用词源）、模型 / 视图 8；`netease::search` 6；**备用源开关过滤** 在 `batch` 与 `online::tests::misc`），外壳 25 个（新增 4：NCM 在线匹配可用、阈值读实时设置、批量任务空闲、请求结构），集成测试 36 个（新增 `csharp_online` 7）；workspace 合计 **978** 个（模块 9 为 789，净增 189）。`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm build`、`.\build.ps1 -Tauri` 通过；`.\build.ps1 -Test` C# 仍 404/404。
+- **与 C# 的交叉验证**（`tests/csharp_online.rs` + `tests/fixtures/online/`，说明见该目录 README；临时 C# 探针直接引用 `LunaticPrincess.Core`，已删除、不入库；夹具全部合成，没有真实歌词）：
+  - **打分**：1156 组（每个标题 / 歌手与自身及相邻项的组合 + 700 组随机组合，覆盖全角、括号、`feat.` / `CV:` / `with`、`/ & ；、` 多值、Live / Remix / Cover / TV size 版本标记、伴奏、emoji 与 CJK 扩展 B 汉字、NFKC 兼容字符、组合附加符号），标题 / 歌手 / 专辑 / 时长 / 总分与四个子函数的分数、`rejected` / 原因 / `confident` 全部一致，**最大差值 1.1e-16**（要求 1e-9）；334 个字符串的 `normalize` / `compact` / `strip_brackets` / `core_title` / `is_instrumental`、400 组 `build_queries`、640 个多值切段、58 个阈值文本的解析与 24 个阈值的百分数格式化**完全一致**。
+  - **批量选择**：30 个场景（精确匹配、覆盖 / 补缺 / 已完整跳过、拆分标题与多歌手、QQ 优先 / 仅 QQ / 仅网易云、没有歌词换下一来源、详情失败、搜索失败换关键词、多变体取最佳、可信匹配即停、同分取先到、阈值 0.99 / 0.01、伴奏、文件名标题、无歌手按专辑加权、备用词源（故障源 → 酷狗 / 逐字 / 开关过滤 / 全部关闭 / 空歌词）、`fetchLyrics` 关闭、已有歌词不动、歌手拆分符），C# 用真实 `BatchLyricsService`（在线服务 / 标签服务 / 备用词源是脚本化替身），**30/30 完全一致**：成败 / 跳过 / 文案 / 匹配歌名歌手 / 来源 / 歌词格式 / 写入的每个标签字段（含封面 Base64、逐行 / 逐字歌词）/ 搜索调用序列（来源、关键词、条数）/ 详情调用 / 各备用词源收到的关键词。
+  - **词源解析**：31 个场景（QQ 搜索字段与 `c6` 回退 / 全部失败 / 业务 code / 空数据 / 坏 JSON，QQ 详情的 QRC 逐字 + 密文 / base64 译文 + 罗马音、base64 LRC、旧接口回退（带译文 / 无译文 / retcode≠0 / 无数值 ID）、坏 JSON 回退，网易云搜索与详情，酷狗 KRC（带 / 不带译文）→ LRC 兜底 / 候选过滤 / 全失败 / 状态 404 / 时长取整，LRCLIB `q` / `track_name` / 429 重试 / 503 放弃 / 候选挑选），HTTP 响应按 URL 脚本化，C# 用真实 `OnlineMusicSearchService` / `KugouLyricsSource` / `LrclibLyricsSource`：解析出的每个字段、**发出的请求序列（方法 + 完整 URL）**，**31/31 完全一致**（两处有意差异在测试里归一：C# 的 `JsonException` 英文原文 vs 中文说明，C# 对越界 `pubtime` 抛异常——夹具改用边界值）。
+- **联网探针**（一次性，已删除；2026-11-04，只看元数据和歌词统计，不下载音频，歌词正文不打印不入库）：对“Lemon / 米津玄師”“晴天 / 周杰伦”各查一遍：
+  - **QQ 音乐**：搜索 10 条、最佳匹配分 1.000；详情拿到标签（专辑、2018 / 2003 年）、封面（13 KB / 33 KB）、**逐字 QRC 解密成功**（57 / 63 行）、译文；`PlayLyricInfo` 路径可用。
+  - **LRCLIB**：两首都命中（92 / 44 行同步歌词，时长差 ≤ 1 s），无逐字、无译文。
+  - **酷狗**：首轮探针发现“永远没有结果”的原因是候选 `duration` 为毫秒（已修，见上）；修后三段链路在实网上走通（`krcs` 候选 → `lyrics.kugou.com` 下载，命中 `Lemon - 米津玄師` 255582 ms）。本机 `mobilecdn.kugou.com`（hash 步骤）证书域名不匹配（`SEC_E_WRONG_PRINCIPAL`），被当作“没有 hash”继续；`lyrics.kugou.com` 的 KRC 下载偶发 `unexpected EOF during handshake`，当次回落 LRC（无逐字）——和 `docs` 里已有的“tls handshake eof”是同一类瞬时故障，**没有加重试**（与 C# 一致）。
+  - **网易云搜索：当前匿名不可用**。`/api/search/get/web`（C# 与这里用的端点）现在返回 `{"result":"<十六进制密文>"}`；旧的 `/api/search/get` 与 `/weapi/search/get` 返回与关键词无关的结果（搜“Lemon 米津玄師”得到一串叫“42”的歌）；`/weapi/cloudsearch/get/web` 匿名返回 `code=50000005`。**C# v1.3 同样受影响**（C# 把密文当 0 条结果，批量里网易云优先时每个文件白白多发 3 次搜索）。登录态下 `cloudsearch` 是否可用没有验证（不碰真实登录态），已记入“待修问题”。QQ 音乐不受影响，所以当前真正可用的主词源是 QQ 音乐。
+- **实机**（exe 复制到 `D:\claude\lp-run\`，`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data`，`settings.json` 只指向 `D:\claude` 下的目录，**没有触碰真实登录态与用户目录**，测完已清空 `D:\claude`）：用 WebView2 远程调试端口对真实 exe 调用新命令：`get_match_threshold` → `{0.6, "60"}`；`ncm_get_state` → `onlineMatchAvailable: true` + 新提示；`online_search`（`Kugou` → `fallbackSource`；空白 → `emptyQuery`；`Netease` → 加密数据错误；`QQMusic` + `fileContext` → 20 条、总分 1.0 / 0.84 / 0.83 降序、`belowThreshold` 标注）；`online_load_result` → 双语逐字、封面 JPEG、状态文案；未搜索过的 QQ ID → `unknownSong`；`lyrics_source_fetch`（LRCLIB → 命中并打分；空标题 → `noFile`）；`batch_cancel` 空闲为 `false`。**NCM 导入 4 个合成样本（勾选在线补全）**：3 个带元数据的虚构歌曲给出“在线匹配失败：未找到匹配度足够的在线歌曲”，1 个没有元数据的样本按文件名“no metadata”匹配到了 QQ 上的同名歌曲（“匹配「NO METADATA (Explicit) - GRINX」：已写入标签、封面（未获取到歌词）（QQ 音乐）”——C# 的同一逻辑也会这样），`ncm:progress` 依次出现 `decrypting` → `matching` → `finished`。**批量**：`batch_scan` 找到 2 个合成 MP3；`batch_run`（逐字优先）按文件名“Lemon - 米津玄師”的合成 MP3 写入标签 / 封面 / 双语逐字歌词（`read_tags` 读回标题 Lemon、专辑レモン、2018、有封面、歌词 8994 字符以 `[00:00.000]<` 开头），虚构名的那个“未找到匹配度足够的在线歌曲”；`batch:progress` 事件 `started` ×2 → `finished` ×2，`completed` 0 → 1 → 2；空文件列表 → `noFiles`。
+
+### 已知限制 / 留给 10b 与后续模块
+
+- **界面未做**：歌词与标签编辑器、批量获取窗口、设置里的“在线匹配度 / 备用词源”输入都在 10b / 模块 11；设置保存命令还没有（模块 11），目前阈值与备用词源开关只能改 `settings.json` 后重启，但运行期读取与“保存后即时生效”的机制（共享设置对象 + 每次调用时读取）已经就绪并有测试。
+- 拖放载入、`--lyrics` / `--edit` 启动参数属于主窗口，不在本模块。
+- 网易云搜索当前不可用（见“待修问题”）；备用词源是否启用只影响“批量与自动补全”，编辑器里的备用词源检索不受开关限制（与 C# 一致）。
 
 ## 模块 9（按音质下载与一键同步）实现记录
 
@@ -133,7 +208,7 @@ pnpm build           # 只构建前端（tsc + vite）
 5. 文件头是 `CTENFDAM` → 改名 `.ncm` 并用模块 7 的解密器解到下载目录（允许覆盖临时输出），**输出格式以解密结果的扩展名为准**，封面优先用 NCM 内嵌的。
 6. 歌词（模块 5 的解析与序列化：逐行写普通 LRC，逐字模式另写增强 LRC，译文默认写入；失败只当没有歌词）、封面（`write_cover`；NCM 内嵌封面优先，否则下载专辑封面，> 10 MB 或失败跳过）。
 7. 写标签（标题 / 歌手 / 专辑 / 专辑艺术家 = 第一位歌手 / 音轨 / 碟号 / 年份 / 封面 / 歌词 / 网易云 ID / 备注 `LunaticPrincess`）并原子落盘；冲突加 `(歌曲ID)` 后缀，`overwrite_existing` 则直接覆盖。标签失败 →「标签写入失败，已保留音频文件。」仍算成功。
-8. 在线补全（`auto_match_online`）：沿用模块 7 的 `OnlineEnricher` 挂钩，**模块 10 才接入**；没有实现时跳过，`DownloadOutcome.online_match_skipped` / `TransferSummaryView.online_match_skipped` 置位，界面与运行日志各提示一次（不在每首歌的结果里重复）。接入后的文案与 C# 相同（`已写入标签…（QQ 音乐）`、`在线匹配未完成：…`）。
+8. 在线补全（`auto_match_online`）：沿用模块 7 的 `OnlineEnricher` 挂钩，**模块 10a 已接入**（`BatchEnricher`）；没有实现时（测试里）跳过，`DownloadOutcome.online_match_skipped` / `TransferSummaryView.online_match_skipped` 置位，界面与运行日志各提示一次（不在每首歌的结果里重复）。接入后的文案与 C# 相同（`已写入标签…（QQ 音乐）`、`在线匹配未完成：…`）。
 
 进度：`DownloadProgress { completed, total, index, song_id, song_name, stage（与 C# 相同的中文阶段名）, phase（resolving / downloading / decrypting / tagging / matching）, message, percent, bytes_done, bytes_total, finish? }`；每首歌处理完时最后一条带 `finish`（成败 / 是否跳过 / 来源 / 输出路径 / 说明 / 实际音质），`completed` 只在这时加一。
 
@@ -178,7 +253,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ### 已知限制
 
-- 在线补全未接入（见上，模块 10）。
+- ~~在线补全未接入~~：模块 10a 已接入（见上），外壳里 `onlineMatchSkipped` 恒为 `false`。
 - 没有“暂停 / 继续”与失败重试；失败的歌曲可以再点一次「下载选中」。
 - 取消在“等网络 / 分块之间”立即生效，但已经进入标签写入或改名的那一首会先完成再停。
 - 下载目录与曲库目录是两个设置：下载完成后重新扫描的是曲库目录，下载目录不在曲库目录里时下载的歌不会被对比识别到。
@@ -260,7 +335,7 @@ pnpm build           # 只构建前端（tsc + vite）
 - **扫描更稳**：C# 的 `EnumerateFiles` 遇到一个无权限的子目录就中止整个文件夹；这里逐目录跳过、只计数。
 - 元数据里数字字段按 C# 的转换规则（带小数的 `bitrate` 当 0、`duration` 按双精度截断、整数夹取），`musicName` 为数字时取其文本（serde 的数字文本与 .NET 的原始文本在 `1e3` 这类写法上可能不同，病态输入）。
 
-### 在线补全挂钩（待模块 10 接入）
+### 在线补全挂钩（模块 10a 已接入）
 
 C# 的“解密后自动获取在线标签、封面与歌词”依赖 `BatchLyricsService`（模块 10）。本模块只定义挂钩：`OnlineEnricher` trait（`enrich(audio_path, cancel) -> Result<OnlineMatchOutcome, EnrichError>`，实现自己读取当前设置里的来源优先级 / 匹配度阈值 / 是否取歌词）和 `describe_match`（与 C# `DescribeMatch` 同文案）。`NcmImportService::new(decoder, tags, None)` 目前不带实现：勾选了“自动在线匹配”时每个成功的文件在结果里得到 `在线匹配将在后续版本提供，已跳过。`；`AppState` 里装配的位置、勾选框的显示与记忆都已就绪，模块 10 只需把实现传进去（`ncm_get_state` 的 `onlineMatchAvailable` 会自动变 true，提示文案换成 C# 的“QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 N%”）。
 
@@ -286,7 +361,7 @@ C# 的“解密后自动获取在线标签、封面与歌词”依赖 `BatchLyri
 
 ### 已知限制
 
-- 在线补全未接入（见上），勾选后只显示“将在后续版本提供”。
+- ~~在线补全未接入~~：模块 10a 已接入（`BatchEnricher`），勾选后给出真实的匹配说明；没有实现时（测试里）仍显示“将在后续版本提供”。
 - 导入窗口没有“选择单个 `.ncm` 文件”的入口（C# 版也只有文件夹）；拖放导入在后续模块随主窗口拖放一起做。
 - 取消在“当前文件处理完 / 下一个分块之间”生效；已经解密出来的文件保留在输出目录。
 

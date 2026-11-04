@@ -61,6 +61,7 @@ impl MediaFetcher {
             url: url.to_owned(),
             headers: vec![("User-Agent".to_owned(), BROWSER_USER_AGENT.to_owned())],
             form: None,
+            body: None,
         }
     }
 

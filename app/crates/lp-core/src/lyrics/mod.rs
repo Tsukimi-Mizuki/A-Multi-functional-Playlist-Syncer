@@ -8,13 +8,20 @@
 //! - [`krc`]：酷狗 KRC 的 XOR + zlib 解密与解析；
 //! - [`service`]：把网易云歌词接口、解析与序列化串起来，给界面预览用。
 //!
-//! 在线搜索与取词（QQ / 酷狗 / LRCLIB）、`LyricsMatchScorer`、`BatchLyricsService` 属于模块 10。
+//! 模块 10 加上：
+//!
+//! - [`scorer`]：`LyricsMatchScorer`，在线搜索结果与本地歌曲的四路打分；
+//! - [`batch`]：`BatchLyricsService`（批量标签 / 封面 / 歌词）、任务编排与在线补全挂钩 `BatchEnricher`。
+//!
+//! 在线搜索与取词（QQ / 酷狗 / LRCLIB）在 [`crate::online`]。
 
+pub mod batch;
 pub mod html;
 pub mod krc;
 pub mod models;
 pub mod parser;
 pub mod qrc;
+pub mod scorer;
 pub mod service;
 mod zlib;
 

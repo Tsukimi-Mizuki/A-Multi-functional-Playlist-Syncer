@@ -11,8 +11,8 @@ use lp_core::auth::{
 use lp_core::download::fetch::MediaFetcher;
 use lp_core::download::ncm_import::{
     NcmDialogState, NcmImportOptions, NcmImportProgress, NcmImportService, NcmJobSlot,
-    NcmProgressView, NcmScanResult, NcmSummaryView, prepare_output_directory, remember_state,
-    scan_ncm_files,
+    NcmProgressView, NcmScanResult, NcmSummaryView, OnlineEnricher, prepare_output_directory,
+    remember_state, scan_ncm_files,
 };
 use lp_core::download::service::{
     DownloadApi, DownloadProgress, DownloadService, Downloader, ProgressSink,
@@ -25,17 +25,31 @@ use lp_core::library::{
     ScanMode, ScanProgressSink, ScanProgressView,
 };
 use lp_core::logs::{LogEntry, LogHub};
+use lp_core::lyrics::batch::{
+    BatchEnricher, BatchJobError, BatchLyricsService, BatchManager, BatchProgressView,
+    BatchRequest, BatchScanView, BatchSummaryView, SettingsProvider,
+};
 use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
-use lp_core::models::{AudioQuality, ThemeMode};
+use lp_core::models::{AudioQuality, LyricsSourceKind, ThemeMode};
 use lp_core::ncm::FileNcmDecoder;
-use lp_core::netease::http::ReqwestTransport;
+use lp_core::netease::http::{HttpTransport, ReqwestTransport};
 use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
+use lp_core::online::view::{
+    FallbackLyricsView, LoadedResultView, MatchThresholdView, OnlineCommandError,
+    OnlineSearchResponse,
+};
+use lp_core::online::{
+    FallbackRequest, FileContext, KugouLyricsSource, LoadRequest, LrclibLyricsSource, LyricsSource,
+    OnlineManager, OnlineMusicSearch, OnlineMusicSearchService, OnlineSongResult, SearchRequest,
+    fallback_source_enabled,
+};
 use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
 use lp_core::sync::SyncService;
 use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
+use lp_core::utilities::CancelToken;
 use serde::{Deserialize, Serialize};
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, WebviewWindowBuilder};
@@ -54,6 +68,8 @@ const EVENT_LIBRARY_PROGRESS: &str = "library:progress";
 const EVENT_DOWNLOAD_STARTED: &str = "download:started";
 /// 前端订阅的事件名：下载 / 同步的逐曲进度（阶段、字节、实际音质、最终结果）。
 const EVENT_DOWNLOAD_PROGRESS: &str = "download:progress";
+/// 前端订阅的事件名：批量获取标签 / 封面 / 歌词的逐文件进度。
+const EVENT_BATCH_PROGRESS: &str = "batch:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -75,7 +91,8 @@ impl From<lp_core::AppInfo> for AppInfoDto {
 /// 启动时加载好的全局状态，由 Tauri 托管，命令通过 `State<AppState>` 取用。
 struct AppState {
     paths: AppPaths,
-    settings: RwLock<AppSettings>,
+    /// 当前设置。在线补全与备用词源开关通过它在运行期读取，所以改动立即生效。
+    settings: Arc<RwLock<AppSettings>>,
     /// `settings.json` 的读写；只在记住 NCM 导入位置等需要落盘的地方使用。
     settings_store: JsonSettingsStore,
     /// 设置文件读取失败时的中文原因（此时界面使用默认设置）。
@@ -90,7 +107,7 @@ struct AppState {
     lyrics: Arc<LyricsService>,
     /// 音频标签读写（lofty）。
     tags: Arc<dyn AudioTagService>,
-    /// NCM 批量解密导入（在线补全挂钩待模块 10 接入）。
+    /// NCM 批量解密导入（解密后可在线补全，见 `online`）。
     ncm: Arc<NcmImportService>,
     /// 当前正在运行的 NCM 导入任务（至多一个），`ncm_cancel` 通过它取消。
     ncm_job: NcmJobSlot,
@@ -98,6 +115,10 @@ struct AppState {
     library: Arc<LibraryManager>,
     /// 下载 / 同步任务（同一时间只有一个，可取消），结束后重新扫描曲库。
     transfers: Arc<TransferManager>,
+    /// 在线搜索 / 取详情 / 备用词源（歌词与标签编辑器用）。
+    online: Arc<OnlineManager>,
+    /// 批量获取标签、封面与歌词（同一时间一个任务，可取消）。
+    batch: Arc<BatchManager>,
     /// 登录文件读取 / 解密失败时的中文原因。
     session_error: Option<String>,
 }
@@ -127,9 +148,12 @@ impl AppState {
             logs.warning(format!("读取设置失败，已使用默认设置：{warning}"));
         }
 
-        let transport = ReqwestTransport::new(lp_core::netease::client::REQUEST_TIMEOUT)
-            .expect("初始化网络组件失败");
-        let client = Arc::new(NeteaseClient::new(Arc::new(transport)));
+        let settings = Arc::new(RwLock::new(settings));
+        let transport: Arc<dyn HttpTransport> = Arc::new(
+            ReqwestTransport::new(lp_core::netease::client::REQUEST_TIMEOUT)
+                .expect("初始化网络组件失败"),
+        );
+        let client = Arc::new(NeteaseClient::new(Arc::clone(&transport)));
         let session_store = Arc::new(SessionStore::with_system_protector(paths.session_file()));
         let login = LoginManager::new(
             client,
@@ -149,10 +173,54 @@ impl AppState {
         }
 
         let tags: Arc<dyn AudioTagService> = Arc::new(LoftyTagService);
+
+        // 在线匹配：网易云 / QQ 音乐为主，酷狗与 LRCLIB 作为备用词源。
+        // 备用词源开关与“自动补全”的阈值、歌词写入方式都在运行期读设置，所以保存设置后立即生效。
+        let settings_provider: SettingsProvider = {
+            let settings = Arc::clone(&settings);
+            Arc::new(move || {
+                settings
+                    .read()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .clone()
+            })
+        };
+        let online_search: Arc<dyn OnlineMusicSearch> = Arc::new(OnlineMusicSearchService::new(
+            login.client().clone(),
+            Arc::clone(&transport),
+        ));
+        let fallback_sources: Vec<Arc<dyn LyricsSource>> = vec![
+            Arc::new(KugouLyricsSource::new(Arc::clone(&transport))),
+            Arc::new(LrclibLyricsSource::new(Arc::clone(&transport))),
+        ];
+        let batch_service = Arc::new(BatchLyricsService::new(
+            Arc::clone(&tags),
+            Arc::clone(&online_search),
+            fallback_sources.clone(),
+        ));
+        batch_service.set_fallback_filter(Some({
+            let settings_provider = Arc::clone(&settings_provider);
+            Arc::new(move |source: &dyn LyricsSource| {
+                fallback_source_enabled(&settings_provider(), source.label())
+            })
+        }));
+        let online = Arc::new(OnlineManager::new(
+            online_search,
+            fallback_sources,
+            Arc::clone(&settings_provider),
+        ));
+        let batch = Arc::new(BatchManager::new(
+            Arc::clone(&batch_service),
+            Arc::clone(&logs),
+        ));
+        // 下载、同步与 NCM 解密成功后的在线补全：QQ 逐字歌词优先、网易云兜底。
+        let enricher: Arc<dyn OnlineEnricher> =
+            Arc::new(BatchEnricher::new(batch_service, settings_provider));
+
         let ncm = Arc::new(NcmImportService::new(
             Arc::new(FileNcmDecoder),
             Arc::clone(&tags),
-            None,
+            Some(Arc::clone(&enricher)),
         ));
 
         let library = LibraryManager::new(
@@ -177,7 +245,7 @@ impl AppState {
             Arc::clone(&tags),
             Arc::new(FileNcmDecoder),
             fetcher.clone(),
-            None,
+            Some(Arc::clone(&enricher)),
         ));
         let sync = Arc::new(SyncService::new(
             api,
@@ -186,7 +254,7 @@ impl AppState {
             Arc::clone(&ncm),
             Arc::clone(&downloader) as Arc<dyn Downloader>,
             fetcher,
-            None,
+            Some(enricher),
         ));
         let transfers = Arc::new(TransferManager::new(
             downloader,
@@ -197,7 +265,7 @@ impl AppState {
 
         Self {
             paths,
-            settings: RwLock::new(settings),
+            settings,
             settings_store,
             settings_warning,
             logs,
@@ -209,6 +277,8 @@ impl AppState {
             ncm_job: NcmJobSlot::default(),
             library,
             transfers,
+            online,
+            batch,
             session_error: restored.load_failure,
         }
     }
@@ -884,6 +954,123 @@ fn download_cancel(state: State<'_, AppState>) -> bool {
     state.transfers.cancel()
 }
 
+/// 搜索歌曲（歌词与标签编辑器）。`source` 只能是 `Netease` / `QQMusic`；带了 `fileContext` 就给每条结果
+/// 按本地文件打分（标题 / 歌手 / 专辑 / 时长四路分值 + 总分，低于匹配度阈值的标 `belowThreshold`），
+/// 并按总分从高到低排序；`query` 留空时用文件名推出关键词。
+/// 失败时 `Err` 是 `{ kind, message }`：`emptyQuery` / `fallbackSource` / `cancelled` / `failed`。
+#[tauri::command]
+async fn online_search(
+    state: State<'_, AppState>,
+    source: LyricsSourceKind,
+    query: String,
+    file_context: Option<FileContext>,
+) -> Result<OnlineSearchResponse, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online
+        .search(
+            SearchRequest {
+                source,
+                query,
+                file_context,
+            },
+            &CancelToken::new(),
+        )
+        .await
+}
+
+/// 取一首搜索结果的标签字段、歌词（逐行 / 逐字 / 双语）与封面。`id` 是搜索结果的 `sourceId`；
+/// `song` 可选地传回搜索结果的完整摘要（不传就从最近搜索的缓存里找）。
+/// 失败时 `Err` 是 `{ kind, message }`：`unknownSong` / `primarySource` / `cancelled` / `failed`。
+#[tauri::command]
+async fn online_load_result(
+    state: State<'_, AppState>,
+    source: LyricsSourceKind,
+    id: String,
+    word_lyrics: bool,
+    song: Option<OnlineSongResult>,
+) -> Result<LoadedResultView, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online
+        .load_result(
+            LoadRequest {
+                source,
+                id,
+                word_lyrics,
+                song,
+            },
+            &CancelToken::new(),
+        )
+        .await
+}
+
+/// 备用词源（`Kugou` / `Lrclib`，只提供歌词）按本地标题、歌手与时长检索一份歌词；没有匹配返回 `null`。
+/// 阈值取自设置；不受“备用词源”开关限制（开关只作用于批量与自动补全）。
+#[tauri::command]
+async fn lyrics_source_fetch(
+    state: State<'_, AppState>,
+    source: LyricsSourceKind,
+    title: String,
+    artist: String,
+    duration_ms: i64,
+    album: Option<String>,
+    word_lyrics: Option<bool>,
+) -> Result<Option<FallbackLyricsView>, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online
+        .fetch_fallback(
+            FallbackRequest {
+                source,
+                title,
+                artist,
+                album,
+                duration_ms,
+                word_lyrics: word_lyrics.unwrap_or(false),
+            },
+            &CancelToken::new(),
+        )
+        .await
+}
+
+/// 当前设置里的在线匹配度阈值（0.30–1.00）与百分数文本。
+#[tauri::command]
+fn get_match_threshold(state: State<'_, AppState>) -> MatchThresholdView {
+    state.online.threshold_view()
+}
+
+/// 扫描文件夹里的音频文件（`.mp3 .flac .m4a .ogg .wav .aac .wma .opus`）。
+#[tauri::command]
+async fn batch_scan(
+    state: State<'_, AppState>,
+    folder: String,
+    recursive: bool,
+) -> Result<BatchScanView, String> {
+    let batch = Arc::clone(&state.batch);
+    Ok(batch.scan(folder, recursive).await)
+}
+
+/// 批量获取标签、封面与歌词：最多 3 个文件并发，逐文件发 `batch:progress` 事件，结束后返回汇总
+/// （被取消时是已处理的部分）。匹配度阈值取自设置；来源次序不传就用设置里的值。
+/// 失败时 `Err` 是 `{ kind, message }`：`busy` / `noFiles`。
+#[tauri::command]
+async fn batch_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    options: BatchRequest,
+) -> Result<BatchSummaryView, BatchJobError> {
+    let batch = Arc::clone(&state.batch);
+    let settings = state.settings_snapshot();
+    let sink = Arc::new(move |progress: BatchProgressView| {
+        let _ = app.emit(EVENT_BATCH_PROGRESS, progress);
+    });
+    batch.run(options, &settings, sink).await
+}
+
+/// 取消正在进行的批量任务；没有任务时返回 `false`。
+#[tauri::command]
+fn batch_cancel(state: State<'_, AppState>) -> bool {
+    state.batch.cancel()
+}
+
 /// 给无边框透明窗口铺系统背景材质：优先 Mica（Win11），不支持时回退 Acrylic。
 fn apply_window_effects(window: &WebviewWindow) {
     let mica = EffectsBuilder::new().effect(Effect::Mica).build();
@@ -961,7 +1148,14 @@ pub fn run() {
             download_tracks,
             download_missing,
             sync_playlist,
-            download_cancel
+            download_cancel,
+            online_search,
+            online_load_result,
+            lyrics_source_fetch,
+            get_match_threshold,
+            batch_scan,
+            batch_run,
+            batch_cancel
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -1225,7 +1419,7 @@ mod tests {
         let dialog = ncm_dialog_state(&state);
         assert_eq!(dialog.folders, [r"D:\a", r"E:\b"]);
         assert_eq!(dialog.output_directory, r"E:\out");
-        assert!(!dialog.online_match_available);
+        assert!(dialog.online_match_available);
     }
 
     #[test]
@@ -1363,6 +1557,62 @@ mod tests {
         let state = AppState::load(dir.paths());
         assert!(!state.transfers.cancel());
         assert!(!state.transfers.is_running());
+    }
+
+    #[test]
+    fn online_enrichment_is_wired_into_ncm_import_downloads_and_sync() {
+        let dir = ScratchDir::new("online-wired");
+        let state = AppState::load(dir.paths());
+        // NCM 导入窗口据此显示“在线匹配可用”（不再是“将在后续版本提供”）。
+        assert!(state.ncm.online_match_available());
+        let dialog = serde_json::to_value(NcmDialogState::new(
+            &state.settings(),
+            state.ncm.online_match_available(),
+        ))
+        .unwrap();
+        assert_eq!(dialog["onlineMatchAvailable"], true);
+        assert!(
+            dialog["onlineMatchHint"]
+                .as_str()
+                .unwrap()
+                .contains("QQ 音乐逐字歌词优先")
+        );
+    }
+
+    #[test]
+    fn the_match_threshold_command_reads_the_live_settings() {
+        let dir = ScratchDir::new("threshold");
+        let state = AppState::load(dir.paths());
+        assert_eq!(state.online.threshold_view().percent, "60");
+
+        state.settings.write().unwrap().match_threshold = 0.82;
+
+        let view = state.online.threshold_view();
+        assert_eq!(view.percent, "82");
+        assert_eq!(view.threshold, 0.82);
+    }
+
+    #[test]
+    fn the_batch_job_is_idle_after_startup_and_cancel_is_a_noop() {
+        let dir = ScratchDir::new("batch-idle");
+        let state = AppState::load(dir.paths());
+        assert!(!state.batch.cancel());
+    }
+
+    #[test]
+    fn online_commands_use_the_documented_event_name_and_camel_case_arguments() {
+        assert_eq!(EVENT_BATCH_PROGRESS, "batch:progress");
+        // `fileContext` / `wordLyrics` 等参数名由 Tauri 从 snake_case 转换，这里固化前端依赖的请求结构。
+        let context: FileContext = serde_json::from_value(serde_json::json!({
+            "title": "晴天", "artist": "周杰伦", "durationMs": 269000, "filePath": r"D:.mp3"
+        }))
+        .unwrap();
+        assert_eq!(context.duration_ms, 269_000);
+        let batch: BatchRequest = serde_json::from_value(serde_json::json!({
+            "files": [r"D:.mp3"], "overwriteExisting": true, "preferWordLyrics": true
+        }))
+        .unwrap();
+        assert!(batch.fetch_lyrics && batch.overwrite_existing && batch.prefer_word_lyrics);
     }
 
     #[test]

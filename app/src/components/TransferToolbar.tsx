@@ -160,9 +160,6 @@ export default function TransferToolbar({
       {!running && summary && (
         <div className="transfer-row" role="status" aria-live="polite">
           <span className={failedTone ? 'transfer-summary transfer-summary-warn' : 'transfer-summary'}>{summaryText(summary)}</span>
-          {summary.onlineMatchSkipped && (
-            <span className="transfer-note">在线补全标签与歌词将在后续版本提供，本次已跳过。</span>
-          )}
           <button type="button" className="transfer-link" aria-label="关闭结果提示" onClick={onDismiss}>
             知道了
           </button>

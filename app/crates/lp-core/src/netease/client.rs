@@ -295,6 +295,7 @@ impl NeteaseClient {
                 ("params".to_owned(), params),
                 ("encSecKey".to_owned(), enc_sec_key),
             ]),
+            body: None,
         };
         apply_headers(
             &mut request,
@@ -318,6 +319,7 @@ impl NeteaseClient {
             url: url.to_owned(),
             headers: Vec::new(),
             form: None,
+            body: None,
         };
         apply_headers(&mut request, session.as_ref(), BROWSER_USER_AGENT, false);
 
@@ -341,6 +343,7 @@ impl NeteaseClient {
             url: url.to_owned(),
             headers: Vec::new(),
             form: Some(form),
+            body: None,
         };
         let user_agent = if use_desktop_user_agent {
             DESKTOP_USER_AGENT

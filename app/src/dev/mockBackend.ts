@@ -207,7 +207,7 @@ function mockNcmResult(file: NcmFileEntry, index: number, autoMatch: boolean): N
     outputFileName: `${stem}.${format}`,
     format,
     errorMessage: null,
-    enrichmentMessage: autoMatch ? '在线匹配将在后续版本提供，已跳过。' : null,
+    enrichmentMessage: autoMatch ? '匹配「歌名 - 歌手」：已写入标签、封面、双语逐字歌词（QQ 音乐）' : null,
   }
 }
 
@@ -408,7 +408,7 @@ async function runMockTransfer(options: MockTransferOptions): Promise<TransferSu
     skipped: count('skipped'),
     failed: count('failed'),
     cancelled: shouldStop(),
-    onlineMatchSkipped: done.some((item) => item.success && !item.skipped),
+    onlineMatchSkipped: false,
     libraryRefreshed: true,
     results: done,
   }
@@ -592,8 +592,8 @@ export function installMockBackend(scenario: string | null): void {
             folders: ncmFolders,
             outputDirectory: ncmOutput,
             downloadDirectory: 'D:\\mock\\Music',
-            onlineMatchAvailable: false,
-            onlineMatchHint: '在线匹配将在后续版本提供：目前勾选只会记住你的选择，解密后不会联网。',
+            onlineMatchAvailable: true,
+            onlineMatchHint: '在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 60%（可在「设置」的「在线匹配度」中调整）',
           }
         case 'ncm_scan': {
           await sleep(250)

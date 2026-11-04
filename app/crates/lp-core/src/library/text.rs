@@ -44,6 +44,19 @@ pub fn is_dotnet_whitespace(c: char) -> bool {
     )
 }
 
+/// 与 `char.IsLetterOrDigit` 一致：字母（Lu Ll Lt Lm Lo）或十进制数字（Nd）。
+pub fn is_dotnet_letter_or_digit(c: char) -> bool {
+    matches!(
+        category(c),
+        GeneralCategory::UppercaseLetter
+            | GeneralCategory::LowercaseLetter
+            | GeneralCategory::TitlecaseLetter
+            | GeneralCategory::ModifierLetter
+            | GeneralCategory::OtherLetter
+            | GeneralCategory::DecimalNumber
+    )
+}
+
 /// 与 `char.IsControl` 一致（Cc）。
 pub fn is_dotnet_control(c: char) -> bool {
     category(c) == GeneralCategory::Control

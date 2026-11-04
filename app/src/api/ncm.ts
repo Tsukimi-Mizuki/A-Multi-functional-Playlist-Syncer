@@ -9,7 +9,7 @@ export interface NcmDialogState {
   /** 输出目录；记住的目录为空时是下载目录。 */
   outputDirectory: string
   downloadDirectory: string
-  /** 在线匹配（模块 10）是否可用。 */
+  /** 在线匹配是否可用（后端装配了在线补全）。 */
   onlineMatchAvailable: boolean
   onlineMatchHint: string
 }

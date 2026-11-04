@@ -213,6 +213,17 @@ fn decode_base64(text: &str) -> Option<Vec<u8>> {
     BASE64_LENIENT.decode(text).ok()
 }
 
+/// 与 .NET `Convert.FromBase64String` + `Encoding.UTF8.GetString` 一致：忽略空格 / 制表 / 换行，
+/// 要求规范填充；非法 UTF-8 替换为 `U+FFFD`。在线词源（QQ 音乐、酷狗）的 base64 文本都用它解码。
+pub(crate) fn decode_base64_utf8(text: &str) -> Option<String> {
+    let compact: String = text
+        .chars()
+        .filter(|ch| !matches!(ch, ' ' | '\t' | '\r' | '\n'))
+        .collect();
+    let bytes = decode_base64(&compact)?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// 解码解压后的文本：与 .NET `StreamReader(detectEncodingFromByteOrderMarks: true)` 一样识别 UTF-8 / UTF-16 BOM。
 fn decode_text_with_bom(bytes: &[u8]) -> String {
     if let Some(rest) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
