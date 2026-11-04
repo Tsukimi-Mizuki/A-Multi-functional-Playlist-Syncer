@@ -31,7 +31,19 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "publisher": "Tsukimi-Mizuki",
+    "copyright": "Copyright (c) Tsukimi-Mizuki. Licensed under AGPL-3.0.",
+    "category": "Music",
+    "shortDescription": "Lunatic Princess",
+    "longDescription": "网易云音乐歌单同步、NCM 解密、歌词与标签管理工具。",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
