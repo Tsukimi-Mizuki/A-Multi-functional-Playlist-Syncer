@@ -128,6 +128,7 @@ fn resolve_data_dir(env: &PathEnv) -> CoreResult<PathBuf> {
 
     // 2. 已经启用便携模式的安装：继续使用程序目录下的 data，
     //    这样无论通过资源管理器还是受限宿主启动，登录态 / 设置位置都保持一致。
+    //    安装包和便携版 zip 都自带这个 data，所以数据默认跟着用户选的程序目录走。
     let portable = env.base_dir.join("data");
     if portable.is_dir() && try_prepare_directory(&portable) {
         return Ok(portable);
