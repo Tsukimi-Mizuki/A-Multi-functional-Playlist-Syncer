@@ -2,7 +2,7 @@
 
 > 最后更新：2026-11-04。当前状态：**2.0.0（Rust + Tauri 2 + React 重写版）功能完整**：重写模块 1–12 全部完成，
 > `cargo test --workspace` **1038 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
-> **2.0.0 尚未打 tag、未发 Release**（用户决定全部「待修问题」处理完后再发版）。
+> **2.0.0 已发布**（tag `v2.0`，GitHub Actions 自动打包并建 Release：安装包 + 便携版 zip + 校验值）。
 >
 > 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
 > 逐模块的实现细节、与 C# 版的有意差异和验证过程见 `docs/TAURI_REWRITE.md`。
@@ -24,7 +24,7 @@
 | 设置与外观 | ✅ 完成 | 设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、深色 / 浅色 / 跟随系统、窗口材质（亚克力 / 云母 / 无）、玻璃浓度、减少动效、实时预览与取消还原 |
 | 界面（液态玻璃） | ✅ 完成 | 透明无边框窗口 + 自绘标题栏；玻璃层叠 + 景深虚化（WebView2 不支持 `backdrop-filter` 的替代方案）；统一动效体系；所有可交互控件有中文 `aria-label` |
 | 错误提示与运行日志 | ✅ 完成 | `error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出处理建议；运行日志 400 条（内存），可收起 |
-| Windows 打包与发布 | ✅ 完成（见验证记录里的环境说明） | `build.ps1 -Bundle` 生成便携版 zip（只含 exe）+ NSIS 安装包 + `SHA256SUMS.txt` 到 `dist-release\`；`main.yml` 在 `v*` tag 上自动检查、打包并建 Release |
+| Windows 打包与发布 | ✅ 完成（见验证记录里的环境说明） | `build.ps1 -Bundle` 生成便携版 zip（exe + 空的 `data\`）+ NSIS 安装包 + `SHA256SUMS.txt` 到 `dist-release\`；安装时可选目录，安装钩子在安装目录建 `data\`，设置 / 登录态 / 缓存 / 默认下载目录都跟着安装目录走；`main.yml` 在 `v*` tag 上自动检查、打包并建 Release |
 | 其他平台 | ➖ 不做 | `lp-core` 与外壳分离，理论上可复用，目前没有任何实现 |
 
 ## 验证记录
@@ -62,6 +62,10 @@
   - `.\build.ps1 -Bundle -Version v2.0.0-manual.1`：版本号写入 `Cargo.toml` / `tauri.conf.json` / `package.json` 并参与编译（构建输出为 `lp-core v2.0.0-manual.1`），**便携版 zip 生成成功**（`LunaticPrincess-2.0.0-manual.1-win-x64-portable.zip`，3.0 MB，里面只有 `LunaticPrincess.exe`，没有 `data`）。解压到 `D:\claude\lp-portable\`、`LUNATIC_PRINCESS_DATA_DIR=D:\claude\lp-data` 启动：窗口标题 `Lunatic Princess`、进程 `Responding`，数据落在指定目录的 `webview\EBWebView`；测完已清空 `D:\claude`。
   - **NSIS 安装包在本次自动化环境里没能生成**：Tauri 打包器把下载的 NSIS 工具解压到 `%LOCALAPPDATA%\tauri\nsis-3.13` 后要把目录改名为 `NSIS`，而这台机器上 Claude 桌面版的子进程对 `%LOCALAPPDATA%` 的写入被 MSIX 文件系统虚拟化到包私有目录（`C:\WpSystem\…\Packages\AnthropicPBC.Claude_…\LocalCache\Local\tauri`），改名时报 `os error 17`（无法将文件移到不同的驱动器）；另有一次下载中途 `unexpected end of file`（网络瞬时故障）。这是运行环境的限制，不是工程配置问题（打包配置已被 Tauri 解析通过，流程走到了「Verifying NSIS package」）。**需要在普通 PowerShell 里执行 `.\build.ps1 -Bundle` 确认安装包能生成**；GitHub Actions 的 windows-latest 上没有这个虚拟化。
   - 版本解析（`scripts/resolve-version.ps1` 与 `main.yml` 里的步骤，本地用 Windows PowerShell 5.1 模拟）：`v2.0.0`→`2.0.0`、`v1.3`→`1.3.0`、`v.1.0.0`→`1.0.0`、`V1.0.0`→`1.0.0`、`v2.0.0-rc.1`→`2.0.0-rc.1`、`v0.0.1-manual`→`0.0.1-manual`、`v1`→`1.0.0`；分支手动运行 → `2.0.0-manual.<运行序号>`；`v1.2.3.4`、`vfoo` 等非 SemVer 直接失败。两个 workflow 用 PyYAML 解析通过（结构、触发条件、权限、步骤顺序已核对）；**workflow 本身没有真正在 GitHub 上跑过**，首次推送后要看一次 Actions。
+- **发布 v2.0（2026-11-04）**：
+  - 上面「NSIS 安装包没能生成」已解决：`tauri.conf.json` 加 `bundle.useLocalToolsDir = true`，NSIS 工具缓存在 `app\target\.tauri\`，不再碰被虚拟化的 `%LOCALAPPDATA%`；本机（Claude 桌面版子进程里）`.\build.ps1 -Bundle` 成功生成安装包（2.3 MB）、便携版 zip、`SHA256SUMS.txt`。
+  - 便携版 zip 的条目是 `LunaticPrincess.exe` 与空目录 `data/`（Windows PowerShell 5.1 的 `CreateFromDirectory` 会写成反斜杠 `data\`，不合 zip 规范，所以改为逐条写入）。解压到 `D:\claude\lp-zip\`、不设 `LUNATIC_PRINCESS_DATA_DIR` 启动：`data\Music`、`data\webview` 建在解压目录里。
+  - 安装包：`/S /NS /D=D:\claude\lp-install` 静默安装（不建快捷方式）→ 目录里是 `LunaticPrincess.exe`、`uninstall.exe`、`data\`；启动后 `data\Music`、`data\webview` 建在安装目录里。卸载（界面，**不**勾「删除应用程序数据」）→ exe 与卸载程序删除，`data\` 原样保留；覆盖重装 → 原有的 `session.dat` 等仍在；卸载（勾选）→ `settings.json`、`session.dat`、`webview\`、`logs\` 删除，`data\Music\` 里的测试文件保留（`data\` 因不为空而保留）。测试用的设置 / 登录态都是假文件；测完 `D:\claude` 已清空，卸载注册表项、快捷方式无残留。
 
 ## 已知限制
 

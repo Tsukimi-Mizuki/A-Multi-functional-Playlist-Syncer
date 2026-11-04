@@ -227,6 +227,32 @@ pnpm build           # 只构建前端（tsc + vite）
 3. 这是非公开接口：`appver` / 加密格式 / 域名随时可能变（网易云在推 `xeapi` / `neapi`）；失败只会让续期回到“只记日志、继续用当前登录”，不会掉线。
 4. weapi 取链请求（`use_playback_cookie`）带桌面标识时，响应里同样有上面那种同名多 `Path` 的 Set-Cookie，现在由 `CookieMerger` 的新规则兜住。
 
+## 发布 v2.0（安装目录与数据位置）实现记录
+
+用户要求（2026-11-04）：打 tag `v2.0` 并确认 Actions 自动构建；产物要有安装包 `.exe` 与便携版 zip；安装版的所有产物都放在安装时用户指定的目录，数据目录、Cookie 等也在那里。
+
+### 改动
+
+| 位置 | 内容 |
+|---|---|
+| `app/src-tauri/windows/installer-hooks.nsh`（新增）| Tauri NSIS 模板的安装钩子（`bundle.windows.nsis.installerHooks`）。`NSIS_HOOK_POSTINSTALL` 在 `$INSTDIR` 建 `data\`，程序按 `paths.rs` 第 2 条把设置、`session.dat`、WebView2 缓存、默认下载目录 `data\Music` 都放进安装目录（不改 Rust 逻辑）。`NSIS_HOOK_POSTUNINSTALL`：卸载页勾选「删除应用程序数据」且不是升级时，删 `settings.json(.tmp)`、`session.dat(.tmp)`、`webview\`、`logs\`，`data\Music` / `data\` / 安装目录只在为空时删——Tauri 自己只清 `%APPDATA%` / `%LOCALAPPDATA%\<identifier>`，本程序不用这两处。 |
+| `tauri.conf.json` | `installerHooks`；`useLocalToolsDir: true`（NSIS 工具缓存到 `app\target\.tauri\`，绕开 MSIX 对 `%LOCALAPPDATA%` 的虚拟化，见模块 12 的 `os error 17`）。安装目录页本来就有（模板的 `MUI_PAGE_DIRECTORY`），默认 `%LOCALAPPDATA%\Lunatic Princess`（`productName`，带空格，与旧的数据目录 `%LOCALAPPDATA%\LunaticPrincess` 不冲突）。 |
+| `build.ps1` | 便携版 zip 改为逐条写入：`LunaticPrincess.exe` + 空目录条目 `data/`，解压即便携。`Compress-Archive` 不收空目录，PS 5.1 的 `CreateFromDirectory` 会写出反斜杠条目名。 |
+| `main.yml` | 新增「读取 tag 说明」：单独 `git fetch` tag 对象（checkout 只留轻量 tag），取 annotated tag 的正文写进 `runner.temp` 下的文件，作为 Release 正文（`body_path`），后面照旧附自动生成的变更链接；读不到时正文为空、不让步骤失败。pwsh 显式按 UTF-8 解码 git 输出，否则中文会乱码。 |
+| 文档 | README「下载与安装」「数据位置」、`AGENTS.md` §1 / §3 / §5 / §6 / §12、`docs/ARCHITECTURE.md`、`docs/IMPLEMENTATION_STATUS.md`。 |
+
+### 决定
+
+- **用「程序目录下的 `data\`」而不是新增安装模式**：数据目录解析早就有「exe 旁边存在 `data\` 就固定用它」这条规则（并做写入探测），安装钩子只需建这个文件夹，Rust 侧不用区分安装版 / 便携版，测试也不用改。
+- **安装模式保持 `currentUser`**：若改成 `both` / `perMachine`，用户可以装进 `Program Files`，普通权限运行时 `data\` 不可写，程序会退到 `%LOCALAPPDATA%`，违背「数据在安装目录」。`currentUser` 安装器能写的目录，程序运行时也能写。
+- **卸载绝不删下载的音乐**：`data\Music` 是默认下载目录，「删除应用程序数据」只清设置、登录态、缓存与日志。
+- **不自动迁移旧数据**：C# 版或手动运行时留在 `%LOCALAPPDATA%\LunaticPrincess` 的 `settings.json` / `session.dat` 不会被安装程序搬过来（README 写了手动复制的办法），避免安装程序替用户挪文件。
+- tag 用 `v2.0`（与 `v1.3` 同样两段式，`resolve-version.ps1` 解析成 `2.0.0`）；三个清单里的版本本来就是 `2.0.0`。
+
+### 验证
+
+见 `docs/IMPLEMENTATION_STATUS.md` 验证记录「发布 v2.0」：本机生成安装包；静默安装到 `D:\claude`、启动、覆盖重装、两种卸载（勾选 / 不勾选「删除应用程序数据」）的文件结果都核对过；便携版 zip 条目与解压后的数据位置核对过。静默安装后卸载会先弹「Installer Language」（静默安装不记录语言），正常界面安装不会。
+
 ## 模块 12（CI 打包、文档、删除 C#）实现记录
 
 ### 分支调整（模块开始前由用户完成）
@@ -249,7 +275,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ### 决定与偏离
 
-- **便携版 zip 只含 exe，不含 `data\`**（按要求）。便携模式靠「exe 旁边存在 `data\` 文件夹」触发，所以解压后默认并不是便携模式，数据落在 `%LOCALAPPDATA%\LunaticPrincess`；README 说明了「新建 `data` 文件夹」或设 `LUNATIC_PRINCESS_DATA_DIR`。如果希望 zip 解压即便携，可以在 zip 里放一个空的 `data\` 文件夹（需要用户决定）。
+- **便携版 zip 只含 exe，不含 `data\`**（按要求）。便携模式靠「exe 旁边存在 `data\` 文件夹」触发，所以解压后默认并不是便携模式，数据落在 `%LOCALAPPDATA%\LunaticPrincess`；README 说明了「新建 `data` 文件夹」或设 `LUNATIC_PRINCESS_DATA_DIR`。如果希望 zip 解压即便携，可以在 zip 里放一个空的 `data\` 文件夹（需要用户决定）。**发布 v2.0 时已改为 zip 自带空的 `data\`，见「发布 v2.0」。**
 - **先做 zip、后做 NSIS**：`tauri build --bundles` / `tauri bundle` 会把「bundle type」标记原地补丁进 `LunaticPrincess.exe`（给更新插件用，本项目没用更新插件），先打 zip 可以保证便携版 exe 是未被改写的，同时 NSIS 失败时便携版仍然已经生成。
 - **`pnpm tauri bundle` 而不是 `tauri build --bundles`**：后者会再编译一次；`bundle` 子命令只打包已经编好的 exe。
 - **版本临时写入而不是 `--config`**：见上表「版本号」。`-Version` 恢复清单时曾遇到一次 `The requested operation cannot be performed on a file with a user-mapped section open`（某个进程暂时映射了清单文件），导致清单没还原；已改成对每个文件重试最长约 10 秒、失败也继续处理其余文件、最后一定 `Pop-Location`，并在无法还原时给出警告。
@@ -273,10 +299,10 @@ pnpm build           # 只构建前端（tsc + vite）
 
 ### 已知限制 / 需要用户决定
 
-- NSIS 安装包尚未在真实环境生成（见上）；两个 workflow 尚未在 GitHub 上运行。
-- 便携版解压后默认不是「便携模式」（见「决定与偏离」）。
+- NSIS 安装包尚未在真实环境生成（见上）；两个 workflow 尚未在 GitHub 上运行。（已在「发布 v2.0」解决）
+- 便携版解压后默认不是「便携模式」（见「决定与偏离」）。（已在「发布 v2.0」改掉）
 - 安装包与便携版没有代码签名；没有自动更新。
-- 2.0.0 暂不发版，等「待修问题」处理完再决定。
+- 2.0.0 暂不发版，等「待修问题」处理完再决定。（已以 tag `v2.0` 发布）
 
 ## 模块 11（设置与外观）实现记录
 

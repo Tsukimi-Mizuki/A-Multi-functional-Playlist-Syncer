@@ -15,9 +15,9 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1038 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**2.0.0 尚未打 tag、未发 Release**（发版时机由用户决定） |
+| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1038 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**2.0.0 已发布（tag `v2.0`）** |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
-| 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0.0` 起 |
+| 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0`（版本号 2.0.0）起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
@@ -44,7 +44,7 @@
 | Windows API | `windows-sys` 0.61（DPAPI、已知文件夹、进程令牌提权检测） |
 | 序列化 / 错误 | serde 1、serde_json 1、thiserror 2 |
 | 发布 profile | `lto = true`、`codegen-units = 1`、`opt-level = "s"`、`panic = "abort"`、`strip = true` |
-| 打包 | Tauri bundler 的 NSIS（`bundle.targets = ["nsis"]`，当前用户安装，简体中文 / 英文）；便携版 zip 由 `build.ps1` 生成 |
+| 打包 | Tauri bundler 的 NSIS（`bundle.targets = ["nsis"]`，当前用户安装、可选安装目录，简体中文 / 英文，安装钩子 `src-tauri/windows/installer-hooks.nsh`）；便携版 zip 由 `build.ps1` 生成 |
 
 ## 4. 目录结构与职责
 
@@ -100,7 +100,7 @@ dist-release/                      # build.ps1 -Bundle 的输出（gitignore）
 |---|---|
 | `.\build.ps1` | `pnpm install --frozen-lockfile` + `pnpm tauri build --no-bundle`（前端构建 + `cargo build --release`）→ `app\target\release\LunaticPrincess.exe` |
 | `.\build.ps1 -Test` | 只检查不打包：`cargo fmt --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`pnpm build`（tsc + vite） |
-| `.\build.ps1 -Bundle` | 先 `pnpm tauri build --no-bundle` 编译，从**未被打包器改写**的 exe 做便携版 zip，再 `pnpm tauri bundle --bundles nsis`，在 `dist-release\` 得到 `LunaticPrincess-<版本>-win-x64-portable.zip`（**只含 exe，不含 data**）、`LunaticPrincess-<版本>-win-x64-setup.exe`、`SHA256SUMS.txt`。首次需要联网下载 NSIS 工具（缓存在 `%LOCALAPPDATA%\tauri`）。注意：在 MSIX 打包应用（例如 Claude 桌面版）的子进程里跑会失败——`%LOCALAPPDATA%` 被虚拟化，Tauri 改名 NSIS 目录时报 `os error 17`——请在普通 PowerShell 里打包 |
+| `.\build.ps1 -Bundle` | 先 `pnpm tauri build --no-bundle` 编译，从**未被打包器改写**的 exe 做便携版 zip，再 `pnpm tauri bundle --bundles nsis`，在 `dist-release\` 得到 `LunaticPrincess-<版本>-win-x64-portable.zip`（**exe + 一个空的 `data/` 目录条目**，直接写进 zip，从不拷贝真实数据目录）、`LunaticPrincess-<版本>-win-x64-setup.exe`、`SHA256SUMS.txt`。首次需要联网下载 NSIS 工具与 WebView2 引导程序：`bundle.useLocalToolsDir = true`，缓存在 `app\target\.tauri\`（`cargo clean` 后重新下载；偶发 `unexpected end of file` 是网络中断，重跑即可）。不用 Tauri 默认的 `%LOCALAPPDATA%\tauri`，因为在 MSIX 打包应用（例如 Claude 桌面版）的子进程里 `%LOCALAPPDATA%` 被虚拟化，Tauri 改名 NSIS 目录时会报 `os error 17` |
 | `.\build.ps1 -Test -Bundle` | 先检查测试，再打包 |
 | `-Version <tag 或版本>` | 与 `-Bundle` 合用。经 `scripts/resolve-version.ps1` 归一成 SemVer（`v1.3` → `1.3.0`，`v.1.0.0` → `1.0.0`，`V2.0.0-rc.1` → `2.0.0-rc.1`），**临时**写进 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json`（`Cargo.lock` 也会被 cargo 更新），构建结束后原样恢复，工作区不会变脏 |
 | `-Tauri` | 旧开关，保留但已无作用（Tauri 构建现在就是默认行为），会给出警告，计划以后删除 |
@@ -133,7 +133,7 @@ pnpm dev                                                           # 只开前�
 数据目录解析顺序（`lp-core/src/paths.rs`，每个候选都会做真实写入探测，不可写就降级）：
 
 1. 环境变量 `LUNATIC_PRINCESS_DATA_DIR`（旧名 `NETEASE_MUSIC_MANAGER_DATA_DIR` 仍兼容，新变量为空时才看旧变量）；
-2. 程序目录下已存在 `data\` → 便携模式，固定使用它（保证换启动方式后登录态不变）；
+2. 程序目录下已存在 `data\` → 便携模式，固定使用它（保证换启动方式后登录态不变）。**安装版与便携版都走这一条**：安装钩子（`app/src-tauri/windows/installer-hooks.nsh`）在用户选的安装目录里建 `data\`，便携版 zip 自带空的 `data\`，所以设置、登录态（Cookie）、WebView2 缓存与默认下载目录 `data\Music` 都在程序目录下。安装钩子只在卸载页勾选「删除应用程序数据」（且不是升级）时删 `settings.json` / `session.dat`（含 `.tmp`）/ `webview\` / `logs\`，`data\Music` 与 `data\` 只在为空时删，绝不删下载的音乐；改了数据目录里的文件名要同步改钩子；
 3. `%LOCALAPPDATA%\LunaticPrincess`；若只有旧目录 `%LOCALAPPDATA%\NeteaseMusicManager` 会先整体迁移；
 4. 程序目录 `data\`；
 5. `%TEMP%\LunaticPrincess`。
@@ -171,7 +171,7 @@ pnpm dev                                                           # 只开前�
 | glassOpacity | 玻璃浓度 0.10–0.95（Tauri 版新增） | 0.45 |
 | reduceMotion | 减少动效（Tauri 版新增） | false |
 
-隐私与交接注意：`session.dat` 与个人路径属于用户数据，**不要提交、不要放进发布包**（便携版 zip 只含 exe，`build.ps1` 也不会打包 `data\`）；下载目录里可能有受版权保护的文件，不要随项目交付；
+隐私与交接注意：`session.dat` 与个人路径属于用户数据，**不要提交、不要放进发布包**（便携版 zip 里的 `data\` 只是一个空目录条目，`build.ps1` 从不拷贝任何真实数据目录）；下载目录里可能有受版权保护的文件，不要随项目交付；
 本地的 `publish\win-x64\data`（C# 版遗留）里是用户真实的登录态与设置，**不要删除或修改**。
 
 ## 7. 架构速查（详细见 docs/ARCHITECTURE.md）
@@ -264,11 +264,11 @@ pnpm dev                                                           # 只开前�
 - 不要 force push `main`；不要往 `CSharp-GUI` 加新功能。
 - **CI（`.github/workflows/`）**：
   - `ci.yml`：`main` 的 push 与 pull request → windows-latest，pnpm / Node / Rust stable（带 rustfmt、clippy，`Swatinem/rust-cache` 缓存）→ `./build.ps1 -Test`。
-  - `main.yml`（名称 Release）：推送 `v*` tag 或手动运行 → 同样的环境 → 解析版本号 → `./build.ps1 -Test` → `./build.ps1 -Bundle -Version <版本>` → `actions/upload-artifact`（总是）→ 有 tag 时 `softprops/action-gh-release@v2` 建 Release（自动生成 release notes，版本带 `-` 的标为预发布）。**手动运行（分支上）不建 Release**，版本是 `tauri.conf.json` 的版本加 `-manual.<运行序号>`，只影响产物命名。
+  - `main.yml`（名称 Release）：推送 `v*` tag 或手动运行 → 同样的环境 → 解析版本号 → `./build.ps1 -Test` → `./build.ps1 -Bundle -Version <版本>` → `actions/upload-artifact`（总是）→ 有 tag 时 `softprops/action-gh-release@v2` 建 Release（正文是 annotated tag 的说明正文，后面附自动生成的变更链接；所以**打 tag 一定用 `git tag -a` 写改动列表**，版本带 `-` 的标为预发布）。**手动运行（分支上）不建 Release**，版本是 `tauri.conf.json` 的版本加 `-manual.<运行序号>`，只影响产物命名。
   - 版本解析在 `scripts/resolve-version.ps1`：兼容 `v1.3`（补成 `1.3.0`）、`V1.0.0`、旧的 `v.1.0.0`（去前导点）、`v2.0.0-rc.1`；不是 SemVer 的 tag 直接报错。外部输入（tag 名）一律通过 `env:` 传入脚本，不直接拼进命令。
   - Release 资产（名字不含空格）：`LunaticPrincess-<版本>-win-x64-setup.exe`、`LunaticPrincess-<版本>-win-x64-portable.zip`、`SHA256SUMS.txt`。
-- **发版流程**：先确认没有新的「待修问题」要在此版本处理 → 把 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json` 的版本改成同一个数字并提交（CI 以 tag 为准、会临时覆盖，但仓库里的数字应与发布一致，`Cargo.lock` 里成员版本随 cargo 构建更新，一并提交）→ 本地 `.\build.ps1 -Test -Bundle` → `git push origin main` → `git tag -a v2.0.0 -m "Lunatic Princess v2.0.0"` → `git push origin v2.0.0` → 在 Actions 里确认通过、到 Releases 核对资产并试装一次。**2.0.0 暂不发版**，等用户决定。
-- 安装包说明：NSIS、当前用户安装（不要管理员权限）、简体中文 / 英文、WebView2 缺失时联网下载引导程序（Tauri 默认 `downloadBootstrapper`）；未做代码签名，SmartScreen 可能提示未知发布者。
+- **发版流程**：先确认没有新的「待修问题」要在此版本处理 → 把 `app/Cargo.toml`、`app/package.json`、`app/src-tauri/tauri.conf.json` 的版本改成同一个数字并提交（CI 以 tag 为准、会临时覆盖，但仓库里的数字应与发布一致，`Cargo.lock` 里成员版本随 cargo 构建更新，一并提交）→ 本地 `.\build.ps1 -Test -Bundle` → `git push origin main` → `git tag -a v<版本> -F <说明文件>`（第一行 `Lunatic Princess v<版本>`，空一行后写改动列表，会成为 Release 正文）→ `git push origin v<版本>` → 在 Actions 里确认通过、到 Releases 核对资产并试装一次。2.0.0 用的 tag 是 `v2.0`（与 `v1.3` 一样两段式，解析成 `2.0.0`）。
+- 安装包说明：NSIS、当前用户安装（不要管理员权限）、安装时可选目录（默认 `%LOCALAPPDATA%\Lunatic Princess`，Tauri 用 `productName` 命名）、简体中文 / 英文、WebView2 缺失时联网下载引导程序（Tauri 默认 `downloadBootstrapper`）；未做代码签名，SmartScreen 可能提示未知发布者。
 
 ## 13. 常见修改配方
 

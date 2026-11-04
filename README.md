@@ -34,23 +34,25 @@
 
 ## 下载与安装
 
-在 [Releases](../../releases) 页面下载（2.0.0 正式发布之前，Releases 里最新的仍是 C# 版 v1.x，想用新版请先自行构建，见下文）：
+在 [Releases](../../releases) 页面下载（2.0 起为 Rust + Tauri 版；C# 版 v1.x 仍保留在旧的 Release 里）：
 
 | 文件 | 说明 |
 |---|---|
-| `LunaticPrincess-<版本>-win-x64-setup.exe` | NSIS 安装包，安装到当前用户目录（不需要管理员权限），中文 / 英文安装界面 |
-| `LunaticPrincess-<版本>-win-x64-portable.zip` | 便携版，解压后只有一个 `LunaticPrincess.exe`，不含任何用户数据 |
+| `LunaticPrincess-<版本>-win-x64-setup.exe` | NSIS 安装包：安装时自选目录（默认 `%LOCALAPPDATA%\Lunatic Princess`），只为当前用户安装、不需要管理员权限，中文 / 英文安装界面 |
+| `LunaticPrincess-<版本>-win-x64-portable.zip` | 便携版：`LunaticPrincess.exe` 加一个空的 `data` 文件夹，解压到哪里数据就在哪里，不含任何用户数据 |
 | `SHA256SUMS.txt` | 上面两个文件的 SHA-256 校验值 |
 
 **WebView2 运行时**：界面由 Microsoft Edge WebView2 渲染。Windows 11 和绝大多数已更新的 Windows 10 已自带；
 缺少时安装包会联网下载安装引导程序，便携版则需要你先手动安装
 [WebView2 Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
-**数据位置**：默认保存在 `%LOCALAPPDATA%\LunaticPrincess`（设置 `settings.json`、加密的登录态 `session.dat`、`webview` 缓存）。
-想做成真正的便携版：在 `LunaticPrincess.exe` 旁边新建一个名为 `data` 的文件夹，程序检测到它就改用它保存全部数据。
-也可以用环境变量 `LUNATIC_PRINCESS_DATA_DIR` 指定目录。`session.dat` 绑定当前 Windows 用户，换用户或换电脑需要重新扫码。
+**数据位置**：安装版和便携版都把数据放在程序目录下的 `data` 文件夹：设置 `settings.json`、加密的登录态（Cookie）`session.dat`、
+`webview` 缓存，默认下载 / 曲库目录也是 `data\Music`（可以在设置里改）。安装版的 `data` 由安装程序在你选的目录里创建，
+覆盖安装 / 升级时保留；卸载时勾选「删除应用程序数据」才会删掉设置、登录态和缓存，`data\Music` 里下载的音乐永远不会被卸载程序删除。
+程序目录旁没有 `data` 文件夹时（例如只复制了 exe），数据改存 `%LOCALAPPDATA%\LunaticPrincess`；也可以用环境变量 `LUNATIC_PRINCESS_DATA_DIR` 指定目录。
+`session.dat` 绑定当前 Windows 用户，换用户或换电脑需要重新扫码。
 
-从 C# 版升级：`settings.json` 与 `session.dat` 格式互相兼容，数据目录相同时无需重新登录。
+从 C# 版升级：`settings.json` 与 `session.dat` 格式互相兼容。想保留登录与设置，把旧数据目录（便携版旁边的 `data`，或 `%LOCALAPPDATA%\LunaticPrincess`）里的这两个文件复制到新版的 `data` 文件夹即可，否则重新扫码一次。
 
 ## 构建与运行
 

@@ -37,7 +37,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 | 模块 | 内容 |
 |---|---|
-| `paths` | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%\LunaticPrincess` → 程序目录 → `%TEMP%`，每个候选做写入探测）、默认下载目录、`webview\` 子目录 |
+| `paths` | 数据目录解析（环境变量 → 便携 `data\`（安装包与便携版 zip 都自带它）→ `%LOCALAPPDATA%\LunaticPrincess` → 程序目录 → `%TEMP%`，每个候选做写入探测）、默认下载目录、`webview\` 子目录 |
 | `settings` / `models` | `AppSettings`（24 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
 | `session` | `NeteaseSession`、`SessionStore`（`NMMSES01` 头 + DPAPI CurrentUser / 明文）、`SessionAutoSaver`（订阅会话变化、串行落盘、`flush`） |
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
