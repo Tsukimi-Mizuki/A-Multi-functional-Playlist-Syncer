@@ -341,18 +341,24 @@ body {
   user-select: text;
 }
 
-/* ---- 运行日志 ---- */
+/* ---- 运行日志 ----
+   收起时列表仍留在 DOM 里，面板在两个固定高度之间过渡（auto 高度没法做过渡），
+   列表随面板一起被裁掉并淡出；展开时反过来。 */
 .log-panel {
+  --log-header-height: 32px;
   display: flex;
   flex: none;
   flex-direction: column;
   height: 168px;
+  overflow: hidden;
   border-top: 1px solid var(--border);
   background: var(--chrome-glass);
+  transition: height var(--dur-3) var(--ease-out);
 }
 
+/* 收起后只剩标题行；+1px 是顶部边框。 */
 .log-panel-collapsed {
-  height: auto;
+  height: calc(var(--log-header-height) + 1px);
 }
 
 .log-header {
@@ -360,7 +366,8 @@ body {
   flex: none;
   align-items: center;
   gap: 10px;
-  padding: 4px 12px 4px 20px;
+  height: var(--log-header-height);
+  padding: 0 12px 0 20px;
 }
 
 .log-title {
@@ -384,6 +391,11 @@ body {
   font-size: 12px;
   line-height: 1.6;
   user-select: text;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.log-panel-collapsed .log-list {
+  opacity: 0;
 }
 
 .log-empty {

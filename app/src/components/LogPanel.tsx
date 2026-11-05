@@ -42,31 +42,31 @@ export default function LogPanel({ logs }: { logs: LogEntry[] }) {
           {expanded ? '收起' : '展开'}
         </button>
       </header>
-      {expanded && (
-        <ol
-          ref={listRef}
-          className="log-list"
-          role="log"
-          aria-label="日志列表"
-          aria-live="polite"
-          tabIndex={0}
-          onScroll={(event) => {
-            const list = event.currentTarget
-            stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 24
-          }}
-        >
-          {logs.length === 0 && <li className="log-empty">暂无日志</li>}
-          {logs.map((entry) => (
-            <li key={entry.id} className={`log-item log-${entry.level}`}>
-              <time className="log-time" dateTime={new Date(entry.timestampMs).toISOString()}>
-                {formatTime(entry.timestampMs)}
-              </time>
-              <span className="log-level">{LEVEL_LABEL[entry.level]}</span>
-              <span className="log-message">{entry.message}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      {/* 收起时列表不卸载（否则没有过渡可言），只是被面板裁掉；inert 让它不能获得焦点、也不被读屏读到。 */}
+      <ol
+        ref={listRef}
+        className="log-list"
+        role="log"
+        aria-label="日志列表"
+        aria-live="polite"
+        tabIndex={expanded ? 0 : -1}
+        inert={!expanded}
+        onScroll={(event) => {
+          const list = event.currentTarget
+          stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 24
+        }}
+      >
+        {logs.length === 0 && <li className="log-empty">暂无日志</li>}
+        {logs.map((entry) => (
+          <li key={entry.id} className={`log-item log-${entry.level}`}>
+            <time className="log-time" dateTime={new Date(entry.timestampMs).toISOString()}>
+              {formatTime(entry.timestampMs)}
+            </time>
+            <span className="log-level">{LEVEL_LABEL[entry.level]}</span>
+            <span className="log-message">{entry.message}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   )
 }
