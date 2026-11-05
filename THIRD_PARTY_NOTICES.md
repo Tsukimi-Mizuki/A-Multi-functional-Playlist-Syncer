@@ -63,14 +63,8 @@ NCM 解密与网易云 / QQ / 酷狗接口协议来自社区公开研究，代�
 - taurusxin/ncmdump — NCM 文件格式与解密流程参考
 - chenmozhijin/LDDC — 歌词下载 / 逐字歌词与 QQ QRC 解密（3DES 变体）、酷狗 KRC 的产品形态与实现参考
 - Binaryify/NeteaseCloudMusicApi 及其社区继任者（NeteaseCloudMusicApi Enhanced） — weapi / eapi 加密与接口端点语义参考；网易云搜索的 eapi 请求格式与海外 IP 下改走 eapi 的做法另参考了 lyrics-search / Lyrics-Helper
-- MusicTag 桌面端 / 音樂標籤 — 在线匹配打分、多变体检索与客户端 `163 key` 注释的思路参考
 
-## 界面设计参考
 
-- **Salt UI** — Apache License 2.0，https://github.com/Moriafly/SaltUI
-  - 本项目参考其 RoundedColumn 卡片、胶囊按钮、紧凑 Item 与色彩层级；
-  - Salt UI 是 Compose Multiplatform 库，本项目没有引入它的运行时，也没有复制 Kotlin 源文件，CSS 样式为按该设计语言重新实现。
-- **Salt Player / Moriafly 官网** — 界面与产品形态参考，https://moriafly.com/
 
 ## 视觉 / 窗口效果参考
 
