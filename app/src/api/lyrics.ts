@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { Song } from './playlists'
 
 /** `line`：逐行 LRC；`word`：逐字优先（没有逐字数据时后端回退逐行）。 */
 export type LyricsMode = 'line' | 'word'
@@ -20,7 +21,7 @@ export interface LyricsPreview {
   lineCount: number
   /** 没有歌词（纯音乐、未收录）。 */
   isEmpty: boolean
-  /** 来源名称，例如「网易云音乐」。 */
+  /** 来源名称，例如「网易云音乐」「QQ 音乐」「酷狗音乐」；没有歌词时是尝试过的主来源（「、」连接）。 */
   source: string
 }
 
@@ -50,10 +51,23 @@ export function toLyricsLoadError(raw: unknown): LyricsLoadError {
   return new LyricsLoadError('failed', typeof raw === 'string' ? raw : '获取歌词失败，请稍后重试')
 }
 
-/** 取一首歌的歌词预览（只读，不写入任何文件）。 */
-export async function getSongLyrics(id: number, mode: LyricsMode): Promise<LyricsPreview> {
+/**
+ * 取一首歌的歌词预览（只读，不写入任何文件）。来源次序跟随设置里的「歌词来源」：
+ * 网易云按歌曲 ID 取词，QQ 音乐与备用词源用歌名 / 歌手 / 专辑 / 时长检索。
+ */
+export async function getSongLyrics(song: Song, mode: LyricsMode): Promise<LyricsPreview> {
   try {
-    return await invoke<LyricsPreview>('get_song_lyrics', { id, mode })
+    return await invoke<LyricsPreview>('get_song_lyrics', {
+      id: song.id,
+      mode,
+      title: song.name,
+      artist: song.artists
+        .map((artist) => artist.name.trim())
+        .filter((name) => name !== '')
+        .join('/'),
+      album: song.album.name,
+      durationMs: song.durationMs,
+    })
   } catch (error) {
     throw toLyricsLoadError(error)
   }

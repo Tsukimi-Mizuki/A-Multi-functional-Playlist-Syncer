@@ -37,7 +37,7 @@ export default function LyricsDialog({ song, onClose }: LyricsDialogProps) {
 
     let cancelled = false
     setState({ status: 'loading' })
-    getSongLyrics(song.id, mode)
+    getSongLyrics(song, mode)
       .then((preview) => {
         if (cancelled) return
         cache.current.set(mode, preview)
@@ -49,7 +49,7 @@ export default function LyricsDialog({ song, onClose }: LyricsDialogProps) {
     return () => {
       cancelled = true
     }
-  }, [song.id, mode, attempt])
+  }, [song, mode, attempt])
 
   const name = song.name.trim() === '' ? '未知歌曲' : song.name
   const preview = state.status === 'ready' ? state.preview : null
@@ -78,7 +78,7 @@ export default function LyricsDialog({ song, onClose }: LyricsDialogProps) {
           onChange={setMode}
         />
         <ul className="lyrics-meta" aria-label="歌词信息">
-          <li>来源：{preview?.source ?? '网易云音乐'}</li>
+          <li>来源：{preview?.source ?? '按设置查找中'}</li>
           {preview && !preview.isEmpty && (
             <>
               <li>{preview.isWordLevel ? '逐字歌词' : '逐行歌词'}</li>
@@ -113,7 +113,7 @@ export default function LyricsDialog({ song, onClose }: LyricsDialogProps) {
         {preview?.isEmpty && (
           <div className="lyrics-state" role="status">
             <p>这首歌暂无歌词</p>
-            <p className="lyrics-hint">可能是纯音乐，或网易云音乐尚未收录歌词。</p>
+            <p className="lyrics-hint">可能是纯音乐，或所选来源（{preview.source}）都没有收录这首歌的歌词。</p>
           </div>
         )}
         {preview && !preview.isEmpty && (

@@ -27,5 +27,6 @@ mod zlib;
 
 pub use models::{LyricDocument, LyricLine, LyricWord, RawLyrics};
 pub use service::{
-    LYRICS_SOURCE_LABEL, LyricsError, LyricsErrorKind, LyricsMode, LyricsPreview, LyricsService,
+    LYRICS_SOURCE_LABEL, LyricsError, LyricsErrorKind, LyricsLookup, LyricsMode, LyricsPreview,
+    LyricsPreviewOptions, LyricsService,
 };

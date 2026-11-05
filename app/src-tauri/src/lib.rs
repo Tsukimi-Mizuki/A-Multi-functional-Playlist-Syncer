@@ -34,7 +34,9 @@ use lp_core::lyrics::batch::{
     BatchEnricher, BatchJobError, BatchLyricsService, BatchManager, BatchProgressView,
     BatchRequest, BatchScanView, BatchSummaryView, SettingsProvider,
 };
-use lp_core::lyrics::{LyricsError, LyricsMode, LyricsPreview, LyricsService};
+use lp_core::lyrics::{
+    LyricsError, LyricsLookup, LyricsMode, LyricsPreview, LyricsPreviewOptions, LyricsService,
+};
 use lp_core::models::{AudioQuality, LyricsSourceKind, ThemeMode, WindowMaterial};
 use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
@@ -173,7 +175,6 @@ impl AppState {
         );
 
         let playlists = Arc::new(PlaylistService::new(Arc::clone(&login), Arc::clone(&logs)));
-        let lyrics = Arc::new(LyricsService::new(Arc::clone(&login), Arc::clone(&logs)));
         let restored = login.restore();
         if restored.load_failure.is_some() {
             logs.warning(format!(
@@ -214,6 +215,11 @@ impl AppState {
                 fallback_source_enabled(&settings_provider(), source.label())
             })
         }));
+        // 歌词预览按设置里的「歌词来源」换源：网易云按 ID 取词，QQ 音乐与备用词源走批量获取同一套检索。
+        let lyrics = Arc::new(
+            LyricsService::new(Arc::clone(&login), Arc::clone(&logs))
+                .with_online(Arc::clone(&batch_service)),
+        );
         let online = Arc::new(OnlineManager::new(
             online_search,
             fallback_sources,
@@ -686,15 +692,28 @@ async fn get_playlist_tracks(
 }
 
 /// 一首歌的歌词预览：`mode` 为 `line`（逐行）或 `word`（逐字优先，没有逐字数据时回退逐行），默认带翻译。
-/// 只读，不写入任何文件；失败时 `Err` 是 `{ kind, message }`，`message` 已是中文说明。
+/// 来源次序跟随设置里的「歌词来源」（每次调用时读取，保存设置后立即生效）；网易云按 `id` 取词，
+/// 其他来源用歌名 / 歌手 / 专辑 / 时长检索。只读，不写入任何文件；失败时 `Err` 是 `{ kind, message }`。
 #[tauri::command]
 async fn get_song_lyrics(
     state: State<'_, AppState>,
     id: i64,
     mode: LyricsMode,
+    title: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    duration_ms: Option<i64>,
 ) -> Result<LyricsPreview, LyricsError> {
+    let options = LyricsPreviewOptions::from_settings(&state.settings());
+    let lookup = LyricsLookup {
+        song_id: id,
+        title: title.unwrap_or_default(),
+        artist: artist.unwrap_or_default(),
+        album: album.unwrap_or_default(),
+        duration_ms: duration_ms.unwrap_or(0),
+    };
     let lyrics = Arc::clone(&state.lyrics);
-    lyrics.get(id, mode).await
+    lyrics.preview(&lookup, mode, options).await
 }
 
 /// 在后台线程里跑同步的标签读写，任务本身 panic 时转成普通失败。
@@ -1845,6 +1864,30 @@ mod tests {
         assert!(error.contains("并发"), "{error}");
         assert_eq!(state.settings_snapshot(), before);
         assert!(!state.paths.settings_file().exists());
+    }
+
+    #[test]
+    fn lyrics_preview_follows_the_lyrics_source_saved_in_settings() {
+        use lp_core::models::OnlineSourcePriority;
+
+        let dir = ScratchDir::new("lyrics-source");
+        let state = AppState::load(dir.paths());
+        assert_eq!(
+            LyricsPreviewOptions::from_settings(&state.settings()).priority,
+            OnlineSourcePriority::NeteaseFirst
+        );
+
+        state
+            .save_settings_patch(&serde_json::json!({
+                "lyricsSourcePriority": "QQMusicOnly",
+                "matchThreshold": 0.7
+            }))
+            .unwrap();
+
+        // `get_song_lyrics` 每次调用都这样读取，所以设置窗口保存后，下一次双击预览就换源。
+        let options = LyricsPreviewOptions::from_settings(&state.settings());
+        assert_eq!(options.priority, OnlineSourcePriority::QqMusicOnly);
+        assert_eq!(options.min_score, 0.7);
     }
 
     #[test]

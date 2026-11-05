@@ -6,8 +6,14 @@ use crate::logs::LogLevel;
 use crate::lyrics::RawLyrics;
 use crate::netease::NeteaseClient;
 use crate::netease::http::TransportError;
+use crate::online::OnlineMusicSource::QqMusic;
+use crate::online::test_support::{
+    StubFallback, StubOnline, StubTags, line_candidate, song, tag_info,
+};
+use crate::online::{LyricsSource, OnlineMusicSearch};
 use crate::session::NeteaseSession;
 use crate::session::test_support::RecordingStore;
+use crate::tags::AudioTagService;
 use crate::test_util::{FakeTransport, test_client};
 
 const NOT_LOGGED_IN: &str = r#"{"code":301,"message":"需要登录"}"#;
@@ -36,6 +42,10 @@ struct Fixture {
 }
 
 fn fixture(logged_in: bool) -> Fixture {
+    fixture_with(logged_in, None)
+}
+
+fn fixture_with(logged_in: bool, online: Option<Arc<BatchLyricsService>>) -> Fixture {
     let transport = FakeTransport::new();
     let client = Arc::new(test_client(&transport));
     let store = Arc::new(RecordingStore::default());
@@ -57,7 +67,10 @@ fn fixture(logged_in: bool) -> Fixture {
         });
         login.restore();
     }
-    let service = LyricsService::new(Arc::clone(&login), Arc::clone(&logs));
+    let mut service = LyricsService::new(Arc::clone(&login), Arc::clone(&logs));
+    if let Some(online) = online {
+        service = service.with_online(online);
+    }
     Fixture {
         transport,
         client,
@@ -284,4 +297,369 @@ fn errors_serialize_as_kind_and_message() {
     .unwrap();
     assert_eq!(json["kind"], "sessionExpired");
     assert_eq!(json["message"], "x");
+}
+
+// ---- 按设置里的「歌词来源」预览 ----
+
+const QQ_LINE: &str = "[00:01.00]QQ 的第一句\n[00:02.00]QQ 的第二句";
+const NO_LYRIC: &str = r#"{"code":200,"nolyric":true}"#;
+
+fn sunny_lookup() -> LyricsLookup {
+    LyricsLookup {
+        song_id: 186016,
+        title: "晴天".to_owned(),
+        artist: "周杰伦".to_owned(),
+        album: "叶惠美".to_owned(),
+        duration_ms: 269_000,
+    }
+}
+
+fn options(priority: OnlineSourcePriority) -> LyricsPreviewOptions {
+    LyricsPreviewOptions {
+        priority,
+        min_score: 0.6,
+    }
+}
+
+/// QQ 音乐能搜到《晴天》，详情带 `lyrics`；备用词源按给定顺序询问。
+fn online_with(
+    lyrics: Option<&str>,
+    fallback: Vec<Arc<dyn LyricsSource>>,
+) -> (Arc<StubOnline>, Arc<BatchLyricsService>) {
+    let online = StubOnline::with(
+        vec![song(
+            QqMusic,
+            "0039MnYb0qxYhV",
+            "晴天",
+            "周杰伦",
+            "叶惠美",
+            269_000,
+        )],
+        lyrics,
+    );
+    let service = Arc::new(BatchLyricsService::new(
+        StubTags::with(tag_info("晴天", "周杰伦", 269_000)) as Arc<dyn AudioTagService>,
+        Arc::clone(&online) as Arc<dyn OnlineMusicSearch>,
+        fallback,
+    ));
+    (online, service)
+}
+
+async fn preview_with(
+    f: &Fixture,
+    priority: OnlineSourcePriority,
+) -> Result<LyricsPreview, LyricsError> {
+    f.service
+        .preview(&sunny_lookup(), LyricsMode::Line, options(priority))
+        .await
+}
+
+#[tokio::test]
+async fn qq_first_previews_qq_lyrics_without_asking_netease() {
+    let (online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+
+    let preview = preview_with(&f, OnlineSourcePriority::QqMusicFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "QQ 音乐");
+    assert_eq!(preview.text, QQ_LINE);
+    assert_eq!(preview.line_count, 2);
+    assert!(!preview.is_empty);
+    assert!(f.transport.requests().is_empty());
+    assert!(
+        online
+            .searches()
+            .iter()
+            .all(|(source, _)| *source == QqMusic)
+    );
+    assert!(has_log(
+        &f.logs,
+        LogLevel::Success,
+        "已从QQ 音乐获取「晴天」的歌词（逐行）"
+    ));
+}
+
+#[tokio::test]
+async fn netease_first_uses_the_song_id_and_never_searches_when_netease_has_lyrics() {
+    let (online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(LINE_ONLY);
+
+    let preview = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "网易云音乐");
+    assert_eq!(preview.text, "[00:01.000]甲\n[00:02.000]乙");
+    assert!(
+        f.transport.requests()[0]
+            .url
+            .contains("/api/song/lyric?id=186016")
+    );
+    assert!(online.searches().is_empty());
+}
+
+#[tokio::test]
+async fn netease_first_falls_back_to_qq_when_netease_has_no_lyrics() {
+    let (_online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(NO_LYRIC);
+
+    let preview = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "QQ 音乐");
+    assert_eq!(f.transport.requests().len(), 1);
+}
+
+#[tokio::test]
+async fn qq_first_falls_back_to_netease_when_qq_finds_nothing() {
+    let (online, batch) = online_with(None, vec![]);
+    online.on_search(|_, _| Ok(Vec::new()));
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(LINE_ONLY);
+
+    let preview = preview_with(&f, OnlineSourcePriority::QqMusicFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "网易云音乐");
+    assert!(!online.searches().is_empty());
+}
+
+#[tokio::test]
+async fn only_priorities_skip_the_other_main_source() {
+    let (online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(NO_LYRIC);
+
+    let netease_only = preview_with(&f, OnlineSourcePriority::NeteaseOnly)
+        .await
+        .unwrap();
+    assert!(netease_only.is_empty);
+    assert_eq!(netease_only.source, "网易云音乐");
+    assert!(online.searches().is_empty());
+
+    let qq_only = preview_with(&f, OnlineSourcePriority::QqMusicOnly)
+        .await
+        .unwrap();
+    assert_eq!(qq_only.source, "QQ 音乐");
+    assert_eq!(
+        f.transport.requests().len(),
+        1,
+        "仅 QQ 音乐时不该再问网易云"
+    );
+}
+
+#[tokio::test]
+async fn fallback_sources_fill_in_when_no_main_source_has_lyrics() {
+    let kugou = StubFallback::returning(
+        "酷狗音乐",
+        Some(line_candidate(
+            "酷狗音乐",
+            "晴天",
+            "周杰伦",
+            "",
+            269_000,
+            "[00:03.00]酷狗的歌词",
+        )),
+    );
+    let (online, batch) = online_with(None, vec![kugou.clone() as Arc<dyn LyricsSource>]);
+    online.on_search(|_, _| Ok(Vec::new()));
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(NO_LYRIC);
+
+    let preview = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "酷狗音乐");
+    assert_eq!(preview.text, "[00:03.00]酷狗的歌词");
+    assert_eq!(kugou.calls(), vec![(0.6, 269_000)]);
+}
+
+#[tokio::test]
+async fn an_empty_preview_names_the_main_sources_that_were_tried() {
+    let (online, batch) = online_with(None, vec![]);
+    online.on_search(|_, _| Ok(Vec::new()));
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(NO_LYRIC);
+
+    let preview = preview_with(&f, OnlineSourcePriority::QqMusicFirst)
+        .await
+        .unwrap();
+
+    assert!(preview.is_empty);
+    assert_eq!(preview.source, "QQ 音乐、网易云音乐");
+    assert!(has_log(
+        &f.logs,
+        LogLevel::Info,
+        "「晴天」在QQ 音乐、网易云音乐都没有可用的歌词"
+    ));
+}
+
+#[tokio::test]
+async fn a_netease_failure_does_not_stop_the_next_source() {
+    let (_online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+    for _ in 0..3 {
+        f.transport
+            .enqueue_error(TransportError::Network("连接被重置".to_owned()));
+    }
+
+    let preview = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap();
+
+    assert_eq!(preview.source, "QQ 音乐");
+}
+
+#[tokio::test]
+async fn the_netease_error_is_returned_when_no_source_has_lyrics() {
+    let (online, batch) = online_with(None, vec![]);
+    online.on_search(|_, _| Ok(Vec::new()));
+    let f = fixture_with(false, Some(batch));
+    for _ in 0..3 {
+        f.transport
+            .enqueue_error(TransportError::Network("连接被重置".to_owned()));
+    }
+
+    let error = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.kind, LyricsErrorKind::Failed);
+    assert_eq!(
+        error.message,
+        "获取歌词失败：网络连接失败，请检查网络后重试"
+    );
+}
+
+#[tokio::test]
+async fn an_expired_login_stops_before_any_other_source() {
+    let (online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(true, Some(batch));
+    f.transport
+        .enqueue_json(NOT_LOGGED_IN)
+        .enqueue_json(NOT_LOGGED_IN)
+        .enqueue_json(NOT_LOGGED_IN)
+        .enqueue_json(NOT_LOGGED_IN)
+        .enqueue_json(ACCOUNT_NULL);
+
+    let error = preview_with(&f, OnlineSourcePriority::NeteaseFirst)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.kind, LyricsErrorKind::SessionExpired);
+    assert!(online.searches().is_empty());
+}
+
+#[tokio::test]
+async fn without_a_title_only_netease_can_be_asked() {
+    let (online, batch) = online_with(Some(QQ_LINE), vec![]);
+    let f = fixture_with(false, Some(batch));
+    f.transport.enqueue_json(NO_LYRIC);
+    let lookup = LyricsLookup {
+        song_id: 5,
+        ..LyricsLookup::default()
+    };
+
+    let preview = f
+        .service
+        .preview(
+            &lookup,
+            LyricsMode::Line,
+            options(OnlineSourcePriority::NeteaseFirst),
+        )
+        .await
+        .unwrap();
+
+    assert!(preview.is_empty);
+    assert!(online.searches().is_empty());
+    assert!(has_log(&f.logs, LogLevel::Info, "「歌曲 5」"));
+}
+
+#[test]
+fn qq_word_lyrics_with_a_real_translation_are_shown_bilingual() {
+    let preview = online_preview(
+        1,
+        LyricsMode::Word,
+        "QQ 音乐",
+        &LyricsTexts {
+            line: Some("[00:01.00]原文"),
+            word: Some("[00:01.00]<00:01.00>原<00:01.50>文"),
+            bilingual_line: Some("[00:01.00]原文\n[00:01.00]译文"),
+            bilingual_word: Some("[00:01.00]<00:01.00>原<00:01.50>文\n[00:01.00]译文"),
+        },
+    );
+
+    assert!(preview.is_word_level);
+    assert!(preview.has_word_data);
+    assert!(preview.has_translation);
+    assert_eq!(preview.line_count, 1);
+    assert_eq!(
+        preview.text,
+        "[00:01.00]<00:01.00>原<00:01.50>文\n[00:01.00]译文"
+    );
+}
+
+#[test]
+fn a_bilingual_copy_identical_to_the_original_is_not_a_translation() {
+    // QQ 音乐没有译文时，「双语」版本就是原文。
+    let preview = online_preview(
+        1,
+        LyricsMode::Line,
+        "QQ 音乐",
+        &LyricsTexts {
+            line: Some("[ti:晴天]\n[00:01.00]原文\n[00:02.00]\n[00:03.00]第二句"),
+            bilingual_line: Some("[ti:晴天]\n[00:01.00]原文\n[00:02.00]\n[00:03.00]第二句\n"),
+            ..LyricsTexts::default()
+        },
+    );
+
+    assert!(!preview.has_translation);
+    assert!(!preview.has_word_data);
+    assert!(!preview.is_word_level);
+    assert_eq!(preview.line_count, 2, "标签行与空白行不算歌词行");
+    assert_eq!(
+        preview.text,
+        "[ti:晴天]\n[00:01.00]原文\n[00:02.00]\n[00:03.00]第二句"
+    );
+}
+
+#[test]
+fn word_mode_without_word_lyrics_uses_the_line_text() {
+    let preview = online_preview(
+        1,
+        LyricsMode::Word,
+        "LRCLIB",
+        &LyricsTexts {
+            line: Some("[00:01.00]只有逐行"),
+            word: Some("   "),
+            ..LyricsTexts::default()
+        },
+    );
+
+    assert!(!preview.is_word_level);
+    assert!(!preview.has_word_data);
+    assert_eq!(preview.text, "[00:01.00]只有逐行");
+    assert_eq!(preview.source, "LRCLIB");
+}
+
+#[test]
+fn preview_options_follow_the_current_settings() {
+    let mut settings = AppSettings::new("D:\\x");
+    settings.lyrics_source_priority = OnlineSourcePriority::QqMusicOnly;
+    settings.match_threshold = 0.75;
+
+    assert_eq!(
+        LyricsPreviewOptions::from_settings(&settings),
+        LyricsPreviewOptions {
+            priority: OnlineSourcePriority::QqMusicOnly,
+            min_score: 0.75,
+        }
+    );
 }

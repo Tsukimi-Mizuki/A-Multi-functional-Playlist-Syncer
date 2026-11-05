@@ -192,6 +192,19 @@ pub struct BatchLyricsService {
     filter: RwLock<Option<FallbackFilter>>,
 }
 
+/// 只凭歌曲信息（不读文件）检索歌词时的输入，例如歌单里的歌曲做歌词预览。
+#[derive(Debug, Clone, Copy)]
+pub struct SongLookup<'a> {
+    /// 歌名。
+    pub title: &'a str,
+    /// 歌手（多个以 `/` 连接）。
+    pub artist: &'a str,
+    /// 专辑。
+    pub album: Option<&'a str>,
+    /// 时长（毫秒），未知为 0。
+    pub duration_ms: i64,
+}
+
 /// 本地歌曲的检索信息。
 struct LocalSong<'a> {
     title: &'a str,
@@ -199,6 +212,18 @@ struct LocalSong<'a> {
     album: Option<&'a str>,
     duration_ms: i64,
     queries: &'a [String],
+}
+
+impl<'a> LocalSong<'a> {
+    fn from_lookup(song: &SongLookup<'a>, queries: &'a [String]) -> Self {
+        Self {
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            duration_ms: song.duration_ms,
+            queries,
+        }
+    }
 }
 
 impl BatchLyricsService {
@@ -537,6 +562,38 @@ impl BatchLyricsService {
             source_label,
             lyrics_format: Some(lyrics_format),
         })
+    }
+
+    /// 凭歌曲信息在一个主词源里找带歌词的匹配：多变体搜索 + 打分，规则与批量处理相同，不读写任何文件。
+    /// 没有达到匹配度阈值、或匹配到的歌曲没有歌词时返回 `None`。
+    pub async fn find_source_lyrics(
+        &self,
+        song: &SongLookup<'_>,
+        source: OnlineMusicSource,
+        prefer_word: bool,
+        min_score: f64,
+        cancel: &CancelToken,
+    ) -> Result<Option<OnlineSongDetails>, BatchError> {
+        let queries = scorer::build_queries(Some(song.title), Some(song.artist));
+        let local = LocalSong::from_lookup(song, &queries);
+        let min_score = min_score.clamp(scorer::MIN_THRESHOLD, scorer::MAX_THRESHOLD);
+        self.find_best_details(&local, &[source], true, prefer_word, min_score, cancel)
+            .await
+    }
+
+    /// 凭歌曲信息依次询问备用词源（酷狗、LRCLIB…），同样受备用词源开关约束。
+    pub async fn find_fallback_song_lyrics(
+        &self,
+        song: &SongLookup<'_>,
+        prefer_word: bool,
+        min_score: f64,
+        cancel: &CancelToken,
+    ) -> Result<Option<LyricsSourceCandidate>, BatchError> {
+        let queries = scorer::build_queries(Some(song.title), Some(song.artist));
+        let local = LocalSong::from_lookup(song, &queries);
+        let min_score = min_score.clamp(scorer::MIN_THRESHOLD, scorer::MAX_THRESHOLD);
+        self.find_fallback_lyrics(&local, prefer_word, min_score, cancel)
+            .await
     }
 
     /// 依次询问备用词源：某个源出错或没有可用歌词时继续下一个，全部失败返回 `None`。

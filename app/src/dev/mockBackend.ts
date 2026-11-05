@@ -1105,13 +1105,21 @@ export function installMockBackend(scenario: string | null): void {
         }
         case 'get_song_lyrics': {
           // 歌曲 ID 能被 11 整除：失败；能被 7 整除：没有歌词；能被 5 整除：只有逐行歌词；其余：逐字 + 翻译。
+          // 来源跟随设置里的「歌词来源」，与真实后端一样每次调用时读取。
           const id = Number(args.id)
           const mode = args.mode === 'word' ? 'word' : 'line'
           await sleep(350)
           if (id % 11 === 0) throw { kind: 'failed', message: '获取歌词失败：网络连接失败，请检查网络后重试' }
-          const base = { songId: id, mode, source: '网易云音乐' }
+          const order: Record<string, string[]> = {
+            NeteaseFirst: ['网易云音乐', 'QQ 音乐'],
+            QQMusicFirst: ['QQ 音乐', '网易云音乐'],
+            NeteaseOnly: ['网易云音乐'],
+            QQMusicOnly: ['QQ 音乐'],
+          }
+          const tried = order[String(mockSettings.lyricsSourcePriority)] ?? ['网易云音乐', 'QQ 音乐']
+          const base = { songId: id, mode, source: tried[0] ?? '网易云音乐' }
           if (id % 7 === 0) {
-            return { ...base, text: '', isWordLevel: false, hasWordData: false, hasTranslation: false, lineCount: 0, isEmpty: true }
+            return { ...base, source: tried.join('、'), text: '', isWordLevel: false, hasWordData: false, hasTranslation: false, lineCount: 0, isEmpty: true }
           }
           const hasWord = id % 5 !== 0
           const isWord = mode === 'word' && hasWord
