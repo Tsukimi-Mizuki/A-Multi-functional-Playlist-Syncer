@@ -15,14 +15,14 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1038 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**2.0.0 已发布（tag `v2.0`）** |
+| 当前状态 | **2.0.0（Rust + Tauri 重写版）功能完整**：重写模块 1–12 全部完成，`cargo test --workspace` 1054 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**2.0.0 已发布（tag `v2.0`）** |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0`（版本号 2.0.0）起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1038 个测试全部通过**：lp-core 库内 969 + 集成 36 + 外壳 33）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1054 个测试全部通过**：lp-core 库内 984 + 集成 36 + 外壳 34）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
@@ -82,7 +82,7 @@ dist-release/                      # build.ps1 -Bundle 的输出（gitignore）
 | `session` / `auth` | DPAPI `session.dat`、`SessionAutoSaver`；登录编排 `LoginManager`（启动校验、续期、扫码、退出、运行期复核） |
 | `netease` | 非公开接口：`crypto`（weapi + eapi）、`http`（传输 trait + reqwest 实现）、`client`（会话 / Cookie 合并 / 超时）、`login` `playlists` `songs` `player`（取链）`lyrics` `search`，以及 `mappers` / `models` |
 | `playlist` | 歌单加载编排（取列表 / 曲目、写日志、301 走登录复核） |
-| `lyrics` | `parser`（LRC / 增强 LRC / YRC / QRC / 译文）、`qrc`（QQ 3DES 变体）、`krc`（酷狗）、`zlib`、`html`、`service`（网易云歌词预览）、`scorer`（匹配打分）、`batch`（批量服务 + 任务编排 + 在线补全挂钩） |
+| `lyrics` | `parser`（LRC / 增强 LRC / YRC / QRC / 译文）、`qrc`（QQ 3DES 变体）、`krc`（酷狗）、`zlib`、`html`、`service`（歌词预览，按设置里的「歌词来源」换源）、`scorer`（匹配打分）、`batch`（批量服务 + 任务编排 + 在线补全挂钩） |
 | `tags` | `LoftyTagService`：MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词、网易云 ID（原子写入）；`text` 辅助、`view` DTO |
 | `ncm` | `decoder`（流式解密）、`client_comment`（客户端文件注释里的 `163 key`）、`synthetic`（测试用合成 NCM） |
 | `library` | `scanner`（并行读标签）、`matcher`（一对一匹配）、`text`（.NET 语义的文本归一化）、`manager`（扫描缓存与对比）、`view` |
@@ -225,7 +225,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1038 个**——`lp-core` 库内 969、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 33。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1054 个**——`lp-core` 库内 984、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 34。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -302,6 +302,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1038 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1054 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。

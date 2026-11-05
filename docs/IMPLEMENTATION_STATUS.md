@@ -1,7 +1,7 @@
 # 实现状态
 
 > 最后更新：2026-11-04。当前状态：**2.0.0（Rust + Tauri 2 + React 重写版）功能完整**：重写模块 1–12 全部完成，
-> `cargo test --workspace` **1038 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
+> `cargo test --workspace` **1054 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
 > **2.0.0 已发布**（tag `v2.0`，GitHub Actions 自动打包并建 Release：安装包 + 便携版 zip + 校验值）。
 >
 > 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
@@ -15,7 +15,7 @@
 | 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（24 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
 | 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；eapi `login/token/refresh` 启动及每约 12 小时续期（实测换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，2026-11-04 修复了原先 weapi 端点的 `code=400`）；`CookieMerger` 按 `Path` 处理同名多条 Set-Cookie；仅接口 `code==301` 才清除会话。180 天后的实际掉线情况仍待长期观察 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
-| 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框 |
+| 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框（来源跟随设置里的「歌词来源」，网易云 / QQ / 备用词源依次尝试） |
 | 标签读写 | ✅ 完成 | MP3 / FLAC / M4A / OGG / OPUS / WAV（lofty）；封面、歌词、网易云 ID；原子写入；标签查看对话框 |
 | NCM 解密与导入 | ✅ 完成 | 流式解密（音频不整文件入内存）、元数据 / 封面 / 网易云 ID 回写、导入对话框（文件夹记忆、取消保留已完成结果、解密后自动在线补全） |
 | 本地曲库与对比 | ✅ 完成 | 并行扫描、网易云 ID 精确匹配 + 标题 / 歌手 / 时长评分、一对一、「已存在 / NCM 待解密 / 需下载」状态列与统计 |
@@ -31,13 +31,13 @@
 
 ### 自动化测试
 
-`cargo test --workspace`（离线，不依赖真实音频）：**1038 个，全部通过，0 ignored**。
+`cargo test --workspace`（离线，不依赖真实音频）：**1054 个，全部通过，0 ignored**。
 
 | 范围 | 数量 | 说明 |
 |---|---|---|
-| `lp-core` 库内 | 969 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 177（解析、QRC、KRC、zlib、打分、批量、歌词服务）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
+| `lp-core` 库内 | 984 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 192（解析、QRC、KRC、zlib、打分、批量、歌词服务与按来源预览）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
 | `lp-core` 集成测试 | 36 | `csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4——与 C# 版生成的「黄金」夹具逐字节 / 逐字段对照 |
-| `src-tauri` 外壳 | 33 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘、任务槽、事件名等 |
+| `src-tauri` 外壳 | 34 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘、任务槽、事件名等 |
 
 - `cargo fmt --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`pnpm build`（tsc + vite）通过，`.\build.ps1 -Test` 退出码 0。
 - 前端没有自动化测试：逻辑集中在 `lp-core`，界面靠浏览器假后端 + 实机验证。
@@ -66,6 +66,9 @@
   - 上面「NSIS 安装包没能生成」已解决：`tauri.conf.json` 加 `bundle.useLocalToolsDir = true`，NSIS 工具缓存在 `app\target\.tauri\`，不再碰被虚拟化的 `%LOCALAPPDATA%`；本机（Claude 桌面版子进程里）`.\build.ps1 -Bundle` 成功生成安装包（2.3 MB）、便携版 zip、`SHA256SUMS.txt`。
   - 便携版 zip 的条目是 `LunaticPrincess.exe` 与空目录 `data/`（Windows PowerShell 5.1 的 `CreateFromDirectory` 会写成反斜杠 `data\`，不合 zip 规范，所以改为逐条写入）。解压到 `D:\claude\lp-zip\`、不设 `LUNATIC_PRINCESS_DATA_DIR` 启动：`data\Music`、`data\webview` 建在解压目录里。
   - 安装包：`/S /NS /D=D:\claude\lp-install` 静默安装（不建快捷方式）→ 目录里是 `LunaticPrincess.exe`、`uninstall.exe`、`data\`；启动后 `data\Music`、`data\webview` 建在安装目录里。卸载（界面，**不**勾「删除应用程序数据」）→ exe 与卸载程序删除，`data\` 原样保留；覆盖重装 → 原有的 `session.dat` 等仍在；卸载（勾选）→ `settings.json`、`session.dat`、`webview\`、`logs\` 删除，`data\Music\` 里的测试文件保留（`data\` 因不为空而保留）。测试用的设置 / 登录态都是假文件；测完 `D:\claude` 已清空，卸载注册表项、快捷方式无残留。
+- **运行日志动画与歌词预览来源（2026-11-05）**：
+  - 运行日志收起 / 展开原先没有过渡（收起时列表被卸载、面板高度从 168 px 直接跳到 `auto`）。改为列表常驻、面板在 168 px 与 33 px 之间过渡并淡出 / 淡入，收起时列表 `inert`。浏览器假后端与发布版 exe（WebView2 远程调试逐帧读高度）都确认两个方向连贯。
+  - 主界面双击的歌词预览原先只调网易云（`LyricsService::get`），设置里的「歌词来源」不起作用。改为 `LyricsService::preview` 按来源次序依次尝试（网易云按 ID、QQ 按检索打分、再到备用词源），每次调用时读设置。发布版 exe（独立数据目录，匿名）实网测《晴天》：四种「歌词来源」依次保存后，预览来源分别是网易云音乐 / QQ 音乐 / QQ 音乐 / 网易云音乐，QQ 逐字形式拿到逐字歌词、没有译文时不标「含翻译」（只读了来源与统计，没有输出歌词正文）；测完已删除 `D:\claude\lp-run`、`D:\claude\lp-data`。
 
 ## 已知限制
 

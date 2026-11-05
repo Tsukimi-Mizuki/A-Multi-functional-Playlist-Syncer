@@ -43,7 +43,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
 | `playlist` | `PlaylistService`：歌单列表与曲目加载、写运行日志、301 走登录复核 |
-| `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（网易云歌词预览）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
+| `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（歌词预览：按「歌词来源」依次问网易云 / QQ / 备用词源）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
 | `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL） |
 | `ncm` | `NcmDecoder` trait + `FileNcmDecoder`（流式）、`client_comment`（`163 key` 解密取 `musicId`）、`synthetic`（仅测试） |
 | `library` | `LocalLibraryService`（并行扫描）、`matcher`（一对一匹配）、`text`（NFKC / 字符类别，按 UTF-16 码元复现 .NET 语义）、`LibraryManager`（缓存与编排）、`view` |
@@ -153,6 +153,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - 歌词格式「逐行」与「逐字优先」，默认生成双语：译文行追加在原文之后，所有时间戳统一 3 位毫秒（`[mm:ss.fff]` / `<mm:ss.fff>`），`//` 等占位译文不写入。
 - 打分（`lyrics::scorer`）：标题里的 `A / B`、`A & B` 按分隔符切段取最佳段，歌手字段的 `A/B`、`feat.`、`·`、`CV:` 切成多值两两比较；有歌手时标题 0.55 / 歌手 0.25 / 时长 0.20，无歌手时标题 0.72 / 时长 0.20 / 专辑 0.08；歌手相似度 < 0.30 整体 ×0.75；伴奏 / 纯音乐版本直接排除；阈值默认 0.60（0.30–1.00，设置里以百分数输入）。查询变体最多 6 组，每源最多 3 组、每组前 10 条。
 - 网易云 / QQ 都拿不到歌词时按顺序回落备用词源 `LyricsSource`：酷狗（KRC 逐字 + 译文，三段链路）、LRCLIB（逐行，`?q=` 多变体 → `track_name` 兜底，429 / 503 退避重试一次）。备用词源命中的候选同样经打分，写回时标注「（歌词来源：酷狗音乐 / LRCLIB）」，可在设置里单独开关（运行期读共享设置，保存后下一首歌生效）。
+- **歌词预览**（主界面双击歌曲，`get_song_lyrics` → `LyricsService::preview`）跟随设置里的「歌词来源」（`lyricsSourcePriority`，每次调用时读取，保存后下一次预览就生效）：按 `batch::order_sources` 的次序逐个尝试，网易云按歌曲 ID 精确取词，QQ 音乐用歌名 / 歌手 / 专辑 / 时长经 `BatchLyricsService::find_source_lyrics` 检索打分，主来源都没有时再按备用词源开关问酷狗、LRCLIB。某个来源出错就问下一个；网易云确认登录失效时立即返回；都没有歌词时，途中出过错就报第一个错误，否则显示空预览并列出试过的来源。QQ 没有译文时「双语」版本与原文相同，预览不把它算作有翻译。
 - **任何搜索都不自动应用结果**：编辑器里只高亮排序，用户点选后才载入表单，避免悄悄覆盖正在编辑的内容。
 - 批量获取（`BatchManager`）：扫描目录（可递归）→ 最多 3 个文件并发 → 逐文件 `started` / `finished` 事件 → 汇总；取消后不再启动新文件并保留已完成结果。
 
@@ -182,7 +183,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 - `utilities::error_text` 把 I/O 错误翻译成可操作的中文：识别权限不足、磁盘空间不足、文件被占用（含 33 锁定冲突）、路径过长；`.NET` 异常消息里带路径而 `io::Error` 通常不带，所以写入场景由调用方传目标目录。`error::CoreError::Io` 也走这里。
 - 下载、同步、NCM 导入、标签读写的失败都经它转成「是什么 + 怎么办」；命令层不把英文异常抛给前端。
-- 运行日志（`LogHub`）只写内存（400 条，不落盘），前端底部日志面板可收起；后端错误同时写入日志。
+- 运行日志（`LogHub`）只写内存（400 条，不落盘），前端底部日志面板可收起；后端错误同时写入日志。面板收起 / 展开时在固定高度（168 px ↔ 标题行 32 px + 1 px 边框）之间过渡，列表不卸载、只被裁掉并淡出（收起时 `inert`）。
 
 ## 线程、取消与并发
 
