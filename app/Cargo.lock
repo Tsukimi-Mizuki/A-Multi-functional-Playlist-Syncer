@@ -1982,7 +1982,7 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "lp-core"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "aes",
  "base64 0.23.1",
@@ -2006,7 +2006,7 @@ dependencies = [
 
 [[package]]
 name = "lunatic-princess"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "lp-core",
  "serde",
