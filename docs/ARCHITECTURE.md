@@ -38,7 +38,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 模块 | 内容 |
 |---|---|
 | `paths` | 数据目录解析（环境变量 → 便携 `data\`（安装包与便携版 zip 都自带它）→ `%LOCALAPPDATA%\LunaticPrincess` → 程序目录 → `%TEMP%`，每个候选做写入探测）、默认下载目录、`webview\` 子目录 |
-| `settings` / `models` | `AppSettings`（24 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
+| `settings` / `models` | `AppSettings`（26 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
 | `session` | `NeteaseSession`、`SessionStore`（`NMMSES01` 头 + DPAPI CurrentUser / 明文）、`SessionAutoSaver`（订阅会话变化、串行落盘、`flush`） |
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
@@ -51,6 +51,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `sync` | `SyncService`：本地命中 / NCM 解密 / 下载三分支 |
 | `online` | `OnlineMusicSearchService`（网易云 + QQ）、`qq`、`kugou`、`lrclib`、`net`、`OnlineManager`（编辑器用的搜索 / 载入 / 备用词源）、`view` |
 | `editor` | 编辑器记忆、`resolve_drop`、`parse_startup_args`、`read_cover_file`、`is_elevated` |
+| `update` | `UpdateChecker`（读 GitHub `releases/latest`、比较版本、处理已忽略版本、写运行日志）、`Version`（tag 归一与 SemVer 优先级，规则同 `scripts/resolve-version.ps1`）、`release_notes_text`、`open_release_page`（只打开本项目发布页） |
 | `logs` / `qr` / `error` / `utilities` | `LogHub`（400 条环形缓冲 + 监听器）、二维码 SVG、`CoreError`、`error_text` / `file_name_sanitizer` / `audio_file_types` / `cancel`（`CancelToken`） |
 
 ## Tauri 命令与事件
@@ -70,6 +71,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 批量获取 | `batch_scan`、`batch_run`、`batch_cancel` |
 | 编辑器 / 拖放 | `editor_get_state`、`editor_remember_options`、`resolve_drop`、`take_startup_file` |
 | 设置 / 外观 | `get_settings`、`save_settings`（只传改动的键）、`preview_appearance`（不写盘） |
+| 更新 | `check_for_updates`（`manual` 为 false 且关了自动检查时不联网、返回 `null`；失败是 `{ kind: network \| rateLimited \| noRelease \| invalid, message }`）、`ignore_update`、`open_release_page` |
 
 | 事件 | 载荷 |
 |---|---|
@@ -169,6 +171,14 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 复制成同目录临时副本 `<原名>.lp-tmp-<进程号>-<序号>` → 改动全部写进副本 → 重新解析确认类型没变 → `rename` 原子替换；任何一步失败都清理副本、保留原文件。底层用 lofty 的通用 `Tag` + `ItemKey`，写回时转成容器自己的标签类型（ID3v2 / VorbisComments / ilst / RIFF INFO / APE），编辑器没展示的字段（TXXX、PRIV、UFID、ReplayGain、自定义 Vorbis 字段等）原样保留。各容器的字段映射与怪癖见 `docs/TAURI_REWRITE.md` 模块 6。
 
+### 检查更新
+
+- 启动约 3 秒后（前端 `useUpdates`，让登录校验与歌单加载先走），设置里「自动检查更新」（`autoCheckUpdates`，默认开）开着就调 `check_for_updates(manual = false)`：后端匿名请求 GitHub `GET /repos/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer/releases/latest`（只返回正式版，不含预发布与草稿；15 s 超时、不重试），tag 按 `scripts/resolve-version.ps1` 的规则归一（`v2.1` → `2.1.0`），与当前版本按 SemVer 比较。
+- 结果三种：`available` → 弹「发现新版本」（版本、发布日期、Release 正文整理成的纯文本：去掉标题的 `#` 与自动生成的 Full Changelog 行，最多 4000 字）；`ignored`（正好是 `ignoredUpdateVersion` 记住的版本）→ 自动检查不弹窗；`upToDate` → 只写日志。出了比忽略的版本更新的版本照常提醒。
+- 弹窗三个选择：「跳转至下载页面」用默认浏览器（`ShellExecuteW`）打开发布页，成功后关窗、失败把原因和地址显示在弹窗里；「忽略本次更新」把归一后的版本写进 `ignoredUpdateVersion`（只改这一个键；设置文件读取失败时只改内存）；「稍后提醒」（Esc、点遮罩也算）只关窗，下次启动再提醒。程序不下载、不安装更新。
+- 设置「关于」里的「立即检查」不受开关影响，发现新版本（包括忽略过的，弹窗里注明）照样弹窗，叠在设置面板上；已是最新或失败原因（网络 / 超时、403 / 429 限流、404 没有正式版、内容无法识别）显示在按钮旁。自动检查失败只记一条普通日志（离线时不该每次启动都报警告），手动检查失败记警告。
+- `open_release_page` 只接受以 `https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer/releases` 开头、只含 URL 路径安全字符的地址；GitHub 返回的 `html_url` 不合格时改用 `/releases/latest`。
+
 ## 外观与窗口效果（液态玻璃，深色 / 浅色）
 
 - **窗口层**：主窗口在 `setup` 里用 `WebviewWindowBuilder::from_config` 创建（`tauri.conf.json` 里 `create: false`），无边框、透明，WebView2 用户数据目录显式放到 `<数据目录>\webview`。`apply_window_material` 给窗口铺系统材质：`Acrylic`（默认，实时模糊并透出窗口后面的桌面与其他窗口）/ `Mica`（只取壁纸色调）/ `None`；首选材质不可用时自动退到另一种，两种都不可用（远程桌面等）保持纯透明，日志与设置面板都会提示实际生效的材质。材质底色随主题走（`window.set_theme`，跟随系统时交还系统）。
@@ -195,7 +205,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 ## 数据文件与兼容性
 
-- `settings.json`：camelCase、枚举按名字、读取时键名不区分大小写；Tauri 版新增 `windowMaterial` / `glassOpacity` / `reduceMotion`，C# 版读取时忽略未知键；某字段类型错误只让该字段回落默认（C# 会整份重置）。设置文件读取失败（权限 / 被占用）时用默认设置并在界面提示，**自动记忆**（音质、NCM 位置、编辑器来源）只改内存不写盘，用户在设置面板里**主动保存**才写盘。
+- `settings.json`：camelCase、枚举按名字、读取时键名不区分大小写；Tauri 版新增 `windowMaterial` / `glassOpacity` / `reduceMotion` / `autoCheckUpdates` / `ignoredUpdateVersion`，C# 版读取时忽略未知键；某字段类型错误只让该字段回落默认（C# 会整份重置）。设置文件读取失败（权限 / 被占用）时用默认设置并在界面提示，**自动记忆**（音质、NCM 位置、编辑器来源、忽略的更新版本）只改内存不写盘，用户在设置面板里**主动保存**才写盘。
 - `session.dat`：`NMMSES01` + mode（1 = DPAPI，2 = 明文）+ payload，DPAPI 用 CurrentUser 与 entropy `LunaticPrincess.Session.v1`，与 C# 版互读。
 - 与 C# 版互通由集成测试 `tests/csharp_*.rs` 与夹具固化（见 AGENTS.md §9）。
 
@@ -203,6 +213,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 - Cookie 仅存于本机；日志不打印 Cookie；`get_app_state` 不含 Cookie。
 - CSP：`default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost`；capabilities 只授予主窗口必要的窗口操作与打开文件对话框。头像、封面 URL 在后端把 `http://` 升级为 `https://`。
+- 检查更新只读 GitHub 公开接口，不带 Cookie 或账号信息；交给系统打开的地址只能是本项目的发布页（前端传来的地址在后端再校验一次）。
 - 不集成「解灰」/ 跨平台替换音源等规避版权能力；下载能力以用户自身账号权益为限。
 
 ## 复用边界

@@ -1,8 +1,8 @@
 # 实现状态
 
-> 最后更新：2026-11-05。当前状态：**2.1.0（Rust + Tauri 2 + React 重写版）**：重写模块 1–12 全部完成，
-> `cargo test --workspace` **1054 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
-> **已发布**：tag `v2.0`（2.0.0）与 `v2.1`（2.1.0，运行日志动画与歌词预览来源修复），都由 GitHub Actions 自动打包并建 Release（安装包 + 便携版 zip + 校验值）。
+> 最后更新：2026-11-06。当前状态：**2.1.0（Rust + Tauri 2 + React 重写版）**：重写模块 1–12 全部完成，
+> `cargo test --workspace` **1076 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
+> **已发布**：tag `v2.0`（2.0.0）与 `v2.1`（2.1.0，运行日志动画与歌词预览来源修复），都由 GitHub Actions 自动打包并建 Release（安装包 + 便携版 zip + 校验值）。`main` 上之后新增了「检查更新」（尚未发版）。
 >
 > 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
 > 逐模块的实现细节、与 C# 版的有意差异和验证过程见 `docs/TAURI_REWRITE.md`。
@@ -12,7 +12,7 @@
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 工程骨架与构建 | ✅ 完成 | Cargo 工作区（`lp-core` + `src-tauri`）、React + TS 前端、`build.ps1`（默认构建 / `-Test` / `-Bundle`）、`ci.yml` + `main.yml`、`scripts/resolve-version.ps1`；Rust 1.99 / edition 2024，clippy `-D warnings` 干净 |
-| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（24 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
+| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（26 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
 | 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；eapi `login/token/refresh` 启动及每约 12 小时续期（实测换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，2026-11-04 修复了原先 weapi 端点的 `code=400`）；`CookieMerger` 按 `Path` 处理同名多条 Set-Cookie；仅接口 `code==301` 才清除会话。180 天后的实际掉线情况仍待长期观察 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
 | 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框（来源跟随设置里的「歌词来源」，网易云 / QQ / 备用词源依次尝试） |
@@ -31,13 +31,13 @@
 
 ### 自动化测试
 
-`cargo test --workspace`（离线，不依赖真实音频）：**1054 个，全部通过，0 ignored**。
+`cargo test --workspace`（离线，不依赖真实音频）：**1076 个，全部通过，0 ignored**。
 
 | 范围 | 数量 | 说明 |
 |---|---|---|
-| `lp-core` 库内 | 984 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 192（解析、QRC、KRC、zlib、打分、批量、歌词服务与按来源预览）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 28；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
+| `lp-core` 库内 | 1002 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 192（解析、QRC、KRC、zlib、打分、批量、歌词服务与按来源预览）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 29；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`update` 17（tag 归一与 SemVer 比较、忽略版本、Release 解析与说明整理、发布页白名单、限流 / 404 / 网络错误、自动 / 手动检查与日志）；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
 | `lp-core` 集成测试 | 36 | `csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4——与 C# 版生成的「黄金」夹具逐字节 / 逐字段对照 |
-| `src-tauri` 外壳 | 34 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘、任务槽、事件名等 |
+| `src-tauri` 外壳 | 38 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘（含忽略的更新版本）、任务槽、事件名等 |
 
 - `cargo fmt --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`pnpm build`（tsc + vite）通过，`.\build.ps1 -Test` 退出码 0。
 - 前端没有自动化测试：逻辑集中在 `lp-core`，界面靠浏览器假后端 + 实机验证。
@@ -69,6 +69,9 @@
 - **运行日志动画与歌词预览来源（2026-11-05）**：
   - 运行日志收起 / 展开原先没有过渡（收起时列表被卸载、面板高度从 168 px 直接跳到 `auto`）。改为列表常驻、面板在 168 px 与 33 px 之间过渡并淡出 / 淡入，收起时列表 `inert`。浏览器假后端与发布版 exe（WebView2 远程调试逐帧读高度）都确认两个方向连贯。
   - 主界面双击的歌词预览原先只调网易云（`LyricsService::get`），设置里的「歌词来源」不起作用。改为 `LyricsService::preview` 按来源次序依次尝试（网易云按 ID、QQ 按检索打分、再到备用词源），每次调用时读设置。发布版 exe（独立数据目录，匿名）实网测《晴天》：四种「歌词来源」依次保存后，预览来源分别是网易云音乐 / QQ 音乐 / QQ 音乐 / 网易云音乐，QQ 逐字形式拿到逐字歌词、没有译文时不标「含翻译」（只读了来源与统计，没有输出歌词正文）；测完已删除 `D:\claude\lp-run`、`D:\claude\lp-data`。
+- **检查更新（2026-11-06）**：
+  - 浏览器假后端（`?mock=update` / `updatefail`，深色与浅色）：启动 3 秒后弹窗；忽略后「立即检查」照样弹出并注明忽略过；弹窗叠在设置面板上，Esc 只关弹窗；跳转、失败文案都正常。
+  - 发布版 exe 临时把版本号改成 2.0.0 编译（编译后清单已改回 2.1.0），复制到 `D:\claude\lp-run`、独立数据目录，实网请求 GitHub：启动后弹出 2.1.0（发布日期 2026-11-05，说明就是 v2.1 的 tag 正文，Full Changelog 行已去掉）→「忽略本次更新」后 `settings.json` 写入 `ignoredUpdateVersion: "2.1.0"`，重启不再弹窗、日志记「已被忽略」→ 设置里「立即检查」照样弹窗并注明忽略过 →「跳转至下载页面」在默认浏览器（Edge）打开 v2.1 发布页、弹窗关闭 → 关掉「自动检查更新」并保存，重启后没有任何检查日志。测完已删除 `D:\claude\lp-run`、`D:\claude\lp-data`。
 
 ## 已知限制
 
@@ -85,5 +88,5 @@
 11. 管理员身份运行时 Windows 阻断资源管理器向程序拖放（UIPI），界面只能提示。
 12. 玻璃「透出」只能看到被虚化的下一层，做不了真正的局部折射；系统材质的完整效果只在 Windows 11 上；亚克力在拖动 / 缩放窗口时比云母更耗电。
 13. 仓库放在带低完整性标签的目录（如 Edge 的下载文件夹）时，直接运行的 exe 会把数据落在程序目录 `data\`，见 `docs/TAURI_REWRITE.md` 的「已知环境问题」。
-14. 安装包与便携版没有代码签名（SmartScreen 可能提示未知发布者），没有自动更新。
+14. 安装包与便携版没有代码签名（SmartScreen 可能提示未知发布者）；更新只提醒并打开发布页，不会自动下载安装。
 15. 前端没有自动化测试。
