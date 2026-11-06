@@ -1,17 +1,26 @@
 import type { AppSettings, ThemeMode } from '../api/settings'
 
-/** 只在前端生效的外观部分：主题、玻璃浓度与减少动效（窗口材质由后端铺在网页下面）。 */
+/** 只在前端生效的外观部分：主题、玻璃浓度、背景雾度与减少动效（窗口材质由后端铺在网页下面）。 */
 export interface Appearance {
   theme: ThemeMode
   glassOpacity: number
+  backdropHaze: number
   reduceMotion: boolean
 }
+
+/** 背景雾度的默认值，与后端 `DEFAULT_BACKDROP_HAZE` 一致。 */
+const DEFAULT_BACKDROP_HAZE = 0.3
 
 const CACHE_KEY = 'lp.appearance'
 let appliedTheme: ThemeMode | null = null
 
 export function appearanceOf(settings: AppSettings): Appearance {
-  return { theme: settings.theme, glassOpacity: settings.glassOpacity, reduceMotion: settings.reduceMotion }
+  return {
+    theme: settings.theme,
+    glassOpacity: settings.glassOpacity,
+    backdropHaze: settings.backdropHaze,
+    reduceMotion: settings.reduceMotion,
+  }
 }
 
 /** 是否应该减少动效：用户在设置里打开，或系统开启了“减少动画”。 */
@@ -27,6 +36,7 @@ function write(next: Appearance): void {
   if (next.theme === 'System') root.removeAttribute('data-theme')
   else root.dataset.theme = next.theme === 'Light' ? 'light' : 'dark'
   root.style.setProperty('--glass-strength', String(next.glassOpacity))
+  root.style.setProperty('--backdrop-haze', String(next.backdropHaze))
   root.toggleAttribute('data-reduce-motion', next.reduceMotion)
   appliedTheme = next.theme
 }
@@ -72,6 +82,7 @@ export function restoreCachedAppearance(): void {
     write({
       theme: cached.theme,
       glassOpacity: typeof cached.glassOpacity === 'number' ? cached.glassOpacity : 0.45,
+      backdropHaze: typeof cached.backdropHaze === 'number' ? cached.backdropHaze : DEFAULT_BACKDROP_HAZE,
       reduceMotion: cached.reduceMotion === true,
     })
   } catch {

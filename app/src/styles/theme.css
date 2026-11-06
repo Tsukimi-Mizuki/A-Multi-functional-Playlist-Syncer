@@ -7,10 +7,14 @@
  * 玻璃有多浓由 `--glass-strength`（0.10–0.95，设置里的「玻璃浓度」）统一控制：
  * 各层的不透明度都从它推导出来，拖动滑块时整套界面一起变化。
  * 每套主题只定义底色（RGB 三元组）与高光，推导公式写在 `:root` 里一次。
+ *
+ * 背景雾度 `--backdrop-haze`（0–1，设置里的「背景雾度」）决定对话框下面那层界面有多「雾」：
+ * 0 时不虚化、不遮暗，能看清下层的一切；1 时虚化 30 px 并几乎被遮罩盖满。默认 0.30 即原来的固定效果。
  */
 :root {
   color-scheme: dark;
   --glass-strength: 0.45;
+  --backdrop-haze: 0.3;
 
   /* ---- 深色底色 ---- */
   --tint-rgb: 14 18 27;
@@ -56,7 +60,14 @@
   --panel-hover: rgb(var(--tint-2-rgb) / calc(0.36 + var(--glass-strength) * 0.5));
   --dialog-glass: rgb(var(--tint-rgb) / calc(0.26 + var(--glass-strength) * 0.56));
   --input: rgb(var(--tint-rgb) / calc(0.3 + var(--glass-strength) * 0.5));
-  --scrim: rgb(var(--veil-rgb) / calc(0.12 + var(--glass-strength) * 0.3));
+  /* 对话框后面的遮罩：雾度低时跟着玻璃浓度走，雾度接近 1 时不论浓度都几乎不透明（h·(0.4+s)·(1−h) + 0.92·h²）。 */
+  --scrim: rgb(
+    var(--veil-rgb) /
+      calc(
+        var(--backdrop-haze) * (0.4 + var(--glass-strength)) * (1 - var(--backdrop-haze)) + var(--backdrop-haze) *
+          var(--backdrop-haze) * 0.92
+      )
+  );
 
   /* 玻璃边缘的折光：左上与右下亮、中间暗，像光线掠过一块弧面玻璃。 */
   --glass-rim: linear-gradient(

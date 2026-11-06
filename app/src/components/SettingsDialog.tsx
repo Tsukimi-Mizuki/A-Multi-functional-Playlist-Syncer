@@ -77,6 +77,7 @@ function appearanceChanged(a: AppSettings, b: AppSettings): boolean {
     a.theme !== b.theme ||
     a.windowMaterial !== b.windowMaterial ||
     a.glassOpacity !== b.glassOpacity ||
+    a.backdropHaze !== b.backdropHaze ||
     a.reduceMotion !== b.reduceMotion
   )
 }
@@ -323,6 +324,20 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         step={1}
                         format={(v) => `${v}%`}
                         onChange={(v) => update('glassOpacity', v / 100)}
+                      />
+                    </SettingRow>
+                    <SettingRow
+                      title="背景雾度"
+                      hint="对话框下面那层界面的毛玻璃程度：0% 完全清晰、能看清下层的一切，100% 完全看不清。拖动时身后的主界面会实时变化。"
+                    >
+                      <Slider
+                        label="背景雾度"
+                        value={Math.round(draft.backdropHaze * 100)}
+                        min={0}
+                        max={100}
+                        step={1}
+                        format={(v) => `${v}%`}
+                        onChange={(v) => update('backdropHaze', v / 100)}
                       />
                     </SettingRow>
                     <SettingRow title="减少动效" hint="关闭弹出、滑动与淡入淡出动画。系统开启“减少动画”时也会自动减弱。">

@@ -33,6 +33,8 @@ export interface AppSettings {
   windowMaterial: WindowMaterial
   /** 界面玻璃底色浓度（0.10–0.95）。 */
   glassOpacity: number
+  /** 背景雾度（0–1）：对话框打开时下面那层界面虚化与遮暗的程度。 */
+  backdropHaze: number
   reduceMotion: boolean
   /** 启动时自动检查 GitHub 上的新版本。 */
   autoCheckUpdates: boolean

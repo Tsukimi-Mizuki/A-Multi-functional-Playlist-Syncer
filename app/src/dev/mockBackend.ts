@@ -706,6 +706,7 @@ export function installMockBackend(scenario: string | null): void {
     renderFrameRate: 'VSync',
     windowMaterial: 'Acrylic',
     glassOpacity: 0.45,
+    backdropHaze: 0.3,
     reduceMotion: false,
     autoCheckUpdates: true,
     ignoredUpdateVersion: '',

@@ -34,6 +34,11 @@ pub const MAX_MATCH_THRESHOLD: f64 = 1.00;
 pub const DEFAULT_GLASS_OPACITY: f64 = 0.45;
 pub const MIN_GLASS_OPACITY: f64 = 0.10;
 pub const MAX_GLASS_OPACITY: f64 = 0.95;
+/// 背景雾度（对话框下面那层界面的毛玻璃程度，0 = 完全清晰，1 = 完全看不清）：默认值与合法范围。
+/// 默认 0.30 对应加入这个设置之前的固定效果（主界面虚化 9 px）。
+pub const DEFAULT_BACKDROP_HAZE: f64 = 0.30;
+pub const MIN_BACKDROP_HAZE: f64 = 0.0;
+pub const MAX_BACKDROP_HAZE: f64 = 1.0;
 
 /// 应用设置。字段顺序与 C# 的 `AppSettings` 一致，序列化后的 JSON 键顺序也就一致。
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -85,6 +90,8 @@ pub struct AppSettings {
     pub window_material: WindowMaterial,
     /// 界面玻璃底色浓度（0.10–0.95）：越低越能看清窗口下面的内容。
     pub glass_opacity: f64,
+    /// 背景雾度（0.00–1.00）：对话框打开时下面的界面虚化与遮暗的程度。
+    pub backdrop_haze: f64,
     /// 减少动效：关掉弹出、滑动等过渡动画（系统开启“减少动画”时界面也会自动减弱）。
     pub reduce_motion: bool,
     /// 启动时自动检查 GitHub 上的新版本。
@@ -122,6 +129,7 @@ impl AppSettings {
             render_frame_rate: RenderFrameRateMode::VSync,
             window_material: WindowMaterial::Acrylic,
             glass_opacity: DEFAULT_GLASS_OPACITY,
+            backdrop_haze: DEFAULT_BACKDROP_HAZE,
             reduce_motion: false,
             auto_check_updates: true,
             ignored_update_version: String::new(),
@@ -163,6 +171,12 @@ impl AppSettings {
         }
         let glass = (self.glass_opacity * 100.0).round() / 100.0;
         self.glass_opacity = glass.clamp(MIN_GLASS_OPACITY, MAX_GLASS_OPACITY);
+
+        if !self.backdrop_haze.is_finite() {
+            self.backdrop_haze = DEFAULT_BACKDROP_HAZE;
+        }
+        let haze = (self.backdrop_haze * 100.0).round() / 100.0;
+        self.backdrop_haze = haze.clamp(MIN_BACKDROP_HAZE, MAX_BACKDROP_HAZE);
 
         self.ncm_import_output_directory = self.ncm_import_output_directory.trim().to_owned();
         let mut seen = HashSet::new();
@@ -270,6 +284,9 @@ impl AppSettings {
         if let Some(v) = get("glassOpacity").and_then(as_float) {
             settings.glass_opacity = v;
         }
+        if let Some(v) = get("backdropHaze").and_then(as_float) {
+            settings.backdrop_haze = v;
+        }
         if let Some(v) = get("reduceMotion").and_then(Value::as_bool) {
             settings.reduce_motion = v;
         }
@@ -361,6 +378,10 @@ fn validate_patch_value(key: &str, value: &Value) -> Result<(), String> {
         "matchThreshold" => match value.as_f64() {
             Some(t) if (MIN_MATCH_THRESHOLD..=MAX_MATCH_THRESHOLD).contains(&t) => Ok(()),
             _ => Err("在线匹配度必须在 30%–100% 之间".to_owned()),
+        },
+        "backdropHaze" => match value.as_f64() {
+            Some(h) if (MIN_BACKDROP_HAZE..=MAX_BACKDROP_HAZE).contains(&h) => Ok(()),
+            _ => Err("背景雾度必须在 0%–100% 之间".to_owned()),
         },
         "glassOpacity" => match value.as_f64() {
             Some(o) if (MIN_GLASS_OPACITY..=MAX_GLASS_OPACITY).contains(&o) => Ok(()),
@@ -560,6 +581,7 @@ mod tests {
             render_frame_rate: RenderFrameRateMode::Fps144,
             window_material: WindowMaterial::Mica,
             glass_opacity: 0.62,
+            backdrop_haze: 0.8,
             reduce_motion: true,
             auto_check_updates: false,
             ignored_update_version: "2.2.0".to_owned(),
@@ -607,13 +629,14 @@ mod tests {
             "renderFrameRate",
             "windowMaterial",
             "glassOpacity",
+            "backdropHaze",
             "reduceMotion",
             "autoCheckUpdates",
             "ignoredUpdateVersion",
         ] {
             assert!(object.contains_key(key), "缺少键 {key}");
         }
-        assert_eq!(object.len(), 26);
+        assert_eq!(object.len(), 27);
         assert_eq!(root["quality"], "Lossless");
         assert_eq!(root["tagSourcePriority"], "QQMusicOnly");
         assert_eq!(root["lyricsEditorSearchSource"], "QQMusic");
@@ -1047,6 +1070,43 @@ mod tests {
         ] {
             assert!(
                 current.apply_patch(&patch, r"D:\Music").is_err(),
+                "应拒绝 {patch}"
+            );
+        }
+    }
+
+    #[test]
+    fn backdrop_haze_defaults_to_the_old_fixed_look_and_is_clamped() {
+        assert_eq!(
+            AppSettings::new(DEFAULT_DIR).backdrop_haze,
+            DEFAULT_BACKDROP_HAZE
+        );
+        let read = |json: &str| {
+            AppSettings::from_json_value(&serde_json::from_str(json).unwrap(), DEFAULT_DIR)
+                .backdrop_haze
+        };
+        assert_eq!(read(r#"{"backdropHaze":-0.5}"#), MIN_BACKDROP_HAZE);
+        assert_eq!(read(r#"{"backdropHaze":7}"#), MAX_BACKDROP_HAZE);
+        assert_eq!(read(r#"{"backdropHaze":0.666}"#), 0.67);
+        assert_eq!(read(r#"{"backdropHaze":"0.2"}"#), 0.2);
+        assert_eq!(read(r#"{"backdropHaze":"薄"}"#), DEFAULT_BACKDROP_HAZE);
+
+        let current = AppSettings::new(DEFAULT_DIR);
+        for haze in [0.0, 0.55, 1.0] {
+            let next = current
+                .apply_patch(&serde_json::json!({ "backdropHaze": haze }), DEFAULT_DIR)
+                .unwrap();
+            assert_eq!(next.backdrop_haze, haze);
+            assert_eq!(next.glass_opacity, current.glass_opacity);
+        }
+        for patch in [
+            serde_json::json!({ "backdropHaze": 1.01 }),
+            serde_json::json!({ "backdropHaze": -0.01 }),
+            serde_json::json!({ "backdropHaze": "0.5" }),
+        ] {
+            assert_eq!(
+                current.apply_patch(&patch, DEFAULT_DIR),
+                Err("背景雾度必须在 0%–100% 之间".to_owned()),
                 "应拒绝 {patch}"
             );
         }

@@ -20,13 +20,14 @@
   transition: filter var(--dur-3) var(--ease-out);
 }
 
+/* 虚化半径随背景雾度：默认 0.30 时主界面 9 px、被叠住的对话框 6 px（加入设置之前的固定值）。 */
 body:has(> .modal-backdrop:not(.modal-leaving)) #root,
 body:has(> .drop-overlay) #root {
-  filter: blur(9px) saturate(135%);
+  filter: blur(calc(var(--backdrop-haze) * 30px)) saturate(135%);
 }
 
 .modal-backdrop:has(~ .modal-backdrop:not(.modal-leaving)) > .modal {
-  filter: blur(6px) saturate(130%);
+  filter: blur(calc(var(--backdrop-haze) * 20px)) saturate(130%);
 }
 
 /* ---- 窗口底：一层很薄的色调，加一点强调色的环境光 ---- */

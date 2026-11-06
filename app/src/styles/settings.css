@@ -445,19 +445,17 @@
   color: var(--text-tertiary);
 }
 
-/* ---- 玻璃浓度的实时示意：一块玻璃浮在彩色“下一层”上 ---- */
+/*
+ * ---- 玻璃浓度与背景雾度的实时示意：一块玻璃浮在彩色“下一层”上 ----
+ * 下一层按背景雾度虚化并盖上遮罩，与对话框打开时主界面的效果一致；
+ * 往外多铺 30 px 再由外框裁掉，虚化时边缘不会露出空白。
+ */
 .glass-preview {
   position: relative;
   height: 128px;
   overflow: hidden;
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 16% 38%, #ff6b7d 0 30px, transparent 31px),
-    radial-gradient(circle at 44% 72%, #5bdb95 0 24px, transparent 25px),
-    radial-gradient(circle at 70% 32%, #6e8cff 0 34px, transparent 35px),
-    radial-gradient(circle at 90% 76%, #f0b64d 0 20px, transparent 21px),
-    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.08) 0 10px, transparent 10px 20px),
-    #1b2230;
+  background: #1b2230;
 }
 
 .glass-preview-layer {
@@ -470,8 +468,19 @@
 }
 
 .glass-preview-back {
-  inset: 0;
+  inset: -30px;
+  padding: 40px 44px;
+  background:
+    radial-gradient(circle at 21% 40%, #ff6b7d 0 30px, transparent 31px),
+    radial-gradient(circle at 44% 66%, #5bdb95 0 24px, transparent 25px),
+    radial-gradient(circle at 66% 36%, #6e8cff 0 34px, transparent 35px),
+    radial-gradient(circle at 84% 70%, #f0b64d 0 20px, transparent 21px),
+    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.08) 0 10px, transparent 10px 20px),
+    #1b2230;
+  box-shadow: inset 0 0 0 999px var(--scrim);
   color: rgb(255 255 255 / 0.85);
+  filter: blur(calc(var(--backdrop-haze) * 30px));
+  transition: filter var(--dur-2) var(--ease-out);
 }
 
 .glass-preview-front {
