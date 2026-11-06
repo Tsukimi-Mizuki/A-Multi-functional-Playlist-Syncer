@@ -42,9 +42,9 @@ const MATERIALS = [
 ] as const satisfies readonly { value: WindowMaterial; label: string }[]
 
 const MATERIAL_HINTS: Record<WindowMaterial, string> = {
-  Acrylic: '实时模糊并透出窗口后面的桌面与其他窗口，液态玻璃效果最完整。',
-  Mica: '只取桌面壁纸的色调，不透出其他窗口；拖动和缩放窗口时更省电。',
-  None: '不使用系统材质，窗口后面只剩界面自身的玻璃底色。',
+  Acrylic: '透出并模糊窗口后面的桌面。',
+  Mica: '只取壁纸色调，更省电。',
+  None: '不使用系统材质。',
 }
 
 const LYRICS_MODES = [
@@ -289,7 +289,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
               {section === 'appearance' && (
                 <>
                   <section className="settings-card" aria-label="主题与材质">
-                    <SettingRow title="主题" hint="跟随系统时会随 Windows 的深浅色设置自动切换。">
+                    <SettingRow title="主题">
                       <Segmented label="主题" value={draft.theme} options={THEMES} onChange={(v) => update('theme', v)} />
                     </SettingRow>
                     <SettingRow
@@ -315,7 +315,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     </SettingRow>
                   </section>
                   <section className="settings-card" aria-label="玻璃与动效">
-                    <SettingRow title="玻璃浓度" hint="越低越通透，越能看清窗口下面的内容；越高文字越清晰。">
+                    <SettingRow title="玻璃浓度">
                       <Slider
                         label="玻璃浓度"
                         value={Math.round(draft.glassOpacity * 100)}
@@ -326,10 +326,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         onChange={(v) => update('glassOpacity', v / 100)}
                       />
                     </SettingRow>
-                    <SettingRow
-                      title="背景雾度"
-                      hint="对话框下面那层界面的毛玻璃程度：0% 完全清晰、能看清下层的一切，100% 完全看不清。拖动时身后的主界面会实时变化。"
-                    >
+                    <SettingRow title="背景雾度" hint="对话框后面界面的模糊程度。">
                       <Slider
                         label="背景雾度"
                         value={Math.round(draft.backdropHaze * 100)}
@@ -340,7 +337,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         onChange={(v) => update('backdropHaze', v / 100)}
                       />
                     </SettingRow>
-                    <SettingRow title="减少动效" hint="关闭弹出、滑动与淡入淡出动画。系统开启“减少动画”时也会自动减弱。">
+                    <SettingRow title="减少动效">
                       <Switch label="减少动效" checked={draft.reduceMotion} onChange={(v) => update('reduceMotion', v)} />
                     </SettingRow>
                   </section>
@@ -372,7 +369,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         </button>
                       </div>
                     </SettingRow>
-                    <SettingRow title="下载音质" hint="没有对应会员权益时，网易云会自动降到可用的最高音质。">
+                    <SettingRow title="下载音质" hint="无对应会员权益时自动降档。">
                       <select
                         className="settings-select"
                         aria-label="下载音质"
@@ -386,7 +383,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         ))}
                       </select>
                     </SettingRow>
-                    <SettingRow title="同时下载" hint="同时进行的下载数量（1–8）。">
+                    <SettingRow title="同时下载">
                       <Slider
                         label="同时下载数量"
                         value={draft.maxConcurrency}
@@ -399,7 +396,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     </SettingRow>
                   </section>
                   <section className="settings-card" aria-label="文件名与标签">
-                    <SettingRow title="文件名模板" stacked hint="点击占位符插入到末尾。">
+                    <SettingRow title="文件名模板" stacked>
                       <input
                         type="text"
                         className="settings-input"
@@ -432,10 +429,10 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     <SettingRow title="写入封面">
                       <Switch label="写入封面" checked={draft.writeCover} onChange={(v) => update('writeCover', v)} />
                     </SettingRow>
-                    <SettingRow title="跳过已存在的文件" hint="目标文件已存在时直接跳过。">
+                    <SettingRow title="跳过已存在的文件">
                       <Switch label="跳过已存在的文件" checked={draft.skipExisting} onChange={(v) => update('skipExisting', v)} />
                     </SettingRow>
-                    <SettingRow title="覆盖已存在的文件" hint="不跳过时，用新下载的文件替换旧文件。">
+                    <SettingRow title="覆盖已存在的文件" hint="仅在不跳过时生效。">
                       <Switch
                         label="覆盖已存在的文件"
                         checked={draft.overwriteExisting}
@@ -448,7 +445,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
 
               {section === 'library' && (
                 <section className="settings-card" aria-label="本地曲库">
-                  <SettingRow title="曲库目录" stacked hint="对比歌单时扫描这个文件夹（含子文件夹）。">
+                  <SettingRow title="曲库目录" stacked>
                     <div className="path-field">
                       <input
                         type="text"
@@ -466,7 +463,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                       </button>
                     </div>
                   </SettingRow>
-                  <SettingRow title="自动对比本地" hint="打开歌单后自动与本地曲库对比，标出已有、NCM 与缺失的歌曲。">
+                  <SettingRow title="自动对比本地">
                     <Switch label="自动对比本地" checked={draft.autoMatchLocal} onChange={(v) => update('autoMatchLocal', v)} />
                   </SettingRow>
                 </section>
@@ -475,7 +472,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
               {section === 'online' && (
                 <>
                   <section className="settings-card" aria-label="匹配规则">
-                    <SettingRow title="在线匹配度" hint="低于这个分数的搜索结果不会被自动写入，只在编辑器里标注。">
+                    <SettingRow title="在线匹配度" hint="低于此分数不自动写入。">
                       <Slider
                         label="在线匹配度阈值"
                         value={Math.round(draft.matchThreshold * 100)}
@@ -514,7 +511,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                         ))}
                       </select>
                     </SettingRow>
-                    <SettingRow title="编辑器默认搜索来源" hint="编辑器打开文件后自动检索所用的来源，可在编辑器里随时切换。">
+                    <SettingRow title="编辑器默认搜索来源">
                       <select
                         className="settings-select"
                         aria-label="歌词编辑器默认搜索来源"
@@ -530,14 +527,14 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     </SettingRow>
                   </section>
                   <section className="settings-card" aria-label="备用词源">
-                    <SettingRow title="酷狗音乐" hint="主来源都没有歌词时，用酷狗的逐字歌词与译文补上。">
+                    <SettingRow title="酷狗音乐" hint="主来源没有歌词时使用。">
                       <Switch
                         label="启用酷狗音乐备用词源"
                         checked={draft.fallbackKugouLyrics}
                         onChange={(v) => update('fallbackKugouLyrics', v)}
                       />
                     </SettingRow>
-                    <SettingRow title="LRCLIB" hint="再退一步，用 LRCLIB 的逐行歌词。">
+                    <SettingRow title="LRCLIB" hint="最后备选，仅逐行。">
                       <Switch
                         label="启用 LRCLIB 备用词源"
                         checked={draft.fallbackLrclibLyrics}
@@ -571,7 +568,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     </dl>
                   </section>
                   <section className="settings-card" aria-label="更新">
-                    <SettingRow title="自动检查更新" hint="启动时检查 GitHub 上的最新正式版，发现新版本时弹窗提醒。">
+                    <SettingRow title="自动检查更新">
                       <Switch
                         label="自动检查更新"
                         checked={draft.autoCheckUpdates}
@@ -581,15 +578,13 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     <SettingRow
                       title="检查更新"
                       hint={
-                        updateResult ? (
+                        updateResult && (
                           <span
                             className={updateResult.error ? 'update-check-result update-check-result-error' : 'update-check-result'}
                             role={updateResult.error ? 'alert' : 'status'}
                           >
                             {updateResult.text}
                           </span>
-                        ) : (
-                          '现在就从 GitHub 读取最新版本，忽略过的版本也会再显示。'
                         )
                       }
                     >
