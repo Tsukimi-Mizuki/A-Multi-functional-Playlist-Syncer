@@ -15,14 +15,14 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.1.1（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1076 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）与 `v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）** |
+| 当前状态 | **2.1.1（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1077 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）与 `v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）** |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0`（版本号 2.0.0）起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1076 个测试全部通过**：lp-core 库内 1002 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1077 个测试全部通过**：lp-core 库内 1003 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
@@ -143,7 +143,7 @@ pnpm dev                                                           # 只开前�
 
 | 文件 | 说明 |
 |---|---|
-| `settings.json` | 明文 JSON（camelCase，枚举按名字序列化，读取时键名不区分大小写）。与 C# 版互通：C# 读取时忽略 Tauri 版新增的 `windowMaterial` / `glassOpacity` / `reduceMotion` / `autoCheckUpdates` / `ignoredUpdateVersion` |
+| `settings.json` | 明文 JSON（camelCase，枚举按名字序列化，读取时键名不区分大小写）。与 C# 版互通：C# 读取时忽略 Tauri 版新增的 `windowMaterial` / `glassOpacity` / `backdropHaze` / `reduceMotion` / `autoCheckUpdates` / `ignoredUpdateVersion` |
 | `session.dat` | 登录 Cookie，DPAPI（CurrentUser，entropy `LunaticPrincess.Session.v1`）加密，文件头 `NMMSES01`；换 Windows 账号或换机器**无法解密**，需重新扫码。C# 版写的文件 Tauri 版能读，反之亦然 |
 | `webview\` | WebView2 用户数据目录（缓存、localStorage）。显式放在数据目录下，见 `docs/TAURI_REWRITE.md` 的低完整性说明 |
 | `logs\` | 预留，目前没有代码写入 |
@@ -170,6 +170,7 @@ pnpm dev                                                           # 只开前�
 | renderFrameRate | 沿用的旧键，Tauri 版界面不使用 | VSync |
 | windowMaterial | `Acrylic/Mica/None`（Tauri 版新增） | Acrylic |
 | glassOpacity | 玻璃浓度 0.10–0.95（Tauri 版新增） | 0.45 |
+| backdropHaze | 背景雾度 0.00–1.00：对话框下面那层界面的虚化与遮暗程度，0 完全清晰、1 完全看不清（四舍五入到两位；Tauri 版新增） | 0.30 |
 | reduceMotion | 减少动效（Tauri 版新增） | false |
 | autoCheckUpdates | 启动时自动检查 GitHub 上的新版本（Tauri 版新增） | true |
 | ignoredUpdateVersion | 「忽略本次更新」记住的版本（归一后的 SemVer，无法识别的清空；由更新弹窗写入，设置窗口不改它；Tauri 版新增） | 空 |
@@ -230,7 +231,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1076 个**——`lp-core` 库内 1002、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1077 个**——`lp-core` 库内 1003、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -255,7 +256,7 @@ pnpm dev                                                           # 只开前�
 
 - **界面设计一律以用户提供的设计参考为准**：对话中给出的设计稿 / 截图就是视觉基准，改配色、圆角、间距、控件形态、排版前先对照，不要自行更换视觉语言。设计稿存 `docs/design/`（命名 `ui-<窗口或场景>.png`），并在 `docs/design/README.md` 登记文件名与文字要点——无法看图的人（包括 AI）靠这些文字实现。目前该目录还没有设计稿，视觉基线以下面这一节为准。
 - **液态玻璃**主题（深色 / 浅色 / 跟随系统）：主窗口透明无边框，Rust 侧给窗口铺系统材质（亚克力 / 云母 / 无，`windowMaterial`），失败自动退到另一种；`theme.css` 只定义每套主题的底色三元组与高光，各层不透明度由 `--glass-strength`（`glassOpacity`）推导；`glass.css` 统一给标题栏、侧栏、歌曲区、对话框、设置卡片加顶部柔光、内侧高光、投影与 1px 边缘折光。颜色一律用 CSS 变量，不写死色值。
-- **WebView2 在透明窗口里不支持 `backdrop-filter`**（实机确认）。景深改为给「下一层」加 `filter`：有对话框时整个 `#root` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) #root`），叠放对话框时被盖住的也虚化。对话框用 `createPortal` 挂到 `body`，避免被上一个对话框的 filter 截成局部定位容器。普通浏览器里 `backdrop-filter` 仍生效，两者叠加无妨。**不要为了「更像玻璃」把对话框底色改回高不透明度，也不要依赖 `backdrop-filter` 做模糊。**
+- **WebView2 在透明窗口里不支持 `backdrop-filter`**（实机确认）。景深改为给「下一层」加 `filter`：有对话框时整个 `#root` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) #root`），叠放对话框时被盖住的也虚化。虚化半径与对话框后的遮罩 `--scrim` 都由 `--backdrop-haze`（设置「背景雾度」`backdropHaze`）推导：主界面 `h × 30 px`、被叠住的对话框 `h × 20 px`，遮罩不透明度 `h·(0.4+s)·(1−h) + 0.92·h²`（s 为玻璃浓度），0 时完全清晰、1 时几乎被盖满，默认 0.30 即原来的固定效果。对话框用 `createPortal` 挂到 `body`，避免被上一个对话框的 filter 截成局部定位容器。普通浏览器里 `backdrop-filter` 仍生效，两者叠加无妨。**不要为了「更像玻璃」把对话框底色改回高不透明度，也不要依赖 `backdrop-filter` 做模糊。**
 - **动效**：时长（120 / 200 / 320 / 460 ms）与缓动统一在 `theme.css`；对话框进场缩放 + 淡入，退场靠卸载时留下的静态「残影」播放淡出；主题切换用 View Transition 整窗交叉淡化；「减少动效」（`reduceMotion` 或系统开启「减少动画」）把所有过渡缩到 1 ms。
 - 窗口：无边框自绘标题栏（`TitleBar`，68 px 顶栏即标题栏，自绘最小化 / 最大化 / 关闭，可拖动，双击最大化），窗口最小 960×600；弹出层用 `Modal` 组件（模态栈：Esc 只关最上面一个）。
 - 受限环境（远程桌面 / 关闭透明效果）下系统材质不可用，窗口退化为纯透明 + 界面自身的玻璃底色。
@@ -308,6 +309,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改（仓库地址变了还要改检查更新用的两个常量，见 §10「GitHub」）。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1076 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1077 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。

@@ -38,7 +38,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 模块 | 内容 |
 |---|---|
 | `paths` | 数据目录解析（环境变量 → 便携 `data\`（安装包与便携版 zip 都自带它）→ `%LOCALAPPDATA%\LunaticPrincess` → 程序目录 → `%TEMP%`，每个候选做写入探测）、默认下载目录、`webview\` 子目录 |
-| `settings` / `models` | `AppSettings`（26 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
+| `settings` / `models` | `AppSettings`（27 个键）、`normalize()`、严格补丁 `apply_patch`（未知键 / 类型不对 / 枚举无法识别 / 越界整份拒绝）、`JsonSettingsStore`（临时文件 + rename 原子写）；枚举 `AudioQuality`、`LyricsWriteMode`、`OnlineSourcePriority`、`ThemeMode`、`WindowMaterial`、`LyricsSourceKind` |
 | `session` | `NeteaseSession`、`SessionStore`（`NMMSES01` 头 + DPAPI CurrentUser / 明文）、`SessionAutoSaver`（订阅会话变化、串行落盘、`flush`） |
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
@@ -183,9 +183,9 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 - **窗口层**：主窗口在 `setup` 里用 `WebviewWindowBuilder::from_config` 创建（`tauri.conf.json` 里 `create: false`），无边框、透明，WebView2 用户数据目录显式放到 `<数据目录>\webview`。`apply_window_material` 给窗口铺系统材质：`Acrylic`（默认，实时模糊并透出窗口后面的桌面与其他窗口）/ `Mica`（只取壁纸色调）/ `None`；首选材质不可用时自动退到另一种，两种都不可用（远程桌面等）保持纯透明，日志与设置面板都会提示实际生效的材质。材质底色随主题走（`window.set_theme`，跟随系统时交还系统）。
 - **界面层**：`styles/theme.css` 为每套主题定义底色三元组与高光 token，各层不透明度都由 `--glass-strength`（设置 `glassOpacity`，0.10–0.95，默认 0.45）推导；`styles/glass.css` 统一给标题栏、侧栏、歌曲区、对话框、设置卡片加上顶部柔光渐变、内侧 1 px 高光、外侧投影、`::after` + mask 画出的 1 px 边缘折光。`body` 保持透明，由半透明 token 叠加。
-- **景深**：**WebView2 在透明窗口里不支持 `backdrop-filter`**（实机确认），所以改为给下一层加 `filter`：有对话框时整个 `#root` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) #root`），叠放对话框时被盖住的对话框也虚化，拖放提示出现时同样虚化。对话框与拖放提示层用 `createPortal` 挂到 `body`，避免被上一层的 filter 截成局部定位容器。普通浏览器里 `backdrop-filter` 仍生效，叠加无妨。
+- **景深**：**WebView2 在透明窗口里不支持 `backdrop-filter`**（实机确认），所以改为给下一层加 `filter`：有对话框时整个 `#root` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) #root`），叠放对话框时被盖住的对话框也虚化，拖放提示出现时同样虚化。虚化多重由「背景雾度」（设置 `backdropHaze`，0–1，默认 0.30，写到 `--backdrop-haze`）决定：主界面 `h × 30 px`、被叠住的对话框 `h × 20 px`，对话框后的遮罩 `--scrim` 不透明度为 `h·(0.4+s)·(1−h) + 0.92·h²`（s 为玻璃浓度）——0 时不虚化、不遮暗，能看清下层的一切；1 时虚化 30 px、遮罩约 92%，几乎看不见下层。默认 0.30 与加入这个设置之前的固定效果一致（9 px / 6 px）。设置面板的「下一层 / 玻璃层」示意图按同样的雾度虚化下一层。对话框与拖放提示层用 `createPortal` 挂到 `body`，避免被上一层的 filter 截成局部定位容器。普通浏览器里 `backdrop-filter` 仍生效，叠加无妨。
 - **动效**：`theme.css` 统一时长（120 / 200 / 320 / 460 ms）与缓动（ease-out、ease-in、弹簧）；对话框进场缩放 + 上移 + 淡入，退场由 `Modal` 卸载时留下的静态「残影」播放淡出后自动移除；主题切换在设置面板里用 View Transition 整窗交叉淡化；按钮、开关、分段控件（`Segmented`）、滑块、设置导航指示条都有统一的弹簧过渡。`reduceMotion` 或系统「减少动画」时所有过渡缩到 1 ms（加载指示器照常转）。
-- **主题与外观设置**：外观类设置（主题、材质、玻璃浓度）改动立即预览整个窗口（`preview_appearance` 不写盘）；取消、Esc 或面板被卸载时还原到已保存的外观；只有「保存」才写盘（`save_settings` 保存后立即应用）。上次保存的外观缓存在 `localStorage`，只为避免启动时主题闪一下，以后端设置为准。
+- **主题与外观设置**：外观类设置（主题、材质、玻璃浓度、背景雾度）改动立即预览整个窗口（设置面板本身就是对话框，拖动雾度时身后的主界面实时变化）（`preview_appearance` 不写盘）；取消、Esc 或面板被卸载时还原到已保存的外观；只有「保存」才写盘（`save_settings` 保存后立即应用）。上次保存的外观缓存在 `localStorage`，只为避免启动时主题闪一下，以后端设置为准。
 - **标题栏**：68 px 顶栏即标题栏，自绘最小化 / 最大化 / 关闭按钮，`core:window:allow-start-dragging` 拖动，双击最大化；窗口最小 960×600。侧栏展开 272 px / 收起 88 px，`Ctrl+B` 切换。
 - 系统材质的透出效果只在 Windows 11 上完整；亚克力在拖动 / 缩放窗口时比云母更耗电。
 
@@ -205,7 +205,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 
 ## 数据文件与兼容性
 
-- `settings.json`：camelCase、枚举按名字、读取时键名不区分大小写；Tauri 版新增 `windowMaterial` / `glassOpacity` / `reduceMotion` / `autoCheckUpdates` / `ignoredUpdateVersion`，C# 版读取时忽略未知键；某字段类型错误只让该字段回落默认（C# 会整份重置）。设置文件读取失败（权限 / 被占用）时用默认设置并在界面提示，**自动记忆**（音质、NCM 位置、编辑器来源、忽略的更新版本）只改内存不写盘，用户在设置面板里**主动保存**才写盘。
+- `settings.json`：camelCase、枚举按名字、读取时键名不区分大小写；Tauri 版新增 `windowMaterial` / `glassOpacity` / `backdropHaze` / `reduceMotion` / `autoCheckUpdates` / `ignoredUpdateVersion`，C# 版读取时忽略未知键；某字段类型错误只让该字段回落默认（C# 会整份重置）。设置文件读取失败（权限 / 被占用）时用默认设置并在界面提示，**自动记忆**（音质、NCM 位置、编辑器来源、忽略的更新版本）只改内存不写盘，用户在设置面板里**主动保存**才写盘。
 - `session.dat`：`NMMSES01` + mode（1 = DPAPI，2 = 明文）+ payload，DPAPI 用 CurrentUser 与 entropy `LunaticPrincess.Session.v1`，与 C# 版互读。
 - 与 C# 版互通由集成测试 `tests/csharp_*.rs` 与夹具固化（见 AGENTS.md §9）。
 

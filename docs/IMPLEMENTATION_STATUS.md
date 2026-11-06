@@ -1,7 +1,7 @@
 # 实现状态
 
 > 最后更新：2026-11-06。当前状态：**2.1.1（Rust + Tauri 2 + React 重写版）**：重写模块 1–12 全部完成，
-> `cargo test --workspace` **1076 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
+> `cargo test --workspace` **1077 个测试全部通过**，`cargo fmt --check`、`clippy --all-targets -D warnings`、`pnpm build` 通过。
 > **已发布**：tag `v2.0`（2.0.0）、`v2.1`（2.1.0，运行日志动画与歌词预览来源修复）与 `v2.1.1`（2.1.1，检查更新），都由 GitHub Actions 自动打包并建 Release（安装包 + 便携版 zip + 校验值）。
 >
 > 旧的 C# / Avalonia 版（v1.x，含 v1.3，404/404 单测）在 `CSharp-GUI` 分支，只作历史与维护用途。
@@ -12,7 +12,7 @@
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 工程骨架与构建 | ✅ 完成 | Cargo 工作区（`lp-core` + `src-tauri`）、React + TS 前端、`build.ps1`（默认构建 / `-Test` / `-Bundle`）、`ci.yml` + `main.yml`、`scripts/resolve-version.ps1`；Rust 1.99 / edition 2024，clippy `-D warnings` 干净 |
-| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（26 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
+| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（27 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
 | 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；eapi `login/token/refresh` 启动及每约 12 小时续期（实测换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，2026-11-04 修复了原先 weapi 端点的 `code=400`）；`CookieMerger` 按 `Path` 处理同名多条 Set-Cookie；仅接口 `code==301` 才清除会话。180 天后的实际掉线情况仍待长期观察 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
 | 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框（来源跟随设置里的「歌词来源」，网易云 / QQ / 备用词源依次尝试） |
@@ -21,7 +21,7 @@
 | 本地曲库与对比 | ✅ 完成 | 并行扫描、网易云 ID 精确匹配 + 标题 / 歌手 / 时长评分、一对一、「已存在 / NCM 待解密 / 需下载」状态列与统计 |
 | 音质选择下载与一键同步 | ✅ 完成（真实下载待用户真机验证） | 九档：标准 / 极高 (HQ) / 无损 (SQ) / 高解析度无损 (Hi-Res) / 高清臻音 / 沉浸环绕声 / 超清母带 / 臻音全景声 (Audio Vivid) / 杜比全景声 (Dolby Atmos)；逐级降档并提示实际音质；取链带桌面客户端 Cookie；试听片段拒收；NCM 自动解密；同步三分支；多选 + 工具栏 + 逐行进度；并发任务池；取消保留已完成结果 |
 | 在线匹配（歌词 / 标签 / 封面） | ✅ 完成 | 网易云（匿名 eapi 搜索）/ QQ 主源 + 酷狗 / LRCLIB 备用词源；多变体检索与打分（阈值 0.30–1.00，默认 0.60）；歌词与标签编辑器、批量获取窗口、拖放、`--edit` / `--lyrics` 启动参数 |
-| 设置与外观 | ✅ 完成 | 设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、深色 / 浅色 / 跟随系统、窗口材质（亚克力 / 云母 / 无）、玻璃浓度、减少动效、实时预览与取消还原 |
+| 设置与外观 | ✅ 完成 | 设置面板（外观 / 下载 / 本地曲库 / 在线匹配 / 关于）、深色 / 浅色 / 跟随系统、窗口材质（亚克力 / 云母 / 无）、玻璃浓度、背景雾度（对话框下层界面的虚化与遮暗，0–100%）、减少动效、实时预览与取消还原 |
 | 界面（液态玻璃） | ✅ 完成 | 透明无边框窗口 + 自绘标题栏；玻璃层叠 + 景深虚化（WebView2 不支持 `backdrop-filter` 的替代方案）；统一动效体系；所有可交互控件有中文 `aria-label` |
 | 错误提示与运行日志 | ✅ 完成 | `error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出处理建议；运行日志 400 条（内存），可收起 |
 | Windows 打包与发布 | ✅ 完成（见验证记录里的环境说明） | `build.ps1 -Bundle` 生成便携版 zip（exe + 空的 `data\`）+ NSIS 安装包 + `SHA256SUMS.txt` 到 `dist-release\`；安装时可选目录，安装钩子在安装目录建 `data\`，设置 / 登录态 / 缓存 / 默认下载目录都跟着安装目录走；`main.yml` 在 `v*` tag 上自动检查、打包并建 Release |
@@ -31,11 +31,11 @@
 
 ### 自动化测试
 
-`cargo test --workspace`（离线，不依赖真实音频）：**1076 个，全部通过，0 ignored**。
+`cargo test --workspace`（离线，不依赖真实音频）：**1077 个，全部通过，0 ignored**。
 
 | 范围 | 数量 | 说明 |
 |---|---|---|
-| `lp-core` 库内 | 1002 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 192（解析、QRC、KRC、zlib、打分、批量、歌词服务与按来源预览）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 29；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`update` 17（tag 归一与 SemVer 比较、忽略版本、Release 解析与说明整理、发布页白名单、限流 / 404 / 网络错误、自动 / 手动检查与日志）；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
+| `lp-core` 库内 | 1003 | `netease` 176（weapi / eapi 向量、Cookie 合并、登录 / 续期 / 扫码、歌单、歌曲、取链、歌词、搜索）；`lyrics` 192（解析、QRC、KRC、zlib、打分、批量、歌词服务与按来源预览）；`download` 122（单曲下载、媒体辅助、并发池、任务编排、NCM 导入）；`library` 66；`tags` 65；`ncm` 49；`online` 88（QQ / 酷狗 / LRCLIB / 编排）；`auth` 30；`session` 28；`settings` 30；`sync` 27；`utilities` 33（错误文案、文件名、音频类型、取消）；`paths` 20；`editor` 21；`update` 17（tag 归一与 SemVer 比较、忽略版本、Release 解析与说明整理、发布页白名单、限流 / 404 / 网络错误、自动 / 手动检查与日志）；`playlist` 15；`models` 12；`error` 5；`logs` 3；`qr` 3；其他 1 |
 | `lp-core` 集成测试 | 36 | `csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4——与 C# 版生成的「黄金」夹具逐字节 / 逐字段对照 |
 | `src-tauri` 外壳 | 38 | 请求结构、设置只写补丁并保留其他字段、设置不可信时不写盘（含忽略的更新版本）、任务槽、事件名等 |
 
@@ -72,6 +72,9 @@
 - **检查更新（2026-11-06）**：
   - 浏览器假后端（`?mock=update` / `updatefail`，深色与浅色）：启动 3 秒后弹窗；忽略后「立即检查」照样弹出并注明忽略过；弹窗叠在设置面板上，Esc 只关弹窗；跳转、失败文案都正常。
   - 发布版 exe 临时把版本号改成 2.0.0 编译（编译后清单已改回 2.1.0），复制到 `D:\claude\lp-run`、独立数据目录，实网请求 GitHub：启动后弹出 2.1.0（发布日期 2026-11-05，说明就是 v2.1 的 tag 正文，Full Changelog 行已去掉）→「忽略本次更新」后 `settings.json` 写入 `ignoredUpdateVersion: "2.1.0"`，重启不再弹窗、日志记「已被忽略」→ 设置里「立即检查」照样弹窗并注明忽略过 →「跳转至下载页面」在默认浏览器（Edge）打开 v2.1 发布页、弹窗关闭 → 关掉「自动检查更新」并保存，重启后没有任何检查日志。测完已删除 `D:\claude\lp-run`、`D:\claude\lp-data`。
+- **背景雾度（2026-11-06）**：
+  - 浏览器假后端（深色 / 浅色）：设置里拖动「背景雾度」时身后的主界面实时变化，0% 时 `#root` 不虚化、遮罩透明，100% 时虚化 30 px、遮罩 92%；默认 30% 算出 9 px 与 0.26，与原来的固定效果（9 px、0.255）基本一致；示意图的「下一层」同步虚化。
+  - 发布版 exe（独立数据目录 `D:\claude\lp-data`）：WebView2 里 0% / 100% 的计算值与截图都符合预期（0% 能透过设置面板看清主界面，100% 主界面完全看不见）；保存 70% 后 `settings.json` 写入 `backdropHaze: 0.7`，改成 10% 再点取消会还原到 70%；重启后打开「导入 NCM」，主界面虚化 21 px、遮罩 0.63。测完已删除 `D:\claude\lp-run`、`D:\claude\lp-data`。
 
 ## 已知限制
 
