@@ -19,6 +19,7 @@ use crate::models::{
     AudioQuality, LyricsSourceKind, LyricsWriteMode, OnlineSourcePriority, RenderFrameRateMode,
     ThemeMode, WindowMaterial,
 };
+use crate::update::Version;
 
 /// 默认文件名模板。
 pub const DEFAULT_FILE_NAME_TEMPLATE: &str = "{artist} - {title}";
@@ -86,6 +87,10 @@ pub struct AppSettings {
     pub glass_opacity: f64,
     /// 减少动效：关掉弹出、滑动等过渡动画（系统开启“减少动画”时界面也会自动减弱）。
     pub reduce_motion: bool,
+    /// 启动时自动检查 GitHub 上的新版本。
+    pub auto_check_updates: bool,
+    /// 「忽略本次更新」记住的版本（归一后的 SemVer，空表示没有）：只跳过这一个版本，更新的版本照常提醒。
+    pub ignored_update_version: String,
 }
 
 impl AppSettings {
@@ -118,6 +123,8 @@ impl AppSettings {
             window_material: WindowMaterial::Acrylic,
             glass_opacity: DEFAULT_GLASS_OPACITY,
             reduce_motion: false,
+            auto_check_updates: true,
+            ignored_update_version: String::new(),
         }
     }
 
@@ -167,6 +174,11 @@ impl AppSettings {
             }
         }
         self.ncm_import_folders = remembered;
+
+        // 统一成归一后的写法（`v2.2` -> `2.2.0`），无法识别的直接清空。
+        self.ignored_update_version = Version::parse(&self.ignored_update_version)
+            .map(|version| version.to_string())
+            .unwrap_or_default();
     }
 
     /// 从已解析的 JSON 值构造设置：缺字段或类型不对的字段取默认值，最后做一次 [`normalize`](Self::normalize)。
@@ -261,6 +273,12 @@ impl AppSettings {
         if let Some(v) = get("reduceMotion").and_then(Value::as_bool) {
             settings.reduce_motion = v;
         }
+        if let Some(v) = get("autoCheckUpdates").and_then(Value::as_bool) {
+            settings.auto_check_updates = v;
+        }
+        if let Some(v) = get("ignoredUpdateVersion").and_then(as_string) {
+            settings.ignored_update_version = v;
+        }
 
         settings.normalize(default_download_dir);
         settings
@@ -309,7 +327,12 @@ fn validate_patch_value(key: &str, value: &Value) -> Result<(), String> {
         | "fallbackKugouLyrics"
         | "fallbackLrclibLyrics"
         | "lyricsEditorPreferWordLyrics"
-        | "reduceMotion" => value.as_bool().map(drop).ok_or_else(invalid),
+        | "reduceMotion"
+        | "autoCheckUpdates" => value.as_bool().map(drop).ok_or_else(invalid),
+        "ignoredUpdateVersion" => match name()?.trim() {
+            "" => Ok(()),
+            version => Version::parse(version).map(drop).ok_or_else(invalid),
+        },
         "quality" => AudioQuality::from_name(name()?)
             .map(drop)
             .ok_or_else(invalid),
@@ -538,6 +561,8 @@ mod tests {
             window_material: WindowMaterial::Mica,
             glass_opacity: 0.62,
             reduce_motion: true,
+            auto_check_updates: false,
+            ignored_update_version: "2.2.0".to_owned(),
         };
 
         let saved = store.save(&settings).unwrap();
@@ -583,10 +608,12 @@ mod tests {
             "windowMaterial",
             "glassOpacity",
             "reduceMotion",
+            "autoCheckUpdates",
+            "ignoredUpdateVersion",
         ] {
             assert!(object.contains_key(key), "缺少键 {key}");
         }
-        assert_eq!(object.len(), 24);
+        assert_eq!(object.len(), 26);
         assert_eq!(root["quality"], "Lossless");
         assert_eq!(root["tagSourcePriority"], "QQMusicOnly");
         assert_eq!(root["lyricsEditorSearchSource"], "QQMusic");
@@ -976,6 +1003,53 @@ mod tests {
             read(r#"{"windowMaterial":"Glass"}"#).window_material,
             WindowMaterial::Acrylic
         );
+    }
+
+    #[test]
+    fn update_settings_default_on_and_keep_only_a_valid_ignored_version() {
+        let defaults = AppSettings::new(r"D:\Music");
+        assert!(defaults.auto_check_updates);
+        assert_eq!(defaults.ignored_update_version, "");
+
+        let read = |json: &str| {
+            AppSettings::from_json_value(&serde_json::from_str(json).unwrap(), r"D:\Music")
+        };
+        let custom = read(r#"{"autoCheckUpdates":false,"ignoredUpdateVersion":" v2.2 "}"#);
+        assert!(!custom.auto_check_updates);
+        assert_eq!(custom.ignored_update_version, "2.2.0");
+        assert_eq!(
+            read(r#"{"ignoredUpdateVersion":"不是版本号"}"#).ignored_update_version,
+            ""
+        );
+        assert!(read(r#"{"autoCheckUpdates":"no"}"#).auto_check_updates);
+
+        let current = AppSettings::new(r"D:\Music");
+        let next = current
+            .apply_patch(
+                &serde_json::json!({ "autoCheckUpdates": false, "ignoredUpdateVersion": "v3.0.0-rc.1" }),
+                r"D:\Music",
+            )
+            .unwrap();
+        assert!(!next.auto_check_updates);
+        assert_eq!(next.ignored_update_version, "3.0.0-rc.1");
+        assert!(
+            current
+                .apply_patch(
+                    &serde_json::json!({ "ignoredUpdateVersion": "" }),
+                    r"D:\Music"
+                )
+                .is_ok()
+        );
+        for patch in [
+            serde_json::json!({ "autoCheckUpdates": 1 }),
+            serde_json::json!({ "ignoredUpdateVersion": "nightly" }),
+            serde_json::json!({ "ignoredUpdateVersion": 2 }),
+        ] {
+            assert!(
+                current.apply_patch(&patch, r"D:\Music").is_err(),
+                "应拒绝 {patch}"
+            );
+        }
     }
 
     #[test]

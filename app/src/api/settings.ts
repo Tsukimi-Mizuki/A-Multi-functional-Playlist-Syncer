@@ -34,6 +34,10 @@ export interface AppSettings {
   /** 界面玻璃底色浓度（0.10–0.95）。 */
   glassOpacity: number
   reduceMotion: boolean
+  /** 启动时自动检查 GitHub 上的新版本。 */
+  autoCheckUpdates: boolean
+  /** 「忽略本次更新」记住的版本（空表示没有），由更新提醒写入，设置窗口不改它。 */
+  ignoredUpdateVersion: string
 }
 
 /** 与 Rust 端 `SettingsDto` 一一对应。 */

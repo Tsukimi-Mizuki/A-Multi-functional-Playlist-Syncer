@@ -13,6 +13,7 @@
  * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
  * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
+ * 检查更新：默认已是最新；`update` 启动 3 秒后弹出新版本 2.2.0 的提醒（忽略后只在「立即检查」时出现）；`updatefail` 检查失败。
  */
 import { emit } from '@tauri-apps/api/event'
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
@@ -706,6 +707,8 @@ export function installMockBackend(scenario: string | null): void {
     windowMaterial: 'Acrylic',
     glassOpacity: 0.45,
     reduceMotion: false,
+    autoCheckUpdates: true,
+    ignoredUpdateVersion: '',
   }
   const settingsState = () => ({
     settings: { ...mockSettings, quality: mockQuality },
@@ -803,6 +806,41 @@ export function installMockBackend(scenario: string | null): void {
         }
         case 'preview_appearance':
           return args.material
+        case 'check_for_updates': {
+          if (!args.manual && !mockSettings.autoCheckUpdates) return null
+          await sleep(600)
+          if (scenario === 'updatefail') {
+            throw { kind: 'network', message: '检查更新失败：请求超时（超过 15 秒），请检查网络后重试' }
+          }
+          const hasUpdate = scenario === 'update'
+          const version = hasUpdate ? '2.2.0' : '2.0.0'
+          const status = !hasUpdate ? 'upToDate' : mockSettings.ignoredUpdateVersion === version ? 'ignored' : 'available'
+          return {
+            currentVersion: '2.0.0',
+            status,
+            release: {
+              version,
+              tag: hasUpdate ? 'v2.2' : 'v2.0',
+              notes: [
+                '新功能与改进：',
+                '- 可以在线检查更新：启动时自动检查 GitHub 上的最新版本，发现新版本时弹窗提醒',
+                '- 设置的「关于」里新增「自动检查更新」开关与「立即检查」按钮',
+                '',
+                '修复：',
+                '- 一些界面细节',
+              ].join('\n'),
+              url: `https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer/releases/tag/${hasUpdate ? 'v2.2' : 'v2.0'}`,
+              publishedOn: '2026-11-06',
+            },
+          }
+        }
+        case 'ignore_update':
+          mockSettings = { ...mockSettings, ignoredUpdateVersion: String(args.version) }
+          return undefined
+        case 'open_release_page':
+          // 浏览器预览里不真的打开新页面，只在控制台留个记录。
+          console.info('[mock] open_release_page', args.url)
+          return undefined
         case 'download_tracks':
           return mockTransferCommand('selected', Number(args.playlistId), (args.trackIds as number[]) ?? [])
         case 'download_missing':

@@ -56,6 +56,7 @@ use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
 use lp_core::sync::SyncService;
 use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
+use lp_core::update::{UpdateCheck, UpdateChecker, UpdateError, UpdateRequest, Version};
 use lp_core::utilities::CancelToken;
 use serde::{Deserialize, Serialize};
 use tauri::utils::config::WindowEffectsConfig;
@@ -133,6 +134,8 @@ struct AppState {
     session_error: Option<String>,
     /// 命令行 `--lyrics/--edit <文件>` 指定的、启动后直接打开编辑器的文件（前端取走一次）。
     startup_file: Mutex<Option<String>>,
+    /// 检查 GitHub 上的新版本（启动时自动检查与设置里的「立即检查」）。
+    updates: Arc<UpdateChecker>,
 }
 
 impl AppState {
@@ -166,6 +169,10 @@ impl AppState {
                 .expect("初始化网络组件失败"),
         );
         let client = Arc::new(NeteaseClient::new(Arc::clone(&transport)));
+        let updates = Arc::new(UpdateChecker::new(
+            Arc::clone(&transport),
+            lp_core::app_info().version,
+        ));
         let session_store = Arc::new(SessionStore::with_system_protector(paths.session_file()));
         let login = LoginManager::new(
             client,
@@ -298,6 +305,7 @@ impl AppState {
             batch,
             session_error: restored.load_failure,
             startup_file: Mutex::new(None),
+            updates,
         }
     }
 
@@ -1348,6 +1356,72 @@ fn preview_appearance(
     Ok(apply_appearance(&app, material, theme))
 }
 
+impl AppState {
+    /// 这次检查更新要用的设置：自动检查开关与已忽略的版本。
+    fn update_request(&self, manual: bool) -> UpdateRequest {
+        let settings = self.settings();
+        UpdateRequest {
+            manual,
+            auto_check: settings.auto_check_updates,
+            ignored_version: settings.ignored_update_version.clone(),
+        }
+    }
+
+    /// 「忽略本次更新」：记住这个版本，之后的自动检查不再为它弹窗（只改这一个字段，其余设置原样保留）。
+    ///
+    /// 内存里的设置总是更新，这次会话立即生效；设置文件当初没能读出来（正在使用默认设置）时不写盘，
+    /// 免得把用户真正的设置覆盖成默认值。
+    fn ignore_update_version(&self, version: &str) -> Result<(), String> {
+        let version = Version::parse(version)
+            .ok_or_else(|| format!("无法识别的版本号：{version}"))?
+            .to_string();
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        settings.ignored_update_version = version.clone();
+        self.logs
+            .info(format!("已忽略版本 {version}，有更新的版本时再提醒"));
+        if self.settings_unreadable() {
+            return Ok(());
+        }
+        match self.settings_store.save(&settings) {
+            Ok(saved) => {
+                *settings = saved;
+                Ok(())
+            }
+            Err(error) => {
+                let message = format!("记住忽略的版本失败：{error}");
+                self.logs.warning(&message);
+                Err(message)
+            }
+        }
+    }
+}
+
+/// 检查 GitHub 上的最新正式版。`manual` 为 false 是启动时的自动检查：设置里关掉了就不联网、返回 `None`。
+/// 结果里的 `status` 说明是新版本、已忽略的版本还是已是最新，弹不弹窗由前端按发起方式决定。
+#[tauri::command]
+async fn check_for_updates(
+    state: State<'_, AppState>,
+    manual: bool,
+) -> Result<Option<UpdateCheck>, UpdateError> {
+    let request = state.update_request(manual);
+    state.updates.run(&request, &state.logs).await
+}
+
+/// 「忽略本次更新」：记住这个版本号（如 `2.2.0`）。
+#[tauri::command]
+fn ignore_update(state: State<'_, AppState>, version: String) -> Result<(), String> {
+    state.ignore_update_version(&version)
+}
+
+/// 「跳转至下载页面」：用默认浏览器打开发布页。只接受本项目的 GitHub 发布页地址。
+#[tauri::command]
+fn open_release_page(url: String) -> Result<(), String> {
+    lp_core::update::open_release_page(&url)
+}
+
 /// 启动 Tauri 应用。
 pub fn run() {
     let paths = AppPaths::resolve(&PathEnv::from_system())
@@ -1447,7 +1521,10 @@ pub fn run() {
             take_startup_file,
             get_settings,
             save_settings,
-            preview_appearance
+            preview_appearance,
+            check_for_updates,
+            ignore_update,
+            open_release_page
         ])
         .build(tauri::generate_context!())
         .expect("启动 Lunatic Princess 失败");
@@ -1888,6 +1965,69 @@ mod tests {
         let options = LyricsPreviewOptions::from_settings(&state.settings());
         assert_eq!(options.priority, OnlineSourcePriority::QqMusicOnly);
         assert_eq!(options.min_score, 0.7);
+    }
+
+    #[test]
+    fn ignoring_an_update_writes_only_that_field() {
+        let dir = ScratchDir::new("ignore-update");
+        let state = AppState::load(dir.paths());
+        {
+            let mut settings = state.settings().clone();
+            settings.max_concurrency = 6;
+            settings.auto_check_updates = false;
+            state.settings_store.save(&settings).unwrap();
+            *state.settings.write().unwrap() = settings;
+        }
+
+        state.ignore_update_version("v2.2").unwrap();
+
+        let saved = state.settings_store.load().unwrap();
+        assert_eq!(saved.ignored_update_version, "2.2.0");
+        assert_eq!(saved.max_concurrency, 6);
+        assert!(!saved.auto_check_updates);
+        let request = state.update_request(false);
+        assert_eq!(request.ignored_version, "2.2.0");
+        assert!(!request.auto_check && !request.manual);
+        assert!(state.update_request(true).manual);
+    }
+
+    #[test]
+    fn only_version_numbers_can_be_ignored() {
+        let dir = ScratchDir::new("ignore-update-invalid");
+        let state = AppState::load(dir.paths());
+
+        assert_eq!(
+            state.ignore_update_version("nightly"),
+            Err("无法识别的版本号：nightly".to_owned())
+        );
+        assert_eq!(state.settings().ignored_update_version, "");
+        assert!(!state.paths.settings_file().exists());
+    }
+
+    #[test]
+    fn untrusted_settings_are_never_overwritten_by_an_ignored_update() {
+        let dir = ScratchDir::new("ignore-update-untrusted");
+        let mut state = AppState::load(dir.paths());
+        state.settings_warning = Some("读取失败".to_owned());
+
+        state.ignore_update_version("2.2.0").unwrap();
+
+        assert!(!state.paths.settings_file().exists());
+        assert_eq!(state.settings().ignored_update_version, "2.2.0");
+    }
+
+    #[test]
+    fn the_auto_update_switch_is_saved_from_the_settings_dialog() {
+        let dir = ScratchDir::new("auto-update-switch");
+        let state = AppState::load(dir.paths());
+        assert!(state.update_request(false).auto_check);
+
+        state
+            .save_settings_patch(&serde_json::json!({ "autoCheckUpdates": false }))
+            .unwrap();
+
+        assert!(!state.update_request(false).auto_check);
+        assert!(!state.settings_store.load().unwrap().auto_check_updates);
     }
 
     #[test]

@@ -19,6 +19,7 @@ import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
 import SettingsDialog from './components/SettingsDialog'
 import TitleBar from './components/TitleBar'
+import UpdateDialog from './components/UpdateDialog'
 import { appearanceOf, applyAppearance } from './state/appearance'
 import { useAuth } from './state/useAuth'
 import { useFileDrop } from './state/useFileDrop'
@@ -27,6 +28,7 @@ import { useLocalMatch } from './state/useLocalMatch'
 import { usePlaylists } from './state/usePlaylists'
 import { useSelection } from './state/useSelection'
 import { useTransfer } from './state/useTransfer'
+import { useUpdates } from './state/useUpdates'
 
 type DialogState = 'none' | 'login' | 'logout' | 'ncm' | 'settings'
 
@@ -66,6 +68,8 @@ export default function App() {
   const requestSeq = useRef(0)
   const { account, validated } = useAuth()
   const logs = useLogs()
+  // 启动时按设置自动检查一次更新，发现新版本就弹窗；设置里的「立即检查」也经它弹窗。
+  const updates = useUpdates()
   const playlists = usePlaylists(account, validated)
   // 歌曲加载完成后与本地曲库对比；设置还没读到（null）时先不动。
   const local = useLocalMatch(
@@ -221,8 +225,8 @@ export default function App() {
     },
     [openEditor],
   )
-  // 登录 / NCM 导入 / 歌词预览等对话框占着界面时不接收拖放（编辑器自己接收）。
-  const dropEnabled = editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath)
+  // 登录 / NCM 导入 / 歌词预览 / 更新提醒等对话框占着界面时不接收拖放（编辑器自己接收）。
+  const dropEnabled = editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt)
   const { dragging } = useFileDrop(dropEnabled, onDrop)
 
   const openLogin = useCallback(() => setDialog('login'), [])
@@ -326,7 +330,9 @@ export default function App() {
       <LogPanel logs={logs} />
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
       {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
-      {dialog === 'settings' && <SettingsDialog onClose={closeDialog} onSaved={onSettingsSaved} />}
+      {dialog === 'settings' && (
+        <SettingsDialog onClose={closeDialog} onSaved={onSettingsSaved} onUpdateFound={updates.show} />
+      )}
       {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
       {dragging && <DropOverlay editorOpen={editorOpen} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
@@ -339,6 +345,16 @@ export default function App() {
           danger
           onConfirm={confirmLogout}
           onCancel={closeDialog}
+        />
+      )}
+      {updates.prompt && (
+        <UpdateDialog
+          key={updates.prompt.release.version}
+          check={updates.prompt}
+          error={updates.openError}
+          onDownload={updates.openDownload}
+          onIgnore={updates.ignore}
+          onLater={updates.remindLater}
         />
       )}
     </div>

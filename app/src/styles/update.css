@@ -1,0 +1,91 @@
+/* ---- 发现新版本 ---- */
+.update-dialog {
+  width: min(100%, 480px);
+}
+
+.update-dialog .modal-body {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.update-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.update-version {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.update-meta {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.update-note {
+  margin: 0;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.update-notes {
+  max-height: 240px;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  outline: none;
+}
+
+.update-notes:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.update-notes::-webkit-scrollbar {
+  width: 10px;
+}
+
+.update-notes::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.update-notes-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.update-hint {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.update-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* 设置「关于」里的检查结果。 */
+.update-check-result {
+  color: var(--text-tertiary);
+}
+
+.update-check-result-error {
+  color: var(--danger);
+}

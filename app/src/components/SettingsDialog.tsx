@@ -14,6 +14,7 @@ import {
   type ThemeMode,
   type WindowMaterial,
 } from '../api/settings'
+import { checkForUpdates, type UpdateCheck } from '../api/update'
 import { appearanceOf, applyAppearance } from '../state/appearance'
 import { Segmented, SettingRow, Slider, Switch } from './controls'
 import Modal from './Modal'
@@ -84,13 +85,15 @@ interface SettingsDialogProps {
   onClose: () => void
   /** 保存成功后的新设置（主界面据此刷新音质、自动对比等）。 */
   onSaved: (state: SettingsState) => void
+  /** 「立即检查」发现了新版本（包括忽略过的版本）：由主界面弹出更新提醒。 */
+  onUpdateFound: (check: UpdateCheck) => void
 }
 
 /**
  * 设置面板：左侧分区导航（选中块滑动切换），右侧分区内容（切换时淡入滑入）。
  * 外观类设置改动后立即预览整个窗口；取消或按 Esc 会还原到已保存的外观。
  */
-export default function SettingsDialog({ onClose, onSaved }: SettingsDialogProps) {
+export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: SettingsDialogProps) {
   const [state, setState] = useState<SettingsState | null>(null)
   const [draft, setDraft] = useState<AppSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -99,6 +102,8 @@ export default function SettingsDialog({ onClose, onSaved }: SettingsDialogProps
   const [section, setSection] = useState<Section>('appearance')
   const [version, setVersion] = useState<string | null>(null)
   const [appliedMaterial, setAppliedMaterial] = useState<WindowMaterial | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateResult, setUpdateResult] = useState<{ text: string; error: boolean } | null>(null)
   // 卸载时若还在预览未保存的外观，就还原（例如父组件直接把面板关掉）。
   const previewing = useRef<{ saved: AppSettings; draft: AppSettings } | null>(null)
   // 最新的草稿：连续的输入（拖动滑块、紧接着点开关）可能发生在两次渲染之间，不能用闭包里的旧草稿。
@@ -193,6 +198,24 @@ export default function SettingsDialog({ onClose, onSaved }: SettingsDialogProps
     },
     [update],
   )
+
+  // 「立即检查」不受自动检查开关影响；有新版本时交给主界面弹窗，这里只显示一行结果。
+  const checkUpdateNow = useCallback(() => {
+    setCheckingUpdate(true)
+    setUpdateResult(null)
+    checkForUpdates(true)
+      .then((check) => {
+        if (!check) return
+        if (check.status === 'upToDate') {
+          setUpdateResult({ text: `已是最新版本（${check.currentVersion}）`, error: false })
+        } else {
+          setUpdateResult({ text: `发现新版本 ${check.release.version}`, error: false })
+          onUpdateFound(check)
+        }
+      })
+      .catch((raised: unknown) => setUpdateResult({ text: errorMessage(raised, '检查更新失败，请稍后重试'), error: true }))
+      .finally(() => setCheckingUpdate(false))
+  }, [onUpdateFound])
 
   const dirty = state && draft ? Object.keys(diffSettings(state.settings, draft)).length > 0 : false
   const sectionIndex = SECTIONS.findIndex((item) => item.id === section)
@@ -511,26 +534,62 @@ export default function SettingsDialog({ onClose, onSaved }: SettingsDialogProps
               )}
 
               {section === 'about' && (
-                <section className="settings-card" aria-label="关于">
-                  <div className="about-hero">
-                    <span className="about-name">Lunatic Princess</span>
-                    <span className="about-version">{version ? `版本 ${version}` : ''}</span>
-                  </div>
-                  <dl className="about-list">
-                    <dt>数据目录</dt>
-                    <dd>{state.dataDir}</dd>
-                    <dt>设置文件</dt>
-                    <dd>{state.settingsFile}</dd>
-                    <dt>运行模式</dt>
-                    <dd>{state.isPortable ? '便携模式（数据保存在程序旁的 data 文件夹）' : '安装模式'}</dd>
-                    <dt>默认下载目录</dt>
-                    <dd>{state.defaultDownloadDir}</dd>
-                    <dt>当前材质</dt>
-                    <dd>{MATERIALS.find((m) => m.value === (appliedMaterial ?? draft.windowMaterial))?.label}</dd>
-                    <dt>界面玻璃浓度</dt>
-                    <dd>{percent(draft.glassOpacity)}</dd>
-                  </dl>
-                </section>
+                <>
+                  <section className="settings-card" aria-label="关于">
+                    <div className="about-hero">
+                      <span className="about-name">Lunatic Princess</span>
+                      <span className="about-version">{version ? `版本 ${version}` : ''}</span>
+                    </div>
+                    <dl className="about-list">
+                      <dt>数据目录</dt>
+                      <dd>{state.dataDir}</dd>
+                      <dt>设置文件</dt>
+                      <dd>{state.settingsFile}</dd>
+                      <dt>运行模式</dt>
+                      <dd>{state.isPortable ? '便携模式（数据保存在程序旁的 data 文件夹）' : '安装模式'}</dd>
+                      <dt>默认下载目录</dt>
+                      <dd>{state.defaultDownloadDir}</dd>
+                      <dt>当前材质</dt>
+                      <dd>{MATERIALS.find((m) => m.value === (appliedMaterial ?? draft.windowMaterial))?.label}</dd>
+                      <dt>界面玻璃浓度</dt>
+                      <dd>{percent(draft.glassOpacity)}</dd>
+                    </dl>
+                  </section>
+                  <section className="settings-card" aria-label="更新">
+                    <SettingRow title="自动检查更新" hint="启动时检查 GitHub 上的最新正式版，发现新版本时弹窗提醒。">
+                      <Switch
+                        label="自动检查更新"
+                        checked={draft.autoCheckUpdates}
+                        onChange={(v) => update('autoCheckUpdates', v)}
+                      />
+                    </SettingRow>
+                    <SettingRow
+                      title="检查更新"
+                      hint={
+                        updateResult ? (
+                          <span
+                            className={updateResult.error ? 'update-check-result update-check-result-error' : 'update-check-result'}
+                            role={updateResult.error ? 'alert' : 'status'}
+                          >
+                            {updateResult.text}
+                          </span>
+                        ) : (
+                          '现在就从 GitHub 读取最新版本，忽略过的版本也会再显示。'
+                        )
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="btn"
+                        aria-label="立即检查更新"
+                        disabled={checkingUpdate}
+                        onClick={checkUpdateNow}
+                      >
+                        {checkingUpdate ? '正在检查…' : '立即检查'}
+                      </button>
+                    </SettingRow>
+                  </section>
+                </>
               )}
             </div>
           )}

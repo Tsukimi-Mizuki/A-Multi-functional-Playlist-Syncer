@@ -10,6 +10,7 @@ import './styles/ncm.css'
 import './styles/transfer.css'
 import './styles/editor.css'
 import './styles/settings.css'
+import './styles/update.css'
 import './styles/glass.css'
 import { restoreCachedAppearance } from './state/appearance'
 

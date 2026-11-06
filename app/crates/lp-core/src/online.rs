@@ -14,7 +14,7 @@ pub mod kugou;
 pub mod lrclib;
 pub mod manager;
 pub mod model;
-mod net;
+pub(crate) mod net;
 mod qq;
 pub mod service;
 pub mod view;
