@@ -66,7 +66,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 标签 | `read_tags`、`write_tags`、`read_cover_file` |
 | NCM 导入 | `ncm_get_state`、`ncm_scan`、`ncm_save_state`、`ncm_import`、`ncm_cancel` |
 | 本地曲库 | `scan_library`、`match_playlist`、`library_cancel` |
-| 下载 / 同步 | `set_quality`、`download_tracks`、`download_missing`、`sync_playlist`、`download_cancel` |
+| 下载 / 同步 | `set_quality`、`download_tracks`、`download_missing`（`trackIds`：确认框里仍勾选的歌，只下载其中仍然缺失的）、`sync_playlist`、`download_cancel` |
 | 在线匹配 | `online_search`、`online_load_result`、`lyrics_source_fetch`、`get_match_threshold` |
 | 批量获取 | `batch_scan`、`batch_run`、`batch_cancel` |
 | 编辑器 / 拖放 | `editor_get_state`、`editor_remember_options`、`resolve_drop`、`take_startup_file` |
@@ -141,6 +141,13 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 8. 在线补全（`BatchEnricher`，阈值取设置）：QQ 逐字歌词优先、网易云兜底；失败只作提示。
 
 一键同步（`SyncService`）：本地是 NCM → 解密到下载目录下的**临时子目录**、写 NCM 内嵌标签、取最新歌曲详情、按在线数据重写标签后原子落盘；本地已有普通音频且不要求重新下载 → 跳过；否则下载。与下载共用并发任务池（`maxConcurrency`），结果顺序与输入一致，取消时保留已完成结果。
+
+二次确认（前端 `useTransferConfirm`）：「下载缺失」与「一键同步」先弹确认框，确认后才调命令；「下载选中」不确认。
+
+- 先拿本地对比结果（`useLocalMatch.ensure`）：已经对比过直接用；没有就先对比（必要时扫描，表格同时刷新），扫描被取消或失败就不弹窗（原因显示在对比工具条上）；曲库目录不存在时与后端一样按本地为空处理，确认框里给出提示。
+- 计划由 `planTransfer` 算出：按歌曲 ID 去重，沿用第一次出现那一行的匹配结果（与后端 `unique_rows` 一致）。
+- 「下载缺失」（`DownloadMissingDialog`）：列出缺失歌曲（固定行高虚拟滚动，默认全选；点行或复选框切换，Shift 连选，表头三态全选），底部按钮写明要下载的首数，一首都没勾时不可点；待解密的 NCM 不在清单里，另起一行说明。确认后把仍勾选的 ID 交给 `download_missing(trackIds)`，后端在当时的对比结果里只挑这些 ID 中**仍然**缺失的（确认之后才出现在曲库里的不再下载；空列表报 `noSongs`）。没有任何缺失时不弹窗，只在下载工具条里提示。
+- 「一键同步」（`SyncConfirmDialog`）：歌单共几首、本地已存在跳过（设置开了「覆盖已存在文件」则写明重新下载）/ NCM 解密 / 需要下载各几首，音质与下载目录（确认时读一次设置），歌单里有重复的歌时说明只处理一次。
 
 ### NCM 解密
 
