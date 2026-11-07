@@ -114,9 +114,9 @@ export function downloadTracks(playlistId: number, trackIds: number[]): Promise<
   return call('download_tracks', { playlistId, trackIds })
 }
 
-/** 下载本地曲库里没有的歌曲。 */
-export function downloadMissing(playlistId: number): Promise<TransferSummary> {
-  return call('download_missing', { playlistId })
+/** 下载本地曲库里没有的歌曲；`trackIds` 是确认框里仍勾选的歌，后端只下载其中仍然缺失的。 */
+export function downloadMissing(playlistId: number, trackIds: number[]): Promise<TransferSummary> {
+  return call('download_missing', { playlistId, trackIds })
 }
 
 /** 一键同步整个歌单。 */

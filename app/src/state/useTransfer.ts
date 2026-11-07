@@ -238,9 +238,12 @@ export function useTransfer(playlistId: number | null, onFinished: (summary: Tra
     [playlistId, run],
   )
 
-  const downloadMissingSongs = useCallback(() => {
-    if (playlistId !== null) void run('missing', () => downloadMissing(playlistId))
-  }, [playlistId, run])
+  const downloadMissingSongs = useCallback(
+    (ids: number[]) => {
+      if (playlistId !== null) void run('missing', () => downloadMissing(playlistId, ids))
+    },
+    [playlistId, run],
+  )
 
   const sync = useCallback(() => {
     if (playlistId !== null) void run('sync', () => syncPlaylist(playlistId))
@@ -261,5 +264,25 @@ export function useTransfer(playlistId: number | null, onFinished: (summary: Tra
     setError(null)
   }, [])
 
-  return { rows, running, summary, notice, error, downloadSelected, downloadMissing: downloadMissingSongs, sync, cancel, dismiss }
+  /** 不开始任务、只在工具条里给一句提示（例如确认前发现没有缺失的歌曲）。 */
+  const showNotice = useCallback((message: string) => {
+    if (runningRef.current !== null) return
+    setSummary(null)
+    setError(null)
+    setNotice(message)
+  }, [])
+
+  return {
+    rows,
+    running,
+    summary,
+    notice,
+    error,
+    downloadSelected,
+    downloadMissing: downloadMissingSongs,
+    sync,
+    cancel,
+    dismiss,
+    showNotice,
+  }
 }

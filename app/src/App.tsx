@@ -8,6 +8,7 @@ import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
+import DownloadMissingDialog from './components/DownloadMissingDialog'
 import DropOverlay from './components/DropOverlay'
 import LyricsEditorDialog, { type EditorRequest } from './components/LyricsEditorDialog'
 import LyricsDialog from './components/LyricsDialog'
@@ -18,6 +19,7 @@ import PlaylistSidebar from './components/PlaylistSidebar'
 import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
 import SettingsDialog from './components/SettingsDialog'
+import SyncConfirmDialog from './components/SyncConfirmDialog'
 import TitleBar from './components/TitleBar'
 import UpdateDialog from './components/UpdateDialog'
 import { appearanceOf, applyAppearance } from './state/appearance'
@@ -28,6 +30,7 @@ import { useLocalMatch } from './state/useLocalMatch'
 import { usePlaylists } from './state/usePlaylists'
 import { useSelection } from './state/useSelection'
 import { useTransfer } from './state/useTransfer'
+import { useTransferConfirm } from './state/useTransferConfirm'
 import { useUpdates } from './state/useUpdates'
 
 type DialogState = 'none' | 'login' | 'logout' | 'ncm' | 'settings'
@@ -89,6 +92,7 @@ export default function App() {
     [clearSelection, compareLocal],
   )
   const transfer = useTransfer(loadedDetail?.id ?? null, onTransferFinished)
+  const transferConfirm = useTransferConfirm(loadedDetail, local.ensure, transfer)
   // 下载音质：启动时取设置里的值，工具栏改动后立即生效并写回设置。
   const [quality, setQualityState] = useState<string | null>(null)
   const [qualityError, setQualityError] = useState<string | null>(null)
@@ -225,8 +229,9 @@ export default function App() {
     },
     [openEditor],
   )
-  // 登录 / NCM 导入 / 歌词预览 / 更新提醒等对话框占着界面时不接收拖放（编辑器自己接收）。
-  const dropEnabled = editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt)
+  // 登录 / NCM 导入 / 歌词预览 / 更新提醒 / 下载确认等对话框占着界面时不接收拖放（编辑器自己接收）。
+  const dropEnabled =
+    editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt && !transferConfirm.pending)
   const { dragging } = useFileDrop(dropEnabled, onDrop)
 
   const openLogin = useCallback(() => setDialog('login'), [])
@@ -243,6 +248,9 @@ export default function App() {
     playlists.list.status === 'ready'
       ? (playlists.list.items.find((item) => item.id === playlists.selectedId) ?? null)
       : null
+  const currentQuality = quality ?? appState?.settings.quality ?? 'ExHigh'
+  const qualityOptions = appState?.qualityOptions ?? []
+  const qualityLabel = qualityOptions.find((option) => option.value === currentQuality)?.label ?? currentQuality
 
   return (
     <div className="app-shell">
@@ -320,8 +328,9 @@ export default function App() {
             local={local}
             selection={selection}
             transfer={transfer}
-            quality={quality ?? appState?.settings.quality ?? 'ExHigh'}
-            qualityOptions={appState?.qualityOptions ?? []}
+            transferConfirm={transferConfirm}
+            quality={currentQuality}
+            qualityOptions={qualityOptions}
             qualityError={qualityError}
             onQualityChange={onQualityChange}
           />
@@ -337,6 +346,22 @@ export default function App() {
       {dragging && <DropOverlay editorOpen={editorOpen} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
+      {transferConfirm.pending?.kind === 'missing' && (
+        <DownloadMissingDialog
+          pending={transferConfirm.pending}
+          qualityLabel={qualityLabel}
+          onConfirm={transferConfirm.confirmMissing}
+          onCancel={transferConfirm.dismiss}
+        />
+      )}
+      {transferConfirm.pending?.kind === 'sync' && (
+        <SyncConfirmDialog
+          pending={transferConfirm.pending}
+          qualityLabel={qualityLabel}
+          onConfirm={transferConfirm.confirmSync}
+          onCancel={transferConfirm.dismiss}
+        />
+      )}
       {dialog === 'logout' && (
         <ConfirmDialog
           title="退出登录"

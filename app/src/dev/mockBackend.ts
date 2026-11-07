@@ -638,7 +638,13 @@ export function installMockBackend(scenario: string | null): void {
     } else {
       songs = all.filter((song) => !seen.has(song.id) && (seen.add(song.id), true))
       if (kind === 'missing') {
-        songs = songs.filter((song) => mockLocalMatch(song).availability === 'missing')
+        // 确认框里仍勾选的歌：只下载其中仍然缺失的；曲库目录不存在（`libmissing`）时与后端一样全部算缺失。
+        if (ids !== null && ids.length === 0) {
+          throw { kind: 'noSongs', message: '没有选择要下载的歌曲，请至少勾选一首。' }
+        }
+        const confirmed = ids === null ? null : new Set(ids)
+        const missing = (song: Song) => scenario === 'libmissing' || mockLocalMatch(song).availability === 'missing'
+        songs = songs.filter((song) => missing(song) && (confirmed?.has(song.id) ?? true))
         if (songs.length === 0) {
           throw { kind: 'noSongs', message: '没有需要下载的歌曲：本地已存在，或是待解密的 NCM（可以用「一键同步」解密）。' }
         }
@@ -845,7 +851,7 @@ export function installMockBackend(scenario: string | null): void {
         case 'download_tracks':
           return mockTransferCommand('selected', Number(args.playlistId), (args.trackIds as number[]) ?? [])
         case 'download_missing':
-          return mockTransferCommand('missing', Number(args.playlistId), null)
+          return mockTransferCommand('missing', Number(args.playlistId), (args.trackIds as number[] | null | undefined) ?? null)
         case 'sync_playlist':
           return mockTransferCommand('sync', Number(args.playlistId), null)
         case 'download_cancel':

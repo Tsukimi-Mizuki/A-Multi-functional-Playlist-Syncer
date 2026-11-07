@@ -1038,18 +1038,20 @@ async fn download_tracks(
         .await
 }
 
-/// 下载本地曲库里没有的歌曲（NCM 待解密的不算缺失）。
+/// 下载本地曲库里没有的歌曲（NCM 待解密的不算缺失）；`track_ids` 是确认框里仍勾选的歌，
+/// 给出时只下载其中仍然缺失的。
 #[tauri::command]
 async fn download_missing(
     app: AppHandle,
     state: State<'_, AppState>,
     playlist_id: i64,
+    track_ids: Option<Vec<i64>>,
 ) -> Result<TransferSummaryView, TransferError> {
     let transfers = Arc::clone(&state.transfers);
     let settings = state.settings_snapshot();
     transfer_channels!(app, started, channels);
     transfers
-        .download_missing(playlist_id, &settings, &channels)
+        .download_missing(playlist_id, track_ids.as_deref(), &settings, &channels)
         .await
 }
 

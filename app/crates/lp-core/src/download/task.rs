@@ -7,7 +7,8 @@
 //!
 //! - **下载选中**：只下载用户勾选的歌曲（按勾选顺序，重复 ID 只算一次），不看本地状态——目录里已有同名音频时
 //!   由 `skip_existing` 决定跳过。
-//! - **下载缺失**：本地曲库里**没有**的歌（`Missing`）；NCM 待解密的不算缺失（用同步解密）。
+//! - **下载缺失**：本地曲库里**没有**的歌（`Missing`）；NCM 待解密的不算缺失（用同步解密）。界面的确认框
+//!   可以取消勾选部分歌曲，这时只下载传进来的 ID 里**仍然**缺失的（确认之后才变成已存在的不会再下载）。
 //! - **一键同步**：整个歌单，每首按本地状态走跳过 / NCM 解密 / 下载三个分支。
 //! - 后两者对歌单里重复出现的同一首歌只处理一次（并发处理同一首歌只会得到两份文件）。
 //! - 曲库目录不存在时按“本地为空”处理并给出警告（同步 / 下载缺失的语义本来就是把缺的补齐）。
@@ -258,20 +259,32 @@ impl TransferManager {
             .await
     }
 
-    /// 下载本地曲库里没有的歌曲。
+    /// 下载本地曲库里没有的歌曲；`only` 给出时只下载其中仍然缺失的（确认框里取消勾选的不下载）。
     pub async fn download_missing(
         &self,
         playlist_id: i64,
+        only: Option<&[i64]>,
         settings: &AppSettings,
         channels: &TransferChannels<'_>,
     ) -> Result<TransferSummaryView, TransferError> {
         let guard = self.slot.try_begin()?;
+        if only.is_some_and(<[i64]>::is_empty) {
+            return Err(TransferError::new(
+                "noSongs",
+                "没有选择要下载的歌曲，请至少勾选一首。",
+            ));
+        }
+        let only: Option<HashSet<i64>> = only.map(|ids| ids.iter().copied().collect());
         let matched = self
             .match_for_transfer(playlist_id, settings, channels.scan_progress.clone())
             .await?;
         let rows = unique_rows(&matched.songs);
         let songs: Vec<NeteaseSong> = rows
             .into_iter()
+            .filter(|row| {
+                only.as_ref()
+                    .is_none_or(|ids| ids.contains(&matched.songs[*row].id))
+            })
             .filter(|row| {
                 // 目录不存在（没有对比结果）时按本地为空处理：全部算缺失。
                 matched

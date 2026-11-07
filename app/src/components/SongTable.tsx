@@ -191,8 +191,8 @@ ${match.path}`}
   )
 })
 
-/** 表头的全选复选框：部分选中时显示横线（indeterminate）。 */
-function HeaderCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: () => void }) {
+/** 表头的全选复选框：部分选中时显示横线（indeterminate）。「下载缺失」的确认清单也用它。 */
+export function HeaderCheckbox({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: () => void }) {
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = indeterminate

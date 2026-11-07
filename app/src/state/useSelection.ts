@@ -26,16 +26,20 @@ export function applyRange(
  *
  * - 点复选框切换一行；按住 Shift 再点，把「上一次点的那一行」到这一行之间的所有行设为与这一行相同的状态；
  * - 表头复选框全选 / 全不选；
- * - 换歌单或重新加载曲目后清空。
+ * - 换歌单或重新加载曲目后清空；`initiallyAll` 为真时改为全部勾选（「下载缺失」的确认清单默认全选）。
  */
-export function useSelection(songs: readonly Song[]) {
-  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set())
+export function useSelection(songs: readonly Song[], initiallyAll = false) {
+  const initial = useCallback(
+    () => new Set(initiallyAll ? songs.map((song) => song.id) : []),
+    [songs, initiallyAll],
+  )
+  const [selected, setSelected] = useState<ReadonlySet<number>>(initial)
   const anchor = useRef<number | null>(null)
 
   useEffect(() => {
-    setSelected(new Set())
+    setSelected(initial())
     anchor.current = null
-  }, [songs])
+  }, [initial])
 
   const toggle = useCallback(
     (index: number, extend: boolean) => {

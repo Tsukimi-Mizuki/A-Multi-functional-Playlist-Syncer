@@ -24,6 +24,21 @@ export interface LocalError {
 
 type Mode = 'auto' | 'compare' | 'rescan'
 
+/** 一次对比的结局；`stale` 表示期间换了歌单或又发起了新的对比，结果没有被采纳。 */
+type RunResult =
+  | { status: 'matched'; outcome: MatchOutcome | null }
+  | { status: 'failed'; kind: LibraryErrorKind; message: string }
+  | { status: 'stale' }
+
+/**
+ * 确认下载 / 同步前要用的对比结果：`ready` 与歌曲一一对应；`libraryMissing` 曲库目录不存在
+ * （后端按本地为空处理，全部算缺失）；`aborted` 被取消、失败或换了歌单（原因已显示在对比工具条上）。
+ */
+export type EnsureResult =
+  | { status: 'ready'; matches: LocalMatch[] }
+  | { status: 'libraryMissing'; message: string }
+  | { status: 'aborted' }
+
 /**
  * 当前歌单与本地曲库的对比状态。
  *
@@ -40,7 +55,7 @@ export function useLocalMatch(playlist: PlaylistDetail | null, autoMatch: boolea
   const [notice, setNotice] = useState<string | null>(null)
   const tokenRef = useRef(0)
 
-  const run = useCallback(async (playlistId: number, mode: Mode) => {
+  const run = useCallback(async (playlistId: number, mode: Mode): Promise<RunResult> => {
     const token = ++tokenRef.current
     setNotice(null)
     setError(null)
@@ -48,14 +63,17 @@ export function useLocalMatch(playlist: PlaylistDetail | null, autoMatch: boolea
     try {
       if (mode === 'rescan') await scanLibrary()
       const result = await matchPlaylist(playlistId, mode === 'auto' ? 'never' : 'ifNeeded')
-      if (token !== tokenRef.current) return
+      if (token !== tokenRef.current) return { status: 'stale' }
       // 还没有扫描过：保持「未对比」。
-      setOutcome(result.scanned ? result : null)
+      const outcome = result.scanned ? result : null
+      setOutcome(outcome)
+      return { status: 'matched', outcome }
     } catch (raised: unknown) {
-      if (token !== tokenRef.current) return
+      if (token !== tokenRef.current) return { status: 'stale' }
       const failure = toLibraryError(raised)
       if (failure.kind === 'cancelled') setNotice('已取消扫描本地曲库')
       else setError({ kind: failure.kind, message: failure.message })
+      return { status: 'failed', kind: failure.kind, message: failure.message }
     } finally {
       if (token === tokenRef.current) setBusy(null)
     }
@@ -105,10 +123,34 @@ export function useLocalMatch(playlist: PlaylistDetail | null, autoMatch: boolea
   }, [])
 
   // 只有结果确实属于当前歌单、且与歌曲一一对应时才交给表格。
-  const matches: LocalMatch[] | null =
-    outcome !== null && playlist !== null && outcome.playlistId === playlist.id && outcome.matches.length === playlist.songs.length
-      ? outcome.matches
-      : null
+  const matches = matchesFor(outcome, playlist)
 
-  return { outcome: matches ? outcome : null, matches, busy, error, notice, compare, rescan, cancel }
+  // `ensure` 在等待对比时要读到最新的歌单与结果。
+  const latest = useRef({ playlist, matches })
+  useEffect(() => {
+    latest.current = { playlist, matches }
+  })
+
+  /** 已经对比过就直接用；还没有（或上次失败）就先对比，必要时扫描曲库，表格同时刷新。 */
+  const ensure = useCallback(async (): Promise<EnsureResult> => {
+    const current = latest.current
+    if (current.matches) return { status: 'ready', matches: current.matches }
+    const target = current.playlist
+    if (target === null) return { status: 'aborted' }
+    const result = await run(target.id, 'compare')
+    if (result.status === 'failed' && result.kind === 'directoryMissing') {
+      return { status: 'libraryMissing', message: result.message }
+    }
+    if (result.status !== 'matched') return { status: 'aborted' }
+    const fresh = matchesFor(result.outcome, target)
+    return fresh && latest.current.playlist === target ? { status: 'ready', matches: fresh } : { status: 'aborted' }
+  }, [run])
+
+  return { outcome: matches ? outcome : null, matches, busy, error, notice, compare, rescan, cancel, ensure }
+}
+
+function matchesFor(outcome: MatchOutcome | null, playlist: PlaylistDetail | null): LocalMatch[] | null {
+  return outcome !== null && playlist !== null && outcome.playlistId === playlist.id && outcome.matches.length === playlist.songs.length
+    ? outcome.matches
+    : null
 }

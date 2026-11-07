@@ -224,3 +224,223 @@
     grid-template-columns: 32px 44px minmax(120px, 2.2fr) minmax(70px, 1.2fr) 52px 100px minmax(120px, 1.5fr) 60px;
   }
 }
+
+/* ---- 「下载缺失」与「一键同步」的二次确认 ---- */
+.transfer-confirm {
+  width: min(100%, 460px);
+}
+
+.transfer-confirm-wide {
+  width: min(100%, 680px);
+  height: min(100%, 600px);
+}
+
+.transfer-confirm .modal-body {
+  align-items: stretch;
+  gap: 10px;
+}
+
+.transfer-confirm-wide .modal-body {
+  flex: 1;
+}
+
+.transfer-confirm-path {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.transfer-confirm-warn {
+  margin: 0;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.transfer-confirm-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.transfer-confirm-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-alt);
+  list-style: none;
+}
+
+.transfer-confirm-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.transfer-confirm-stat-count {
+  flex: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-confirm-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.transfer-confirm-meta dt {
+  color: var(--text-tertiary);
+}
+
+.transfer-confirm-meta dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+/* 底部左侧的勾选计数把按钮推到右侧 */
+.transfer-confirm-count {
+  margin-right: auto;
+  align-self: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.transfer-confirm .btn:disabled {
+  opacity: 0.5;
+}
+
+/* 缺失清单（固定行高 + 虚拟滚动；行高必须与 DownloadMissingDialog.tsx 的 MISSING_ROW_HEIGHT 一致） */
+.missing-table {
+  --missing-row-height: 36px;
+  --missing-scrollbar: 10px;
+
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 140px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-alt);
+  overflow: hidden;
+}
+
+.missing-grid {
+  display: grid;
+  grid-template-columns: 28px 40px minmax(120px, 1.8fr) minmax(70px, 1fr) minmax(70px, 1fr) 44px;
+  column-gap: 10px;
+  align-items: center;
+}
+
+.missing-head {
+  flex: none;
+  height: 30px;
+  padding: 0 calc(var(--missing-scrollbar) + 12px) 0 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.missing-scroller {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  /* 始终保留滚动条槽位，保证表头与行的列对齐。 */
+  overflow-y: scroll;
+  outline: none;
+}
+
+.missing-scroller:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.missing-scroller::-webkit-scrollbar {
+  width: var(--missing-scrollbar);
+}
+
+.missing-scroller::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.missing-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.missing-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.missing-row {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--missing-row-height);
+  padding: 0 12px 0 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.missing-row:hover {
+  background: var(--row-hover);
+}
+
+.missing-row-checked {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.missing-row-checked:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.missing-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.missing-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.missing-index,
+.missing-duration {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.missing-duration {
+  text-align: right;
+}
+
+.missing-title {
+  font-weight: 600;
+}
+
+.missing-secondary {
+  color: var(--text-secondary);
+}

@@ -5,6 +5,7 @@ import type { QualityOption } from '../api/app'
 import type { useLocalMatch } from '../state/useLocalMatch'
 import type { useSelection } from '../state/useSelection'
 import type { useTransfer } from '../state/useTransfer'
+import type { useTransferConfirm } from '../state/useTransferConfirm'
 import type { DetailState, ListState } from '../state/usePlaylists'
 import LocalToolbar from './LocalToolbar'
 import SongTable from './SongTable'
@@ -27,6 +28,8 @@ interface PlaylistViewProps {
   selection: ReturnType<typeof useSelection>
   /** 下载 / 同步任务的状态与操作。 */
   transfer: ReturnType<typeof useTransfer>
+  /** 「下载缺失」与「一键同步」先弹确认框，确认后才开始任务。 */
+  transferConfirm: ReturnType<typeof useTransferConfirm>
   /** 当前下载音质（`AudioQuality` 成员名）与可选项。 */
   quality: string
   qualityOptions: QualityOption[]
@@ -124,6 +127,7 @@ export default function PlaylistView({
   local,
   selection,
   transfer,
+  transferConfirm,
   quality,
   qualityOptions,
   qualityError,
@@ -263,7 +267,7 @@ export default function PlaylistView({
             notice={transfer.notice}
             error={transfer.error}
             missingCount={local.outcome ? local.outcome.stats.missing : null}
-            localBusy={local.busy !== null}
+            localBusy={local.busy !== null || transferConfirm.preparing}
             quality={quality}
             qualityOptions={qualityOptions}
             qualityError={qualityError}
@@ -271,8 +275,8 @@ export default function PlaylistView({
             onDownloadSelected={() =>
               transfer.downloadSelected(loaded.songs.filter((song) => selection.selected.has(song.id)).map((song) => song.id))
             }
-            onDownloadMissing={transfer.downloadMissing}
-            onSync={transfer.sync}
+            onDownloadMissing={() => void transferConfirm.request('missing')}
+            onSync={() => void transferConfirm.request('sync')}
             onCancel={transfer.cancel}
             onDismiss={transfer.dismiss}
           />

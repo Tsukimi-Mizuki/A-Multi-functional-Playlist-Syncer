@@ -138,6 +138,14 @@ impl Rig {
         &self,
         settings: &AppSettings,
     ) -> Result<TransferSummaryView, TransferError> {
+        self.download_missing_only(None, settings).await
+    }
+
+    async fn download_missing_only(
+        &self,
+        only: Option<&[i64]>,
+        settings: &AppSettings,
+    ) -> Result<TransferSummaryView, TransferError> {
         let started = Arc::clone(&self.started);
         let record = move |plan: TransferStarted| started.lock().unwrap().push(plan);
         let channels = TransferChannels {
@@ -145,7 +153,9 @@ impl Rig {
             sink: self.reports.sink(),
             scan_progress: Arc::new(|_| {}),
         };
-        self.manager.download_missing(5, settings, &channels).await
+        self.manager
+            .download_missing(5, only, settings, &channels)
+            .await
     }
 
     async fn sync(&self, settings: &AppSettings) -> Result<TransferSummaryView, TransferError> {
@@ -293,6 +303,52 @@ async fn download_missing_skips_what_the_library_has_and_the_pending_ncm() {
     assert_eq!(ids, [2, 3]);
     assert_eq!(summary.downloaded, 2);
     assert_eq!(rig.started.lock().unwrap()[0].song_ids, [2, 3]);
+}
+
+#[tokio::test]
+async fn download_missing_keeps_only_the_confirmed_songs_that_are_still_missing() {
+    let rig = Rig::new();
+    rig.load_playlist();
+    rig.present("周杰伦 - 歌1.mp3");
+    rig.pending_ncm();
+    let settings = rig.settings();
+
+    // 确认框里留下歌3、已存在的歌1、待解密的 555 与不在歌单里的 999；取消勾选了歌2。
+    let summary = rig
+        .download_missing_only(Some(&[3, 1, 555, 999]), &settings)
+        .await
+        .unwrap();
+
+    assert_eq!(summary.kind, TransferKind::Missing);
+    assert_eq!(summary.total, 1);
+    let ids: Vec<i64> = summary.results.iter().map(|r| r.song_id).collect();
+    assert_eq!(ids, [3]);
+    assert_eq!(rig.started.lock().unwrap()[0].song_ids, [3]);
+    assert_eq!(file_names(rig.download_dir.path()), ["周杰伦 - 歌3.mp3"]);
+}
+
+#[tokio::test]
+async fn download_missing_with_an_empty_or_stale_confirmation_downloads_nothing() {
+    let rig = Rig::new();
+    rig.load_playlist();
+    rig.present("周杰伦 - 歌1.mp3");
+    let settings = rig.settings();
+
+    let empty = rig
+        .download_missing_only(Some(&[]), &settings)
+        .await
+        .unwrap_err();
+    assert_eq!(empty.kind, "noSongs");
+    assert!(empty.message.contains("至少勾选一首"));
+    // 确认之后歌1 已经出现在曲库里：不再下载。
+    let stale = rig
+        .download_missing_only(Some(&[1]), &settings)
+        .await
+        .unwrap_err();
+    assert_eq!(stale.kind, "noSongs");
+    assert!(stale.message.contains("没有需要下载的歌曲"));
+    assert!(rig.started.lock().unwrap().is_empty());
+    assert!(!rig.manager.is_running());
 }
 
 #[tokio::test]
