@@ -6,6 +6,36 @@ export type WindowMaterial = 'Acrylic' | 'Mica' | 'None'
 export type LyricsWriteMode = 'None' | 'Line' | 'Word'
 export type SourcePriority = 'NeteaseFirst' | 'QQMusicFirst' | 'NeteaseOnly' | 'QQMusicOnly'
 export type LyricsSourceKind = 'Netease' | 'QQMusic' | 'Kugou' | 'Lrclib'
+/** 主界面背景：内置背景（渐变光斑 / 自选图片 / 歌单封面）由界面用 WebGL 画，玻璃能真正折射；`System` 透出桌面。 */
+export type BackgroundSource = 'System' | 'Gradient' | 'Image' | 'PlaylistCover'
+export type GradientPreset = 'Aurora' | 'Ocean' | 'Sunset' | 'Forest'
+
+/** 与 Rust 端 `LiquidGlass`（camelCase）一一对应：液态玻璃的高级参数，范围见 `glass/params.ts`。 */
+export interface LiquidGlass {
+  refThickness: number
+  refDistance: number
+  refFactor: number
+  refDispersion: number
+  fresnelRange: number
+  fresnelHardness: number
+  fresnelFactor: number
+  glareRange: number
+  glareHardness: number
+  glareFactor: number
+  glareConvergence: number
+  glareOppositeFactor: number
+  glareAngle: number
+  blurRadius: number
+  shadowExpand: number
+  shadowFactor: number
+  shadowOffsetX: number
+  shadowOffsetY: number
+  cornerRadius: number
+  superellipse: number
+  blurEdge: boolean
+  /** `#rrggbb`；空字符串表示跟随主题。 */
+  tintColor: string
+}
 
 /** 与 Rust 端 `AppSettings`（camelCase）一一对应，也就是 `settings.json` 的内容。 */
 export interface AppSettings {
@@ -40,6 +70,16 @@ export interface AppSettings {
   autoCheckUpdates: boolean
   /** 「忽略本次更新」记住的版本（空表示没有），由更新提醒写入，设置窗口不改它。 */
   ignoredUpdateVersion: string
+  background: BackgroundSource
+  gradientPreset: GradientPreset
+  /** 自选背景图片的路径（`background` 为 `Image` 时使用）。 */
+  backgroundImage: string
+  liquidGlass: LiquidGlass
+}
+
+/** 实际要铺的系统材质（与 Rust 端 `effective_window_material` 一致）：内置背景盖满窗口，下面不铺材质。 */
+export function effectiveMaterial(settings: Pick<AppSettings, 'background' | 'windowMaterial'>): WindowMaterial {
+  return settings.background === 'System' ? settings.windowMaterial : 'None'
 }
 
 /** 与 Rust 端 `SettingsDto` 一一对应。 */

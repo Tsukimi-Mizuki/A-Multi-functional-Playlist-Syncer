@@ -70,4 +70,33 @@ NCM 解密与网易云 / QQ / 酷狗接口协议来自社区公开研究，代�
 
 液态玻璃效果由网页自身的半透明层叠、滤镜与 CSS 变量实现，窗口的亚克力 / 云母材质经 Tauri 的窗口效果接口（内部使用 Windows DWM / `window-vibrancy`）铺在网页下面。未引入额外的主题包或模糊库。
 
+内置背景下的 WebGL 液态玻璃（`app/src/glass/shaders.ts`，以及对话框折射用的位移图 `app/src/glass/underGlass.ts`）中，
+按斯涅尔定律计算边缘折射、色散、菲涅尔反射与按角度分布的高光的算法，以及「高级设置」里各参数的含义与取值范围，
+改编自 [liquid-glass-studio](https://github.com/iyinchao/liquid-glass-studio)（MIT）。本项目没有引入它的运行时或其他依赖，
+颜色提亮改用 OKLab（Björn Ottosson 公开的转换），背景、形状并集、坐标约定与 CSS 近似为本项目实现。其许可证全文：
+
+```text
+MIT License
+
+Copyright (c) 2024 Charles Yin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 请遵守上述项目各自的许可证以及网易云音乐用户协议、当地版权法律。

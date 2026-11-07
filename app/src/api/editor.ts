@@ -76,11 +76,11 @@ export function takeStartupFile(): Promise<string | null> {
 }
 
 /** 弹出系统「选择图片」对话框；取消返回 null。 */
-export async function pickCoverImage(): Promise<string | null> {
+export async function pickCoverImage(title = '选择封面图片'): Promise<string | null> {
   const selected = await open({
     multiple: false,
     directory: false,
-    title: '选择封面图片',
+    title,
     filters: [
       { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] },
       { name: '所有文件', extensions: ['*'] },

@@ -16,10 +16,14 @@ use serde_json::Value;
 
 use crate::error::{CoreError, CoreResult};
 use crate::models::{
-    AudioQuality, LyricsSourceKind, LyricsWriteMode, OnlineSourcePriority, RenderFrameRateMode,
-    ThemeMode, WindowMaterial,
+    AudioQuality, BackgroundSource, GradientPreset, LyricsSourceKind, LyricsWriteMode,
+    OnlineSourcePriority, RenderFrameRateMode, ThemeMode, WindowMaterial,
 };
 use crate::update::Version;
+
+mod liquid_glass;
+
+pub use liquid_glass::LiquidGlass;
 
 /// 默认文件名模板。
 pub const DEFAULT_FILE_NAME_TEMPLATE: &str = "{artist} - {title}";
@@ -98,6 +102,14 @@ pub struct AppSettings {
     pub auto_check_updates: bool,
     /// 「忽略本次更新」记住的版本（归一后的 SemVer，空表示没有）：只跳过这一个版本，更新的版本照常提醒。
     pub ignored_update_version: String,
+    /// 主界面背景：内置背景（渐变光斑 / 自选图片 / 歌单封面）由界面自己画，玻璃能真正折射它；系统材质透出桌面。
+    pub background: BackgroundSource,
+    /// 内置渐变光斑的配色。
+    pub gradient_preset: GradientPreset,
+    /// 自选背景图片的路径（`background` 为 `Image` 时使用；图片不复制进程序）。
+    pub background_image: String,
+    /// 液态玻璃的高级参数（折射、菲涅尔、高光、模糊、色调、阴影、形状）。
+    pub liquid_glass: LiquidGlass,
 }
 
 impl AppSettings {
@@ -133,6 +145,19 @@ impl AppSettings {
             reduce_motion: false,
             auto_check_updates: true,
             ignored_update_version: String::new(),
+            background: BackgroundSource::Gradient,
+            gradient_preset: GradientPreset::Aurora,
+            background_image: String::new(),
+            liquid_glass: LiquidGlass::default(),
+        }
+    }
+
+    /// 实际要铺的系统材质：内置背景会盖满整个窗口，下面的亚克力 / 云母看不见还耗电，所以不铺。
+    pub fn effective_window_material(&self) -> WindowMaterial {
+        if self.background.is_builtin() {
+            WindowMaterial::None
+        } else {
+            self.window_material
         }
     }
 
@@ -193,6 +218,9 @@ impl AppSettings {
         self.ignored_update_version = Version::parse(&self.ignored_update_version)
             .map(|version| version.to_string())
             .unwrap_or_default();
+
+        self.background_image = self.background_image.trim().to_owned();
+        self.liquid_glass.normalize();
     }
 
     /// 从已解析的 JSON 值构造设置：缺字段或类型不对的字段取默认值，最后做一次 [`normalize`](Self::normalize)。
@@ -296,6 +324,18 @@ impl AppSettings {
         if let Some(v) = get("ignoredUpdateVersion").and_then(as_string) {
             settings.ignored_update_version = v;
         }
+        if let Some(v) = get("background").and_then(BackgroundSource::from_json) {
+            settings.background = v;
+        }
+        if let Some(v) = get("gradientPreset").and_then(GradientPreset::from_json) {
+            settings.gradient_preset = v;
+        }
+        if let Some(v) = get("backgroundImage").and_then(as_string) {
+            settings.background_image = v;
+        }
+        if let Some(v) = get("liquidGlass") {
+            settings.liquid_glass = LiquidGlass::from_json(v);
+        }
 
         settings.normalize(default_download_dir);
         settings
@@ -322,7 +362,15 @@ impl AppSettings {
                 return Err(format!("未知的设置项：{key}"));
             }
             validate_patch_value(key, value)?;
-            object.insert(key.clone(), value.clone());
+            // 液态玻璃参数可以只传改动的几项：合并进当前参数，而不是整份替换。
+            let value = match (key.as_str(), value.as_object()) {
+                ("liquidGlass", Some(glass)) => {
+                    serde_json::to_value(self.liquid_glass.merged(glass))
+                        .map_err(|error| error.to_string())?
+                }
+                _ => value.clone(),
+            };
+            object.insert(key.clone(), value);
         }
         Ok(AppSettings::from_json_value(&root, default_download_dir))
     }
@@ -336,7 +384,15 @@ fn validate_patch_value(key: &str, value: &Value) -> Result<(), String> {
         "downloadDirectory"
         | "libraryDirectory"
         | "fileNameTemplate"
-        | "ncmImportOutputDirectory" => name().map(drop),
+        | "ncmImportOutputDirectory"
+        | "backgroundImage" => name().map(drop),
+        "background" => BackgroundSource::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "gradientPreset" => GradientPreset::from_name(name()?)
+            .map(drop)
+            .ok_or_else(invalid),
+        "liquidGlass" => LiquidGlass::validate_patch(value),
         "writeCover"
         | "overwriteExisting"
         | "skipExisting"
@@ -585,6 +641,16 @@ mod tests {
             reduce_motion: true,
             auto_check_updates: false,
             ignored_update_version: "2.2.0".to_owned(),
+            background: BackgroundSource::Image,
+            gradient_preset: GradientPreset::Forest,
+            background_image: r"D:\wallpapers\lake.jpg".to_owned(),
+            liquid_glass: LiquidGlass {
+                ref_dispersion: 12.5,
+                glare_angle: 60.0,
+                blur_edge: false,
+                tint_color: "#336699".to_owned(),
+                ..LiquidGlass::default()
+            },
         };
 
         let saved = store.save(&settings).unwrap();
@@ -633,10 +699,14 @@ mod tests {
             "reduceMotion",
             "autoCheckUpdates",
             "ignoredUpdateVersion",
+            "background",
+            "gradientPreset",
+            "backgroundImage",
+            "liquidGlass",
         ] {
             assert!(object.contains_key(key), "缺少键 {key}");
         }
-        assert_eq!(object.len(), 27);
+        assert_eq!(object.len(), 31);
         assert_eq!(root["quality"], "Lossless");
         assert_eq!(root["tagSourcePriority"], "QQMusicOnly");
         assert_eq!(root["lyricsEditorSearchSource"], "QQMusic");
@@ -1109,6 +1179,93 @@ mod tests {
                 Err("背景雾度必须在 0%–100% 之间".to_owned()),
                 "应拒绝 {patch}"
             );
+        }
+    }
+
+    #[test]
+    fn background_defaults_to_the_builtin_gradient_and_reads_leniently() {
+        let read = |text: &str| {
+            AppSettings::from_json_value(&serde_json::from_str(text).unwrap(), DEFAULT_DIR)
+        };
+        let defaults = AppSettings::new(DEFAULT_DIR);
+        assert_eq!(defaults.background, BackgroundSource::Gradient);
+        assert_eq!(defaults.gradient_preset, GradientPreset::Aurora);
+        assert_eq!(defaults.background_image, "");
+        assert_eq!(defaults.liquid_glass, LiquidGlass::default());
+
+        let custom = read(
+            r#"{"background":"PlaylistCover","gradientPreset":"ocean","backgroundImage":"  D:\\bg.png ","liquidGlass":{"glareAngle":30}}"#,
+        );
+        assert_eq!(custom.background, BackgroundSource::PlaylistCover);
+        assert_eq!(custom.gradient_preset, GradientPreset::Ocean);
+        assert_eq!(custom.background_image, r"D:\bg.png");
+        assert_eq!(custom.liquid_glass.glare_angle, 30.0);
+        assert_eq!(custom.liquid_glass.ref_thickness, 20.0, "其余参数取默认");
+
+        let broken = read(r#"{"background":"Video","gradientPreset":9,"liquidGlass":"厚一点"}"#);
+        assert_eq!(broken.background, BackgroundSource::Gradient);
+        assert_eq!(broken.gradient_preset, GradientPreset::Aurora);
+        assert_eq!(broken.liquid_glass, LiquidGlass::default());
+    }
+
+    #[test]
+    fn builtin_backgrounds_do_not_lay_a_system_material_underneath() {
+        let mut settings = AppSettings::new(DEFAULT_DIR);
+        settings.window_material = WindowMaterial::Mica;
+        for source in [
+            BackgroundSource::Gradient,
+            BackgroundSource::Image,
+            BackgroundSource::PlaylistCover,
+        ] {
+            settings.background = source;
+            assert_eq!(settings.effective_window_material(), WindowMaterial::None);
+        }
+        settings.background = BackgroundSource::System;
+        assert_eq!(settings.effective_window_material(), WindowMaterial::Mica);
+    }
+
+    #[test]
+    fn liquid_glass_patches_merge_into_the_current_parameters() {
+        let mut current = AppSettings::new(DEFAULT_DIR);
+        current.liquid_glass.glare_angle = 30.0;
+
+        let next = current
+            .apply_patch(
+                &json!({
+                    "background": "System",
+                    "gradientPreset": "Sunset",
+                    "backgroundImage": r"D:\new.jpg",
+                    "liquidGlass": { "refDispersion": 20, "tintColor": "#ABCDEF" },
+                }),
+                DEFAULT_DIR,
+            )
+            .unwrap();
+
+        assert_eq!(next.background, BackgroundSource::System);
+        assert_eq!(next.gradient_preset, GradientPreset::Sunset);
+        assert_eq!(next.background_image, r"D:\new.jpg");
+        assert_eq!(next.liquid_glass.ref_dispersion, 20.0);
+        assert_eq!(next.liquid_glass.tint_color, "#abcdef");
+        assert_eq!(next.liquid_glass.glare_angle, 30.0, "没提到的参数保持原样");
+        assert_eq!(next.glass_opacity, current.glass_opacity);
+
+        for (patch, message) in [
+            (json!({ "background": "Video" }), None),
+            (json!({ "gradientPreset": 1 }), None),
+            (json!({ "backgroundImage": 3 }), None),
+            (
+                json!({ "liquidGlass": { "glareFactor": 121 } }),
+                Some("高光强度必须在 0–120 之间"),
+            ),
+            (
+                json!({ "liquidGlass": { "mergeRate": 0.1 } }),
+                Some("未知的液态玻璃参数：mergeRate"),
+            ),
+        ] {
+            let error = current.apply_patch(&patch, DEFAULT_DIR).unwrap_err();
+            if let Some(message) = message {
+                assert_eq!(error, message, "{patch}");
+            }
         }
     }
 

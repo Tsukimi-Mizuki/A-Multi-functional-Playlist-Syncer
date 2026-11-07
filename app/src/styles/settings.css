@@ -557,3 +557,206 @@
 .btn-icon:hover svg {
   transform: rotate(60deg);
 }
+
+/* ---- 液态玻璃高级设置（外观页最下面，可展开） ---- */
+.settings-advanced-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-advanced-toggle {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.settings-advanced-toggle:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-advanced-chevron {
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  margin: 0 2px 0 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.settings-advanced-toggle[aria-expanded='true'] .settings-advanced-chevron {
+  transform: rotate(45deg);
+}
+
+.settings-advanced-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-advanced-title {
+  margin: 14px 0 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tint-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tint-field-label {
+  min-width: 52px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.tint-field-color {
+  width: 36px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: none;
+}
+
+/* 即时预览：滚动到下面的滑块时预览框停在顶部，边拖边看。 */
+.lg-preview-wrap {
+  position: sticky;
+  top: -14px;
+  z-index: 4;
+  margin: 10px 0 4px;
+  padding: 6px 0;
+}
+
+.lg-preview {
+  position: relative;
+  height: 236px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #101622;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
+  isolation: isolate;
+  touch-action: none;
+}
+
+.lg-preview-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 预览里的迷你面板：内置背景下由 WebGL 画成玻璃（glass.css 去掉 CSS 底色），系统材质下与主界面一样是 CSS 近似。 */
+.lg-preview .lg-preview-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: calc(var(--lg-radius, 16px) * 0.75);
+  color: var(--text-primary);
+  font-size: 12px;
+  text-shadow: var(--text-shadow-glass);
+}
+
+.lg-preview-side {
+  top: 14px;
+  bottom: 14px;
+  left: 14px;
+  width: 27%;
+}
+
+.lg-preview-card {
+  top: 14px;
+  right: 14px;
+  left: calc(27% + 26px);
+  height: 112px;
+}
+
+.lg-preview-heading {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.lg-preview-row {
+  overflow: hidden;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-preview-row-active {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.lg-preview-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.lg-preview-text {
+  color: var(--text-secondary);
+}
+
+.lg-preview-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.lg-preview-lens {
+  position: absolute;
+  z-index: 2;
+  border-radius: min(42px, calc(var(--lg-radius, 16px) * 1.6));
+  corner-shape: var(--lg-corner-shape, round);
+  outline: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.lg-preview-lens:active {
+  cursor: grabbing;
+}
+
+.lg-preview-lens:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.lg-preview-note {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* WebGL2 不可用：预览框用 CSS 渐变当背景，玻璃块也只剩 CSS 近似。 */
+.lg-preview-fallback {
+  background: linear-gradient(135deg, #2b3a67, #6b3a5e 55%, #1f4f52);
+}
+
+.lg-preview-fallback .lg-preview-lens {
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 60%), var(--control);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent);
+}

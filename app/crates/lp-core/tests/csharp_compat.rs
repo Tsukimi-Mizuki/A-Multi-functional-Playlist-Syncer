@@ -30,13 +30,17 @@ fn read_json(name: &str) -> Value {
 }
 
 /// Rust 重写版新增、C# 版没有的设置键（C# 读取时忽略它们，所以文件仍然互通）。
-const RUST_ONLY_KEYS: [&str; 6] = [
+const RUST_ONLY_KEYS: [&str; 10] = [
     "windowMaterial",
     "glassOpacity",
     "backdropHaze",
     "reduceMotion",
     "autoCheckUpdates",
     "ignoredUpdateVersion",
+    "background",
+    "gradientPreset",
+    "backgroundImage",
+    "liquidGlass",
 ];
 
 /// 去掉 Rust 新增的键，只留 C# 也认识的部分用于逐字段比较。

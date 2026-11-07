@@ -13,6 +13,7 @@
  * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
  * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
+ * 外观：默认背景是内置渐变光斑（WebGL 液态玻璃）；`systembg` 改用系统材质（CSS 近似）。
  * 检查更新：默认已是最新；`update` 启动 3 秒后弹出新版本 2.2.0 的提醒（忽略后只在「立即检查」时出现）；`updatefail` 检查失败。
  */
 import { emit } from '@tauri-apps/api/event'
@@ -23,6 +24,7 @@ import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
 import type { TagView } from '../api/tags'
 import type { DownloadProgress, TransferItem, TransferKind, TransferSummary } from '../api/transfer'
+import { DEFAULT_LIQUID_GLASS } from '../glass/params'
 
 const ACCOUNT: AccountSummary = {
   loggedIn: true,
@@ -716,6 +718,11 @@ export function installMockBackend(scenario: string | null): void {
     reduceMotion: false,
     autoCheckUpdates: true,
     ignoredUpdateVersion: '',
+    // `?mock=systembg` 用系统材质背景（CSS 近似），默认是内置渐变光斑（WebGL）。
+    background: scenario === 'systembg' ? 'System' : 'Gradient',
+    gradientPreset: 'Aurora',
+    backgroundImage: '',
+    liquidGlass: { ...DEFAULT_LIQUID_GLASS },
   }
   const settingsState = () => ({
     settings: { ...mockSettings, quality: mockQuality },

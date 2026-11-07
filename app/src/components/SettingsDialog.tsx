@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { getAppInfo } from '../api/app'
-import { errorMessage, pickMusicFolder } from '../api/editor'
+import { errorMessage, pickCoverImage, pickMusicFolder } from '../api/editor'
 import {
   diffSettings,
+  effectiveMaterial,
   getSettings,
   previewAppearance,
   saveSettings,
   type AppSettings,
+  type BackgroundSource,
+  type GradientPreset,
+  type LiquidGlass,
   type LyricsSourceKind,
   type LyricsWriteMode,
   type SettingsState,
@@ -15,8 +19,10 @@ import {
   type WindowMaterial,
 } from '../api/settings'
 import { checkForUpdates, type UpdateCheck } from '../api/update'
+import { DEFAULT_LIQUID_GLASS, PARAM_GROUPS, type NumberKey } from '../glass/params'
 import { appearanceOf, applyAppearance } from '../state/appearance'
 import { Segmented, SettingRow, Slider, Switch } from './controls'
+import GlassPreview from './GlassPreview'
 import Modal from './Modal'
 
 type Section = 'appearance' | 'download' | 'library' | 'online' | 'about'
@@ -46,6 +52,27 @@ const MATERIAL_HINTS: Record<WindowMaterial, string> = {
   Mica: '只取壁纸色调，更省电。',
   None: '不使用系统材质。',
 }
+
+const BACKGROUNDS = [
+  { value: 'Gradient', label: '渐变光斑' },
+  { value: 'Image', label: '自选图片' },
+  { value: 'PlaylistCover', label: '歌单封面' },
+  { value: 'System', label: '系统材质' },
+] as const satisfies readonly { value: BackgroundSource; label: string }[]
+
+const BACKGROUND_HINTS: Record<BackgroundSource, string> = {
+  Gradient: '界面自己画的背景，玻璃会真正折射它。',
+  Image: '用本机的一张图片做背景，玻璃会真正折射它。',
+  PlaylistCover: '用当前歌单的封面做背景，换歌单时跟着变。',
+  System: '透出窗口后面的桌面；网页读不到桌面，玻璃效果为近似。',
+}
+
+const PRESETS = [
+  { value: 'Aurora', label: '极光' },
+  { value: 'Ocean', label: '海洋' },
+  { value: 'Sunset', label: '日落' },
+  { value: 'Forest', label: '森林' },
+] as const satisfies readonly { value: GradientPreset; label: string }[]
 
 const LYRICS_MODES = [
   { value: 'None', label: '不写入' },
@@ -78,11 +105,22 @@ function appearanceChanged(a: AppSettings, b: AppSettings): boolean {
     a.windowMaterial !== b.windowMaterial ||
     a.glassOpacity !== b.glassOpacity ||
     a.backdropHaze !== b.backdropHaze ||
-    a.reduceMotion !== b.reduceMotion
+    a.reduceMotion !== b.reduceMotion ||
+    a.background !== b.background ||
+    a.gradientPreset !== b.gradientPreset ||
+    a.backgroundImage !== b.backgroundImage ||
+    JSON.stringify(a.liquidGlass) !== JSON.stringify(b.liquidGlass)
   )
 }
 
+/** 这些键会改变窗口下面铺的系统材质（或主题色调），要让后端也预览。 */
+const WINDOW_KEYS: readonly (keyof AppSettings)[] = ['theme', 'windowMaterial', 'background']
+
 interface SettingsDialogProps {
+  /** 当前选中歌单的封面（背景选「歌单封面」时预览用）。 */
+  coverUrl: string | null
+  /** WebGL2 是否可用；不可用时内置背景退回 CSS 近似。 */
+  webglAvailable: boolean
   onClose: () => void
   /** 保存成功后的新设置（主界面据此刷新音质、自动对比等）。 */
   onSaved: (state: SettingsState) => void
@@ -94,7 +132,7 @@ interface SettingsDialogProps {
  * 设置面板：左侧分区导航（选中块滑动切换），右侧分区内容（切换时淡入滑入）。
  * 外观类设置改动后立即预览整个窗口；取消或按 Esc 会还原到已保存的外观。
  */
-export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: SettingsDialogProps) {
+export default function SettingsDialog({ coverUrl, webglAvailable, onClose, onSaved, onUpdateFound }: SettingsDialogProps) {
   const [state, setState] = useState<SettingsState | null>(null)
   const [draft, setDraft] = useState<AppSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -105,6 +143,8 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
   const [appliedMaterial, setAppliedMaterial] = useState<WindowMaterial | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateResult, setUpdateResult] = useState<{ text: string; error: boolean } | null>(null)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
   // 卸载时若还在预览未保存的外观，就还原（例如父组件直接把面板关掉）。
   const previewing = useRef<{ saved: AppSettings; draft: AppSettings } | null>(null)
   // 最新的草稿：连续的输入（拖动滑块、紧接着点开关）可能发生在两次渲染之间，不能用闭包里的旧草稿。
@@ -137,7 +177,7 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
       const pending = previewing.current
       if (pending && appearanceChanged(pending.saved, pending.draft)) {
         applyAppearance(appearanceOf(pending.saved), { animate: true, persist: false })
-        void previewAppearance(pending.saved.windowMaterial, pending.saved.theme).catch(() => undefined)
+        void previewAppearance(effectiveMaterial(pending.saved), pending.saved.theme).catch(() => undefined)
       }
     }
   }, [])
@@ -152,14 +192,32 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
       setDraft(next)
       previewing.current = { saved: state.settings, draft: next }
       if (appearanceChanged(current, next)) applyAppearance(appearanceOf(next), { animate: true, persist: false })
-      if (key === 'theme' || key === 'windowMaterial') {
-        previewAppearance(next.windowMaterial, next.theme)
-          .then((applied) => setAppliedMaterial(applied === next.windowMaterial ? null : applied))
+      if (WINDOW_KEYS.includes(key)) {
+        const material = effectiveMaterial(next)
+        previewAppearance(material, next.theme)
+          .then((applied) => setAppliedMaterial(applied === material ? null : applied))
           .catch(() => undefined)
       }
     },
     [state],
   )
+
+  const updateGlass = useCallback(
+    <K extends keyof LiquidGlass>(key: K, value: LiquidGlass[K]) => {
+      const current = draftRef.current
+      if (current) update('liquidGlass', { ...current.liquidGlass, [key]: value })
+    },
+    [update],
+  )
+
+  const chooseBackgroundImage = useCallback(() => {
+    setImageError(null)
+    pickCoverImage('选择背景图片')
+      .then((path) => {
+        if (path) update('backgroundImage', path)
+      })
+      .catch((raised: unknown) => setImageError(errorMessage(raised, '选择图片失败，请重试')))
+  }, [update])
 
   const cancel = useCallback(() => {
     // 卸载时的清理会负责把预览中的外观还原。
@@ -288,31 +346,82 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
             <div key={section} className="settings-page">
               {section === 'appearance' && (
                 <>
-                  <section className="settings-card" aria-label="主题与材质">
+                  <section className="settings-card" aria-label="主题与背景">
                     <SettingRow title="主题">
                       <Segmented label="主题" value={draft.theme} options={THEMES} onChange={(v) => update('theme', v)} />
                     </SettingRow>
                     <SettingRow
-                      title="窗口材质"
+                      title="背景"
+                      stacked
                       hint={
                         <>
-                          {MATERIAL_HINTS[draft.windowMaterial]}
-                          {appliedMaterial && (
-                            <span className="setting-hint-warning">
-                              {' '}
-                              当前系统不支持，已改用「{MATERIALS.find((m) => m.value === appliedMaterial)?.label}」。
-                            </span>
+                          {BACKGROUND_HINTS[draft.background]}
+                          {draft.background !== 'System' && !webglAvailable && (
+                            <span className="setting-hint-warning"> 当前环境不支持 WebGL2，已改用系统材质的样式。</span>
                           )}
                         </>
                       }
                     >
                       <Segmented
-                        label="窗口材质"
-                        value={draft.windowMaterial}
-                        options={MATERIALS}
-                        onChange={(v) => update('windowMaterial', v)}
+                        label="主界面背景"
+                        value={draft.background}
+                        options={BACKGROUNDS}
+                        onChange={(v) => update('background', v)}
                       />
                     </SettingRow>
+                    {draft.background === 'Gradient' && (
+                      <SettingRow title="配色">
+                        <Segmented
+                          label="渐变光斑配色"
+                          value={draft.gradientPreset}
+                          options={PRESETS}
+                          onChange={(v) => update('gradientPreset', v)}
+                        />
+                      </SettingRow>
+                    )}
+                    {draft.background === 'Image' && (
+                      <SettingRow
+                        title="背景图片"
+                        stacked
+                        hint={imageError ? <span className="setting-hint-warning">{imageError}</span> : '图片不会复制进程序，移动或删除后需要重新选择。'}
+                      >
+                        <div className="path-field">
+                          <input
+                            type="text"
+                            aria-label="背景图片路径"
+                            placeholder="还没有选择图片"
+                            value={draft.backgroundImage}
+                            onChange={(event) => update('backgroundImage', event.target.value)}
+                          />
+                          <button type="button" className="btn" aria-label="选择背景图片" onClick={chooseBackgroundImage}>
+                            选择图片…
+                          </button>
+                        </div>
+                      </SettingRow>
+                    )}
+                    {draft.background === 'System' && (
+                      <SettingRow
+                        title="窗口材质"
+                        hint={
+                          <>
+                            {MATERIAL_HINTS[draft.windowMaterial]}
+                            {appliedMaterial && (
+                              <span className="setting-hint-warning">
+                                {' '}
+                                当前系统不支持，已改用「{MATERIALS.find((m) => m.value === appliedMaterial)?.label}」。
+                              </span>
+                            )}
+                          </>
+                        }
+                      >
+                        <Segmented
+                          label="窗口材质"
+                          value={draft.windowMaterial}
+                          options={MATERIALS}
+                          onChange={(v) => update('windowMaterial', v)}
+                        />
+                      </SettingRow>
+                    )}
                   </section>
                   <section className="settings-card" aria-label="玻璃与动效">
                     <SettingRow title="玻璃浓度">
@@ -345,6 +454,85 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                     <div className="glass-preview-layer glass-preview-back">下一层</div>
                     <div className="glass-preview-layer glass-preview-front">玻璃层</div>
                   </div>
+                  <section className="settings-card settings-advanced" aria-label="液态玻璃高级设置">
+                    <div className="settings-advanced-head">
+                      <button
+                        type="button"
+                        className="settings-advanced-toggle"
+                        aria-expanded={advancedOpen}
+                        aria-label={advancedOpen ? '收起液态玻璃高级设置' : '展开液态玻璃高级设置'}
+                        onClick={() => setAdvancedOpen((open) => !open)}
+                      >
+                        <span className="settings-advanced-chevron" aria-hidden="true" />
+                        <span className="setting-title">高级设置</span>
+                        <span className="setting-hint">折射、色散、菲涅尔、高光、模糊、色调、阴影与形状</span>
+                      </button>
+                      {advancedOpen && (
+                        <button
+                          type="button"
+                          className="btn btn-small"
+                          aria-label="把液态玻璃参数重置为默认值"
+                          disabled={JSON.stringify(draft.liquidGlass) === JSON.stringify(DEFAULT_LIQUID_GLASS)}
+                          onClick={() => update('liquidGlass', DEFAULT_LIQUID_GLASS)}
+                        >
+                          重置为默认
+                        </button>
+                      )}
+                    </div>
+                    {advancedOpen && (
+                      <>
+                        <GlassPreview draft={draft} coverUrl={coverUrl} />
+                        {PARAM_GROUPS.map((group) => (
+                          <div key={group.title} className="settings-advanced-group" role="group" aria-label={group.title}>
+                            <h4 className="settings-advanced-title">{group.title}</h4>
+                            {group.params.map((param) => (
+                              <SettingRow key={param.key} title={param.label}>
+                                <Slider
+                                  label={param.label}
+                                  value={draft.liquidGlass[param.key]}
+                                  min={param.min}
+                                  max={param.max}
+                                  step={param.step}
+                                  format={param.format}
+                                  onChange={(v) => updateGlass(param.key as NumberKey, v)}
+                                />
+                              </SettingRow>
+                            ))}
+                            {group.title === '模糊、色调与阴影' && (
+                              <>
+                                <SettingRow title="模糊边缘" hint="关掉时折射的边缘由清晰逐渐过渡到模糊。">
+                                  <Switch
+                                    label="模糊边缘"
+                                    checked={draft.liquidGlass.blurEdge}
+                                    onChange={(v) => updateGlass('blurEdge', v)}
+                                  />
+                                </SettingRow>
+                                <SettingRow title="色调" hint="浓度沿用上面的「玻璃浓度」。">
+                                  <div className="tint-field">
+                                    <Switch
+                                      label="色调跟随主题"
+                                      checked={draft.liquidGlass.tintColor === ''}
+                                      onChange={(follow) => updateGlass('tintColor', follow ? '' : '#4a6cf7')}
+                                    />
+                                    <span className="tint-field-label">{draft.liquidGlass.tintColor === '' ? '跟随主题' : '自定义'}</span>
+                                    {draft.liquidGlass.tintColor !== '' && (
+                                      <input
+                                        type="color"
+                                        className="tint-field-color"
+                                        aria-label="自定义色调颜色"
+                                        value={draft.liquidGlass.tintColor}
+                                        onChange={(event) => updateGlass('tintColor', event.target.value.toLowerCase())}
+                                      />
+                                    )}
+                                  </div>
+                                </SettingRow>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </section>
                 </>
               )}
 
@@ -562,7 +750,11 @@ export default function SettingsDialog({ onClose, onSaved, onUpdateFound }: Sett
                       <dt>默认下载目录</dt>
                       <dd>{state.defaultDownloadDir}</dd>
                       <dt>当前材质</dt>
-                      <dd>{MATERIALS.find((m) => m.value === (appliedMaterial ?? draft.windowMaterial))?.label}</dd>
+                      <dd>
+                        {draft.background === 'System'
+                          ? MATERIALS.find((m) => m.value === (appliedMaterial ?? draft.windowMaterial))?.label
+                          : '不使用（内置背景）'}
+                      </dd>
                       <dt>界面玻璃浓度</dt>
                       <dd>{percent(draft.glassOpacity)}</dd>
                     </dl>

@@ -26,7 +26,7 @@ export default function LogPanel({ logs }: { logs: LogEntry[] }) {
   }, [logs, expanded])
 
   return (
-    <section className={`log-panel${expanded ? '' : ' log-panel-collapsed'}`} aria-label="运行日志">
+    <section className={`log-panel${expanded ? '' : ' log-panel-collapsed'}`} aria-label="运行日志" data-glass="chrome">
       <header className="log-header">
         <h2 className="log-title">运行日志</h2>
         <span className="log-count" aria-label={`共 ${logs.length} 条日志`}>

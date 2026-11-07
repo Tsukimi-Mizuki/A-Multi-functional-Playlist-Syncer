@@ -6,23 +6,59 @@
  *   2. 顶部的柔光（--glass-sheen 渐变），像光从上方照进玻璃；
  *   3. 内侧 1px 高光（inset box-shadow）+ 外侧柔和投影，让玻璃浮起来；
  *   4. 边缘折光（::after 上的 --glass-rim 渐变，用 mask 只留 1px 的环），左上与右下更亮。
- * 窗口下面的桌面由系统亚克力材质实时模糊后透上来；对话框再用 backdrop-filter 模糊它下面的主界面，
+ * 窗口下面的桌面由系统亚克力材质实时模糊后透上来（或由内置背景代替）；对话框打开时下面的主界面虚化，
  * 所以每一层都能看见下一层。
  *
- * 注意：WebView2 在透明窗口里不支持 backdrop-filter（实机验证：对话框下面的内容依旧清晰），
- * 所以“模糊下一层”改为直接给下一层加 filter：对话框打开时整个主界面（#root）虚化，
- * 叠放对话框时，被盖住的那个对话框也一起虚化。普通浏览器里 backdrop-filter 仍然生效，两者叠加无妨。
+ * “模糊下一层”是直接给下一层加 filter：对话框打开时整个主界面（.app-shell）虚化，叠放对话框时被盖住的那个对话框也虚化。
+ * 早期的 WebView2 在透明窗口里 backdrop-filter 不生效，所以没有用它；WebView2 156 起它对页面内容已经生效，
+ * 但对话框仍然不用 backdrop-filter：它在折射之后再模糊一遍，会把对话框边缘对下层界面的折射（glass/underGlass.ts，
+ * 滤镜挂在 #root 上）完全抹掉。下层有多模糊只由「背景雾度」决定：先模糊（.app-shell）、再折射（#root），与参考实现的顺序一致。
+ *
+ * 液态玻璃参数（设置「外观 → 高级设置」，见 glass/params.ts）换算成 --lg-* 变量：
+ *   --lg-rim（按高光角度分布的边缘亮光）、--lg-edge（菲涅尔亮边 + 透镜感）、--lg-fringe（色散彩边）、
+ *   --lg-shadow（阴影）、--lg-radius / --lg-corner-shape（圆角与超椭圆）。
+ * 内置背景（:root[data-backdrop='builtin']）下，标题栏、侧栏、歌曲区、日志栏由 WebGL 画成真正折射的玻璃
+ * （GlassBackdrop），这里把它们的 CSS 底色与边框去掉；按钮、对话框、卡片两种背景下都用 CSS 近似。
  */
 
+/* ---- 内置背景：铺满窗口的 WebGL 画布，在界面的最下面 ---- */
+.app-shell {
+  isolation: isolate;
+}
+
+.glass-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+:root[data-backdrop='builtin']:not([data-webgl='off']) .app-shell {
+  background: transparent;
+}
+
+:root[data-backdrop='builtin']:not([data-webgl='off']) :is(.titlebar, .log-panel, .sidebar, .main-pane, .lg-preview:not(.lg-preview-fallback) .lg-preview-panel) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-backdrop='builtin']:not([data-webgl='off']) :is(.sidebar, .main-pane, .lg-preview:not(.lg-preview-fallback) .lg-preview-panel)::after {
+  display: none;
+}
+
 /* ---- 景深：上层打开时，下层平滑地失焦；上层关闭（含退场残影）时同步对焦回来 ---- */
-#root,
+.app-shell,
 .modal-backdrop > .modal {
   transition: filter var(--dur-3) var(--ease-out);
 }
 
 /* 虚化半径随背景雾度：默认 0.30 时主界面 9 px、被叠住的对话框 6 px（加入设置之前的固定值）。 */
-body:has(> .modal-backdrop:not(.modal-leaving)) #root,
-body:has(> .drop-overlay) #root {
+body:has(> .modal-backdrop:not(.modal-leaving)) .app-shell,
+body:has(> .drop-overlay) .app-shell {
   filter: blur(calc(var(--backdrop-haze) * 30px)) saturate(135%);
 }
 
@@ -56,34 +92,46 @@ body:has(> .drop-overlay) #root {
 
 /* ---- 浮起的面板：侧栏、歌曲区 ---- */
 .sidebar,
-.main-pane {
+.main-pane,
+.lg-preview-panel {
   position: relative;
   isolation: isolate;
   border-color: transparent;
-  border-radius: 16px;
+  border-radius: var(--lg-radius, 16px);
+  corner-shape: var(--lg-corner-shape, round);
   background: linear-gradient(180deg, var(--glass-sheen), transparent 42%), var(--panel);
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
-    var(--glass-shadow-soft);
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent),
+    var(--lg-shadow, var(--glass-shadow-soft));
 }
 
+/* 边缘折光：一圈 1px 的亮环，亮度按高光角度分布（迎光一侧最亮、对侧次之），没有参数时退回固定的斜向渐变。 */
 .sidebar::after,
 .main-pane::after,
+.lg-preview-panel::after,
 .modal::after,
 .settings-card::after,
-.segmented::after {
+.segmented::after,
+.btn::after {
   position: absolute;
   inset: 0;
   z-index: 3;
   padding: 1px;
   border-radius: inherit;
-  background: var(--glass-rim);
+  corner-shape: inherit;
+  background: var(--lg-rim, var(--glass-rim));
   content: '';
   pointer-events: none;
   mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
+}
+
+.settings-card {
+  corner-shape: var(--lg-corner-shape, round);
 }
 
 /* ---- 模态对话框：浮在主界面上方、模糊它下面的一切 ---- */
@@ -97,11 +145,14 @@ body:has(> .drop-overlay) #root {
   position: relative;
   isolation: isolate;
   border-color: transparent;
-  border-radius: 20px;
+  border-radius: calc(var(--lg-radius, 16px) + 4px);
+  corner-shape: var(--lg-corner-shape, round);
   background: linear-gradient(180deg, var(--glass-sheen), transparent 38%), var(--dialog-glass);
-  backdrop-filter: blur(var(--glass-blur)) saturate(175%);
+  backdrop-filter: none;
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent),
     var(--glass-shadow);
   transform-origin: 50% 42%;
   animation: lp-modal-in var(--dur-3) var(--ease-spring) both;
@@ -114,7 +165,6 @@ body:has(> .drop-overlay) #root {
   background:
     linear-gradient(180deg, var(--glass-sheen), transparent 30%),
     rgb(var(--tint-rgb) / calc(0.42 + var(--glass-strength) * 0.5));
-  backdrop-filter: blur(42px) saturate(170%);
 }
 
 /* 关闭时由 Modal 留下的“残影”播放退场动画，播完即移除。 */
@@ -153,11 +203,18 @@ body:has(> .drop-overlay) #root {
   }
 }
 
-/* ---- 按钮：玻璃胶囊，悬停提亮、按下回弹 ---- */
+/* ---- 按钮：液态玻璃胶囊（边缘按高光角度亮起、菲涅尔亮边、色散彩边），悬停提亮、按下回弹 ---- */
 .btn {
+  position: relative;
+  isolation: isolate;
   border-color: var(--border);
+  border-radius: min(var(--lg-radius, 16px), 16px);
+  corner-shape: var(--lg-corner-shape, round);
   background: linear-gradient(180deg, var(--glass-sheen), transparent 70%), var(--control);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent);
   transition:
     background-color var(--dur-2) var(--ease-out),
     border-color var(--dur-2) var(--ease-out),
@@ -167,9 +224,18 @@ body:has(> .drop-overlay) #root {
     transform var(--dur-2) var(--ease-spring);
 }
 
+.btn::after {
+  opacity: 0.85;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
 .btn:hover:not(:disabled) {
   background: linear-gradient(180deg, var(--glass-sheen), transparent 70%), var(--control-hover);
   border-color: var(--border-strong);
+}
+
+.btn:hover:not(:disabled)::after {
+  opacity: 1;
 }
 
 .btn:active:not(:disabled) {
@@ -181,21 +247,30 @@ body:has(> .drop-overlay) #root {
 .btn-primary,
 .btn-primary:hover:not(:disabled),
 .btn-primary:active:not(:disabled) {
-  border-color: var(--accent-border);
+  border-color: transparent;
   color: #fff;
 }
 
+/* 主按钮：带强调色的玻璃，比普通按钮更实，但边缘的高光、菲涅尔与色散与其他玻璃一致。 */
 .btn-primary {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.24), transparent 62%), var(--accent);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.26), transparent 62%),
+    color-mix(in srgb, var(--accent) 88%, transparent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.38),
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent),
     0 4px 16px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 62%), var(--accent-hover);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 62%),
+    color-mix(in srgb, var(--accent-hover) 92%, transparent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.42),
+    var(--lg-edge, 0 0 transparent),
+    var(--lg-fringe, 0 0 transparent),
     0 6px 22px color-mix(in srgb, var(--accent) 44%, transparent);
 }
 
@@ -206,6 +281,10 @@ body:has(> .drop-overlay) #root {
 .btn-ghost {
   background: transparent;
   box-shadow: none;
+}
+
+.btn-ghost::after {
+  opacity: 0;
 }
 
 .btn-ghost:hover:not(:disabled) {

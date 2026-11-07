@@ -113,7 +113,7 @@ export default function PlaylistSidebar({
   }
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`} aria-label="歌单侧栏">
+    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`} aria-label="歌单侧栏" data-glass="panel">
       <header className="sidebar-head">
         <button
           type="button"

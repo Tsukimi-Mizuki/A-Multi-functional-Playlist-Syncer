@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
-import { getSettings, type SettingsState } from './api/settings'
+import { getSettings, previewAppearance, type SettingsState } from './api/settings'
 import { setQuality, type TransferSummary } from './api/transfer'
 import { errorMessage, resolveDrop, takeStartupFile } from './api/editor'
 import { pickAudioFile } from './api/tags'
@@ -10,6 +10,7 @@ import AccountButton from './components/AccountButton'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadMissingDialog from './components/DownloadMissingDialog'
 import DropOverlay from './components/DropOverlay'
+import GlassBackdrop from './components/GlassBackdrop'
 import LyricsEditorDialog, { type EditorRequest } from './components/LyricsEditorDialog'
 import LyricsDialog from './components/LyricsDialog'
 import NcmImportDialog from './components/NcmImportDialog'
@@ -22,7 +23,8 @@ import SettingsDialog from './components/SettingsDialog'
 import SyncConfirmDialog from './components/SyncConfirmDialog'
 import TitleBar from './components/TitleBar'
 import UpdateDialog from './components/UpdateDialog'
-import { appearanceOf, applyAppearance } from './state/appearance'
+import { installUnderGlass } from './glass/underGlass'
+import { appearanceOf, applyAppearance, useAppearance } from './state/appearance'
 import { useAuth } from './state/useAuth'
 import { useFileDrop } from './state/useFileDrop'
 import { useLogs } from './state/useLogs'
@@ -122,6 +124,18 @@ export default function App() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // 液态玻璃：内置背景由 WebGL 画布负责；对话框折射它下面的主界面。
+  const appearance = useAppearance()
+  const [webglAvailable, setWebglAvailable] = useState(true)
+  useEffect(() => installUnderGlass(), [])
+  // WebGL2 不可用时内置背景画不出来：界面退回系统材质的样式，并把窗口材质铺回去，免得只剩一个透明窗口。
+  const onWebglUnavailable = useCallback(() => {
+    setWebglAvailable(false)
+    getSettings()
+      .then((loaded) => previewAppearance(loaded.settings.windowMaterial, loaded.settings.theme))
+      .catch(() => undefined)
   }, [])
 
   // 设置保存后：刷新主界面用到的设置摘要（自动对比、目录等）与工具栏的下载音质。
@@ -251,9 +265,14 @@ export default function App() {
   const currentQuality = quality ?? appState?.settings.quality ?? 'ExHigh'
   const qualityOptions = appState?.qualityOptions ?? []
   const qualityLabel = qualityOptions.find((option) => option.value === currentQuality)?.label ?? currentQuality
+  // 背景选「歌单封面」时用当前歌单的封面。
+  const coverUrl = loadedDetail?.coverUrl ?? selected?.coverUrl ?? null
 
   return (
     <div className="app-shell">
+      {appearance && appearance.background !== 'System' && webglAvailable && (
+        <GlassBackdrop coverUrl={coverUrl} onUnavailable={onWebglUnavailable} />
+      )}
       <TitleBar
         toolsSlot={
           <>
@@ -314,7 +333,7 @@ export default function App() {
           onRefresh={playlists.reloadList}
           onLogin={openLogin}
         />
-        <section className="main-pane" aria-label="歌曲">
+        <section className="main-pane" aria-label="歌曲" data-glass="panel">
           <PlaylistView
             loggedIn={account.loggedIn}
             list={playlists.list}
@@ -340,7 +359,13 @@ export default function App() {
       {dialog === 'login' && <QrLoginDialog onClose={closeDialog} />}
       {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
       {dialog === 'settings' && (
-        <SettingsDialog onClose={closeDialog} onSaved={onSettingsSaved} onUpdateFound={updates.show} />
+        <SettingsDialog
+          coverUrl={coverUrl}
+          webglAvailable={webglAvailable}
+          onClose={closeDialog}
+          onSaved={onSettingsSaved}
+          onUpdateFound={updates.show}
+        />
       )}
       {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
       {dragging && <DropOverlay editorOpen={editorOpen} />}

@@ -86,7 +86,7 @@ export default function TitleBar({ toolsSlot, accountSlot }: { toolsSlot?: React
   }
 
   return (
-    <header className="titlebar" data-tauri-drag-region onDoubleClick={toggleMaximize}>
+    <header className="titlebar" data-tauri-drag-region data-glass="chrome" onDoubleClick={toggleMaximize}>
       <div className="titlebar-brand" data-tauri-drag-region>
         <span className="titlebar-title" data-tauri-drag-region>
           Lunatic Princess

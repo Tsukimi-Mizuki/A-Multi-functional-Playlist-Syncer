@@ -197,6 +197,40 @@ name_enum! {
 }
 
 name_enum! {
+    /// 主界面的背景（Rust 重写版新增）。内置背景由界面用 WebGL 自己画，液态玻璃才能真正折射它；
+    /// 系统材质透出桌面，网页读不到，玻璃只能用 CSS 近似。
+    pub enum BackgroundSource {
+        default Gradient;
+        /// 系统材质（亚克力 / 云母）透出窗口后面的桌面。
+        System = 0 => "System",
+        /// 内置的渐变光斑，不需要图片文件。
+        Gradient = 1 => "Gradient",
+        /// 用户自选的本地图片（`backgroundImage`）。
+        Image = 2 => "Image",
+        /// 当前选中歌单的封面。
+        PlaylistCover = 3 => "PlaylistCover",
+    }
+}
+
+impl BackgroundSource {
+    /// 是否由界面自己画背景（这时窗口下面的系统材质被盖住，不必再铺）。
+    pub fn is_builtin(self) -> bool {
+        self != BackgroundSource::System
+    }
+}
+
+name_enum! {
+    /// 内置渐变光斑的配色。
+    pub enum GradientPreset {
+        default Aurora;
+        Aurora = 0 => "Aurora",
+        Ocean = 1 => "Ocean",
+        Sunset = 2 => "Sunset",
+        Forest = 3 => "Forest",
+    }
+}
+
+name_enum! {
     /// 歌词检索来源：主词源（网易云、QQ 音乐）与备用词源（酷狗、LRCLIB，只提供歌词）。
     pub enum LyricsSourceKind {
         default Netease;
@@ -307,6 +341,28 @@ mod tests {
         assert_eq!(RenderFrameRateMode::Fps240.value(), 240);
         assert_eq!(LyricsWriteMode::Word.value(), 2);
         assert_eq!(AudioQuality::ALL.len(), 9);
+    }
+
+    #[test]
+    fn background_sources_tell_whether_the_interface_draws_its_own_backdrop() {
+        assert!(!BackgroundSource::System.is_builtin());
+        for source in [
+            BackgroundSource::Gradient,
+            BackgroundSource::Image,
+            BackgroundSource::PlaylistCover,
+        ] {
+            assert!(source.is_builtin());
+        }
+        assert_eq!(BackgroundSource::default(), BackgroundSource::Gradient);
+        assert_eq!(
+            BackgroundSource::from_json(&json!("playlistcover")),
+            Some(BackgroundSource::PlaylistCover)
+        );
+        assert_eq!(
+            GradientPreset::from_json(&json!(2)),
+            Some(GradientPreset::Sunset)
+        );
+        assert_eq!(GradientPreset::ALL.len(), 4);
     }
 
     #[test]

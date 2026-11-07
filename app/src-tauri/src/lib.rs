@@ -1340,7 +1340,7 @@ fn save_settings(
     patch: serde_json::Value,
 ) -> Result<SettingsDto, String> {
     let saved = state.save_settings_patch(&patch)?;
-    apply_appearance(&app, saved.window_material, saved.theme);
+    apply_appearance(&app, saved.effective_window_material(), saved.theme);
     Ok(state.settings_dto())
 }
 
@@ -1468,7 +1468,8 @@ pub fn run() {
                 .build()?;
             let (material, theme) = {
                 let settings = state.settings();
-                (settings.window_material, settings.theme)
+                // 内置背景盖满整个窗口，下面不铺系统材质（见 `effective_window_material`）。
+                (settings.effective_window_material(), settings.theme)
             };
             apply_window_theme(&window, theme);
             let applied = apply_window_material(&window, material);
