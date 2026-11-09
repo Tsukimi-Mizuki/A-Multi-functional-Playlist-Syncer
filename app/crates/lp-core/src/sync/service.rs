@@ -481,7 +481,10 @@ impl SyncService {
                 None => {
                     self.fetcher
                         .try_download_bytes(
-                            enriched.cover_url().or_else(|| song.cover_url()),
+                            enriched
+                                .cover_download_url()
+                                .or_else(|| song.cover_download_url())
+                                .as_deref(),
                             MAX_COVER_BYTES,
                             cancel,
                         )

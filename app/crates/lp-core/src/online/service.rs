@@ -9,6 +9,7 @@ use super::net::OnlineHttp;
 use super::qq::{QqClient, parse_year};
 use crate::library::text::is_blank;
 use crate::lyrics::parser;
+use crate::netease::cover::cover_download_url;
 use crate::netease::http::{BoxFuture, HttpTransport};
 use crate::netease::models::NeteaseSong;
 use crate::netease::{NeteaseClient, NeteaseError};
@@ -120,7 +121,15 @@ impl OnlineMusicSearchService {
 
         details.cover_data = self
             .http
-            .try_download_cover(details.song.cover_url.as_deref(), cancel)
+            .try_download_cover(
+                details
+                    .song
+                    .cover_url
+                    .as_deref()
+                    .map(cover_download_url)
+                    .as_deref(),
+                cancel,
+            )
             .await?;
         Ok(Some(details))
     }

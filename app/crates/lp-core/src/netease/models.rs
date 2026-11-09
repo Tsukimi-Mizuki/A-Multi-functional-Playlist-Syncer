@@ -150,6 +150,11 @@ impl NeteaseSong {
         self.album.cover_url.as_deref()
     }
 
+    /// 下载封面用的地址：最长边不超过 4000、输出 JPEG（见 [`super::cover::cover_download_url`]）。
+    pub fn cover_download_url(&self) -> Option<String> {
+        self.cover_url().map(super::cover::cover_download_url)
+    }
+
     /// 歌手名以 `/` 连接。
     pub fn artist_text(&self) -> String {
         self.artists

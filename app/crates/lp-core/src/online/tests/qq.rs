@@ -9,7 +9,7 @@ use crate::lyrics::{RawLyrics, parser};
 use crate::netease::http::{HttpMethod, HttpResponse, TransportError};
 use crate::online::model::{OnlineError, OnlineMusicSource, OnlineSongResult};
 use crate::online::net::OnlineHttp;
-use crate::online::qq::{QqClient, parse_year, parse_year_from_unix};
+use crate::online::qq::{COVER_SIZES, QqClient, album_cover_url, parse_year, parse_year_from_unix};
 use crate::online::test_support::{base64_of, qrc_hex, status};
 use crate::test_util::FakeTransport;
 use crate::utilities::CancelToken;
@@ -59,7 +59,7 @@ async fn search_parses_new_json_items_and_builds_the_request() {
     assert_eq!(first.numeric_source_id.as_deref(), Some("97773"));
     assert_eq!(
         first.cover_url.as_deref(),
-        Some("https://y.gtimg.cn/music/photo_new/T002R300x300M000000MkMni19ClKG.jpg")
+        Some("https://y.gtimg.cn/music/photo_new/T002R1200x1200M000000MkMni19ClKG.jpg")
     );
 
     let second = &songs[1];
@@ -650,4 +650,96 @@ async fn a_blank_play_lyric_payload_falls_back_to_the_legacy_interface() {
         .unwrap();
 
     assert_eq!(details.line_lyrics.as_deref(), Some("[00:01.00]legacy"));
+}
+
+/// 详情里请求过的封面地址。
+fn cover_requests(transport: &FakeTransport) -> Vec<String> {
+    transport
+        .requests()
+        .iter()
+        .filter(|request| request.url.contains("y.gtimg.cn"))
+        .map(|request| request.url.clone())
+        .collect()
+}
+
+fn standard_cover_song() -> OnlineSongResult {
+    let mut song = qq_song();
+    song.cover_url = Some(album_cover_url("000MkMni19ClKG", COVER_SIZES[0]));
+    song
+}
+
+#[tokio::test]
+async fn covers_step_down_a_size_only_when_the_server_has_no_such_size() {
+    let transport = FakeTransport::new();
+    transport.set_fallback(|request| {
+        if request.url.contains("T002R800x800") {
+            HttpResponse {
+                status: 200,
+                set_cookies: vec![],
+                body: vec![0xFF, 0xD8, 0xFF, 8],
+            }
+        } else {
+            status(404)
+        }
+    });
+
+    let details = client(&transport)
+        .details(&standard_cover_song(), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        details.cover_data.as_deref(),
+        Some(&[0xFF, 0xD8, 0xFF, 8][..])
+    );
+    assert_eq!(
+        cover_requests(&transport),
+        vec![
+            "https://y.gtimg.cn/music/photo_new/T002R1200x1200M000000MkMni19ClKG.jpg",
+            "https://y.gtimg.cn/music/photo_new/T002R800x800M000000MkMni19ClKG.jpg",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn covers_try_every_size_then_give_up() {
+    let transport = FakeTransport::new();
+    transport.set_fallback(|_| status(404));
+
+    let details = client(&transport)
+        .details(&standard_cover_song(), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert_eq!(details.cover_data, None);
+    let sizes: Vec<String> = COVER_SIZES
+        .iter()
+        .map(|size| album_cover_url("000MkMni19ClKG", *size))
+        .collect();
+    assert_eq!(cover_requests(&transport), sizes);
+}
+
+#[tokio::test]
+async fn covers_do_not_retry_smaller_sizes_after_other_failures() {
+    // 200 但响应为空：不是「没有这一档」，换尺寸也没用。
+    let transport = FakeTransport::new();
+    transport.set_fallback(|request| {
+        if request.url.contains("y.gtimg.cn") {
+            HttpResponse {
+                status: 200,
+                set_cookies: vec![],
+                body: Vec::new(),
+            }
+        } else {
+            status(500)
+        }
+    });
+
+    let details = client(&transport)
+        .details(&standard_cover_song(), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert_eq!(details.cover_data, None);
+    assert_eq!(cover_requests(&transport).len(), 1);
 }

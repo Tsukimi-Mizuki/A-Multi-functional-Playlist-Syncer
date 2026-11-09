@@ -861,7 +861,11 @@ impl DownloadService {
                 Some(cover) => Some(cover),
                 None => {
                     self.fetcher
-                        .try_download_bytes(song.cover_url(), MAX_COVER_BYTES, cancel)
+                        .try_download_bytes(
+                            song.cover_download_url().as_deref(),
+                            MAX_COVER_BYTES,
+                            cancel,
+                        )
                         .await?
                 }
             };

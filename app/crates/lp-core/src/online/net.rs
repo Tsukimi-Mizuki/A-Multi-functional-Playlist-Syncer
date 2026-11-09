@@ -103,8 +103,6 @@ impl OnlineHttp {
     }
 
     /// 下载封面：任何失败（含超时、非 2xx、超过 10 MB）返回 `None`，只有取消时返回 `Err`。
-    ///
-    /// 声明了过大的长度就不读响应体；没声明（或声明得不准）就边读边数。
     pub(crate) async fn try_download_cover(
         &self,
         url: Option<&str>,
@@ -113,6 +111,20 @@ impl OnlineHttp {
         let Some(url) = url.map(str::trim).filter(|url| !url.is_empty()) else {
             return Ok(None);
         };
+        Ok(match self.download_cover(url, cancel).await? {
+            CoverFetch::Done(bytes) => Some(bytes),
+            CoverFetch::Rejected | CoverFetch::Failed => None,
+        })
+    }
+
+    /// 下载封面并区分失败原因：服务端回了非 2xx（`Rejected`，换个尺寸可能就有）与其他失败（`Failed`）。
+    ///
+    /// 声明了过大的长度就不读响应体；没声明（或声明得不准）就边读边数。
+    pub(crate) async fn download_cover(
+        &self,
+        url: &str,
+        cancel: &CancelToken,
+    ) -> Result<CoverFetch, Cancelled> {
         let request = HttpRequest {
             method: HttpMethod::Get,
             url: url.to_owned(),
@@ -125,26 +137,51 @@ impl OnlineHttp {
         };
 
         let download = async {
-            let mut response = self.transport.send_stream(request).await.ok()?;
-            if !response.is_success()
-                || response
-                    .content_length
-                    .is_some_and(|length| length > MAX_COVER_BYTES)
+            let Ok(mut response) = self.transport.send_stream(request).await else {
+                return CoverFetch::Failed;
+            };
+            if !response.is_success() {
+                return CoverFetch::Rejected;
+            }
+            if response
+                .content_length
+                .is_some_and(|length| length > MAX_COVER_BYTES)
             {
-                return None;
+                return CoverFetch::Failed;
             }
             let mut bytes: Vec<u8> = Vec::new();
-            while let Some(chunk) = response.body.next_chunk().await.ok()? {
-                if bytes.len() as u64 + chunk.len() as u64 > MAX_COVER_BYTES {
-                    return None;
+            loop {
+                match response.body.next_chunk().await {
+                    Ok(Some(chunk)) => {
+                        if bytes.len() as u64 + chunk.len() as u64 > MAX_COVER_BYTES {
+                            return CoverFetch::Failed;
+                        }
+                        bytes.extend_from_slice(&chunk);
+                    }
+                    Ok(None) => break,
+                    Err(_) => return CoverFetch::Failed,
                 }
-                bytes.extend_from_slice(&chunk);
             }
-            (!bytes.is_empty()).then_some(bytes)
+            if bytes.is_empty() {
+                CoverFetch::Failed
+            } else {
+                CoverFetch::Done(bytes)
+            }
         };
         match cancellable(cancel, tokio::time::timeout(self.timeout, download)).await? {
-            Ok(bytes) => Ok(bytes),
-            Err(_elapsed) => Ok(None),
+            Ok(fetch) => Ok(fetch),
+            Err(_elapsed) => Ok(CoverFetch::Failed),
         }
     }
+}
+
+/// 一次封面下载的结果。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CoverFetch {
+    /// 拿到了图片字节。
+    Done(Vec<u8>),
+    /// 服务端回了非 2xx。
+    Rejected,
+    /// 网络错误、超时、超过 10 MB 或响应为空。
+    Failed,
 }

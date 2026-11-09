@@ -24,6 +24,7 @@ use lp_core::lyrics::batch::{BatchError, BatchLyricsOptions, BatchLyricsService}
 use lp_core::lyrics::scorer;
 use lp_core::models::OnlineSourcePriority;
 use lp_core::netease::NeteaseClient;
+use lp_core::netease::cover::cover_download_url;
 use lp_core::netease::http::{
     BoxFuture, HttpMethod, HttpRequest, HttpResponse, HttpTransport, TransportError,
 };
@@ -712,6 +713,22 @@ async fn source_parsing_matches_csharp_for_every_scenario() {
             .is_some_and(|e| e.contains("is an invalid start of a value"))
         {
             expected["error"] = json!("<invalid-json>");
+        }
+        // 有意的差异：QQ 搜索结果的封面地址请求 1200×1200（C# 固定 300×300，见 `online::qq::COVER_SIZES`）；
+        // 网易云封面下载时带上「最长边 4000、输出 JPEG」的参数（C# 直接取原图，见 `netease::cover`）。
+        if let Some(songs) = expected["output"].as_array_mut() {
+            for song in songs {
+                if let Some(url) = song["coverUrl"].as_str() {
+                    song["coverUrl"] = json!(url.replace("T002R300x300M000", "T002R1200x1200M000"));
+                }
+            }
+        }
+        if let Some(requests) = expected["requests"].as_array_mut() {
+            for request in requests {
+                if let Some(url) = request.as_str().and_then(|line| line.strip_prefix("GET ")) {
+                    *request = json!(format!("GET {}", cover_download_url(url)));
+                }
+            }
         }
         if actual != expected {
             failures.push(format!(

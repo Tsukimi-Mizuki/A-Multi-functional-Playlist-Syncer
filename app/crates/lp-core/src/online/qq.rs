@@ -8,14 +8,14 @@
 use serde_json::{Value, json};
 
 use super::model::{OnlineError, OnlineMusicSource, OnlineSongDetails, OnlineSongResult};
-use super::net::{BROWSER_UA, HttpFailure, OnlineHttp};
+use super::net::{BROWSER_UA, CoverFetch, HttpFailure, OnlineHttp};
 use crate::library::text::is_blank;
 use crate::lyrics::html::html_decode;
 use crate::lyrics::krc::decode_base64_utf8;
 use crate::lyrics::{RawLyrics, parser, qrc};
 use crate::netease::client::escape_data_string;
 use crate::netease::http::{HttpMethod, HttpRequest};
-use crate::utilities::CancelToken;
+use crate::utilities::{CancelToken, Cancelled};
 
 /// 旧版搜索接口路径（现用，名字沿用 C# 常量）。
 const SEARCH_PATH: &str = "/soso/fcgi-bin/search_cp";
@@ -28,6 +28,27 @@ pub(crate) const PLAY_LYRIC_URL: &str = "https://u.y.qq.com/cgi-bin/musicu.fcg";
 
 const SEARCH_LIMIT_MIN: usize = 1;
 const SEARCH_LIMIT_MAX: usize = 30;
+
+/// 专辑封面的尺寸档（像素），从大到小：服务端没有这一档（非 2xx）才换小一档。
+/// 实测 1000、2000 这类不在档位里的尺寸回 404；原图比请求的小时直接回原图，不放大（C# 版固定 300）。
+pub(crate) const COVER_SIZES: [u32; 4] = [1200, 800, 500, 300];
+
+/// 某一档尺寸的专辑封面地址。
+pub(crate) fn album_cover_url(album_mid: &str, size: u32) -> String {
+    format!("https://y.gtimg.cn/music/photo_new/T002R{size}x{size}M000{album_mid}.jpg")
+}
+
+/// 封面地址的候选：标准封面地址按 [`COVER_SIZES`] 依次换成小一档，其他地址只有它自己。
+fn cover_size_fallbacks(url: &str) -> Vec<String> {
+    let largest = format!("T002R{0}x{0}M000", COVER_SIZES[0]);
+    if !url.contains(&largest) {
+        return vec![url.to_owned()];
+    }
+    COVER_SIZES
+        .iter()
+        .map(|size| url.replacen(&largest, &format!("T002R{size}x{size}M000"), 1))
+        .collect()
+}
 
 /// QQ 音乐客户端：持有 HTTP 与镜像域名列表（测试可以换成假域名）。
 pub(crate) struct QqClient {
@@ -141,14 +162,33 @@ impl QqClient {
 
     // ───────────────────────────── 详情 ─────────────────────────────
 
+    /// 下载封面：按 [`COVER_SIZES`] 从大到小尝试，服务端没有这一档才换小一档；
+    /// 超时、网络错误、过大等其他失败不再换尺寸重试。只有取消时返回 `Err`。
+    async fn download_cover(
+        &self,
+        url: Option<&str>,
+        cancel: &CancelToken,
+    ) -> Result<Option<Vec<u8>>, Cancelled> {
+        let Some(url) = url.map(str::trim).filter(|url| !url.is_empty()) else {
+            return Ok(None);
+        };
+        for candidate in cover_size_fallbacks(url) {
+            match self.http.download_cover(&candidate, cancel).await? {
+                CoverFetch::Done(bytes) => return Ok(Some(bytes)),
+                CoverFetch::Rejected => continue,
+                CoverFetch::Failed => return Ok(None),
+            }
+        }
+        Ok(None)
+    }
+
     pub(crate) async fn details(
         &self,
         song: &OnlineSongResult,
         cancel: &CancelToken,
     ) -> Result<OnlineSongDetails, OnlineError> {
         let cover = self
-            .http
-            .try_download_cover(song.cover_url.as_deref(), cancel)
+            .download_cover(song.cover_url.as_deref(), cancel)
             .await?;
         let mut details = OnlineSongDetails::without_extras(song.clone());
         details.cover_data = cover;
@@ -436,8 +476,7 @@ fn parse_search_item(item: &Value) -> Option<OnlineSongResult> {
     // index_cd 从 0 开始；只要字段存在，碟号至少是 1。
     let disc = get_uint(item, "index_cd").map(|disc| if disc > 0 { disc + 1 } else { 1 });
     let duration = get_long(item, "interval");
-    let cover_url = (!is_blank(&album_mid))
-        .then(|| format!("https://y.gtimg.cn/music/photo_new/T002R300x300M000{album_mid}.jpg"));
+    let cover_url = (!is_blank(&album_mid)).then(|| album_cover_url(&album_mid, COVER_SIZES[0]));
 
     let song_id = get_long(item, "songid");
     let numeric_id = if song_id > 0 {
