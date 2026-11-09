@@ -15,14 +15,14 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.2.0（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1089 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）、`v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）、`v2.1.2`（2.1.2：背景雾度、精简设置说明）、`v2.1.3`（2.1.3：「下载缺失」「一键同步」二次确认，缺失清单可取消勾选）与 `v2.2`（2.2.0：液态玻璃主题重做——内置背景 WebGL 真折射、对话框折射下层界面、高级设置与即时预览）** |
+| 当前状态 | **2.2.0（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1092 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）、`v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）、`v2.1.2`（2.1.2：背景雾度、精简设置说明）、`v2.1.3`（2.1.3：「下载缺失」「一键同步」二次确认，缺失清单可取消勾选）与 `v2.2`（2.2.0：液态玻璃主题重做——内置背景 WebGL 真折射、对话框折射下层界面、高级设置与即时预览）** |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0`（版本号 2.0.0）起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1089 个测试全部通过**：lp-core 库内 1015 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1092 个测试全部通过**：lp-core 库内 1018 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
@@ -201,6 +201,7 @@ pnpm dev                                                           # 只开前�
 - **同步**：`SyncService` 按本地状态分三支（已存在且无覆盖 → 跳过；NCM → 解密到临时子目录 + 写标签 + 在线补全；缺失 → 下载），与下载共用并发任务池，结果顺序与输入一致。
 - **二次确认**：「下载缺失」「一键同步」先弹确认框（`useTransferConfirm`），确认后才开始任务；还没对比本地曲库就先对比（必要时扫描，扫描被取消 / 失败就不弹窗）。「下载缺失」列出缺失歌曲（默认全选，可取消勾选、Shift 连选），确认后把仍勾选的 ID 传给 `download_missing(trackIds)`，后端只下载其中**仍然**缺失的；「一键同步」显示跳过 / NCM 解密 / 需下载各多少首、音质与下载目录（开了「覆盖已存在文件」时写明会重新下载）。计数按歌曲 ID 去重，与后端一致；曲库目录不存在时与后端一样全部算缺失并在框里提示；没有缺失时只在工具条提示、不弹窗。「下载选中」不需要确认。
 - **液态玻璃**：内置背景时 `GlassBackdrop` 用 WebGL2 画背景，并把带 `data-glass` 的标题栏、侧栏、歌曲区、日志栏画成折射的玻璃（斯涅尔折射、色散、菲涅尔、按角度的高光，算法改编自 liquid-glass-studio，MIT）；系统材质下这些面板，以及两种背景下的按钮、对话框、卡片，都由 `glassCssVars` 把同一组参数换算成 CSS 近似。对话框打开时 `.app-shell` 按背景雾度虚化，`#root` 再套 SVG 位移滤镜让对话框边缘折射下层界面（`glass/underGlass.ts`，只在单个对话框时）。改参数范围要同时改 Rust 的表（`settings/liquid_glass.rs`）与前端的 `glass/params.ts`（`PARAM_GROUPS`、`DEFAULT_LIQUID_GLASS`），后端会严格校验。
+- **拖放**：拖入一首（或只含一首的文件夹）用歌词与标签编辑器打开；拖入多首、或含多首的文件夹（含子文件夹，规则同批量获取扫描目录）交给「批量获取标签、封面与歌词」，清单就是拖入的文件（`resolve_drop` 返回 `batch` + `files`，按拖入顺序、去重，无法处理的目标跳过并写日志）；编辑器或批量窗口开着时交给最上面的窗口（批量窗口开着时新拖入的一批替换清单，正在处理时不换）；只有 `.ncm` 时提示改用「导入 NCM」。
 - **标签写入**：复制成同目录临时副本 → 写副本 → 重新解析确认类型没变 → 原子替换；任何一步失败都保留原文件。`replace_all` 保存时保留网易云 ID 标记与封面（没提供封面就不动封面）。
 - **检查更新**：启动约 3 秒后，`autoCheckUpdates` 开着就匿名请求 GitHub `releases/latest`（只有正式版），tag 归一后按 SemVer 与当前版本比较：新版本且不是 `ignoredUpdateVersion` → 弹窗（跳转至下载页面 / 忽略本次更新 / 稍后提醒）；忽略过的版本、已是最新 → 只写日志。「稍后提醒」只关窗，下次启动再提醒；「忽略」只跳过这一个版本。设置「关于」的「立即检查」不受开关影响，忽略过的版本也照样弹窗。程序**不下载、不安装**更新，浏览器只会打开本项目的发布页。自动检查失败记普通日志，手动检查失败记警告。
 - **错误文案**：`utilities::error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出「是什么 + 怎么办」；命令的 `Err` 统一是 `{ kind, message }`（message 为中文），**不把英文异常抛给用户**。
@@ -238,7 +239,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1089 个**——`lp-core` 库内 1015、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1092 个**——`lp-core` 库内 1018、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -316,6 +317,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改（仓库地址变了还要改检查更新用的两个常量，见 §10「GitHub」）。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1089 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1092 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。
