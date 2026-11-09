@@ -140,7 +140,7 @@ pnpm build           # 只构建前端（tsc + vite）
 - **主机重试**：先 `interface.music.163.com`，**连接 / TLS 失败**（`Network`）时换 `music.163.com` 再试一次；超时（已经等了 20 秒）与接口明确拒绝都不重试。
 - **回退：网页接口**。eapi 被明确拒绝（HTTP 非 2xx、业务 code 不是 200）或返回无法识别的内容时，再试一次 `GET /api/search/get/web`（国内 IP 下它仍是明文）。**限流 / 风控（`406` / `-460` / HTTP 429）与网络层失败不回退**——回退只会多发一次同样会被拒绝的请求。两条路都失败时报 eapi 的错误（它才是主路径）。
 - 响应映射与 `OnlineMusicSearch` 的接口、打分流程都没变：仍是 `result.songs` → `mappers::map_song` → `OnlineSongResult`；`result` 是字符串（密文）时仍报明确的中文错误“搜索网易云歌曲失败：接口返回了无法识别的加密数据”。
-- **编辑器默认搜索来源没有改**（仍是 QQ 音乐），见下面的建议。
+- **编辑器默认搜索来源没有改**（仍是 QQ 音乐），见下面的建议。（2026-11-09：已按用户决定改回网易云。）
 
 ### 改动
 
@@ -171,7 +171,7 @@ pnpm build           # 只构建前端（tsc + vite）
 ### 遗留问题与建议
 
 1. **海外 IP 下 cloudsearch 的排序**：热门原曲会被翻唱 / 钢琴版挤到后面。实测“晴天 周杰伦”“周杰伦 晴天”“晴天”的前 50 条里都没有原曲（id 186016），只有带专辑名的“晴天 周杰伦 叶惠美”才命中；而 `lyrics::scorer::build_queries` 的变体里没有“标题 歌手 专辑”，所以类似的歌在批量 / 自动补全里网易云可能匹配不到、转由 QQ 兜底。这是第三方排序，不是本次修复引入的；要改就得动 `build_queries`，会牵动与 C# 黄金夹具的对照，所以没有顺手改。
-2. **默认搜索来源**：建议**继续保持 QQ 音乐**（QRC 逐字歌词已在实网验证，网易云搜索的排序在上一条里有波动）；网易云现在可以在编辑器里手动选用。是否改回网易云留给用户决定，已有设置文件里写着的来源原样保留。
+2. **默认搜索来源**：建议**继续保持 QQ 音乐**（QRC 逐字歌词已在实网验证，网易云搜索的排序在上一条里有波动）；网易云现在可以在编辑器里手动选用。是否改回网易云留给用户决定，已有设置文件里写着的来源原样保留。**2026-11-09 更新**：用户决定改回网易云（网易云封面是原图，QQ 最多 1200×1200），见 `docs/IMPLEMENTATION_STATUS.md`「封面解析度」。
 3. eapi 仍是非公开接口，且网易云正在推 `xeapi` / `neapi` 新协议（社区实现里已经出现）；目前 `cloudsearch` 仍接受老 eapi。哪天失效，回退的网页接口只在国内 IP 下有用，届时需要实现新协议。
 4. 国内 IP 下网页接口是否返回明文、eapi 在国内是否同样可用，没能在本机验证（公开实现都说可用）。
 5. 搜索全程匿名，登录状态不影响搜索；`/weapi/login/token/refresh` 的续期问题（待修问题 ①）与此无关，没有改动（已在后续提交里修复，见下面的「登录续期修复」）。
@@ -334,7 +334,7 @@ pnpm build           # 只构建前端（tsc + vite）
 ### 与 C# 版的差异（有意为之）
 
 - `settings.json` 新增 `windowMaterial` / `glassOpacity` / `reduceMotion` 三个键（C# 读取时忽略未知键，文件仍互通；兼容测试改为只比较 C# 认识的键）。
-- 编辑器默认搜索来源改为 **QQ 音乐**（网易云匿名搜索目前不可用，见「待修问题」）；已有设置文件里写着的来源原样保留。
+- 编辑器默认搜索来源改为 **QQ 音乐**（网易云匿名搜索目前不可用，见「待修问题」）；已有设置文件里写着的来源原样保留。（2026-11-09 已改回网易云。）
 - 不提供帧率上限设置（与 C# 当前界面一致，`renderFrameRate` 仍保留在文件里）。
 
 ### 新增依赖
@@ -400,7 +400,7 @@ pnpm build           # 只构建前端（tsc + vite）
 
 事件 **`batch:progress`**：`{ completed, total, index, path, fileName, stage: 'started' \| 'finished', result: BatchResult \| null }`；`BatchResult { filePath, fileName, status: 'success' \| 'skipped' \| 'failed', success, skipped, message, matchedTitle, matchedArtist, sourceLabel, lyricsFormat }`。
 
-编辑器保存仍用模块 6 的 `write_tags`（`replaceAll: true`）。NCM 导入窗口的 `ncm_get_state` 现在返回 `onlineMatchAvailable: true`，提示文案换成“在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 N%…”；`ncm_import` 的 `enrichmentMessage` 是真实的匹配说明；下载 / 同步的 `onlineMatchSkipped` 恒为 `false`，前端去掉了“将在后续版本提供”的提示（开发假后端同步更新；**批量与编辑器命令的假后端留给 10b**）。
+编辑器保存仍用模块 6 的 `write_tags`（`replaceAll: true`）。NCM 导入窗口的 `ncm_get_state` 现在返回 `onlineMatchAvailable: true`，提示文案换成“在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 N%…”（2026-11-09 起自动补全的标签与封面改为网易云优先，文案相应改成“标签与封面网易云音乐优先，歌词 QQ 音乐逐字优先”）；`ncm_import` 的 `enrichmentMessage` 是真实的匹配说明；下载 / 同步的 `onlineMatchSkipped` 恒为 `false`，前端去掉了“将在后续版本提供”的提示（开发假后端同步更新；**批量与编辑器命令的假后端留给 10b**）。
 
 ### 新增依赖
 
