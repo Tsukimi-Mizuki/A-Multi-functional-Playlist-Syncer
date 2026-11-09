@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { LyricsSourceKind, MatchThreshold } from './online'
+import type { BatchFile, LyricsSourceKind, MatchThreshold } from './online'
 
 // 歌词与标签编辑器、拖放与启动参数（模块 10b）：与 Rust 端 `lp_core::editor` 的 camelCase DTO 一一对应。
 
@@ -35,15 +35,20 @@ export function rememberEditorOptions(source: LyricsSourceKind, preferWordLyrics
 
 /** 拖入的文件 / 文件夹的解析结果。 */
 export interface DropResolution {
-  /** `audio`：解析出了可编辑的音频；`ncm`：只有 .ncm（需要先解密）；`error`：没有可用目标。 */
-  kind: 'audio' | 'ncm' | 'error'
+  /**
+   * `audio`：只有一首可编辑的音频（`path`），用编辑器打开；`batch`：多首（`files`，文件夹已展开、含子文件夹），
+   * 交给批量获取；`ncm`：只有 .ncm（需要先解密）；`error`：没有可用目标。
+   */
+  kind: 'audio' | 'batch' | 'ncm' | 'error'
   path: string | null
   fileName: string | null
   /** 给运行日志 / 状态栏的一句话。 */
   message: string
-  /** 能解析成音频的目标数 / 拖入总数。 */
+  /** 解析出的音频数（去重后）/ 拖入的目标总数。 */
   resolvedCount: number
   total: number
+  /** `batch` 时交给批量获取的文件（拖入顺序，文件夹内按路径排序）。 */
+  files: BatchFile[]
 }
 
 /** 把拖入的路径解析成要载入的音频文件；`log` 为真时后端顺便写运行日志（主窗口拖放）。 */

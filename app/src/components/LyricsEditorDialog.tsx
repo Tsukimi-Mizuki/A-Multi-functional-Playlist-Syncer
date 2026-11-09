@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileNameOf, directoryOf } from '../api/editor'
-import { LYRICS_SOURCE_LABELS, type LyricsSourceKind } from '../api/online'
+import { LYRICS_SOURCE_LABELS, type BatchFile, type LyricsSourceKind } from '../api/online'
 import { describeEntry, fileInfoText, useLyricsEditor, type EditorFields } from '../state/useLyricsEditor'
-import BatchLyricsDialog from './BatchLyricsDialog'
+import BatchLyricsDialog, { type BatchDrop } from './BatchLyricsDialog'
 import ConfirmDialog from './ConfirmDialog'
 import Modal from './Modal'
 
 /** 外部（拖放）要求编辑器载入文件，或提示无法载入的原因。`seq` 每次加一，相同路径也会重新触发。 */
 export interface EditorRequest {
   seq: number
-  /** 要载入的文件；为 null 时只显示 `message`（NCM、不支持的格式等）。 */
+  /** 拖入了一首：要载入的文件。 */
   path: string | null
+  /** 拖入了多首（文件夹已展开）：交给批量获取。 */
+  files: BatchFile[] | null
+  /** 没有可载入的文件时给用户看的原因（NCM、不支持的格式等）。 */
   message: string | null
-  /** 拖入的目标里能解析成音频的个数（多于一个时在状态栏说明只载入第一个）。 */
-  resolvedCount: number
 }
 
 interface LyricsEditorDialogProps {
@@ -65,12 +66,16 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
   const editor = useLyricsEditor()
   const { config, file, fields, busy, dirty } = editor
   const [batchOpen, setBatchOpen] = useState(false)
+  // 拖入多首时交给批量窗口的清单（从「批量获取」按钮打开时为 null，按目录扫描）。
+  const [batchDrop, setBatchDrop] = useState<BatchDrop | null>(null)
   const [confirm, setConfirm] = useState<{ message: string; confirmLabel: string; run: () => void } | null>(null)
   const dirtyRef = useRef(dirty)
   const busyRef = useRef(busy)
+  const batchOpenRef = useRef(batchOpen)
   useEffect(() => {
     dirtyRef.current = dirty
     busyRef.current = busy
+    batchOpenRef.current = batchOpen
   })
 
   /** 有未保存的修改时先确认，再执行 `action`。 */
@@ -90,12 +95,19 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
   }, [initialPath, ready, loadFile])
 
   // 拖放请求：同一个 seq 只处理一次（严格模式会把副作用跑两遍）。
+  // 多首交给批量获取（叠在编辑器上）；批量窗口开着时，拖入的一首也交给它（它在最上面）。
   const handledSeq = useRef(0)
   const setStatus = editor.setStatus
   useEffect(() => {
     if (!request || request.seq === handledSeq.current) return
     handledSeq.current = request.seq
-    const { path, message, resolvedCount } = request
+    const { path, files, message } = request
+    const forBatch = files ?? (batchOpenRef.current && path ? [{ path, name: fileNameOf(path), size: 0 }] : null)
+    if (forBatch && forBatch.length > 0) {
+      setBatchDrop({ seq: request.seq, files: forBatch })
+      setBatchOpen(true)
+      return
+    }
     if (!path) {
       if (message) setStatus(message)
       return
@@ -104,13 +116,7 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
       setStatus('正在处理，请稍候再拖入文件。')
       return
     }
-    guard('当前修改尚未保存，载入新文件会丢弃这些修改。', '放弃修改并载入', () => {
-      void loadFile(path).then((ok) => {
-        if (ok && resolvedCount > 1) {
-          setStatus(`已载入 ${fileNameOf(path)}（拖入了 ${resolvedCount} 个文件，编辑器一次只编辑一个）`)
-        }
-      })
-    })
+    guard('当前修改尚未保存，载入新文件会丢弃这些修改。', '放弃修改并载入', () => void loadFile(path))
   }, [request, guard, loadFile, setStatus])
 
   const requestClose = useCallback(() => {
@@ -198,7 +204,10 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
             type="button"
             className="btn"
             aria-label="批量获取标签、封面与歌词"
-            onClick={() => setBatchOpen(true)}
+            onClick={() => {
+              setBatchDrop(null)
+              setBatchOpen(true)
+            }}
           >
             批量获取
           </button>
@@ -364,7 +373,16 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
           </section>
         </div>
       </Modal>
-      {batchOpen && <BatchLyricsDialog initialFolder={batchFolder} onClose={() => setBatchOpen(false)} />}
+      {batchOpen && (
+        <BatchLyricsDialog
+          initialFolder={batchDrop ? directoryOf(batchDrop.files[0]?.path ?? '') || batchFolder : batchFolder}
+          drop={batchDrop}
+          onClose={() => {
+            setBatchOpen(false)
+            setBatchDrop(null)
+          }}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           title="有未保存的修改"

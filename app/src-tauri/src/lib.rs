@@ -1209,7 +1209,8 @@ fn editor_remember_options(
     state.remember_editor_options(source, prefer_word_lyrics);
 }
 
-/// 把拖入的文件 / 文件夹解析成要载入编辑器的音频文件；`log` 为真时（主窗口拖放）顺便写运行日志。
+/// 把拖入的文件 / 文件夹解析成要载入编辑器的音频文件（一首）或交给批量获取的文件（多首）；
+/// `log` 为真时（主窗口拖放）顺便写运行日志。
 #[tauri::command]
 async fn resolve_drop(
     state: State<'_, AppState>,
@@ -1221,7 +1222,7 @@ async fn resolve_drop(
         .map_err(|_| "解析拖入的文件时程序内部出错，请重试。".to_owned())?;
     if log {
         match resolution.kind {
-            DropKind::Audio => state.logs.info(&resolution.message),
+            DropKind::Audio | DropKind::Batch => state.logs.info(&resolution.message),
             DropKind::Ncm | DropKind::Error => state.logs.warning(&resolution.message),
         }
     }

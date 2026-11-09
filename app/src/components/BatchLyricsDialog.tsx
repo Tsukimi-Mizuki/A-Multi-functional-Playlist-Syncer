@@ -12,6 +12,12 @@ import {
 import { useVirtualRows } from '../lib/virtual'
 import Modal from './Modal'
 
+/** 拖进来交给批量获取的文件；`seq` 每次加一，同一批文件再拖一次也会重新载入。 */
+export interface BatchDrop {
+  seq: number
+  files: BatchFile[]
+}
+
 /** 固定行高（px）：虚拟滚动依赖它，样式里的 `--ncm-row-height` 必须与此一致（复用 NCM 导入的表格样式）。 */
 export const BATCH_ROW_HEIGHT = 38
 
@@ -134,26 +140,78 @@ function BatchTable({ files, rows }: { files: BatchFile[]; rows: Map<string, Row
   )
 }
 
+const droppedStatus = (count: number) => `已载入拖入的 ${count} 首音频，点击「开始批量获取」。`
+
 /**
  * 批量获取标签、封面与歌词（对应 C# 的 `BatchLyricsWindow`）：选择目录 → 扫描 → 最多 3 个文件并发匹配，
- * 逐文件状态走 `batch:progress` 事件，列表虚拟滚动，可取消。叠在编辑器之上，以编辑器为父面板。
+ * 逐文件状态走 `batch:progress` 事件，列表虚拟滚动，可取消。从编辑器打开时叠在编辑器之上。
+ *
+ * 也可以直接处理拖进来的多首歌（`drop`，文件夹已在后端展开）：这时不扫描目录，清单就是拖入的文件；
+ * 窗口开着时再拖入会换成新的清单（正在处理时不换），「改用目录…」切回按目录扫描。
  */
-export default function BatchLyricsDialog({ initialFolder, onClose }: { initialFolder: string; onClose: () => void }) {
+export default function BatchLyricsDialog({
+  initialFolder,
+  drop = null,
+  onClose,
+}: {
+  initialFolder: string
+  /** 拖入的文件（打开时的，以及窗口开着时新拖入的）。 */
+  drop?: BatchDrop | null
+  onClose: () => void
+}) {
   const [config, setConfig] = useState<EditorState | null>(null)
   const [folder, setFolder] = useState(initialFolder)
   const [recursive, setRecursive] = useState(true)
   const [overwrite, setOverwrite] = useState(true)
   const [fetchLyrics, setFetchLyrics] = useState(true)
   const [preferWord, setPreferWord] = useState(false)
-  const [files, setFiles] = useState<BatchFile[]>([])
+  // 拖入模式下的清单；为 null 时按目录扫描。
+  const [dropped, setDropped] = useState<BatchFile[] | null>(drop?.files ?? null)
+  const [files, setFiles] = useState<BatchFile[]>(drop?.files ?? [])
   const [rows, setRows] = useState<Map<string, RowState>>(new Map())
   const [counts, setCounts] = useState({ processed: 0, success: 0, skipped: 0, failed: 0 })
   const [running, setRunning] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [percent, setPercent] = useState(0)
-  const [status, setStatus] = useState('选择目录后开始批量获取标签、封面与歌词。')
+  const [status, setStatus] = useState(drop ? droppedStatus(drop.files.length) : '选择目录后开始批量获取标签、封面与歌词。')
   const [problem, setProblem] = useState(false)
   const runningRef = useRef(false)
+  const handledSeq = useRef(drop?.seq ?? 0)
+
+  const resetResults = useCallback(() => {
+    setRows(new Map())
+    setCounts({ processed: 0, success: 0, skipped: 0, failed: 0 })
+    setPercent(0)
+    setProblem(false)
+  }, [])
+
+  // 窗口开着时又拖入了一批：没在处理就换成新的清单。
+  useEffect(() => {
+    if (!drop || drop.seq === handledSeq.current) return
+    handledSeq.current = drop.seq
+    if (runningRef.current) {
+      setProblem(true)
+      setStatus('正在批量获取，完成或取消后再拖入新的文件。')
+      return
+    }
+    resetResults()
+    setDropped(drop.files)
+    setFiles(drop.files)
+    setStatus(droppedStatus(drop.files.length))
+  }, [drop, resetResults])
+
+  // 从拖入的清单切回按目录扫描，并直接打开目录选择。
+  const switchToFolder = useCallback(() => {
+    resetResults()
+    setDropped(null)
+    setFiles([])
+    setStatus('选择目录后开始批量获取标签、封面与歌词。')
+    pickMusicFolder('选择要批量匹配标签与封面的目录')
+      .then((picked) => {
+        if (picked) setFolder(picked)
+      })
+      .catch(() => undefined)
+  }, [resetResults])
 
   useEffect(() => {
     let cancelled = false
@@ -200,7 +258,7 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
 
   const start = useCallback(async () => {
     if (runningRef.current) return
-    if (folder.trim() === '') {
+    if (!dropped && folder.trim() === '') {
       setProblem(true)
       setStatus('请选择有效的音乐目录。')
       return
@@ -209,28 +267,34 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
     setRunning(true)
     setCancelling(false)
     setProblem(false)
-    setFiles([])
     setRows(new Map())
     setCounts({ processed: 0, success: 0, skipped: 0, failed: 0 })
     setPercent(0)
-    setStatus('正在扫描音频文件...')
     let unlisten: (() => void) | undefined
     try {
-      const scan = await batchScan(folder, recursive)
-      if (scan.directoryMissing) {
-        setProblem(true)
-        setStatus('请选择有效的音乐目录。')
-        return
+      let targets: BatchFile[]
+      if (dropped) {
+        targets = dropped
+      } else {
+        setFiles([])
+        setStatus('正在扫描音频文件...')
+        const scan = await batchScan(folder, recursive)
+        if (scan.directoryMissing) {
+          setProblem(true)
+          setStatus('请选择有效的音乐目录。')
+          return
+        }
+        targets = scan.files
       }
-      setFiles(scan.files)
-      if (scan.files.length === 0) {
+      setFiles(targets)
+      if (targets.length === 0) {
         setStatus('目录中没有找到支持的音频文件。')
         return
       }
       setStatus('正在批量获取标签、封面与歌词...')
       unlisten = await onBatchProgress(handleProgress)
       const summary = await batchRun({
-        files: scan.files.map((file) => file.path),
+        files: targets.map((file) => file.path),
         overwriteExisting: overwrite,
         fetchLyrics,
         preferWordLyrics: preferWord,
@@ -240,7 +304,7 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
         const next = new Map<string, RowState>()
         for (const result of summary.results) next.set(pathKey(result.filePath), { kind: 'done', result })
         if (summary.cancelled) {
-          for (const file of scan.files) {
+          for (const file of targets) {
             if (!next.has(pathKey(file.path))) next.set(pathKey(file.path), { kind: 'cancelled' })
           }
         }
@@ -268,7 +332,7 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
       setRunning(false)
       setCancelling(false)
     }
-  }, [folder, recursive, overwrite, fetchLyrics, preferWord, handleProgress])
+  }, [dropped, folder, recursive, overwrite, fetchLyrics, preferWord, handleProgress])
 
   const cancel = useCallback(() => {
     setCancelling(true)
@@ -281,7 +345,7 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
     onClose()
   }, [onClose])
 
-  const canStart = !running && folder.trim() !== ''
+  const canStart = !running && (dropped ? dropped.length > 0 : folder.trim() !== '')
   const progressText = `已处理 ${counts.processed}/${files.length} · 成功 ${counts.success} · 跳过 ${counts.skipped} · 失败 ${counts.failed}`
 
   return (
@@ -326,22 +390,44 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
       </p>
 
       <section className="ncm-section" aria-label="批量获取设置">
-        <h3 className="ncm-label">音乐目录</h3>
-        <div className="ncm-output">
-          <input
-            type="text"
-            className="ncm-input"
-            aria-label="音乐目录"
-            spellCheck={false}
-            placeholder="选择包含音频文件的目录"
-            value={folder}
-            disabled={running}
-            onChange={(event) => setFolder(event.target.value)}
-          />
-          <button type="button" className="btn" aria-label="浏览音乐目录" disabled={running} onClick={browse}>
-            浏览…
-          </button>
-        </div>
+        {dropped ? (
+          <>
+            <h3 className="ncm-label">要处理的文件</h3>
+            <div className="ncm-output">
+              <span className="batch-dropped" aria-label="批量获取的来源">
+                拖入的 {dropped.length} 首音频（也可以继续拖入，换成新的一批）
+              </span>
+              <button
+                type="button"
+                className="btn"
+                aria-label="改为按目录扫描音频"
+                disabled={running}
+                onClick={switchToFolder}
+              >
+                改用目录…
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="ncm-label">音乐目录</h3>
+            <div className="ncm-output">
+              <input
+                type="text"
+                className="ncm-input"
+                aria-label="音乐目录"
+                spellCheck={false}
+                placeholder="选择包含音频文件的目录"
+                value={folder}
+                disabled={running}
+                onChange={(event) => setFolder(event.target.value)}
+              />
+              <button type="button" className="btn" aria-label="浏览音乐目录" disabled={running} onClick={browse}>
+                浏览…
+              </button>
+            </div>
+          </>
+        )}
         <div className="batch-options">
           <span className="ncm-sub" aria-label="来源优先级">
             来源优先级 标签 {config?.tagPriorityText ?? '网易云音乐优先'} · 歌词{' '}
@@ -377,16 +463,18 @@ export default function BatchLyricsDialog({ initialFolder, onClose }: { initialF
             <option value="line">逐行歌词</option>
             <option value="word">逐字歌词（有则优先）</option>
           </select>
-          <label className="ncm-check">
-            <input
-              type="checkbox"
-              aria-label="包含子文件夹"
-              checked={recursive}
-              disabled={running}
-              onChange={(event) => setRecursive(event.target.checked)}
-            />
-            <span>包含子文件夹</span>
-          </label>
+          {!dropped && (
+            <label className="ncm-check">
+              <input
+                type="checkbox"
+                aria-label="包含子文件夹"
+                checked={recursive}
+                disabled={running}
+                onChange={(event) => setRecursive(event.target.checked)}
+              />
+              <span>包含子文件夹</span>
+            </label>
+          )}
         </div>
         <p className="ncm-sub" aria-label="批量匹配度阈值">
           匹配度阈值 {config?.threshold.percent ?? '60'}%（在「设置」的「在线匹配度」里调整，低于该值的歌曲会被跳过）

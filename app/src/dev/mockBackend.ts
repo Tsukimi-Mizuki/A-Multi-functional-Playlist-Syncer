@@ -522,31 +522,55 @@ const MOCK_WORD_LYRICS = [
 function mockResolveDrop(targets: string[]) {
   const total = targets.length
   const fail = (kind: 'ncm' | 'error', message: string) => ({
-    kind, path: null, fileName: null, message, resolvedCount: 0, total,
+    kind, path: null, fileName: null, message, resolvedCount: 0, total, files: [],
   })
   if (total === 0) return fail('error', '没有识别到拖入的文件路径。')
+  // 与后端一致：文件直接取，没有扩展名的当作文件夹（含子文件夹展开成 36 首），去重；一首用编辑器打开，多首交给批量获取。
   const audio = /\.(mp3|flac|m4a|mp4|ogg|opus|wav|aac|wma)$/i
-  const resolved: string[] = []
+  const resolved: Array<{ path: string; name: string; size: number }> = []
+  const seen = new Set<string>()
+  const add = (file: { path: string; name: string; size: number }) => {
+    const key = file.path.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    resolved.push(file)
+  }
   let ncm = false
+  let skipped = 0
   let firstError: string | null = null
   for (const target of targets) {
     if (/\.ncm$/i.test(target)) ncm = true
-    if (audio.test(target)) resolved.push(target)
-    else if (!/\.[^\\/.]+$/.test(target)) resolved.push(`${target}\\第一首.mp3`)
-    else firstError ??= `暂不支持「${target.slice(target.lastIndexOf('.'))}」格式，请拖入 MP3 / FLAC / M4A / MP4 / OGG / OPUS / WAV / AAC / WMA 格式的音频文件。`
+    if (audio.test(target)) add({ path: target, name: target.split('\\').pop() ?? target, size: 5_000_000 })
+    else if (!/\.[^\\/.]+$/.test(target)) mockBatchFiles(target, true, false).forEach(add)
+    else {
+      skipped += 1
+      firstError ??= `暂不支持「${target.slice(target.lastIndexOf('.'))}」格式，请拖入 MP3 / FLAC / M4A / MP4 / OGG / OPUS / WAV / AAC / WMA 格式的音频文件。`
+    }
   }
   if (resolved.length === 0) {
     return ncm ? fail('ncm', 'NCM 文件需要先解密：请使用工具栏的「导入 NCM」处理。') : fail('error', firstError ?? '没有识别到拖入的文件路径。')
   }
-  const path = resolved[0] as string
-  const fileName = path.split('\\').pop() ?? path
+  if (resolved.length > 1) {
+    const extra = skipped > 0 ? `（另有 ${skipped} 个目标无法处理，已跳过）` : ''
+    return {
+      kind: 'batch',
+      path: null,
+      fileName: null,
+      message: `拖入 ${resolved.length} 首音频，交给批量获取标签、封面与歌词${extra}`,
+      resolvedCount: resolved.length,
+      total,
+      files: resolved,
+    }
+  }
+  const only = resolved[0] as { path: string; name: string }
   return {
     kind: 'audio',
-    path,
-    fileName,
-    message: total > 1 ? `拖入 ${total} 个目标，打开其中的「${fileName}」` : `拖入文件：${path}`,
-    resolvedCount: resolved.length,
+    path: only.path,
+    fileName: only.name,
+    message: total > 1 ? `拖入 ${total} 个目标，打开其中的「${only.name}」` : `拖入文件：${only.path}`,
+    resolvedCount: 1,
     total,
+    files: [],
   }
 }
 

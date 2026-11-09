@@ -124,32 +124,93 @@ fn a_dropped_audio_file_is_returned_as_is() {
 }
 
 #[test]
-fn a_dropped_folder_opens_its_first_audio_file_by_name() {
+fn a_dropped_folder_with_several_songs_goes_to_batch_including_subfolders() {
     let dir = TempDir::new();
     touch(&dir, "readme.txt");
-    touch(&dir, "b.flac");
-    let first = touch(&dir, "A.mp3");
+    let b = touch(&dir, "b.flac");
+    let a = touch(&dir, "A.mp3");
+    let nested = touch(&dir, r"CD2\c.ogg");
+
+    let result = resolve_drop(&[dir.path().to_string_lossy().into_owned()]);
+
+    assert_eq!(result.kind, DropKind::Batch);
+    assert!(result.path.is_none());
+    let paths: Vec<&str> = result.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [a.as_str(), b.as_str(), nested.as_str()],
+        "按路径排序"
+    );
+    assert_eq!(result.files[2].name, "c.ogg");
+    assert_eq!(result.resolved_count, 3);
+    assert_eq!(result.total, 1);
+    assert_eq!(
+        result.message,
+        "拖入 3 首音频，交给批量获取标签、封面与歌词"
+    );
+}
+
+#[test]
+fn a_folder_with_a_single_song_still_opens_it_in_the_editor() {
+    let dir = TempDir::new();
+    touch(&dir, "cover.jpg");
+    let only = touch(&dir, "only.mp3");
 
     let result = resolve_drop(&[dir.path().to_string_lossy().into_owned()]);
 
     assert_eq!(result.kind, DropKind::Audio);
-    assert_eq!(result.path.as_deref(), Some(first.as_str()));
+    assert_eq!(result.path.as_deref(), Some(only.as_str()));
+    assert!(result.files.is_empty());
 }
 
 #[test]
-fn several_targets_open_the_first_usable_one_and_count_the_rest() {
+fn several_songs_go_to_batch_in_drop_order_and_skip_unusable_targets() {
     let dir = TempDir::new();
     let bad = touch(&dir, "notes.txt");
     let one = touch(&dir, "one.mp3");
     let two = touch(&dir, "two.flac");
+    fs::write(&two, [0_u8; 7]).unwrap();
 
-    let result = resolve_drop(&[bad, one.clone(), two]);
+    let result = resolve_drop(&[two.clone(), bad, one.clone()]);
+
+    assert_eq!(result.kind, DropKind::Batch);
+    let paths: Vec<&str> = result.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(paths, [two.as_str(), one.as_str()], "保持拖入顺序");
+    assert_eq!(result.files[0].size, 7);
+    assert_eq!(result.resolved_count, 2);
+    assert_eq!(result.total, 3);
+    assert_eq!(
+        result.message,
+        "拖入 2 首音频，交给批量获取标签、封面与歌词（另有 1 个目标无法处理，已跳过）"
+    );
+}
+
+#[test]
+fn a_song_dropped_together_with_its_folder_counts_once() {
+    let dir = TempDir::new();
+    let one = touch(&dir, "one.mp3");
+    touch(&dir, "two.mp3");
+
+    let result = resolve_drop(&[
+        one.to_uppercase(),
+        dir.path().to_string_lossy().into_owned(),
+    ]);
+
+    assert_eq!(result.kind, DropKind::Batch);
+    assert_eq!(result.files.len(), 2);
+}
+
+#[test]
+fn one_song_among_unusable_targets_opens_it_in_the_editor() {
+    let dir = TempDir::new();
+    let bad = touch(&dir, "notes.txt");
+    let one = touch(&dir, "one.mp3");
+
+    let result = resolve_drop(&[bad, one.clone()]);
 
     assert_eq!(result.kind, DropKind::Audio);
     assert_eq!(result.path.as_deref(), Some(one.as_str()));
-    assert_eq!(result.resolved_count, 2);
-    assert_eq!(result.total, 3);
-    assert_eq!(result.message, "拖入 3 个目标，打开其中的「one.mp3」");
+    assert_eq!(result.message, "拖入 2 个目标，打开其中的「one.mp3」");
 }
 
 #[test]
@@ -212,6 +273,11 @@ fn drop_resolution_serializes_to_camel_case() {
     assert_eq!(json["fileName"], "a.mp3");
     let ncm = serde_json::to_value(resolve_drop(&["x.ncm".to_owned()])).unwrap();
     assert_eq!(ncm["kind"], "ncm");
+    let second = touch(&dir, "b.flac");
+    let batch = serde_json::to_value(resolve_drop(&[touch(&dir, "c.mp3"), second])).unwrap();
+    assert_eq!(batch["kind"], "batch");
+    assert_eq!(batch["files"][1]["name"], "b.flac");
+    assert!(batch["files"][1]["size"].is_u64());
 }
 
 // ───────────────────────── 启动参数 ─────────────────────────

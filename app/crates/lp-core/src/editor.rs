@@ -3,19 +3,24 @@
 //! 对应 C#：`LyricsEditorViewModel` 的“记住来源与歌词格式”、`MainWindowViewModel.HandleDroppedTargetsAsync` /
 //! `LyricsEditorViewModel.LoadDroppedPathsAsync` 的拖入解析、`Program.GetStartupLyricsFile`、`ElevationHelper`。
 //! 放在 lp-core 里才能单测；Tauri 外壳只转发命令。
+//!
+//! 拖入解析与 C# 的差异：C# 拖入多个目标时只打开第一个；这里拖入多首（或一个含多首的文件夹）时交给批量获取。
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::Serialize;
 
+use crate::lyrics::batch::{BatchFileView, BatchLyricsService};
 use crate::models::{LyricsSourceKind, OnlineSourcePriority};
 use crate::online::view::MatchThresholdView;
 use crate::settings::AppSettings;
 use crate::tags::detect_image_mime;
 use crate::utilities::audio_file_types::{
-    EMPTY_TARGET_MESSAGE, EXTENSION_HINT, SUPPORTED_EXTENSIONS, try_resolve,
+    EMPTY_TARGET_MESSAGE, EXTENSION_HINT, NO_AUDIO_IN_FOLDER_MESSAGE, SUPPORTED_EXTENSIONS,
+    try_resolve,
 };
 use crate::utilities::error_text;
 
@@ -104,8 +109,10 @@ pub fn remember_editor_options(
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DropKind {
-    /// 解析出了可编辑的音频文件（`path`）。
+    /// 只解析出一个可编辑的音频文件（`path`）：用编辑器打开。
     Audio,
+    /// 解析出多个音频文件（`files`）：交给批量获取标签、封面与歌词。
+    Batch,
     /// 没有可编辑的音频，但拖入了 `.ncm`（需要先解密）。
     Ncm,
     /// 没有可用目标（`message` 说明原因）。
@@ -118,72 +125,121 @@ pub enum DropKind {
 pub struct DropResolution {
     /// 类别。
     pub kind: DropKind,
-    /// `Audio` 时，要载入的第一个音频文件的完整路径。
+    /// `Audio` 时，要载入的音频文件的完整路径。
     pub path: Option<String>,
     /// `Audio` 时是文件名。
     pub file_name: Option<String>,
-    /// 给运行日志的一句话：`Audio` 为“拖入文件 / 打开其中的…”，其他是失败原因。
+    /// 给运行日志的一句话：`Audio` / `Batch` 说明打开了什么，其他是失败原因。
     pub message: String,
-    /// 能解析成音频文件的目标个数（编辑器一次只载入一个，多出来的在状态栏说明）。
+    /// 解析出的音频文件个数（去重后）。
     pub resolved_count: usize,
     /// 拖入的目标总数。
     pub total: usize,
+    /// `Batch` 时交给批量获取的文件：按拖入顺序，文件夹展开为其中（含子文件夹）的音频、按路径排序，去重。
+    pub files: Vec<BatchFileView>,
 }
 
-/// 把拖入的路径（文件或文件夹）解析成要载入的音频文件。
+/// 把拖入的路径（文件或文件夹）解析成要处理的音频文件。
 ///
-/// 规则同 C#：文件夹取按名称排序的第一个受支持文件；拖入多个时只取第一个可用的；
-/// 一个可用的都没有时，如果拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因。
+/// - 文件直接取；文件夹展开为其中（含子文件夹）的全部音频，与批量获取扫描文件夹的规则一致；
+/// - 合计只有一首时用编辑器打开（`Audio`），两首及以上交给批量获取（`Batch`）；
+/// - 一首都没有时，如果拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因。
 pub fn resolve_drop(targets: &[String]) -> DropResolution {
     let total = targets.len();
-    let mut first: Option<PathBuf> = None;
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut seen = HashSet::new();
     let mut first_error: Option<String> = None;
     let mut ncm_target = false;
-    let mut resolved_count = 0;
+    let mut skipped = 0;
 
     for target in targets {
         if has_ncm_extension(target) {
             ncm_target = true;
         }
-        match try_resolve(Some(target)) {
-            Ok(path) => {
-                resolved_count += 1;
-                first.get_or_insert(path);
+        match expand_target(target) {
+            Ok(found) => {
+                for path in found {
+                    // Windows 路径不区分大小写：同一首从文件与它所在的文件夹各拖一次只算一首。
+                    if seen.insert(path.to_string_lossy().to_lowercase()) {
+                        files.push(path);
+                    }
+                }
             }
             Err(error) => {
+                skipped += 1;
                 first_error.get_or_insert(error);
             }
         }
     }
 
-    if let Some(path) = first {
-        let file_name = path
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let message = if total > 1 {
-            format!("拖入 {total} 个目标，打开其中的「{file_name}」")
-        } else {
-            format!("拖入文件：{}", path.display())
-        };
-        return DropResolution {
-            kind: DropKind::Audio,
-            path: Some(path.to_string_lossy().into_owned()),
-            file_name: Some(file_name),
-            message,
-            resolved_count,
-            total,
-        };
+    match files.len() {
+        0 if total == 0 => failure(DropKind::Error, EMPTY_TARGET_MESSAGE.to_owned(), total),
+        0 if ncm_target => failure(DropKind::Ncm, NCM_DROP_MESSAGE.to_owned(), total),
+        0 => {
+            let message = first_error.unwrap_or_else(|| EMPTY_TARGET_MESSAGE.to_owned());
+            failure(DropKind::Error, message, total)
+        }
+        1 => {
+            let path = files.remove(0);
+            let file_name = file_name_of(&path);
+            let message = if total > 1 {
+                format!("拖入 {total} 个目标，打开其中的「{file_name}」")
+            } else {
+                format!("拖入文件：{}", path.display())
+            };
+            DropResolution {
+                kind: DropKind::Audio,
+                path: Some(path.to_string_lossy().into_owned()),
+                file_name: Some(file_name),
+                message,
+                resolved_count: 1,
+                total,
+                files: Vec::new(),
+            }
+        }
+        count => {
+            let mut message = format!("拖入 {count} 首音频，交给批量获取标签、封面与歌词");
+            if skipped > 0 {
+                message.push_str(&format!("（另有 {skipped} 个目标无法处理，已跳过）"));
+            }
+            DropResolution {
+                kind: DropKind::Batch,
+                path: None,
+                file_name: None,
+                message,
+                resolved_count: count,
+                total,
+                files: files
+                    .iter()
+                    .map(|path| BatchFileView {
+                        path: path.to_string_lossy().into_owned(),
+                        name: file_name_of(path),
+                        size: std::fs::metadata(path).map_or(0, |meta| meta.len()),
+                    })
+                    .collect(),
+            }
+        }
     }
+}
 
-    if total == 0 {
-        return failure(DropKind::Error, EMPTY_TARGET_MESSAGE.to_owned(), total);
+/// 一个拖入目标里的音频文件：文件夹展开（含子文件夹），文件按编辑器支持的格式检查。
+fn expand_target(target: &str) -> Result<Vec<PathBuf>, String> {
+    let candidate = target.trim();
+    if !candidate.is_empty() && Path::new(candidate).is_dir() {
+        let found = BatchLyricsService::scan_audio_files(candidate, true);
+        return if found.is_empty() {
+            Err(NO_AUDIO_IN_FOLDER_MESSAGE.to_owned())
+        } else {
+            Ok(found)
+        };
     }
-    if ncm_target {
-        return failure(DropKind::Ncm, NCM_DROP_MESSAGE.to_owned(), total);
-    }
-    let message = first_error.unwrap_or_else(|| EMPTY_TARGET_MESSAGE.to_owned());
-    failure(DropKind::Error, message, total)
+    try_resolve(Some(target)).map(|path| vec![path])
+}
+
+fn file_name_of(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 fn failure(kind: DropKind, message: String, total: usize) -> DropResolution {
@@ -194,6 +250,7 @@ fn failure(kind: DropKind, message: String, total: usize) -> DropResolution {
         message,
         resolved_count: 0,
         total,
+        files: Vec::new(),
     }
 }
 

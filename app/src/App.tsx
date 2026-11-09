@@ -3,10 +3,11 @@ import { logout } from './api/auth'
 import { getAppState, type AppState } from './api/app'
 import { getSettings, previewAppearance, type SettingsState } from './api/settings'
 import { setQuality, type TransferSummary } from './api/transfer'
-import { errorMessage, resolveDrop, takeStartupFile } from './api/editor'
+import { directoryOf, errorMessage, resolveDrop, takeStartupFile, type DropResolution } from './api/editor'
 import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
+import BatchLyricsDialog, { type BatchDrop } from './components/BatchLyricsDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadMissingDialog from './components/DownloadMissingDialog'
 import DropOverlay from './components/DropOverlay'
@@ -40,6 +41,15 @@ type DialogState = 'none' | 'login' | 'logout' | 'ncm' | 'settings'
 const SIDEBAR_KEY = 'lp.sidebarCollapsed'
 const NO_SONGS: Song[] = []
 
+/** 拖入结果里能交给批量获取的文件：多首直接用；只有一首也可以（批量窗口开着时就换成这一首）。 */
+function droppedFiles(result: DropResolution): BatchDrop['files'] | null {
+  if (result.kind === 'batch') return result.files
+  if (result.kind === 'audio' && result.path) {
+    return [{ path: result.path, name: result.fileName ?? result.path, size: 0 }]
+  }
+  return null
+}
+
 /** 侧栏收起状态只是每个用户自己的界面偏好：存取失败（隐私模式等）时静默回退。 */
 function readSidebarCollapsed(): boolean {
   try {
@@ -69,6 +79,8 @@ export default function App() {
   const [editor, setEditor] = useState<{ key: number; initialPath: string | null } | null>(null)
   const [editorRequest, setEditorRequest] = useState<EditorRequest | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // 主窗口拖入多首歌时打开的批量获取（编辑器里拖入时由编辑器自己的批量窗口处理）。
+  const [batch, setBatch] = useState<{ key: number; folder: string; drop: BatchDrop } | null>(null)
   const editorKey = useRef(0)
   const requestSeq = useRef(0)
   const { account, validated } = useAuth()
@@ -207,13 +219,16 @@ export default function App() {
 
   // 拖放：编辑器打开时把文件交给编辑器；否则解析后直接用编辑器打开，.ncm 提示改用「导入 NCM」。
   const editorOpen = editor !== null
-  const editorOpenRef = useRef(editorOpen)
+  const batchOpen = batch !== null
+  const openRef = useRef({ editorOpen, batchOpen })
   useEffect(() => {
-    editorOpenRef.current = editorOpen
+    openRef.current = { editorOpen, batchOpen }
   })
+  // 拖入一首：用编辑器打开；多首（或含多首的文件夹）：交给批量获取。编辑器开着时交给编辑器决定，
+  // 批量窗口开着时换成新拖入的这批。
   const onDrop = useCallback(
     (paths: string[]) => {
-      const inEditor = editorOpenRef.current
+      const { editorOpen: inEditor, batchOpen: inBatch } = openRef.current
       resolveDrop(paths, !inEditor)
         .then((result) => {
           if (inEditor) {
@@ -221,8 +236,25 @@ export default function App() {
             setEditorRequest({
               seq: requestSeq.current,
               path: result.kind === 'audio' ? result.path : null,
-              message: result.kind === 'audio' ? null : result.message,
-              resolvedCount: result.resolvedCount,
+              files: result.kind === 'batch' ? result.files : null,
+              message: result.kind === 'audio' || result.kind === 'batch' ? null : result.message,
+            })
+            return
+          }
+          const files = droppedFiles(result)
+          if (inBatch) {
+            requestSeq.current += 1
+            const seq = requestSeq.current
+            if (files) setBatch((current) => (current ? { ...current, drop: { seq, files } } : current))
+            else setNotice(result.message)
+          } else if (result.kind === 'batch') {
+            setNotice(null)
+            requestSeq.current += 1
+            editorKey.current += 1
+            setBatch({
+              key: editorKey.current,
+              folder: directoryOf(result.files[0]?.path ?? ''),
+              drop: { seq: requestSeq.current, files: result.files },
             })
           } else if (result.kind === 'audio' && result.path) {
             setNotice(null)
@@ -235,7 +267,7 @@ export default function App() {
           const message = `载入拖入的文件失败：${errorMessage(raised, '请重试')}`
           if (inEditor) {
             requestSeq.current += 1
-            setEditorRequest({ seq: requestSeq.current, path: null, message, resolvedCount: 0 })
+            setEditorRequest({ seq: requestSeq.current, path: null, files: null, message })
           } else {
             setNotice(message)
           }
@@ -243,9 +275,11 @@ export default function App() {
     },
     [openEditor],
   )
-  // 登录 / NCM 导入 / 歌词预览 / 更新提醒 / 下载确认等对话框占着界面时不接收拖放（编辑器自己接收）。
+  // 登录 / NCM 导入 / 歌词预览 / 更新提醒 / 下载确认等对话框占着界面时不接收拖放（编辑器与批量窗口自己接收）。
   const dropEnabled =
-    editorOpen || (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt && !transferConfirm.pending)
+    editorOpen ||
+    batchOpen ||
+    (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt && !transferConfirm.pending)
   const { dragging } = useFileDrop(dropEnabled, onDrop)
 
   const openLogin = useCallback(() => setDialog('login'), [])
@@ -368,7 +402,10 @@ export default function App() {
         />
       )}
       {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
-      {dragging && <DropOverlay editorOpen={editorOpen} />}
+      {batch && (
+        <BatchLyricsDialog key={batch.key} initialFolder={batch.folder} drop={batch.drop} onClose={() => setBatch(null)} />
+      )}
+      {dragging && <DropOverlay target={editorOpen ? 'editor' : batchOpen ? 'batch' : 'main'} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {transferConfirm.pending?.kind === 'missing' && (
