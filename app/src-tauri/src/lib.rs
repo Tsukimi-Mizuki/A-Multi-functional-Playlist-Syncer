@@ -2165,8 +2165,8 @@ mod tests {
         let dir = ScratchDir::new("editor-unchanged");
         let state = AppState::load(dir.paths());
 
-        // 默认值（QQ 音乐、逐行）再记一次：没有变化，不创建设置文件。
-        state.remember_editor_options(LyricsSourceKind::QqMusic, false);
+        // 默认值（网易云音乐、逐行）再记一次：没有变化，不创建设置文件。
+        state.remember_editor_options(LyricsSourceKind::Netease, false);
 
         assert!(!state.paths.settings_file().exists());
     }

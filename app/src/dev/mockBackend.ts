@@ -632,7 +632,7 @@ export function installMockBackend(scenario: string | null): void {
   let mockQuality = 'ExHigh'
   let transferRunning = false
   let transferCancelled = false
-  let editorSource = scenario === 'neteasefail' ? 'Netease' : 'QQMusic'
+  let editorSource = 'Netease'
   let editorPreferWord = false
   const batchState: MockBatchState = { running: false, cancelled: false }
 
@@ -729,7 +729,7 @@ export function installMockBackend(scenario: string | null): void {
     lyricsSourcePriority: 'NeteaseFirst',
     ncmImportFolders: [],
     ncmImportOutputDirectory: '',
-    lyricsEditorSearchSource: 'QQMusic',
+    lyricsEditorSearchSource: 'Netease',
     fallbackKugouLyrics: true,
     fallbackLrclibLyrics: true,
     lyricsEditorPreferWordLyrics: false,

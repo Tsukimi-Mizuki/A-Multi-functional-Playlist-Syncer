@@ -53,11 +53,9 @@ fn csharp_view(settings: &AppSettings) -> Value {
     value
 }
 
-/// Rust 的默认设置，但编辑器搜索来源取 C# 的默认值（Rust 版默认改成了 QQ 音乐）。
+/// Rust 的默认设置（与 C# 的默认值一致）。
 fn csharp_defaults() -> AppSettings {
-    let mut settings = AppSettings::new(DEFAULT_DIR);
-    settings.lyrics_editor_search_source = LyricsSourceKind::Netease;
-    settings
+    AppSettings::new(DEFAULT_DIR)
 }
 
 #[test]
