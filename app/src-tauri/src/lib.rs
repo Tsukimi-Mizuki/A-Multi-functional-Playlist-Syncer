@@ -236,7 +236,7 @@ impl AppState {
             Arc::clone(&batch_service),
             Arc::clone(&logs),
         ));
-        // 下载、同步与 NCM 解密成功后的在线补全：QQ 逐字歌词优先、网易云兜底。
+        // 下载、同步与 NCM 解密成功后的在线补全：标签与封面网易云优先，歌词 QQ 逐字优先。
         let enricher: Arc<dyn OnlineEnricher> =
             Arc::new(BatchEnricher::new(batch_service, settings_provider));
 
@@ -2093,7 +2093,7 @@ mod tests {
             dialog["onlineMatchHint"]
                 .as_str()
                 .unwrap()
-                .contains("QQ 音乐逐字歌词优先")
+                .contains("标签与封面网易云音乐优先")
         );
     }
 

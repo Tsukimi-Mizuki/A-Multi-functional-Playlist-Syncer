@@ -1010,7 +1010,7 @@ pub(crate) async fn enrich_file(
     let Some(enricher) = enricher else {
         return Ok(Enrichment::Unavailable);
     };
-    announce("正在按 QQ 优先次序补全标签、封面与歌词…");
+    announce("正在在线补全标签、封面与歌词（标签与封面网易云优先，歌词 QQ 逐字优先）…");
     match enricher.enrich(path, cancel).await {
         Ok(outcome) if outcome.success => {
             Ok(describe_enrichment(&outcome).map_or(Enrichment::Nothing, Enrichment::Note))

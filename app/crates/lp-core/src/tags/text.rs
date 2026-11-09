@@ -112,5 +112,67 @@ pub fn detect_image_mime(data: &[u8]) -> &'static str {
     }
 }
 
+/// 读图片的像素宽高（PNG / JPEG / GIF / BMP / WebP），只看文件头，不解码；认不出或数据不完整时返回 `None`。
+///
+/// 自动补全用它判断新封面是不是比文件里已有的更清楚。
+pub fn image_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    let u16_be = |at: usize| {
+        Some(u32::from(u16::from_be_bytes(
+            data.get(at..at + 2)?.try_into().ok()?,
+        )))
+    };
+    let u16_le = |at: usize| {
+        Some(u32::from(u16::from_le_bytes(
+            data.get(at..at + 2)?.try_into().ok()?,
+        )))
+    };
+    let u32_be = |at: usize| Some(u32::from_be_bytes(data.get(at..at + 4)?.try_into().ok()?));
+    let u24_le = |at: usize| {
+        let bytes = data.get(at..at + 3)?;
+        Some(u32::from(bytes[0]) | (u32::from(bytes[1]) << 8) | (u32::from(bytes[2]) << 16))
+    };
+    let size = match detect_image_mime(data) {
+        "image/png" if data.get(12..16) == Some(b"IHDR") => (u32_be(16)?, u32_be(20)?),
+        "image/gif" => (u16_le(6)?, u16_le(8)?),
+        "image/bmp" => {
+            let width = i32::from_le_bytes(data.get(18..22)?.try_into().ok()?);
+            let height = i32::from_le_bytes(data.get(22..26)?.try_into().ok()?);
+            (width.unsigned_abs(), height.unsigned_abs())
+        }
+        "image/webp" => match data.get(12..16)? {
+            b"VP8 " => (u16_le(26)? & 0x3FFF, u16_le(28)? & 0x3FFF),
+            b"VP8L" => {
+                let bits = u32::from_le_bytes(data.get(21..25)?.try_into().ok()?);
+                ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
+            }
+            b"VP8X" => (u24_le(24)? + 1, u24_le(27)? + 1),
+            _ => return None,
+        },
+        _ if data.starts_with(&[0xFF, 0xD8]) => {
+            // 逐段跳过，直到帧头 SOFn（C0–CF，除了 C4 DHT、C8 保留、CC DAC）。
+            let mut at = 2;
+            loop {
+                while data.get(at) == Some(&0xFF) && data.get(at + 1) == Some(&0xFF) {
+                    at += 1;
+                }
+                if *data.get(at)? != 0xFF {
+                    return None;
+                }
+                let marker = *data.get(at + 1)?;
+                if matches!(marker, 0x01 | 0xD0..=0xD8) {
+                    at += 2;
+                    continue;
+                }
+                if matches!(marker, 0xC0..=0xCF) && !matches!(marker, 0xC4 | 0xC8 | 0xCC) {
+                    break (u16_be(at + 7)?, u16_be(at + 5)?);
+                }
+                at += 2 + usize::try_from(u16_be(at + 2)?).ok()?;
+            }
+        }
+        _ => return None,
+    };
+    (size.0 > 0 && size.1 > 0).then_some(size)
+}
+
 #[cfg(test)]
 mod tests;

@@ -991,7 +991,7 @@ fn threshold_percent_and_hint_follow_the_settings() {
     settings.match_threshold = 0.755;
     assert_eq!(match_threshold_percent(&settings), 76);
     assert!(online_match_hint(60).contains("匹配度 60%"));
-    assert!(online_match_hint(60).contains("QQ 音乐逐字歌词优先"));
+    assert!(online_match_hint(60).contains("标签与封面网易云音乐优先，歌词 QQ 音乐逐字优先"));
 }
 
 #[test]

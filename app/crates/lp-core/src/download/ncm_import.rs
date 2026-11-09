@@ -521,7 +521,7 @@ pub fn match_threshold_percent(settings: &AppSettings) -> u32 {
 /// 在线匹配的来源说明（与 C# 的 `AutoMatchHintText` 一致）。
 pub fn online_match_hint(threshold_percent: u32) -> String {
     format!(
-        "在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 {threshold_percent}%（可在「设置」的「在线匹配度」中调整）"
+        "在线匹配来源：标签与封面网易云音乐优先，歌词 QQ 音乐逐字优先 · 匹配度 {threshold_percent}%（可在「设置」的「在线匹配度」中调整）"
     )
 }
 

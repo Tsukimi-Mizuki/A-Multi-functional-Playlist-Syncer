@@ -454,6 +454,7 @@ async fn run_batch_scenario(scenario: &Value, index: usize) -> Value {
         fetch_lyrics: o["fetchLyrics"] == true,
         prefer_word_lyrics: o["preferWord"] == true,
         min_score: number(&o["minScore"]),
+        ..BatchLyricsOptions::default()
     };
     let outcome = service
         .fetch_for_file(&path, &options, &CancelToken::new())
@@ -502,9 +503,21 @@ async fn batch_selection_matches_csharp_for_every_scenario() {
     let scenarios = fixture.as_array().unwrap();
     assert!(scenarios.len() >= 30);
 
+    let mut annotated = 0;
     for (index, item) in scenarios.iter().enumerate() {
         let input = &item["input"];
-        let actual = run_batch_scenario(input, index).await;
+        let mut actual = run_batch_scenario(input, index).await;
+        // 有意的差异：网易云 / QQ 的歌词与标签来源不同时，Rust 在结果里写明歌词来源（C# 不写；
+        // 备用词源的「歌词来源」两边都写）。比较前去掉这段，其余逐字比较。
+        if let Some(message) = actual["message"].as_str() {
+            let stripped = message
+                .replace("（歌词来源：网易云音乐）", "")
+                .replace("（歌词来源：QQ 音乐）", "");
+            if stripped != message {
+                annotated += 1;
+                actual["message"] = json!(stripped);
+            }
+        }
         assert_eq!(
             actual,
             item["expected"],
@@ -512,6 +525,7 @@ async fn batch_selection_matches_csharp_for_every_scenario() {
             input["name"].as_str().unwrap()
         );
     }
+    assert!(annotated > 0, "黄金场景里应有歌词与标签来源不同的情况");
 }
 
 // ───────────────────────────── 词源解析 ─────────────────────────────

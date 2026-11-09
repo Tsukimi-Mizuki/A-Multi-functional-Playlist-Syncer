@@ -910,7 +910,7 @@ export function installMockBackend(scenario: string | null): void {
             outputDirectory: ncmOutput,
             downloadDirectory: 'D:\\mock\\Music',
             onlineMatchAvailable: true,
-            onlineMatchHint: '在线匹配来源：QQ 音乐逐字歌词优先，其次网易云音乐 · 匹配度 60%（可在「设置」的「在线匹配度」中调整）',
+            onlineMatchHint: '在线匹配来源：标签与封面网易云音乐优先，歌词 QQ 音乐逐字优先 · 匹配度 60%（可在「设置」的「在线匹配度」中调整）',
           }
         case 'ncm_scan': {
           await sleep(250)

@@ -311,6 +311,7 @@ impl BatchManager {
             fetch_lyrics: request.fetch_lyrics,
             prefer_word_lyrics: request.prefer_word_lyrics,
             min_score: settings.match_threshold,
+            ..BatchLyricsOptions::default()
         };
         self.logs
             .info(format!("开始批量获取标签、封面与歌词：{total} 个文件"));

@@ -127,3 +127,78 @@ fn detect_image_mime_recognises_common_formats() {
     assert_eq!(detect_image_mime(&[]), "image/jpeg");
     assert_eq!(detect_image_mime(b"??"), "image/jpeg");
 }
+
+/// 只有文件头的 PNG：签名 + IHDR。
+fn png_header(width: u32, height: u32) -> Vec<u8> {
+    let mut data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    data.extend_from_slice(b"IHDR");
+    data.extend_from_slice(&width.to_be_bytes());
+    data.extend_from_slice(&height.to_be_bytes());
+    data.extend_from_slice(&[8, 6, 0, 0, 0]);
+    data
+}
+
+/// 只有文件头的 JPEG：APP0、DHT 之后才是帧头，`sof` 是帧头标记（C0 基线 / C2 渐进）。
+fn jpeg_header(sof: u8, width: u16, height: u16) -> Vec<u8> {
+    let mut data = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
+    data.extend_from_slice(b"JFIF\0\x01\x01\0\0\x01\0\x01\0\0");
+    data.extend_from_slice(&[0xFF, 0xC4, 0x00, 0x04, 0x00, 0x00]);
+    data.extend_from_slice(&[0xFF, sof, 0x00, 0x11, 0x08]);
+    data.extend_from_slice(&height.to_be_bytes());
+    data.extend_from_slice(&width.to_be_bytes());
+    data.extend_from_slice(&[3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+    data
+}
+
+#[test]
+fn image_dimensions_reads_png_and_jpeg_headers() {
+    assert_eq!(
+        image_dimensions(&png_header(4000, 4000)),
+        Some((4000, 4000))
+    );
+    assert_eq!(
+        image_dimensions(&png_header(1663, 1483)),
+        Some((1663, 1483))
+    );
+    // DHT 段（C4）不是帧头，要跳过；渐进式 JPEG 的帧头是 C2。
+    assert_eq!(
+        image_dimensions(&jpeg_header(0xC0, 1200, 1200)),
+        Some((1200, 1200))
+    );
+    assert_eq!(
+        image_dimensions(&jpeg_header(0xC2, 3000, 2000)),
+        Some((3000, 2000))
+    );
+}
+
+#[test]
+fn image_dimensions_reads_gif_bmp_and_webp_headers() {
+    let mut gif = b"GIF89a".to_vec();
+    gif.extend_from_slice(&[0x20, 0x03, 0x58, 0x02]);
+    assert_eq!(image_dimensions(&gif), Some((800, 600)));
+
+    // BMP 高度为负表示自上而下存储。
+    let mut bmp = b"BM".to_vec();
+    bmp.extend_from_slice(&[0; 16]);
+    bmp.extend_from_slice(&500_i32.to_le_bytes());
+    bmp.extend_from_slice(&(-400_i32).to_le_bytes());
+    assert_eq!(image_dimensions(&bmp), Some((500, 400)));
+
+    let mut webp = b"RIFF\0\0\0\0WEBPVP8X\x0A\0\0\0\0\0\0\0".to_vec();
+    webp.extend_from_slice(&[0xCF, 0x07, 0x00, 0x2B, 0x02, 0x00]);
+    assert_eq!(image_dimensions(&webp), Some((2000, 556)));
+}
+
+#[test]
+fn image_dimensions_rejects_unknown_or_truncated_data() {
+    assert_eq!(image_dimensions(&[]), None);
+    assert_eq!(image_dimensions(b"not an image"), None);
+    assert_eq!(image_dimensions(&png_header(0, 10)), None);
+    let jpeg = jpeg_header(0xC0, 1200, 1200);
+    // 帧头被截断。
+    assert_eq!(image_dimensions(&jpeg[..jpeg.len() - 12]), None);
+    // 段之间不是 FF 开头（数据损坏）。
+    let mut broken = jpeg.clone();
+    broken[20] = 0x00;
+    assert_eq!(image_dimensions(&broken), None);
+}

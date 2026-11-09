@@ -6,8 +6,8 @@
 //! 让冷门曲目与同人音乐也能补上逐行 / 逐字歌词。
 //!
 //! 模块 7（NCM 导入）与模块 9（下载 / 同步）留下的 [`OnlineEnricher`] 挂钩由 [`BatchEnricher`] 实现：
-//! 固定走 [`BatchLyricsOptions::auto_enrich`]（QQ 逐字歌词优先、网易云兜底、覆盖已有标签与歌词），
-//! 匹配度阈值与“是否取歌词”每次调用时从**当前设置**读取。
+//! 固定走 [`BatchLyricsOptions::auto_enrich`]（标签与封面网易云优先、歌词 QQ 逐字优先，覆盖已有标签与歌词，
+//! 封面只换成更清楚的），匹配度阈值、“是否取歌词”与“是否写封面”每次调用时从**当前设置**读取。
 //!
 //! ## 与 C# 的差异
 //!
@@ -34,6 +34,7 @@ use crate::online::{
     OnlineMusicSource, OnlineSongDetails, OnlineSongResult,
 };
 use crate::settings::AppSettings;
+use crate::tags::text::image_dimensions;
 use crate::tags::{AudioTagData, AudioTagInfo, AudioTagService};
 use crate::utilities::{CancelToken, Cancelled, cancellable};
 
@@ -71,6 +72,10 @@ pub struct BatchLyricsOptions {
     pub prefer_word_lyrics: bool,
     /// 匹配度阈值（0.30–1.00，超出范围会被夹回）。
     pub min_score: f64,
+    /// 是否写入封面。
+    pub write_cover: bool,
+    /// 覆盖已有封面时只换成像素更多的（避免把清楚的封面换成模糊的）；文件里没有封面时照常写入。
+    pub keep_larger_cover: bool,
 }
 
 impl Default for BatchLyricsOptions {
@@ -82,28 +87,35 @@ impl Default for BatchLyricsOptions {
             fetch_lyrics: true,
             prefer_word_lyrics: false,
             min_score: scorer::DEFAULT_MIN_SCORE,
+            write_cover: true,
+            keep_larger_cover: false,
         }
     }
 }
 
 impl BatchLyricsOptions {
-    /// 下载、同步与 NCM 解锁后自动补全用：QQ 音乐逐字歌词优先，其次网易云音乐，并覆盖已有标签与歌词。
+    /// 下载、同步与 NCM 解锁后自动补全用：标签与封面网易云音乐优先（原图更清楚），其次 QQ 音乐；
+    /// 歌词 QQ 音乐逐字优先，其次网易云音乐。覆盖已有标签与歌词，封面只换成像素更多的。
     pub fn auto_enrich() -> Self {
         Self {
-            tag_priority: OnlineSourcePriority::QqMusicFirst,
+            tag_priority: OnlineSourcePriority::NeteaseFirst,
             lyrics_priority: OnlineSourcePriority::QqMusicFirst,
             overwrite_existing: true,
             fetch_lyrics: true,
             prefer_word_lyrics: true,
             min_score: scorer::DEFAULT_MIN_SCORE,
+            write_cover: true,
+            keep_larger_cover: true,
         }
     }
 
-    /// 自动补全选项 + 当前设置里的匹配度阈值与“是否取歌词”（歌词写入方式为「不写」时只补标签与封面）。
+    /// 自动补全选项 + 当前设置里的匹配度阈值、“是否取歌词”（歌词写入方式为「不写」时只补标签与封面）
+    /// 与“是否写封面”（关掉「写入封面」时不写封面）。
     pub fn auto_enrich_with(settings: &AppSettings) -> Self {
         Self {
             min_score: settings.match_threshold,
             fetch_lyrics: settings.lyrics_mode != LyricsWriteMode::None,
+            write_cover: settings.write_cover,
             ..Self::auto_enrich()
         }
     }
@@ -488,7 +500,13 @@ impl BatchLyricsService {
             composer: (replace || info.composer.as_deref().is_none_or(is_blank))
                 .then(|| null_if_blank(tag_song.and_then(|song| song.composer.as_deref())))
                 .flatten(),
-            cover_data: (replace || !info.has_cover).then_some(cover).flatten(),
+            cover_data: cover.filter(|cover| {
+                options.write_cover
+                    && (!info.has_cover
+                        || (replace
+                            && (!options.keep_larger_cover
+                                || is_larger_cover(cover, info.cover_data.as_deref()))))
+            }),
             plain_lyrics: if writes_lyrics && !use_word {
                 lyrics.clone()
             } else {
@@ -545,8 +563,15 @@ impl BatchLyricsService {
         }
 
         let mut message = format!("已写入{}", parts.join("、"));
-        if writes_lyrics && let Some(candidate) = &fallback_lyrics {
-            message.push_str(&format!("（歌词来源：{}）", candidate.source_label));
+        // 备用词源的歌词总写明来源；网易云 / QQ 的歌词与标签来源不同时也写明（来源名默认指标签的来源）。
+        let lyrics_label = match (&online_lyrics, &lyrics_details, &fallback_lyrics) {
+            (Some(_), Some(details), _) => Some(details.song.source_label())
+                .filter(|label| source_label.as_deref() != Some(*label)),
+            (None, _, Some(candidate)) => Some(candidate.source_label.as_str()),
+            _ => None,
+        };
+        if writes_lyrics && let Some(label) = lyrics_label {
+            message.push_str(&format!("（歌词来源：{label}）"));
         }
         if should_fetch_lyrics && !writes_lyrics {
             message.push_str("（未获取到歌词）");
@@ -785,6 +810,13 @@ fn split_artists(value: Option<&str>) -> Vec<String> {
         .filter(|part| !part.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+/// 新封面的像素是否比已有封面多；认不出尺寸的新封面不算，认不出尺寸的旧封面按 0 算。
+fn is_larger_cover(new: &[u8], existing: Option<&[u8]>) -> bool {
+    let area = |data: &[u8]| image_dimensions(data).map_or(0, |(w, h)| u64::from(w) * u64::from(h));
+    let new_area = area(new);
+    new_area > 0 && new_area > existing.map_or(0, area)
 }
 
 /// 本地歌曲的标题与歌手：标签优先；没有标题时用文件名（去掉音轨前缀、下划线换空格）。

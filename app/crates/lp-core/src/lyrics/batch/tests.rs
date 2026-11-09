@@ -906,16 +906,18 @@ fn scanning_filters_extensions_recurses_on_request_and_sorts_ignoring_case() {
 // ---- 选项与在线补全挂钩 ----
 
 #[test]
-fn auto_enrich_prefers_qq_word_lyrics_and_overwrites() {
+fn auto_enrich_takes_tags_from_netease_first_and_word_lyrics_from_qq_first() {
     let options = BatchLyricsOptions::auto_enrich();
-    assert_eq!(options.tag_priority, OnlineSourcePriority::QqMusicFirst);
+    assert_eq!(options.tag_priority, OnlineSourcePriority::NeteaseFirst);
     assert_eq!(options.lyrics_priority, OnlineSourcePriority::QqMusicFirst);
     assert!(options.overwrite_existing && options.fetch_lyrics && options.prefer_word_lyrics);
+    assert!(options.write_cover && options.keep_larger_cover);
     assert_eq!(options.min_score, 0.60);
 
     let defaults = BatchLyricsOptions::default();
     assert_eq!(defaults.tag_priority, OnlineSourcePriority::NeteaseFirst);
     assert!(!defaults.overwrite_existing && defaults.fetch_lyrics && !defaults.prefer_word_lyrics);
+    assert!(defaults.write_cover && !defaults.keep_larger_cover);
 }
 
 #[test]
@@ -931,6 +933,10 @@ fn auto_enrich_reads_threshold_and_lyrics_mode_from_settings() {
 
     current.lyrics_mode = LyricsWriteMode::Word;
     assert!(BatchLyricsOptions::auto_enrich_with(&current).fetch_lyrics);
+
+    assert!(options.write_cover);
+    current.write_cover = false;
+    assert!(!BatchLyricsOptions::auto_enrich_with(&current).write_cover);
 }
 
 type SharedSettings = Arc<std::sync::Mutex<AppSettings>>;
@@ -979,8 +985,8 @@ async fn the_enricher_produces_the_csharp_messages_for_ncm_import_and_downloads(
         describe_match(&outcome),
         "匹配「晴天 - 周杰伦」：已写入标签、双语逐字歌词（QQ 音乐）"
     );
-    // 自动补全固定 QQ 优先：只搜了 QQ（可信匹配即停）。
-    assert_eq!(online.searches()[0].0, QqMusic);
+    // 自动补全的标签先搜网易云（假搜索对任何来源都返回这首 QQ 歌，所以来源名仍是 QQ 音乐）。
+    assert_eq!(online.searches()[0].0, Netease);
     assert!(tags.written().unwrap().word_lyrics.is_some());
 }
 
@@ -1293,4 +1299,146 @@ fn request_and_views_use_camel_case_json() {
     assert_eq!(value["status"], "skipped");
     assert_eq!(value["fileName"], "a.mp3");
     assert_eq!(value["lyricsFormat"], serde_json::Value::Null);
+}
+
+// ---- 自动补全的封面 ----
+
+/// 只有文件头的 PNG（够 `image_dimensions` 认出尺寸）。
+fn png(width: u32, height: u32) -> Vec<u8> {
+    let mut data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    data.extend_from_slice(b"IHDR");
+    data.extend_from_slice(&width.to_be_bytes());
+    data.extend_from_slice(&height.to_be_bytes());
+    data
+}
+
+/// 网易云与 QQ 各有一首「晴天」：网易云只有逐行歌词、封面是 `netease_cover`；QQ 有逐字歌词、封面 300×300。
+fn split_sources(netease_cover: Vec<u8>) -> Arc<StubOnline> {
+    let online = StubOnline::with(vec![], None);
+    online.on_search(|source, _| {
+        Ok(vec![match source {
+            Netease => song(Netease, "186016", "晴天", "周杰伦", "叶惠美", 269_000),
+            _ => song(QqMusic, "003", "晴天", "周杰伦", "叶惠美", 269_000),
+        }])
+    });
+    online.on_details(move |candidate| {
+        let mut details = OnlineSongDetails::without_extras(candidate.clone());
+        details.line_lyrics = Some("[00:01.00]晴天".to_owned());
+        if candidate.source == QqMusic {
+            details.word_lyrics = Some("[00:01.00]<00:01.00>晴<00:02.00>天".to_owned());
+            details.cover_data = Some(png(300, 300));
+        } else {
+            details.cover_data = Some(netease_cover.clone());
+        }
+        Ok(Some(details))
+    });
+    online
+}
+
+#[tokio::test]
+async fn auto_enrich_takes_tags_and_cover_from_netease_and_word_lyrics_from_qq() {
+    let temp = TempDir::new();
+    let path = file(&temp, "split.mp3");
+    let tags = StubTags::with(tag_info("晴天", "周杰伦", 269_000));
+    let online = split_sources(png(3000, 3000));
+    let (enricher, _) = enricher(&tags, &online, settings());
+
+    let outcome = enricher.enrich(&path, &CancelToken::new()).await.unwrap();
+
+    assert!(outcome.success, "{}", outcome.message);
+    assert_eq!(
+        outcome.message,
+        "已写入标签、封面、逐字歌词（歌词来源：QQ 音乐）"
+    );
+    assert_eq!(outcome.source_label.as_deref(), Some("网易云音乐"));
+    let sources: Vec<_> = online
+        .searches()
+        .iter()
+        .map(|(source, _)| *source)
+        .collect();
+    assert_eq!(
+        sources,
+        vec![Netease, QqMusic],
+        "标签先搜网易云，歌词先搜 QQ"
+    );
+    let written = tags.written().unwrap();
+    assert_eq!(written.cover_data, Some(png(3000, 3000)));
+    assert!(written.word_lyrics.is_some());
+}
+
+#[tokio::test]
+async fn auto_enrich_only_replaces_an_existing_cover_with_a_larger_one() {
+    let cases: [(Option<Vec<u8>>, Vec<u8>, bool); 6] = [
+        // 文件里没有封面：再小也写。
+        (None, png(300, 300), true),
+        (Some(png(1200, 1200)), png(800, 800), false),
+        (Some(png(1200, 1200)), png(1200, 1200), false),
+        (Some(png(1200, 1200)), png(3000, 3000), true),
+        // 认不出尺寸的旧封面按 0 算；认不出尺寸的新封面不换掉已有的。
+        (Some(vec![1, 2, 3]), png(500, 500), true),
+        (Some(png(500, 500)), vec![1, 2, 3], false),
+    ];
+    for (existing, offered, replaced) in cases {
+        let temp = TempDir::new();
+        let path = file(&temp, "cover.mp3");
+        let mut info = tag_info("晴天", "周杰伦", 269_000);
+        info.has_cover = existing.is_some();
+        info.cover_data = existing.clone();
+        let tags = StubTags::with(info);
+        let online = split_sources(offered.clone());
+
+        let result = service(&tags, &online, vec![])
+            .fetch_for_file(
+                &path,
+                &BatchLyricsOptions::auto_enrich(),
+                &CancelToken::new(),
+            )
+            .await
+            .unwrap();
+
+        assert!(result.success, "{}", result.message);
+        let written = tags.written().unwrap().cover_data;
+        assert_eq!(
+            written,
+            replaced.then(|| offered.clone()),
+            "已有 {existing:?}，新封面 {offered:?}"
+        );
+        assert_eq!(
+            result.message.contains("封面"),
+            replaced,
+            "{}",
+            result.message
+        );
+    }
+
+    // 批量窗口勾了「覆盖」时照旧直接替换。
+    let temp = TempDir::new();
+    let path = file(&temp, "window.mp3");
+    let mut info = tag_info("晴天", "周杰伦", 269_000);
+    info.has_cover = true;
+    info.cover_data = Some(png(1200, 1200));
+    let tags = StubTags::with(info);
+    let result = service(&tags, &split_sources(png(800, 800)), vec![])
+        .fetch_for_file(&path, &overwrite(), &CancelToken::new())
+        .await
+        .unwrap();
+    assert!(result.success, "{}", result.message);
+    assert_eq!(tags.written().unwrap().cover_data, Some(png(800, 800)));
+}
+
+#[tokio::test]
+async fn auto_enrich_writes_no_cover_when_writing_covers_is_off() {
+    let temp = TempDir::new();
+    let path = file(&temp, "no-cover.mp3");
+    let tags = StubTags::with(tag_info("晴天", "周杰伦", 269_000));
+    let online = split_sources(png(3000, 3000));
+    let mut current = settings();
+    current.write_cover = false;
+    let (enricher, _) = enricher(&tags, &online, current);
+
+    let outcome = enricher.enrich(&path, &CancelToken::new()).await.unwrap();
+
+    assert!(outcome.success, "{}", outcome.message);
+    assert_eq!(outcome.message, "已写入标签、逐字歌词（歌词来源：QQ 音乐）");
+    assert_eq!(tags.written().unwrap().cover_data, None);
 }
