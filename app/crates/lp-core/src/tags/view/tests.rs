@@ -30,8 +30,20 @@ fn view_inlines_the_cover_as_a_data_url_and_keeps_big_ids_exact() {
         "{url}"
     );
     assert_eq!(view.cover_size, Some(PNG_COVER.len()));
+    assert_eq!((view.cover_width, view.cover_height), (Some(1), Some(1)));
     assert!(!view.cover_too_large);
     assert!(view.has_cover);
+}
+
+#[test]
+fn view_reports_the_cover_type_and_leaves_unknown_sizes_empty() {
+    let mut info = info_with_cover(vec![1, 2, 3], Some("image/jpeg"));
+    info.cover_picture_type = Some("正面封面".into());
+
+    let view = TagView::new(Path::new("a.mp3"), info);
+
+    assert_eq!(view.cover_picture_type.as_deref(), Some("正面封面"));
+    assert_eq!((view.cover_width, view.cover_height), (None, None));
 }
 
 #[test]

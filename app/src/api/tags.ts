@@ -28,6 +28,11 @@ export interface TagView {
   coverSize: number | null
   coverTooLarge: boolean
   coverMimeType: string | null
+  /** 封面像素尺寸；认不出时为 null。 */
+  coverWidth: number | null
+  coverHeight: number | null
+  /** 封面的图片类型（中文名，如「正面封面」）。 */
+  coverPictureType: string | null
   durationMs: number
   /** kbps。 */
   bitrate: number

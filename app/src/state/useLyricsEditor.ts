@@ -55,8 +55,41 @@ export const EMPTY_FIELDS: EditorFields = {
 /** 封面状态：`file` = 文件里原有的（不动）；`new` = 在线结果或本地图片；`removed` = 保存时删除。 */
 export type CoverState =
   | { kind: 'file' }
-  | { kind: 'new'; base64: string; mimeType: string; size: number; origin: string }
+  | { kind: 'new'; base64: string; mimeType: string; size: number; width: number | null; height: number | null; origin: string }
   | { kind: 'removed' }
+
+/** 封面参数（显示在封面旁边）；拿不到的项为 null。 */
+export interface CoverMeta {
+  mimeType: string | null
+  /** 如「2400×2400」。 */
+  dimensions: string | null
+  /** 如「61.4 KB」。 */
+  size: string | null
+  /** 图片类型，如「正面封面」。 */
+  pictureType: string | null
+}
+
+export interface CoverView {
+  src: string | null
+  meta: CoverMeta | null
+  caption: string
+  tooLarge: boolean
+}
+
+function coverMeta(
+  mimeType: string | null,
+  width: number | null,
+  height: number | null,
+  size: number | null,
+  pictureType: string | null,
+): CoverMeta {
+  return {
+    mimeType: mimeType && mimeType.trim() !== '' ? mimeType : null,
+    dimensions: width != null && height != null ? `${width}×${height}` : null,
+    size: size != null ? formatFileSize(size) : null,
+    pictureType,
+  }
+}
 
 /** 在线搜索结果的一行：主词源的歌曲，或备用词源的一份歌词。 */
 export type ResultEntry =
@@ -377,6 +410,8 @@ export function useLyricsEditor() {
           base64: loaded.cover.base64,
           mimeType: loaded.cover.mimeType,
           size: loaded.cover.size,
+          width: loaded.cover.width,
+          height: loaded.cover.height,
           origin: summary.sourceLabel,
         })
       }
@@ -547,7 +582,15 @@ export function useLyricsEditor() {
       const path = await pickCoverImage()
       if (!path) return
       const image = await readCoverFile(path)
-      setCover({ kind: 'new', base64: image.base64, mimeType: image.mimeType, size: image.size, origin: image.fileName })
+      setCover({
+        kind: 'new',
+        base64: image.base64,
+        mimeType: image.mimeType,
+        size: image.size,
+        width: image.width,
+        height: image.height,
+        origin: image.fileName,
+      })
       setStatus(`已选择封面「${image.fileName}」，保存后写入文件。`)
     } catch (error) {
       setStatus(`更换封面失败：${errorMessage(error, '请重试')}`)
@@ -561,32 +604,26 @@ export function useLyricsEditor() {
 
   const restoreCover = useCallback(() => setCover({ kind: 'file' }), [])
 
-  /** 当前要显示的封面图片地址（没有为 null）与说明。 */
-  const coverView = useMemo(() => {
+  /** 当前要显示的封面图片地址（没有为 null）、参数（格式 / 尺寸 / 大小 / 类型，没有封面为 null）与说明。 */
+  const coverView = useMemo((): CoverView => {
     if (cover.kind === 'new') {
       return {
         src: `data:${cover.mimeType};base64,${cover.base64}`,
-        caption: `新封面：${cover.origin} · ${formatFileSize(cover.size)}（保存后写入）`,
+        // 保存时一律写成正面封面（lp-core 写标签用 PictureType::CoverFront）。
+        meta: coverMeta(cover.mimeType, cover.width, cover.height, cover.size, '正面封面'),
+        caption: `新封面：${cover.origin}（保存后写入）`,
         tooLarge: false,
       }
     }
     if (cover.kind === 'removed') {
-      return { src: null, caption: '封面将在保存时移除', tooLarge: false }
+      return { src: null, meta: null, caption: '封面将在保存时移除', tooLarge: false }
     }
     const info = file?.info
-    if (!info) return { src: null, caption: '', tooLarge: false }
-    if (info.coverDataUrl) {
-      return {
-        src: info.coverDataUrl,
-        caption: `${info.coverMimeType ?? '图片'}${info.coverSize != null ? ` · ${formatFileSize(info.coverSize)}` : ''}`,
-        tooLarge: false,
-      }
-    }
-    return {
-      src: null,
-      caption: info.hasCover ? '封面过大，未预览（保存时保持原样）' : '没有封面',
-      tooLarge: info.hasCover,
-    }
+    if (!info) return { src: null, meta: null, caption: '', tooLarge: false }
+    if (!info.hasCover) return { src: null, meta: null, caption: '没有封面', tooLarge: false }
+    const meta = coverMeta(info.coverMimeType, info.coverWidth, info.coverHeight, info.coverSize, info.coverPictureType)
+    if (info.coverDataUrl) return { src: info.coverDataUrl, meta, caption: '', tooLarge: false }
+    return { src: null, meta, caption: '封面过大，未预览（保存时保持原样）', tooLarge: true }
   }, [cover, file])
 
   return {

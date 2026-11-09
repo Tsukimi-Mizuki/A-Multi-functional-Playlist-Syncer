@@ -9,7 +9,7 @@ use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
 use super::model::{AudioTagData, AudioTagInfo, TagError};
-use super::text::detect_image_mime;
+use super::text::{detect_image_mime, image_dimensions};
 
 /// 封面预览的大小上限：超过就不内联 data URL（只告诉界面“有封面，太大不预览”），避免一次 IPC 传几十 MB。
 pub const MAX_COVER_PREVIEW_BYTES: usize = 8 * 1024 * 1024;
@@ -60,6 +60,12 @@ pub struct TagView {
     pub cover_too_large: bool,
     /// 封面 MIME。
     pub cover_mime_type: Option<String>,
+    /// 封面宽度（像素）；认不出图片尺寸时为 `None`。
+    pub cover_width: Option<u32>,
+    /// 封面高度（像素）。
+    pub cover_height: Option<u32>,
+    /// 封面的图片类型（中文名，如「正面封面」）。
+    pub cover_picture_type: Option<String>,
     /// 时长（毫秒）。
     pub duration_ms: i64,
     /// 码率（kbps）。
@@ -74,6 +80,7 @@ impl TagView {
     /// 由读取结果构造视图。
     pub fn new(path: &Path, info: AudioTagInfo) -> Self {
         let cover_size = info.cover_data.as_ref().map(Vec::len);
+        let cover_dimensions = info.cover_data.as_deref().and_then(image_dimensions);
         let cover_too_large = cover_size.is_some_and(|size| size > MAX_COVER_PREVIEW_BYTES);
         let cover_data_url = match (&info.cover_data, cover_too_large) {
             (Some(data), false) if !data.is_empty() => {
@@ -111,6 +118,9 @@ impl TagView {
             cover_size,
             cover_too_large,
             cover_mime_type: info.cover_mime_type,
+            cover_width: cover_dimensions.map(|(width, _)| width),
+            cover_height: cover_dimensions.map(|(_, height)| height),
+            cover_picture_type: info.cover_picture_type,
             duration_ms: info.duration_ms,
             bitrate: info.bitrate,
             file_size: info.file_size,

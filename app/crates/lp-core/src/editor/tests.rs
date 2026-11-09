@@ -365,6 +365,7 @@ fn a_png_cover_file_is_read_as_base64_with_its_mime() {
 
     assert_eq!(cover.mime_type, "image/png");
     assert_eq!(cover.size, PNG_COVER.len());
+    assert_eq!((cover.width, cover.height), (Some(1), Some(1)));
     assert_eq!(STANDARD.decode(&cover.base64).unwrap(), PNG_COVER);
     assert_eq!(cover.file_name, "cover.bin");
 }

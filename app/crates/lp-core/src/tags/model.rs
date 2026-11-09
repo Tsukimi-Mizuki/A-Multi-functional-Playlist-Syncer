@@ -94,6 +94,8 @@ pub struct AudioTagInfo {
     pub cover_data: Option<Vec<u8>>,
     /// 封面 MIME 类型（文件里没写时按文件头判断）。
     pub cover_mime_type: Option<String>,
+    /// 封面的图片类型（中文名，如「正面封面」；MP4 的封面没有类型，为「封面」）。
+    pub cover_picture_type: Option<String>,
     /// 文件大小（字节）。
     pub file_size: u64,
     /// 文件格式：扩展名大写，如 `MP3`、`FLAC`。

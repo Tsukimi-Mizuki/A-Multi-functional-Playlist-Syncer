@@ -132,6 +132,7 @@ function mockTagView(path: string): TagView {
       trackNumber: null, trackTotal: null, discNumber: null, discTotal: null,
       genre: null, composer: null, comment: null, lyrics: null, neteaseId: null,
       hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
+      coverWidth: null, coverHeight: null, coverPictureType: null,
     }
   }
   return {
@@ -158,6 +159,9 @@ function mockTagView(path: string): TagView {
     coverSize: hugeCover ? 12_582_912 : 2_048_000,
     coverTooLarge: hugeCover,
     coverMimeType: 'image/jpeg',
+    coverWidth: hugeCover ? 6000 : 2400,
+    coverHeight: hugeCover ? 6000 : 2400,
+    coverPictureType: '正面封面',
   }
 }
 
@@ -433,6 +437,15 @@ function currentTagView(path: string): TagView {
 }
 
 /** 一张真正的 PNG（渐变），用来模拟在线封面与本地图片。 */
+/** 从 PNG 的 Base64 读出像素尺寸（IHDR 在第 16–24 字节）；不是 PNG 时为 null。 */
+function mockPngSize(base64: string): { coverWidth: number | null; coverHeight: number | null } {
+  const head = atob(base64.slice(0, 44))
+  if (head.slice(12, 16) !== 'IHDR') return { coverWidth: null, coverHeight: null }
+  const read = (at: number) =>
+    ((head.charCodeAt(at) << 24) | (head.charCodeAt(at + 1) << 16) | (head.charCodeAt(at + 2) << 8) | head.charCodeAt(at + 3)) >>> 0
+  return { coverWidth: read(16), coverHeight: read(20) }
+}
+
 function mockPng(hue: number): { base64: string; size: number } {
   const canvas = document.createElement('canvas')
   canvas.width = 96
@@ -996,7 +1009,7 @@ export function installMockBackend(scenario: string | null): void {
           const path = String(args.path)
           if (path.includes('损坏')) throw '「损坏.png」不是支持的图片格式，请选择 PNG / JPEG / WebP / GIF / BMP 图片。'
           const png = mockPng(330)
-          return { mimeType: 'image/png', base64: png.base64, size: png.size, fileName: path.split('\\').pop() ?? path }
+          return { mimeType: 'image/png', base64: png.base64, size: png.size, width: 96, height: 96, fileName: path.split('\\').pop() ?? path }
         }
         case 'write_tags': {
           const path = String(args.path)
@@ -1029,9 +1042,14 @@ export function installMockBackend(scenario: string | null): void {
               coverSize: Math.round(request.coverBase64.length * 0.75),
               coverTooLarge: false,
               coverMimeType: mime,
+              ...mockPngSize(request.coverBase64),
+              coverPictureType: '正面封面',
             })
           } else if (request.removeCover === true) {
-            Object.assign(next, { hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null })
+            Object.assign(next, {
+              hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
+              coverWidth: null, coverHeight: null, coverPictureType: null,
+            })
           }
           mockTagStore.set(path, next)
           return undefined
@@ -1086,7 +1104,7 @@ export function installMockBackend(scenario: string | null): void {
             wordLyrics: hasWord ? MOCK_WORD_LYRICS : null,
             bilingualLineLyrics: MOCK_LINE_LYRICS,
             bilingualWordLyrics: hasWord ? MOCK_WORD_LYRICS : null,
-            cover: { mimeType: 'image/png', base64: png.base64, size: png.size },
+            cover: { mimeType: 'image/png', base64: png.base64, size: png.size, width: 96, height: 96 },
             statusText: `已载入${song.sourceLabel}的标签${label}、封面，请确认后保存。`,
           }
         }

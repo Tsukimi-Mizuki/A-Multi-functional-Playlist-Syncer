@@ -61,6 +61,9 @@ export interface CoverFile {
   mimeType: string
   base64: string
   size: number
+  /** 像素尺寸；认不出时为 null。 */
+  width: number | null
+  height: number | null
   fileName: string
 }
 

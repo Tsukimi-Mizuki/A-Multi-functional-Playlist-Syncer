@@ -434,6 +434,17 @@ fn assert_full_round_trip(ext: &str, info: &AudioTagInfo) {
     assert!(info.has_cover, "{ext}");
     assert_eq!(info.cover_data.as_deref(), Some(&PNG_COVER[..]), "{ext}");
     assert_eq!(info.cover_mime_type.as_deref(), Some("image/png"), "{ext}");
+    // 写入的封面都是正面封面；MP4 的封面没有类型。
+    let picture_type = if ext == "m4a" {
+        "封面"
+    } else {
+        "正面封面"
+    };
+    assert_eq!(
+        info.cover_picture_type.as_deref(),
+        Some(picture_type),
+        "{ext}"
+    );
     assert_eq!(info.file_format, Some(ext.to_uppercase()), "{ext}");
     assert!(info.duration_ms > 0, "{ext}");
 }
@@ -1182,6 +1193,50 @@ fn front_cover_is_preferred_over_the_first_picture() {
         .unwrap();
 
     assert_eq!(read(&path).cover_data.as_deref(), Some(&PNG_COVER[..]));
+}
+
+#[test]
+fn the_cover_reports_its_picture_type() {
+    let dir = TempDir::new();
+    let path = create_mp3(&dir, "back-only.mp3");
+    let mut tag = lofty::tag::Tag::new(TagType::Id3v2);
+    tag.push_picture(
+        lofty::picture::Picture::unchecked(PNG_COVER.to_vec())
+            .pic_type(PictureType::CoverBack)
+            .mime_type(lofty::picture::MimeType::Png)
+            .build(),
+    );
+    tag.save_to_path(&path, lofty::config::WriteOptions::default())
+        .unwrap();
+
+    let info = read(&path);
+    assert_eq!(info.cover_data.as_deref(), Some(&PNG_COVER[..]));
+    assert_eq!(info.cover_picture_type.as_deref(), Some("背面封面"));
+}
+
+#[test]
+fn picture_types_have_chinese_names() {
+    assert_eq!(
+        picture_type_label(TagType::Id3v2, PictureType::CoverFront),
+        "正面封面"
+    );
+    assert_eq!(
+        picture_type_label(TagType::VorbisComments, PictureType::Media),
+        "碟面"
+    );
+    assert_eq!(
+        picture_type_label(TagType::Id3v2, PictureType::Other),
+        "其他"
+    );
+    assert_eq!(
+        picture_type_label(TagType::Id3v2, PictureType::Undefined(42)),
+        "其他"
+    );
+    // MP4 的封面没有类型（lofty 一律读成 Other）。
+    assert_eq!(
+        picture_type_label(TagType::Mp4Ilst, PictureType::Other),
+        "封面"
+    );
 }
 
 // ───────────────────────── 未展示字段与写入安全 ─────────────────────────

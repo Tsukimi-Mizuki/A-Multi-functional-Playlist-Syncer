@@ -18,6 +18,7 @@ use crate::models::{LyricsSourceKind, OnlineSourcePriority};
 use crate::online::view::MatchThresholdView;
 use crate::settings::AppSettings;
 use crate::tags::detect_image_mime;
+use crate::tags::text::image_dimensions;
 use crate::utilities::audio_file_types::{
     EMPTY_TARGET_MESSAGE, EXTENSION_HINT, NO_AUDIO_IN_FOLDER_MESSAGE, SUPPORTED_EXTENSIONS,
     try_resolve,
@@ -311,6 +312,10 @@ pub struct CoverFile {
     pub base64: String,
     /// 字节数。
     pub size: usize,
+    /// 宽度（像素）；认不出时为 `None`。
+    pub width: Option<u32>,
+    /// 高度（像素）。
+    pub height: Option<u32>,
     /// 文件名。
     pub file_name: String,
 }
@@ -337,10 +342,13 @@ pub fn read_cover_file(path: &Path) -> Result<CoverFile, String> {
             "「{name}」不是支持的图片格式，请选择 PNG / JPEG / WebP / GIF / BMP 图片。"
         ));
     }
+    let dimensions = image_dimensions(&bytes);
     Ok(CoverFile {
         mime_type: detect_image_mime(&bytes).to_owned(),
         base64: STANDARD.encode(&bytes),
         size: bytes.len(),
+        width: dimensions.map(|(width, _)| width),
+        height: dimensions.map(|(_, height)| height),
         file_name: name,
     })
 }

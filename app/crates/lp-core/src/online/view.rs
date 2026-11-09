@@ -8,6 +8,7 @@ use super::model::{LyricsSourceCandidate, OnlineSongDetails, OnlineSongResult};
 use crate::lyrics::scorer::{self, LyricsMatchScore};
 use crate::models::LyricsSourceKind;
 use crate::tags::detect_image_mime;
+use crate::tags::text::image_dimensions;
 
 /// 一首在线歌曲（搜索结果的一行）：模型字段 + 界面常用的派生文本。
 ///
@@ -120,14 +121,21 @@ pub struct CoverView {
     pub base64: String,
     /// 字节数。
     pub size: usize,
+    /// 宽度（像素）；认不出时为 `None`。
+    pub width: Option<u32>,
+    /// 高度（像素）。
+    pub height: Option<u32>,
 }
 
 impl CoverView {
     pub(crate) fn new(data: &[u8]) -> Self {
+        let dimensions = image_dimensions(data);
         Self {
             mime_type: detect_image_mime(data).to_owned(),
             base64: STANDARD.encode(data),
             size: data.len(),
+            width: dimensions.map(|(width, _)| width),
+            height: dimensions.map(|(_, height)| height),
         }
     }
 }

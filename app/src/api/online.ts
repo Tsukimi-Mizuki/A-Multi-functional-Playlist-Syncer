@@ -141,6 +141,9 @@ export interface OnlineCover {
   base64: string
   /** 字节数。 */
   size: number
+  /** 像素尺寸；认不出时为 null。 */
+  width: number | null
+  height: number | null
 }
 
 export interface LoadedResult {

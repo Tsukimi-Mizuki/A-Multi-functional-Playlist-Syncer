@@ -175,8 +175,10 @@ fn build_info(tagged: &TaggedFile, path: &Path, file_size: u64) -> AudioTagInfo 
         genre: join_values(texts(ItemKey::Genre).iter().map(String::as_str)),
         composer: join_values(texts(ItemKey::Composer).iter().map(String::as_str)),
         comment: clean_display_comment(comment_raw.as_deref()),
-        cover_mime_type: cover.map(cover_mime),
-        cover_data: cover.map(|picture| picture.data().to_vec()),
+        cover_mime_type: cover.map(|(_, picture)| cover_mime(picture)),
+        cover_picture_type: cover
+            .map(|(tag_type, picture)| picture_type_label(tag_type, picture.pic_type()).to_owned()),
+        cover_data: cover.map(|(_, picture)| picture.data().to_vec()),
         file_size,
         file_format: path
             .extension()
@@ -296,14 +298,44 @@ fn leading_year(text: &str) -> Option<u32> {
     digits[..4].parse::<u32>().ok().filter(|&year| year > 0)
 }
 
-/// 封面：优先正面封面，没有就取第一张图片。
-fn find_cover<'a>(tags: &[&'a Tag]) -> Option<&'a Picture> {
+/// 封面：优先正面封面，没有就取第一张图片；连同它所在标签的类型一起返回（MP4 的图片没有类型）。
+fn find_cover<'a>(tags: &[&'a Tag]) -> Option<(TagType, &'a Picture)> {
     tags.iter()
         .find_map(|tag| {
             tag.get_picture_type(PictureType::CoverFront)
                 .or_else(|| tag.pictures().first())
+                .map(|picture| (tag.tag_type(), picture))
         })
-        .filter(|picture| !picture.data().is_empty())
+        .filter(|(_, picture)| !picture.data().is_empty())
+}
+
+/// 图片类型的中文名（ID3v2 APIC / FLAC / Vorbis 的图片类型）。MP4 的封面没有类型（lofty 一律读成 `Other`），只叫「封面」。
+pub(crate) fn picture_type_label(tag_type: TagType, picture_type: PictureType) -> &'static str {
+    if tag_type == TagType::Mp4Ilst {
+        return "封面";
+    }
+    match picture_type {
+        PictureType::CoverFront => "正面封面",
+        PictureType::CoverBack => "背面封面",
+        PictureType::Leaflet => "内页",
+        PictureType::Media => "碟面",
+        PictureType::Icon => "文件图标",
+        PictureType::OtherIcon => "其他图标",
+        PictureType::LeadArtist => "主唱",
+        PictureType::Artist => "艺术家",
+        PictureType::Conductor => "指挥",
+        PictureType::Band => "乐队",
+        PictureType::Composer => "作曲",
+        PictureType::Lyricist => "作词",
+        PictureType::RecordingLocation => "录音地点",
+        PictureType::DuringRecording => "录音现场",
+        PictureType::DuringPerformance => "演出现场",
+        PictureType::ScreenCapture => "影像截图",
+        PictureType::Illustration => "插图",
+        PictureType::BandLogo => "乐队标志",
+        PictureType::PublisherLogo => "发行商标志",
+        _ => "其他",
+    }
 }
 
 fn cover_mime(picture: &Picture) -> String {

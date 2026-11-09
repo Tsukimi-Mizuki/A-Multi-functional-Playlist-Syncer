@@ -158,9 +158,18 @@ fn covers_are_encoded_with_their_detected_mime_type() {
     let png = CoverView::new(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     assert_eq!(png.mime_type, "image/png");
     assert_eq!(png.size, 8);
+    // 只有签名、没有 IHDR：认不出尺寸。
+    assert_eq!((png.width, png.height), (None, None));
     let jpeg = CoverView::new(&[0xFF, 0xD8, 0xFF, 0xE0]);
     assert_eq!(jpeg.mime_type, "image/jpeg");
     assert_eq!(jpeg.base64, "/9j/4A==");
+
+    let mut sized = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    sized.extend_from_slice(b"IHDR");
+    sized.extend_from_slice(&1200_u32.to_be_bytes());
+    sized.extend_from_slice(&1200_u32.to_be_bytes());
+    let sized = CoverView::new(&sized);
+    assert_eq!((sized.width, sized.height), (Some(1200), Some(1200)));
 }
 
 #[test]

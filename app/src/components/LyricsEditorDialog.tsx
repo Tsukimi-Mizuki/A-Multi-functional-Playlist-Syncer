@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileNameOf, directoryOf } from '../api/editor'
 import { LYRICS_SOURCE_LABELS, type BatchFile, type LyricsSourceKind } from '../api/online'
-import { describeEntry, fileInfoText, useLyricsEditor, type EditorFields } from '../state/useLyricsEditor'
+import { describeEntry, fileInfoText, useLyricsEditor, type CoverMeta, type EditorFields } from '../state/useLyricsEditor'
 import BatchLyricsDialog, { type BatchDrop } from './BatchLyricsDialog'
 import ConfirmDialog from './ConfirmDialog'
 import Modal from './Modal'
@@ -26,6 +26,25 @@ interface LyricsEditorDialogProps {
 }
 
 const SOURCES: LyricsSourceKind[] = ['Netease', 'QQMusic', 'Kugou', 'Lrclib']
+
+/** 封面旁的参数：格式、像素尺寸、大小、图片类型，一行一项；拿不到的项不显示。 */
+function CoverMetaList({ meta }: { meta: CoverMeta }) {
+  const items = [
+    { label: '格式', value: meta.mimeType },
+    { label: '尺寸', value: meta.dimensions },
+    { label: '大小', value: meta.size },
+    { label: '类型', value: meta.pictureType },
+  ].filter((item): item is { label: string; value: string } => item.value != null)
+  return (
+    <ul className="editor-cover-meta" aria-label="封面参数">
+      {items.map((item) => (
+        <li key={item.label} title={item.label} aria-label={`封面${item.label}：${item.value}`}>
+          {item.value}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** 带标签的文本框；`short` 用于年份 / 音轨 / 碟号。 */
 function TextField({
@@ -310,7 +329,10 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
                 {cover.src ? <img src={cover.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
               </div>
               <div className="editor-cover-side">
-                <p className="editor-cover-caption">{hasFile ? cover.caption : '打开文件后可更换封面'}</p>
+                {cover.meta && <CoverMetaList meta={cover.meta} />}
+                {(!hasFile || cover.caption) && (
+                  <p className="editor-cover-caption">{hasFile ? cover.caption : '打开文件后可更换封面'}</p>
+                )}
                 <div className="editor-cover-actions">
                   <button
                     type="button"

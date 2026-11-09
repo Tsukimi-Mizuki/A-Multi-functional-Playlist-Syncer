@@ -296,6 +296,25 @@
   gap: 6px;
 }
 
+/* 封面参数：格式 / 尺寸 / 大小 / 类型，一行一项。 */
+.editor-cover-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-cover-meta li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-cover-caption {
   margin: 0;
   color: var(--text-tertiary);
