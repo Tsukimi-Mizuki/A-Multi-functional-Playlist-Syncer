@@ -128,6 +128,17 @@ impl FakeTransport {
         self
     }
 
+    /// 指定状态码 + 二进制体（图片等）。
+    pub fn enqueue_raw_bytes(&self, status: u16, body: Vec<u8>) -> &Self {
+        let response = HttpResponse {
+            status,
+            set_cookies: Vec::new(),
+            body,
+        };
+        self.push(Ok(response), None);
+        self
+    }
+
     /// 传输层失败。
     pub fn enqueue_error(&self, error: TransportError) -> &Self {
         self.push(Err(error), None);

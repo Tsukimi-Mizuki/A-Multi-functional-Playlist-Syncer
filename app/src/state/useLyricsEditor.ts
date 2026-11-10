@@ -17,6 +17,8 @@ import {
   onlineLoadResult,
   onlineSearch,
   type FallbackLyrics,
+  type FileContext,
+  type LoadedTags,
   type LyricsSourceKind,
   type OnlineSearchItem,
 } from '../api/online'
@@ -175,6 +177,34 @@ export function pickFallbackLyrics(data: FallbackLyrics, preferWord: boolean): s
 export function fallbackFormatLabel(data: FallbackLyrics, preferWord: boolean): string {
   const base = preferWord ? (data.hasWordLyrics ? '逐字歌词' : '逐行歌词（该来源无逐字）') : '逐行歌词'
   return data.hasTranslation ? `双语${base}` : `${base}（该来源无翻译）`
+}
+
+/**
+ * 「在线标签」窗口打开时的搜索条件：关键词是表单里现在的标题 + 艺术家（标题空着就用文件名推），
+ * 打分用表单里现在的标题 / 艺术家 / 专辑与文件的时长。
+ */
+export function onlineTagsQuery(file: LoadedFile, fields: EditorFields): { keyword: string; context: FileContext } {
+  const title = fields.title.trim()
+  const artist = fields.artist.trim()
+  const keyword =
+    title === '' ? keywordFromFileName(file.path) : [title, ...splitArtists(artist)].join(' ')
+  return {
+    keyword,
+    context: {
+      title: title === '' ? null : title,
+      artist: artist === '' ? null : artist,
+      album: trimmedOrNull(fields.album),
+      durationMs: file.info.durationMs,
+      filePath: file.path,
+    },
+  }
+}
+
+/** 套用在线标签后的状态栏文字。 */
+export function onlineTagsStatus(sourceLabel: string, tags: boolean, cover: 'applied' | 'missing' | 'skipped'): string {
+  const applied = [tags ? '标签' : null, cover === 'applied' ? '封面' : null].filter(Boolean).join('与')
+  const missing = cover === 'missing' ? '；没有获取到封面' : ''
+  return `已载入${sourceLabel}的${applied}${missing}（歌词没有改动），请确认后保存。`
 }
 
 /** 结果行的展示文字。 */
@@ -432,6 +462,42 @@ export function useLyricsEditor() {
     [applyEntry],
   )
 
+  /**
+   * 把「在线标签」窗口里选中的那一条填进表单：`parts` 是用户勾选要套用的部分，歌词不动。
+   * 在线结果里空着的字段保持表单里原来的内容。
+   */
+  const applyOnlineTags = useCallback((loaded: LoadedTags, parts: { tags: boolean; cover: boolean }) => {
+    // 正在载入的搜索结果作废，免得它晚一步回来把这里填的内容盖掉。
+    applyToken.current += 1
+    const song = loaded.song
+    if (parts.tags) {
+      setFields((previous) => ({
+        ...previous,
+        title: trimmedOrNull(song.title) ?? previous.title,
+        artist: trimmedOrNull(song.artist) ?? previous.artist,
+        album: trimmedOrNull(song.album) ?? previous.album,
+        year: song.year != null ? String(song.year) : previous.year,
+        trackNumber: song.trackNumber != null ? String(song.trackNumber) : previous.trackNumber,
+        discNumber: song.discNumber != null ? String(song.discNumber) : previous.discNumber,
+        genre: trimmedOrNull(song.genre) ?? previous.genre,
+        composer: trimmedOrNull(song.composer) ?? previous.composer,
+      }))
+    }
+    const picture = parts.cover ? loaded.cover : null
+    if (picture) {
+      setCover({
+        kind: 'new',
+        base64: picture.base64,
+        mimeType: picture.mimeType,
+        size: picture.size,
+        width: picture.width,
+        height: picture.height,
+        origin: song.sourceLabel,
+      })
+    }
+    setStatus(onlineTagsStatus(song.sourceLabel, parts.tags, picture ? 'applied' : parts.cover ? 'missing' : 'skipped'))
+  }, [])
+
   const setSource = useCallback(
     (next: LyricsSourceKind) => {
       sourceRef.current = next
@@ -658,6 +724,7 @@ export function useLyricsEditor() {
     selectedKey,
     search,
     selectEntry,
+    applyOnlineTags,
     // 文件
     loadFile,
     reload,

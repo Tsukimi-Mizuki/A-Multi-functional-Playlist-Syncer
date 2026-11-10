@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::model::{OnlineError, OnlineMusicSource, OnlineSongDetails, OnlineSongResult};
-use super::net::OnlineHttp;
+use super::net::{CoverFetch, OnlineHttp};
 use super::qq::{QqClient, parse_year};
 use crate::library::text::is_blank;
 use crate::lyrics::parser;
@@ -38,6 +38,33 @@ pub trait OnlineMusicSearch: Send + Sync {
         song: &'a OnlineSongResult,
         cancel: &'a CancelToken,
     ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>>;
+
+    /// 只取标签字段与封面，**不请求歌词**；`with_cover` 为假时连封面也不下载。
+    ///
+    /// 默认实现取完整详情再去掉歌词；真实实现覆盖它，从一开始就不发歌词请求。
+    fn get_tag_details<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        with_cover: bool,
+        cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
+        Box::pin(async move {
+            let details = self.get_details(song, cancel).await?;
+            Ok(details.map(|details| OnlineSongDetails {
+                cover_data: details.cover_data.filter(|_| with_cover),
+                ..OnlineSongDetails::without_extras(details.song)
+            }))
+        })
+    }
+
+    /// 这首歌的封面下载下来会是多少像素（宽，高）；没有封面或认不出来返回 `Ok(None)`。
+    fn cover_size<'a>(
+        &'a self,
+        _song: &'a OnlineSongResult,
+        _cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<(u32, u32)>, OnlineError>> {
+        Box::pin(async { Ok(None) })
+    }
 }
 
 /// 真实实现。
@@ -79,9 +106,12 @@ impl OnlineMusicSearchService {
         Ok(songs.iter().map(from_netease).collect())
     }
 
+    /// 网易云的详情；`with_lyrics` / `with_cover` 为假时不发对应的请求。
     async fn netease_details(
         &self,
         summary: &OnlineSongResult,
+        with_lyrics: bool,
+        with_cover: bool,
         cancel: &CancelToken,
     ) -> Result<Option<OnlineSongDetails>, OnlineError> {
         let Some(song_id) = summary
@@ -107,7 +137,9 @@ impl OnlineMusicSearchService {
 
         let mut details = OnlineSongDetails::without_extras(song);
         // 没有歌词权限 / 数据时仍可应用标签和封面。
-        if let Ok(raw) = cancellable(cancel, self.netease.get_lyrics(song_id)).await? {
+        if with_lyrics
+            && let Ok(raw) = cancellable(cancel, self.netease.get_lyrics(song_id)).await?
+        {
             let parsed = parser::parse(&raw);
             let has_word = parsed.has_word_level();
             details.line_lyrics = Some(parser::to_plain_lrc(&parsed, false));
@@ -119,19 +151,40 @@ impl OnlineMusicSearchService {
             }
         }
 
-        details.cover_data = self
-            .http
-            .try_download_cover(
-                details
-                    .song
-                    .cover_url
-                    .as_deref()
-                    .map(cover_download_url)
-                    .as_deref(),
-                cancel,
-            )
-            .await?;
+        if with_cover {
+            details.cover_data = self
+                .http
+                .try_download_cover(
+                    details
+                        .song
+                        .cover_url
+                        .as_deref()
+                        .map(cover_download_url)
+                        .as_deref(),
+                    cancel,
+                )
+                .await?;
+        }
         Ok(Some(details))
+    }
+
+    /// 网易云封面的像素尺寸：探测的是下载时用的那个地址（最长边已经限到上限）。
+    async fn netease_cover_size(
+        &self,
+        song: &OnlineSongResult,
+        cancel: &CancelToken,
+    ) -> Result<Option<(u32, u32)>, OnlineError> {
+        let Some(url) = song.cover_url.as_deref().filter(|url| !is_blank(url)) else {
+            return Ok(None);
+        };
+        let probe = self
+            .http
+            .probe_cover_size(&cover_download_url(url), cancel)
+            .await?;
+        Ok(match probe {
+            CoverFetch::Done(size) => Some(size),
+            CoverFetch::Rejected | CoverFetch::Failed => None,
+        })
     }
 }
 
@@ -162,8 +215,44 @@ impl OnlineMusicSearch for OnlineMusicSearchService {
     ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
         Box::pin(async move {
             match song.source {
-                OnlineMusicSource::Netease => self.netease_details(song, cancel).await,
+                OnlineMusicSource::Netease => self.netease_details(song, true, true, cancel).await,
                 OnlineMusicSource::QqMusic => self.qq.details(song, cancel).await.map(Some),
+            }
+        })
+    }
+
+    fn get_tag_details<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        with_cover: bool,
+        cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
+        Box::pin(async move {
+            match song.source {
+                OnlineMusicSource::Netease => {
+                    self.netease_details(song, false, with_cover, cancel).await
+                }
+                OnlineMusicSource::QqMusic => self
+                    .qq
+                    .tag_details(song, with_cover, cancel)
+                    .await
+                    .map(Some),
+            }
+        })
+    }
+
+    fn cover_size<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<(u32, u32)>, OnlineError>> {
+        Box::pin(async move {
+            match song.source {
+                OnlineMusicSource::Netease => self.netease_cover_size(song, cancel).await,
+                OnlineMusicSource::QqMusic => Ok(self
+                    .qq
+                    .cover_size(song.cover_url.as_deref(), cancel)
+                    .await?),
             }
         })
     }

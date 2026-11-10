@@ -5,7 +5,10 @@
 //! QQ 音乐取歌词所需的完整摘要（标题、歌手、专辑、时长、数值 ID、封面地址）。
 
 use std::collections::VecDeque;
+use std::future::{Future, poll_fn};
+use std::pin::pin;
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::task::Poll;
 
 use serde::Deserialize;
 
@@ -14,8 +17,9 @@ use super::model::{
 };
 use super::service::{DEFAULT_SEARCH_LIMIT, OnlineMusicSearch};
 use super::view::{
-    FallbackLyricsView, LoadedResultView, MatchScoreView, MatchThresholdView, OnlineCommandError,
-    OnlineSearchItem, OnlineSearchResponse, OnlineSongView,
+    CoverSizeView, FallbackLyricsView, LoadedResultView, LoadedTagsView, MatchScoreView,
+    MatchThresholdView, OnlineCommandError, OnlineSearchItem, OnlineSearchResponse, OnlineSongView,
+    TagCandidateView, TagCandidatesResponse, thumbnail_url,
 };
 use crate::library::text::is_blank;
 use crate::lyrics::batch::{SettingsProvider, title_from_file_name};
@@ -25,6 +29,9 @@ use crate::utilities::CancelToken;
 
 /// 最近搜索结果缓存的容量。
 const CACHE_CAPACITY: usize = 200;
+
+/// 在线标签候选：每个来源最多取这么多条（两个来源合起来一屏多一点，够挑）。
+pub const TAG_CANDIDATES_PER_SOURCE: usize = 10;
 
 /// 本地文件的信息，用来给搜索结果打分（编辑器打开了文件才有）。
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -84,6 +91,38 @@ pub struct SearchRequest {
     pub file_context: Option<FileContext>,
 }
 
+/// `online_tag_candidates` 的请求。
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCandidatesRequest {
+    /// 关键词；留空且带了文件上下文时用文件名推出。
+    #[serde(default)]
+    pub query: String,
+    /// 本地文件信息；带了就给候选打分并按总分排序。
+    #[serde(default)]
+    pub file_context: Option<FileContext>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// `online_load_tags` 的请求。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagLoadRequest {
+    /// 来源（主词源）。
+    pub source: LyricsSourceKind,
+    /// 候选里的 `sourceId`。
+    pub id: String,
+    /// 候选的完整摘要；不传就从最近搜索结果的缓存里按来源与 ID 找。
+    #[serde(default)]
+    pub song: Option<OnlineSongResult>,
+    /// 是否下载封面（默认下载）。
+    #[serde(default = "default_true")]
+    pub cover: bool,
+}
+
 /// `online_load_result` 的请求。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -135,6 +174,89 @@ fn failed(error: OnlineError) -> OnlineCommandError {
         OnlineError::Cancelled => OnlineCommandError::new("cancelled", "操作已取消"),
         OnlineError::Failed(message) => OnlineCommandError::new("failed", message),
     }
+}
+
+/// 同时推进两个 future，都完成后一起返回（两个来源并行搜索，不必一个等另一个）。
+async fn join_both<A: Future, B: Future>(first: A, second: B) -> (A::Output, B::Output) {
+    let mut first = pin!(first);
+    let mut second = pin!(second);
+    let mut first_done = None;
+    let mut second_done = None;
+    poll_fn(|cx| {
+        if first_done.is_none()
+            && let Poll::Ready(value) = first.as_mut().poll(cx)
+        {
+            first_done = Some(value);
+        }
+        if second_done.is_none()
+            && let Poll::Ready(value) = second.as_mut().poll(cx)
+        {
+            second_done = Some(value);
+        }
+        match (first_done.take(), second_done.take()) {
+            (Some(first), Some(second)) => Poll::Ready((first, second)),
+            (first, second) => {
+                first_done = first;
+                second_done = second;
+                Poll::Pending
+            }
+        }
+    })
+    .await
+}
+
+/// 实际要搜的关键词：请求里的 → 文件名推出的；都没有就报「请输入」。
+fn resolve_query(query: &str, context: Option<&FileContext>) -> Result<String, OnlineCommandError> {
+    let mut query = query.trim().to_owned();
+    if query.is_empty() {
+        query = context
+            .and_then(FileContext::keyword_from_file_name)
+            .unwrap_or_default();
+    }
+    if is_blank(&query) {
+        return Err(OnlineCommandError::new(
+            "emptyQuery",
+            "请输入要搜索的歌曲、歌手或专辑。",
+        ));
+    }
+    Ok(query)
+}
+
+/// 给一条搜索结果按本地文件打分；没有文件上下文就不打分。
+fn score_item(
+    song: &OnlineSongResult,
+    context: Option<&FileContext>,
+    query: &str,
+    threshold: f64,
+) -> OnlineSearchItem {
+    let Some(context) = context else {
+        return OnlineSearchItem {
+            song: OnlineSongView::from(song),
+            score: None,
+            below_threshold: false,
+        };
+    };
+    let title = context.scoring_title().unwrap_or_else(|| query.to_owned());
+    let score = scorer::score(
+        Some(&title),
+        context.artist.as_deref(),
+        context.album.as_deref(),
+        context.duration_ms,
+        Some(&song.title),
+        Some(&song.artist),
+        Some(&song.album),
+        song.duration_ms,
+    );
+    OnlineSearchItem {
+        song: OnlineSongView::from(song),
+        below_threshold: score.total < threshold,
+        score: Some(MatchScoreView::from(&score)),
+    }
+}
+
+/// 排序用的总分（没打分记 0）。
+fn item_total(item: &OnlineSearchItem) -> f64 {
+    item.score.as_ref().map_or(0.0, |score| score.total)
 }
 
 impl OnlineManager {
@@ -208,18 +330,7 @@ impl OnlineManager {
         };
 
         let context = request.file_context.as_ref();
-        let mut query = request.query.trim().to_owned();
-        if query.is_empty() {
-            query = context
-                .and_then(FileContext::keyword_from_file_name)
-                .unwrap_or_default();
-        }
-        if is_blank(&query) {
-            return Err(OnlineCommandError::new(
-                "emptyQuery",
-                "请输入要搜索的歌曲、歌手或专辑。",
-            ));
-        }
+        let query = resolve_query(&request.query, context)?;
 
         let results = self
             .search
@@ -231,38 +342,11 @@ impl OnlineManager {
         let threshold = self.threshold();
         let mut items: Vec<OnlineSearchItem> = results
             .iter()
-            .map(|song| match context {
-                None => OnlineSearchItem {
-                    song: OnlineSongView::from(song),
-                    score: None,
-                    below_threshold: false,
-                },
-                Some(context) => {
-                    let title = context.scoring_title().unwrap_or_else(|| query.clone());
-                    let score = scorer::score(
-                        Some(&title),
-                        context.artist.as_deref(),
-                        context.album.as_deref(),
-                        context.duration_ms,
-                        Some(&song.title),
-                        Some(&song.artist),
-                        Some(&song.album),
-                        song.duration_ms,
-                    );
-                    OnlineSearchItem {
-                        song: OnlineSongView::from(song),
-                        below_threshold: score.total < threshold,
-                        score: Some(MatchScoreView::from(&score)),
-                    }
-                }
-            })
+            .map(|song| score_item(song, context, &query, threshold))
             .collect();
         if context.is_some() {
             // `sort_by` 是稳定排序，同分保持搜索接口给出的顺序（与 C# 的 OrderByDescending 一致）。
-            items.sort_by(|left, right| {
-                let total = |item: &OnlineSearchItem| item.score.as_ref().map_or(0.0, |s| s.total);
-                total(right).total_cmp(&total(left))
-            });
+            items.sort_by(|left, right| item_total(right).total_cmp(&item_total(left)));
         }
 
         Ok(OnlineSearchResponse {
@@ -275,28 +359,110 @@ impl OnlineManager {
         })
     }
 
-    /// 取一首歌的标签字段、歌词与封面。
-    pub async fn load_result(
+    /// 在线标签候选：同一个关键词同时搜网易云与 QQ 音乐（每个来源最多 [`TAG_CANDIDATES_PER_SOURCE`] 条），
+    /// 合在一起按匹配度从高到低排（同分网易云在前，它的封面是原图）。只搜索，不取歌词也不下载封面。
+    ///
+    /// 一个来源失败时照常返回另一个来源的结果，失败原因放进 `failures`；两个都失败才报错。
+    pub async fn tag_candidates(
         &self,
-        request: LoadRequest,
+        request: TagCandidatesRequest,
         cancel: &CancelToken,
-    ) -> Result<LoadedResultView, OnlineCommandError> {
-        let Some(source) = music_source_of(request.source) else {
+    ) -> Result<TagCandidatesResponse, OnlineCommandError> {
+        let context = request.file_context.as_ref();
+        let query = resolve_query(&request.query, context)?;
+
+        let sources = [OnlineMusicSource::Netease, OnlineMusicSource::QqMusic];
+        let (netease, qq) = join_both(
+            self.search
+                .search(sources[0], &query, TAG_CANDIDATES_PER_SOURCE, cancel),
+            self.search
+                .search(sources[1], &query, TAG_CANDIDATES_PER_SOURCE, cancel),
+        )
+        .await;
+
+        let threshold = self.threshold();
+        let mut items: Vec<TagCandidateView> = Vec::new();
+        let mut failures: Vec<String> = Vec::new();
+        for (source, outcome) in sources.into_iter().zip([netease, qq]) {
+            match outcome {
+                Err(OnlineError::Cancelled) => return Err(failed(OnlineError::Cancelled)),
+                Err(OnlineError::Failed(message)) => {
+                    failures.push(format!("{}：{message}", source.label()));
+                }
+                Ok(mut songs) => {
+                    // 来源不一定理会条数上限，这里再截一次。
+                    songs.truncate(TAG_CANDIDATES_PER_SOURCE);
+                    self.remember(&songs);
+                    items.extend(songs.iter().map(|song| TagCandidateView {
+                        item: score_item(song, context, &query, threshold),
+                        thumbnail_url: thumbnail_url(song),
+                    }));
+                }
+            }
+        }
+        if failures.len() == sources.len() {
+            return Err(OnlineCommandError::new("failed", failures.join("；")));
+        }
+        if context.is_some() {
+            items.sort_by(|left, right| item_total(&right.item).total_cmp(&item_total(&left.item)));
+        }
+
+        Ok(TagCandidatesResponse {
+            query,
+            scored: context.is_some(),
+            threshold,
+            threshold_percent: scorer::format_threshold_percent(threshold),
+            items,
+            failures,
+        })
+    }
+
+    /// 一条候选的封面下载下来是多少像素（只读图片开头，不整张下载）；认不出来返回 `None`。
+    pub async fn cover_size(
+        &self,
+        song: &OnlineSongResult,
+        cancel: &CancelToken,
+    ) -> Result<Option<CoverSizeView>, OnlineCommandError> {
+        let size = self.search.cover_size(song, cancel).await.map_err(failed)?;
+        Ok(size.map(|(width, height)| CoverSizeView { width, height }))
+    }
+
+    /// 取一条候选的标签字段与封面，不取歌词。
+    pub async fn load_tags(
+        &self,
+        request: TagLoadRequest,
+        cancel: &CancelToken,
+    ) -> Result<LoadedTagsView, OnlineCommandError> {
+        let summary = self.resolve_summary(request.source, &request.id, request.song)?;
+        let details = self
+            .search
+            .get_tag_details(&summary, request.cover, cancel)
+            .await
+            .map_err(failed)?;
+        Ok(LoadedTagsView::new(&summary, details.as_ref()))
+    }
+
+    /// 找回一首歌的搜索摘要：请求里带的 → 最近搜索的缓存 → 网易云只凭 ID 也行。
+    fn resolve_summary(
+        &self,
+        kind: LyricsSourceKind,
+        id: &str,
+        song: Option<OnlineSongResult>,
+    ) -> Result<OnlineSongResult, OnlineCommandError> {
+        let Some(source) = music_source_of(kind) else {
             return Err(OnlineCommandError::new(
                 "primarySource",
                 "备用词源只提供歌词，请使用备用词源检索。",
             ));
         };
 
-        let summary = request
-            .song
-            .filter(|song| song.source == source)
-            .or_else(|| self.recall(source, &request.id))
+        song.filter(|song| song.source == source)
+            .or_else(|| self.recall(source, id))
             .or_else(|| match source {
                 // 网易云的详情接口只需要 ID，没有缓存也能取。
                 OnlineMusicSource::Netease => Some(OnlineSongResult {
                     source,
-                    source_id: request.id.clone(),
+                    source_id: id.to_owned(),
                     title: String::new(),
                     artist: String::new(),
                     album: String::new(),
@@ -316,8 +482,16 @@ impl OnlineManager {
                     "unknownSong",
                     "找不到这首歌的搜索结果，请重新搜索后再选择。",
                 )
-            })?;
+            })
+    }
 
+    /// 取一首歌的标签字段、歌词与封面。
+    pub async fn load_result(
+        &self,
+        request: LoadRequest,
+        cancel: &CancelToken,
+    ) -> Result<LoadedResultView, OnlineCommandError> {
+        let summary = self.resolve_summary(request.source, &request.id, request.song)?;
         let details = self
             .search
             .get_details(&summary, cancel)

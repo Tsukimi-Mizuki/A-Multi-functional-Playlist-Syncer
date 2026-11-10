@@ -111,6 +111,8 @@ pub struct StubOnline {
     details: Mutex<DetailsHandler>,
     searches: Mutex<Vec<(OnlineMusicSource, String)>>,
     detail_calls: Mutex<Vec<(OnlineMusicSource, String)>>,
+    tag_detail_calls: Mutex<Vec<(OnlineMusicSource, String, bool)>>,
+    cover_size: Mutex<Option<(u32, u32)>>,
     delay: Mutex<std::time::Duration>,
     in_flight: std::sync::atomic::AtomicUsize,
     peak: std::sync::atomic::AtomicUsize,
@@ -129,6 +131,8 @@ impl StubOnline {
             })),
             searches: Mutex::new(Vec::new()),
             detail_calls: Mutex::new(Vec::new()),
+            tag_detail_calls: Mutex::new(Vec::new()),
+            cover_size: Mutex::new(None),
             delay: Mutex::new(std::time::Duration::ZERO),
             in_flight: std::sync::atomic::AtomicUsize::new(0),
             peak: std::sync::atomic::AtomicUsize::new(0),
@@ -176,6 +180,16 @@ impl StubOnline {
     pub fn detail_calls(&self) -> Vec<(OnlineMusicSource, String)> {
         self.detail_calls.lock().unwrap().clone()
     }
+
+    /// 所有「只要标签与封面」的详情调用（来源、ID、是否要封面）。
+    pub fn tag_detail_calls(&self) -> Vec<(OnlineMusicSource, String, bool)> {
+        self.tag_detail_calls.lock().unwrap().clone()
+    }
+
+    /// 让探测封面尺寸返回这个值。
+    pub fn set_cover_size(&self, size: Option<(u32, u32)>) {
+        *self.cover_size.lock().unwrap() = size;
+    }
 }
 
 impl OnlineMusicSearch for StubOnline {
@@ -215,6 +229,36 @@ impl OnlineMusicSearch for StubOnline {
             .push((song.source, song.source_id.clone()));
         let result = (self.details.lock().unwrap())(song);
         Box::pin(async move { result })
+    }
+
+    // 与真实实现一样不碰歌词：详情处理给的歌词丢掉，不要封面时封面也丢掉。
+    fn get_tag_details<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        with_cover: bool,
+        _cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
+        self.tag_detail_calls.lock().unwrap().push((
+            song.source,
+            song.source_id.clone(),
+            with_cover,
+        ));
+        let result = (self.details.lock().unwrap())(song).map(|details| {
+            details.map(|details| OnlineSongDetails {
+                cover_data: details.cover_data.filter(|_| with_cover),
+                ..OnlineSongDetails::without_extras(details.song)
+            })
+        });
+        Box::pin(async move { result })
+    }
+
+    fn cover_size<'a>(
+        &'a self,
+        _song: &'a OnlineSongResult,
+        _cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<(u32, u32)>, OnlineError>> {
+        let size = *self.cover_size.lock().unwrap();
+        Box::pin(async move { Ok(size) })
     }
 }
 

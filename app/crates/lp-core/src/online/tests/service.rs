@@ -219,6 +219,163 @@ async fn netease_details_merge_the_detail_over_the_summary_and_parse_lyrics() {
     );
 }
 
+/// 最小的 PNG 头（签名 + IHDR 的宽高），后面跟一些假数据。
+fn png_head(width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    bytes.extend_from_slice(b"IHDR");
+    bytes.extend_from_slice(&width.to_be_bytes());
+    bytes.extend_from_slice(&height.to_be_bytes());
+    bytes.extend_from_slice(&[8, 6, 0, 0, 0, 1, 2, 3, 4]);
+    bytes
+}
+
+#[tokio::test]
+async fn netease_tag_details_skip_the_lyrics_request() {
+    let rig = rig();
+    // 只排了详情这一个响应：再发歌词请求就会因为没有预设响应而失败。
+    rig.netease.enqueue_json(DETAIL_JSON);
+    rig.other.set_fallback(|request| {
+        assert_eq!(
+            request.url,
+            "https://p1.music.126.net/cover.jpg?imageView&thumbnail=4000x4000&type=jpg"
+        );
+        HttpResponse {
+            status: 200,
+            set_cookies: vec![],
+            body: vec![1, 2, 3, 4],
+        }
+    });
+
+    let details = rig
+        .service
+        .get_tag_details(&summary(), true, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(details.song.title, "晴天（详情）");
+    assert_eq!(details.song.track_number, Some(3));
+    assert_eq!(details.cover_data.as_deref(), Some(&[1u8, 2, 3, 4][..]));
+    assert_eq!(details.get_lyrics(true, true), None);
+    assert_eq!(rig.netease.requests().len(), 1);
+    assert_eq!(rig.other.requests().len(), 1);
+
+    // 不要封面：连封面也不下载。
+    rig.netease.enqueue_json(DETAIL_JSON);
+    let details = rig
+        .service
+        .get_tag_details(&summary(), false, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(details.cover_data, None);
+    assert_eq!(rig.netease.requests().len(), 2);
+    assert_eq!(rig.other.requests().len(), 1);
+}
+
+#[tokio::test]
+async fn qq_tag_details_only_download_the_cover() {
+    let rig = rig();
+    let mut song = summary();
+    song.source = OnlineMusicSource::QqMusic;
+    song.source_id = "mid".to_owned();
+    song.numeric_source_id = Some("42".to_owned());
+    song.cover_url =
+        Some("https://y.gtimg.cn/music/photo_new/T002R1200x1200M000abc.jpg".to_owned());
+    rig.other.enqueue_status(404).set_fallback(|request| {
+        assert!(
+            request.url.contains("T002R800x800M000abc"),
+            "{}",
+            request.url
+        );
+        HttpResponse {
+            status: 200,
+            set_cookies: vec![],
+            body: vec![9, 9],
+        }
+    });
+
+    let details = rig
+        .service
+        .get_tag_details(&song, true, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(details.song, song);
+    assert_eq!(details.cover_data.as_deref(), Some(&[9u8, 9][..]));
+    assert_eq!(details.line_lyrics, None);
+    // 1200 没有 → 800；没有任何歌词接口的请求。
+    assert_eq!(rig.other.requests().len(), 2);
+
+    let details = rig
+        .service
+        .get_tag_details(&song, false, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(details.cover_data, None);
+    assert_eq!(rig.other.requests().len(), 2);
+    assert!(rig.netease.requests().is_empty());
+}
+
+#[tokio::test]
+async fn cover_sizes_are_probed_from_the_download_address() {
+    let rig = rig();
+    let mut netease = summary();
+    netease.cover_url = Some("http://p1.music.126.net/a==/1.jpg?param=300y300".to_owned());
+    rig.other.enqueue_raw_bytes(200, png_head(1417, 1417));
+    assert_eq!(
+        rig.service
+            .cover_size(&netease, &CancelToken::new())
+            .await
+            .unwrap(),
+        Some((1417, 1417))
+    );
+    assert_eq!(
+        rig.other.requests()[0].url,
+        "http://p1.music.126.net/a==/1.jpg?imageView&thumbnail=4000x4000&type=jpg"
+    );
+
+    // QQ：最大一档没有就换小一档，探测到的是实际能下载到的那张。
+    let mut qq = summary();
+    qq.source = OnlineMusicSource::QqMusic;
+    qq.cover_url = Some("https://y.gtimg.cn/music/photo_new/T002R1200x1200M000abc.jpg".to_owned());
+    rig.other
+        .enqueue_status(404)
+        .enqueue_raw_bytes(200, png_head(800, 800));
+    assert_eq!(
+        rig.service
+            .cover_size(&qq, &CancelToken::new())
+            .await
+            .unwrap(),
+        Some((800, 800))
+    );
+    assert!(rig.other.requests()[2].url.contains("T002R800x800M000abc"));
+
+    // 没有封面地址不发请求；认不出来的图片、失败的请求都是 None。
+    let before = rig.other.requests().len();
+    assert_eq!(
+        rig.service
+            .cover_size(&summary(), &CancelToken::new())
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(rig.other.requests().len(), before);
+    rig.other
+        .enqueue_raw_bytes(200, vec![1, 2, 3])
+        .enqueue_status(500);
+    for _ in 0..2 {
+        assert_eq!(
+            rig.service
+                .cover_size(&netease, &CancelToken::new())
+                .await
+                .unwrap(),
+            None
+        );
+    }
+}
+
 #[tokio::test]
 async fn netease_details_fall_back_to_the_summary_when_the_detail_call_fails() {
     let rig = rig();

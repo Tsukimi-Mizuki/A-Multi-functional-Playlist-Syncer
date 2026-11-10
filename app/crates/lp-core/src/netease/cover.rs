@@ -11,12 +11,21 @@ pub const MAX_COVER_EDGE: u32 = 4000;
 /// 下载封面用的地址：网易云图床的地址加上「最长边不超过 [`MAX_COVER_EDGE`]、输出 JPEG」的参数
 /// （原有的查询参数一并换掉）；其他主机的地址原样返回。
 pub fn cover_download_url(url: &str) -> String {
+    sized_cover_url(url, MAX_COVER_EDGE)
+}
+
+/// 列表里显示的缩略图地址：同 [`cover_download_url`]，但最长边缩到 `edge`（等比，不裁剪）。
+pub fn cover_thumbnail_url(url: &str, edge: u32) -> String {
+    sized_cover_url(url, edge)
+}
+
+fn sized_cover_url(url: &str, edge: u32) -> String {
     let url = url.trim();
     let base = url.split(['?', '#']).next().unwrap_or(url);
     if !is_netease_image_host(base) {
         return url.to_owned();
     }
-    format!("{base}?imageView&thumbnail={MAX_COVER_EDGE}x{MAX_COVER_EDGE}&type=jpg")
+    format!("{base}?imageView&thumbnail={edge}x{edge}&type=jpg")
 }
 
 /// 是否是网易云的图床（`p1.music.126.net` 等）。
@@ -49,6 +58,18 @@ mod tests {
         assert_eq!(
             cover_download_url(" https://P2.Music.126.net/a==/1.jpg?param=300y300 "),
             "https://P2.Music.126.net/a==/1.jpg?imageView&thumbnail=4000x4000&type=jpg"
+        );
+    }
+
+    #[test]
+    fn thumbnails_use_the_requested_edge() {
+        assert_eq!(
+            cover_thumbnail_url("http://p1.music.126.net/a==/1.jpg?param=300y300", 240),
+            "http://p1.music.126.net/a==/1.jpg?imageView&thumbnail=240x240&type=jpg"
+        );
+        assert_eq!(
+            cover_thumbnail_url("https://img.example/cover.jpg", 240),
+            "https://img.example/cover.jpg"
         );
     }
 

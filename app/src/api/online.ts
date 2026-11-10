@@ -180,6 +180,57 @@ export function onlineLoadResult(
   return invoke<LoadedResult>('online_load_result', { source, id, wordLyrics, song: song ?? null })
 }
 
+// ───────────────────────────── 在线标签 ─────────────────────────────
+
+/** 在线标签候选列表里的一行：搜索结果 + 匹配度 + 封面缩略图。 */
+export interface TagCandidate extends OnlineSearchItem {
+  /** 缩略图地址（https 小图，只用来显示）；没有封面为 null。 */
+  thumbnailUrl: string | null
+}
+
+export interface TagCandidatesResponse {
+  /** 实际使用的关键词（请求里留空时由文件名推出）。 */
+  query: string
+  /** 是否按本地文件打了分；打分时 `items` 已按总分从高到低排序。 */
+  scored: boolean
+  threshold: number
+  thresholdPercent: string
+  /** 网易云与 QQ 音乐的候选合在一起。 */
+  items: TagCandidate[]
+  /** 搜索失败的来源（「网易云音乐：……」）；另一个来源的结果照常在 `items` 里。 */
+  failures: string[]
+}
+
+/**
+ * 在线标签候选：同一个关键词同时搜网易云与 QQ 音乐，按匹配度排序。只搜索，不取歌词、不下载封面。
+ * 两个来源都失败才抛 `{ kind, message }`：`emptyQuery` / `failed`。
+ */
+export function onlineTagCandidates(query: string, fileContext?: FileContext | null): Promise<TagCandidatesResponse> {
+  return invoke<TagCandidatesResponse>('online_tag_candidates', { query, fileContext: fileContext ?? null })
+}
+
+export interface CoverSize {
+  width: number
+  height: number
+}
+
+/** 一条候选的封面下载下来是多少像素（后端只读图片开头）；没有封面或认不出来为 null。 */
+export function onlineCoverSize(song: OnlineSong): Promise<CoverSize | null> {
+  return invoke<CoverSize | null>('online_cover_size', { song })
+}
+
+/** 一条候选的标签字段与封面（没有歌词）。 */
+export interface LoadedTags {
+  song: OnlineSong
+  /** 没要封面或没下载到为 null。 */
+  cover: OnlineCover | null
+}
+
+/** 取一条候选的标签与封面，不取歌词；`cover` 为假时连封面也不下载。 */
+export function onlineLoadTags(song: OnlineSong, cover: boolean): Promise<LoadedTags> {
+  return invoke<LoadedTags>('online_load_tags', { source: song.source, id: song.sourceId, song, cover })
+}
+
 // ───────────────────────────── 备用词源 ─────────────────────────────
 
 export interface FallbackLyrics {

@@ -24,7 +24,10 @@ pub(crate) mod test_support;
 
 pub use kugou::KugouLyricsSource;
 pub use lrclib::LrclibLyricsSource;
-pub use manager::{FallbackRequest, FileContext, LoadRequest, OnlineManager, SearchRequest};
+pub use manager::{
+    FallbackRequest, FileContext, LoadRequest, OnlineManager, SearchRequest, TagCandidatesRequest,
+    TagLoadRequest,
+};
 pub use model::{
     LyricsQuery, LyricsSource, LyricsSourceCandidate, OnlineError, OnlineMusicSource,
     OnlineSongDetails, OnlineSongResult, SourceFuture, music_source_of,

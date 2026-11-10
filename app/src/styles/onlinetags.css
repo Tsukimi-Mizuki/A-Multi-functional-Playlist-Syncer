@@ -1,0 +1,229 @@
+/* ---- 在线标签：一行一条候选，左边封面，后面是来源一栏与标题 / 艺术家 / 专辑 ---- */
+.otags-dialog {
+  width: min(100%, 1120px);
+  height: min(100%, 820px);
+  gap: 10px;
+}
+
+.otags-dialog .modal-body {
+  flex: 1;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 0;
+}
+
+.otags-dialog .modal-footer {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.otags-dialog .btn:disabled {
+  opacity: 0.5;
+}
+
+.otags-search {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.otags-keyword {
+  flex: 1;
+  min-width: 0;
+}
+
+.otags-status {
+  flex: none;
+  min-height: 17px;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.otags-warn {
+  color: var(--warning);
+}
+
+.otags-table {
+  --otags-columns: 104px 118px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.3fr) 76px;
+
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-alt);
+  outline: none;
+  scrollbar-gutter: stable;
+}
+
+.otags-table:focus-visible {
+  border-color: var(--accent-border);
+}
+
+.otags-table::-webkit-scrollbar {
+  width: 10px;
+}
+
+.otags-table::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.otags-table::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.otags-head,
+.otags-row {
+  display: grid;
+  grid-template-columns: var(--otags-columns);
+  column-gap: 14px;
+  align-items: center;
+  padding: 0 12px 0 8px;
+}
+
+.otags-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 30px;
+  border-bottom: 1px solid var(--border);
+  /* 不透明的底：行从表头下面滚过去时不能透上来。 */
+  background: linear-gradient(var(--panel-hover), var(--panel-hover)), var(--app-background);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.otags-head-source,
+.otags-head-match {
+  text-align: center;
+}
+
+.otags-row {
+  min-height: 120px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  cursor: default;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+
+.otags-row:hover {
+  background: var(--row-hover);
+}
+
+.otags-row-selected,
+.otags-row-selected:hover {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.otags-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-hover);
+  color: var(--text-tertiary);
+  font-size: 30px;
+}
+
+.otags-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 来源一栏：来源名加粗，下面依次是封面尺寸、年份、音轨、风格，居中。 */
+.otags-source {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.otags-source-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.otags-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-height: 1.4;
+}
+
+.otags-title {
+  font-weight: 600;
+}
+
+.otags-match {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.otags-low {
+  color: var(--warning);
+}
+
+.otags-empty {
+  position: absolute;
+  inset: 30px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ---- 底栏：套用哪些部分 ---- */
+.otags-parts {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  margin-right: auto;
+}
+
+.otags-parts-title {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.otags-parts-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

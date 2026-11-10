@@ -73,6 +73,19 @@
   color: var(--accent);
 }
 
+/* 卡片标题行：标题在左，右上角放按钮（「标签信息」的「在线标签」）。 */
+.editor-card-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.editor-card-head .btn:disabled {
+  opacity: 0.5;
+}
+
 /* ---- 在线搜索 ---- */
 .editor-search {
   display: flex;

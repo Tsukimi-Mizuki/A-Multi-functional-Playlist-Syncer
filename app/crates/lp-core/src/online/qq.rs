@@ -38,6 +38,13 @@ pub(crate) fn album_cover_url(album_mid: &str, size: u32) -> String {
     format!("https://y.gtimg.cn/music/photo_new/T002R{size}x{size}M000{album_mid}.jpg")
 }
 
+/// 列表缩略图用的最小一档封面地址；不是标准封面地址时原样返回。
+pub(crate) fn cover_thumbnail_url(url: &str) -> String {
+    let largest = format!("T002R{0}x{0}M000", COVER_SIZES[0]);
+    let smallest = COVER_SIZES[COVER_SIZES.len() - 1];
+    url.replacen(&largest, &format!("T002R{smallest}x{smallest}M000"), 1)
+}
+
 /// 封面地址的候选：标准封面地址按 [`COVER_SIZES`] 依次换成小一档，其他地址只有它自己。
 fn cover_size_fallbacks(url: &str) -> Vec<String> {
     let largest = format!("T002R{0}x{0}M000", COVER_SIZES[0]);
@@ -182,16 +189,47 @@ impl QqClient {
         Ok(None)
     }
 
+    /// 封面的像素尺寸：与 [`download_cover`](Self::download_cover) 同样的换档规则，但只读图片开头。
+    pub(crate) async fn cover_size(
+        &self,
+        url: Option<&str>,
+        cancel: &CancelToken,
+    ) -> Result<Option<(u32, u32)>, Cancelled> {
+        let Some(url) = url.map(str::trim).filter(|url| !url.is_empty()) else {
+            return Ok(None);
+        };
+        for candidate in cover_size_fallbacks(url) {
+            match self.http.probe_cover_size(&candidate, cancel).await? {
+                CoverFetch::Done(size) => return Ok(Some(size)),
+                CoverFetch::Rejected => continue,
+                CoverFetch::Failed => return Ok(None),
+            }
+        }
+        Ok(None)
+    }
+
+    /// 只要标签与封面、不请求歌词的详情（QQ 没有单独的详情接口，标签字段就是搜索摘要）。
+    pub(crate) async fn tag_details(
+        &self,
+        song: &OnlineSongResult,
+        with_cover: bool,
+        cancel: &CancelToken,
+    ) -> Result<OnlineSongDetails, OnlineError> {
+        let mut details = OnlineSongDetails::without_extras(song.clone());
+        if with_cover {
+            details.cover_data = self
+                .download_cover(song.cover_url.as_deref(), cancel)
+                .await?;
+        }
+        Ok(details)
+    }
+
     pub(crate) async fn details(
         &self,
         song: &OnlineSongResult,
         cancel: &CancelToken,
     ) -> Result<OnlineSongDetails, OnlineError> {
-        let cover = self
-            .download_cover(song.cover_url.as_deref(), cancel)
-            .await?;
-        let mut details = OnlineSongDetails::without_extras(song.clone());
-        details.cover_data = cover;
+        let mut details = self.tag_details(song, true, cancel).await?;
 
         // 优先走 musichall 的 PlayLyricInfo：它同时返回原文和翻译（QQ 的旧 fcg 接口通常没有翻译）。
         match self.play_lyric_info(song, cancel).await {

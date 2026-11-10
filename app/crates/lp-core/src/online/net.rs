@@ -5,10 +5,14 @@ use std::time::Duration;
 
 use crate::download::fetch::MAX_COVER_BYTES;
 use crate::netease::http::{HttpMethod, HttpRequest, HttpResponse, HttpTransport, TransportError};
+use crate::tags::text::image_dimensions;
 use crate::utilities::{CancelToken, Cancelled, cancellable};
 
 /// 浏览器 User-Agent（与 C# `QqUserAgent` 相同）。
 pub(crate) use crate::netease::client::BROWSER_USER_AGENT as BROWSER_UA;
+
+/// 探测图片尺寸时最多读这么多字节：JPEG 的帧头前面可能有很大的 EXIF / ICC 段，再往后就不等了。
+const SIZE_PROBE_LIMIT: usize = 512 * 1024;
 
 /// 一次请求的失败原因（传输层 / 状态码 / 取消）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,17 +129,7 @@ impl OnlineHttp {
         url: &str,
         cancel: &CancelToken,
     ) -> Result<CoverFetch, Cancelled> {
-        let request = HttpRequest {
-            method: HttpMethod::Get,
-            url: url.to_owned(),
-            headers: vec![
-                ("User-Agent".to_owned(), BROWSER_UA.to_owned()),
-                ("Referer".to_owned(), "https://y.qq.com/".to_owned()),
-            ],
-            form: None,
-            body: None,
-        };
-
+        let request = cover_request(url);
         let download = async {
             let Ok(mut response) = self.transport.send_stream(request).await else {
                 return CoverFetch::Failed;
@@ -173,13 +167,61 @@ impl OnlineHttp {
             Err(_elapsed) => Ok(CoverFetch::Failed),
         }
     }
+
+    /// 探测封面的像素尺寸：只读响应开头，认出尺寸就断开，不把整张图下载下来。
+    ///
+    /// 失败原因的区分同 [`download_cover`](Self::download_cover)；读了 [`SIZE_PROBE_LIMIT`] 还认不出来算 `Failed`。
+    pub(crate) async fn probe_cover_size(
+        &self,
+        url: &str,
+        cancel: &CancelToken,
+    ) -> Result<CoverFetch<(u32, u32)>, Cancelled> {
+        let request = cover_request(url);
+        let probe = async {
+            let Ok(mut response) = self.transport.send_stream(request).await else {
+                return CoverFetch::Failed;
+            };
+            if !response.is_success() {
+                return CoverFetch::Rejected;
+            }
+            let mut head: Vec<u8> = Vec::new();
+            while head.len() < SIZE_PROBE_LIMIT {
+                match response.body.next_chunk().await {
+                    Ok(Some(chunk)) => head.extend_from_slice(&chunk),
+                    Ok(None) | Err(_) => break,
+                }
+                if let Some(size) = image_dimensions(&head) {
+                    return CoverFetch::Done(size);
+                }
+            }
+            CoverFetch::Failed
+        };
+        match cancellable(cancel, tokio::time::timeout(self.timeout, probe)).await? {
+            Ok(fetch) => Ok(fetch),
+            Err(_elapsed) => Ok(CoverFetch::Failed),
+        }
+    }
 }
 
-/// 一次封面下载的结果。
+/// 取封面图片的请求（下载与探测尺寸共用）。
+fn cover_request(url: &str) -> HttpRequest {
+    HttpRequest {
+        method: HttpMethod::Get,
+        url: url.to_owned(),
+        headers: vec![
+            ("User-Agent".to_owned(), BROWSER_UA.to_owned()),
+            ("Referer".to_owned(), "https://y.qq.com/".to_owned()),
+        ],
+        form: None,
+        body: None,
+    }
+}
+
+/// 一次封面请求的结果（下载得到图片字节，探测得到像素尺寸）。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum CoverFetch {
-    /// 拿到了图片字节。
-    Done(Vec<u8>),
+pub(crate) enum CoverFetch<T = Vec<u8>> {
+    /// 拿到了。
+    Done(T),
     /// 服务端回了非 2xx。
     Rejected,
     /// 网络错误、超时、超过 10 MB 或响应为空。

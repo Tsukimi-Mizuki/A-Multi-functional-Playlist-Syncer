@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileNameOf, directoryOf } from '../api/editor'
-import { LYRICS_SOURCE_LABELS, type BatchFile, type LyricsSourceKind } from '../api/online'
-import { describeEntry, fileInfoText, useLyricsEditor, type CoverMeta, type EditorFields } from '../state/useLyricsEditor'
+import { LYRICS_SOURCE_LABELS, type BatchFile, type FileContext, type LyricsSourceKind } from '../api/online'
+import {
+  describeEntry,
+  fileInfoText,
+  onlineTagsQuery,
+  useLyricsEditor,
+  type CoverMeta,
+  type EditorFields,
+} from '../state/useLyricsEditor'
 import BatchTagsDialog, { type BatchDrop } from './BatchTagsDialog'
 import ConfirmDialog from './ConfirmDialog'
 import Modal from './Modal'
+import OnlineTagsDialog from './OnlineTagsDialog'
 
 /** 外部（拖放）要求编辑器载入文件，或提示无法载入的原因。`seq` 每次加一，相同路径也会重新触发。 */
 export interface EditorRequest {
@@ -89,6 +97,8 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
   const [batchOpen, setBatchOpen] = useState(false)
   // 拖入多首时交给批量窗口的清单（从「批量修改」按钮打开时为 null，按目录扫描）。
   const [batchDrop, setBatchDrop] = useState<BatchDrop | null>(null)
+  // 「在线标签」窗口：打开那一刻的关键词与打分用的歌曲信息（之后表单再变也不影响这一次）。
+  const [onlineTags, setOnlineTags] = useState<{ keyword: string; context: FileContext } | null>(null)
   const [confirm, setConfirm] = useState<{ message: string; confirmLabel: string; run: () => void } | null>(null)
   const dirtyRef = useRef(dirty)
   const busyRef = useRef(busy)
@@ -137,13 +147,17 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
       setStatus('正在处理，请稍候再拖入文件。')
       return
     }
-    guard('当前修改尚未保存，载入新文件会丢弃这些修改。', '放弃修改并载入', () => void loadFile(path))
+    guard('当前修改尚未保存，载入新文件会丢弃这些修改。', '放弃修改并载入', () => {
+      // 换了一首歌：给上一首找的在线标签不能再套用。
+      setOnlineTags(null)
+      void loadFile(path)
+    })
   }, [request, guard, loadFile, setStatus])
 
   const requestClose = useCallback(() => {
-    if (batchOpen) return
+    if (batchOpen || onlineTags) return
     guard('当前修改尚未保存，关闭后会丢失这些修改。', '放弃修改并关闭', onClose)
-  }, [batchOpen, guard, onClose])
+  }, [batchOpen, onlineTags, guard, onClose])
 
   const openFile = useCallback(async () => {
     const path = await editor.pickFile()
@@ -330,7 +344,19 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
 
         <div className="editor-main">
           <section className="editor-card editor-tags" aria-label="标签信息">
-            <h3 className="editor-card-title">标签信息</h3>
+            <div className="editor-card-head">
+              <h3 className="editor-card-title">标签信息</h3>
+              <button
+                type="button"
+                className="btn btn-small"
+                aria-label="在线标签"
+                title="在网易云音乐与 QQ 音乐里查找这首歌的标签与封面（不获取歌词）"
+                disabled={!file || busy}
+                onClick={() => file && setOnlineTags(onlineTagsQuery(file, fields))}
+              >
+                在线标签…
+              </button>
+            </div>
             <div className="editor-cover-row">
               <div className="editor-cover" aria-label={cover.src ? '封面预览' : '没有封面预览'} role="img">
                 {cover.src ? <img src={cover.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
@@ -414,6 +440,14 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
             // 批量窗口里可能改过正在编辑的这首歌：表单没动过就重新读一遍，免得之后保存时把旧内容写回去。
             if (file && !dirtyRef.current && !busyRef.current) void loadFile(file.path, false)
           }}
+        />
+      )}
+      {onlineTags && (
+        <OnlineTagsDialog
+          context={onlineTags.context}
+          initialKeyword={onlineTags.keyword}
+          onApply={editor.applyOnlineTags}
+          onClose={() => setOnlineTags(null)}
         />
       )}
       {confirm && (

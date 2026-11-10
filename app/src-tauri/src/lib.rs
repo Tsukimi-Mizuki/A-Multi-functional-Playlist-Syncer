@@ -42,13 +42,13 @@ use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
 use lp_core::netease::{NeteaseClient, NeteaseError, PlaylistDetail, PlaylistSummary};
 use lp_core::online::view::{
-    FallbackLyricsView, LoadedResultView, MatchThresholdView, OnlineCommandError,
-    OnlineSearchResponse,
+    CoverSizeView, FallbackLyricsView, LoadedResultView, LoadedTagsView, MatchThresholdView,
+    OnlineCommandError, OnlineSearchResponse, TagCandidatesResponse,
 };
 use lp_core::online::{
     FallbackRequest, FileContext, KugouLyricsSource, LoadRequest, LrclibLyricsSource, LyricsSource,
     OnlineManager, OnlineMusicSearch, OnlineMusicSearchService, OnlineSongResult, SearchRequest,
-    fallback_source_enabled,
+    TagCandidatesRequest, TagLoadRequest, fallback_source_enabled,
 };
 use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::{PlaylistError, PlaylistService};
@@ -1155,6 +1155,61 @@ async fn online_load_result(
         .await
 }
 
+/// 在线标签候选（编辑器「标签信息」里的「在线标签」）：同一个关键词同时搜网易云与 QQ 音乐，合在一起
+/// 按匹配度排序，每条带缩略图地址。只搜索，不取歌词、不下载封面；一个来源失败时写进 `failures`，
+/// 两个都失败才 `Err`（`emptyQuery` / `cancelled` / `failed`）。
+#[tauri::command]
+async fn online_tag_candidates(
+    state: State<'_, AppState>,
+    query: String,
+    file_context: Option<FileContext>,
+) -> Result<TagCandidatesResponse, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online
+        .tag_candidates(
+            TagCandidatesRequest {
+                query,
+                file_context,
+            },
+            &CancelToken::new(),
+        )
+        .await
+}
+
+/// 一条候选的封面下载下来是多少像素（只读图片开头）；没有封面或认不出来返回 `null`。
+#[tauri::command]
+async fn online_cover_size(
+    state: State<'_, AppState>,
+    song: OnlineSongResult,
+) -> Result<Option<CoverSizeView>, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online.cover_size(&song, &CancelToken::new()).await
+}
+
+/// 取一条候选的标签字段与封面，**不取歌词**；`cover` 为 `false` 时连封面也不下载（默认下载）。
+/// 失败时 `Err` 是 `{ kind, message }`：`unknownSong` / `primarySource` / `cancelled` / `failed`。
+#[tauri::command]
+async fn online_load_tags(
+    state: State<'_, AppState>,
+    source: LyricsSourceKind,
+    id: String,
+    song: Option<OnlineSongResult>,
+    cover: Option<bool>,
+) -> Result<LoadedTagsView, OnlineCommandError> {
+    let online = Arc::clone(&state.online);
+    online
+        .load_tags(
+            TagLoadRequest {
+                source,
+                id,
+                song,
+                cover: cover.unwrap_or(true),
+            },
+            &CancelToken::new(),
+        )
+        .await
+}
+
 /// 备用词源（`Kugou` / `Lrclib`，只提供歌词）按本地标题、歌手与时长检索一份歌词；没有匹配返回 `null`。
 /// 阈值取自设置；不受“备用词源”开关限制（开关只作用于批量与自动补全）。
 #[tauri::command]
@@ -1545,6 +1600,9 @@ pub fn run() {
             download_cancel,
             online_search,
             online_load_result,
+            online_tag_candidates,
+            online_cover_size,
+            online_load_tags,
             lyrics_source_fetch,
             get_match_threshold,
             batch_scan,
@@ -2163,6 +2221,17 @@ mod tests {
         }))
         .unwrap();
         assert!(batch.fetch_lyrics && batch.overwrite_existing && batch.prefer_word_lyrics);
+        // 在线标签：候选原样传回 `online_cover_size` / `online_load_tags` 的 `song`（派生字段被忽略）。
+        let song: OnlineSongResult = serde_json::from_value(serde_json::json!({
+            "source": "QQMusic", "sourceId": "mid", "title": "晴天", "artist": "周杰伦", "album": "叶惠美",
+            "durationMs": 269000, "coverUrl": "https://y.gtimg.cn/a.jpg", "numericSourceId": "42",
+            "sourceLabel": "QQ 音乐", "displayTitle": "晴天", "subtitle": "周杰伦 · 叶惠美", "durationText": "4:29"
+        }))
+        .unwrap();
+        assert_eq!(song.cover_url.as_deref(), Some("https://y.gtimg.cn/a.jpg"));
+        let load: TagLoadRequest =
+            serde_json::from_value(serde_json::json!({ "source": "Netease", "id": "1" })).unwrap();
+        assert!(load.cover, "不传 cover 时下载封面");
     }
 
     #[test]

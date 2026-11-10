@@ -6,8 +6,11 @@ use crate::lyrics::batch::SettingsProvider;
 use crate::models::LyricsSourceKind;
 use crate::online::manager::{
     FallbackRequest, FileContext, LoadRequest, OnlineManager, SearchRequest,
+    TAG_CANDIDATES_PER_SOURCE, TagCandidatesRequest, TagLoadRequest,
 };
-use crate::online::model::{LyricsSource, OnlineMusicSource, OnlineSongDetails, OnlineSongResult};
+use crate::online::model::{
+    LyricsSource, OnlineError, OnlineMusicSource, OnlineSongDetails, OnlineSongResult,
+};
 use crate::online::test_support::{StubFallback, StubOnline, line_candidate, song};
 use crate::settings::AppSettings;
 use crate::utilities::CancelToken;
@@ -606,6 +609,286 @@ async fn failing_fallback_sources_report_their_error() {
     assert_eq!(error.message, "模拟词源故障");
 }
 
+// ───────────────────────────── 在线标签候选 ─────────────────────────────
+
+fn tag_request(query: &str, file: Option<FileContext>) -> TagCandidatesRequest {
+    TagCandidatesRequest {
+        query: query.to_owned(),
+        file_context: file,
+    }
+}
+
+fn with_cover(mut song: OnlineSongResult, url: &str) -> OnlineSongResult {
+    song.cover_url = Some(url.to_owned());
+    song
+}
+
+#[tokio::test]
+async fn tag_candidates_merge_both_sources_and_sort_by_match() {
+    let online = StubOnline::with(vec![], None);
+    online.on_search(|source, _| {
+        Ok(match source {
+            Netease => vec![
+                song(Netease, "9", "完全无关", "路人", "x", 100_000),
+                with_cover(
+                    song(Netease, "1", "晴天", "周杰伦", "叶惠美", 269_000),
+                    "http://p1.music.126.net/a==/1.jpg",
+                ),
+            ],
+            QqMusic => vec![
+                with_cover(
+                    song(QqMusic, "mid1", "晴天", "周杰伦", "叶惠美", 269_000),
+                    "https://y.gtimg.cn/music/photo_new/T002R1200x1200M000abc.jpg",
+                ),
+                song(QqMusic, "mid2", "晴天 (Live)", "周杰伦", "叶惠美", 269_000),
+            ],
+        })
+    });
+    let manager = manager(&online, vec![]);
+
+    let response = manager
+        .tag_candidates(
+            tag_request(" 晴天 周杰伦 ", Some(context())),
+            &CancelToken::new(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.query, "晴天 周杰伦");
+    assert!(response.scored);
+    assert_eq!(response.threshold_percent, "60");
+    assert!(response.failures.is_empty());
+    let ids: Vec<&str> = response
+        .items
+        .iter()
+        .map(|candidate| candidate.item.song.song.source_id.as_str())
+        .collect();
+    // 同分时网易云在前；低分的排最后并标注。
+    assert_eq!(ids, ["1", "mid1", "mid2", "9"]);
+    assert!(!response.items[0].item.below_threshold);
+    assert!(response.items[3].item.below_threshold);
+    assert_eq!(
+        response.items[0].thumbnail_url.as_deref(),
+        Some("https://p1.music.126.net/a==/1.jpg?imageView&thumbnail=240x240&type=jpg")
+    );
+    assert_eq!(
+        response.items[1].thumbnail_url.as_deref(),
+        Some("https://y.gtimg.cn/music/photo_new/T002R300x300M000abc.jpg")
+    );
+    assert_eq!(response.items[2].thumbnail_url, None);
+
+    // 两个来源各搜一次，同一个关键词；只搜索，不取详情。
+    assert_eq!(
+        online.searches(),
+        [
+            (Netease, "晴天 周杰伦".to_owned()),
+            (QqMusic, "晴天 周杰伦".to_owned())
+        ]
+    );
+    assert!(online.detail_calls().is_empty());
+    assert!(online.tag_detail_calls().is_empty());
+
+    // 序列化成一层：歌曲 / 打分与缩略图并列。
+    let json = serde_json::to_value(&response.items[0]).unwrap();
+    assert_eq!(json["song"]["sourceId"], "1");
+    assert_eq!(json["belowThreshold"], false);
+    assert!(json["score"]["total"].as_f64().unwrap() > 0.9);
+    assert!(
+        json["thumbnailUrl"]
+            .as_str()
+            .unwrap()
+            .starts_with("https://")
+    );
+}
+
+#[tokio::test]
+async fn tag_candidates_search_both_sources_at_the_same_time() {
+    let online = StubOnline::with(
+        vec![song(Netease, "1", "晴天", "周杰伦", "叶惠美", 269_000)],
+        None,
+    );
+    online.set_delay(std::time::Duration::from_millis(20));
+    let manager = manager(&online, vec![]);
+
+    let response = manager
+        .tag_candidates(tag_request("晴天", None), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert_eq!(response.items.len(), 2);
+    assert_eq!(online.peak(), 2, "两个来源的搜索同时在途");
+}
+
+#[tokio::test]
+async fn tag_candidates_keep_one_source_when_the_other_fails() {
+    let online = StubOnline::with(vec![], None);
+    online.on_search(|source, _| match source {
+        Netease => Err(OnlineError::failed("网易云音乐搜索请求过于频繁")),
+        QqMusic => Ok((0..TAG_CANDIDATES_PER_SOURCE + 5)
+            .map(|index| {
+                song(
+                    QqMusic,
+                    &format!("mid{index}"),
+                    "晴天",
+                    "周杰伦",
+                    "叶惠美",
+                    269_000,
+                )
+            })
+            .collect()),
+    });
+    let manager = manager(&online, vec![]);
+
+    let response = manager
+        .tag_candidates(tag_request("晴天", None), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert!(!response.scored);
+    assert_eq!(
+        response.failures,
+        ["网易云音乐：网易云音乐搜索请求过于频繁"]
+    );
+    assert_eq!(response.items.len(), TAG_CANDIDATES_PER_SOURCE);
+    assert!(
+        response
+            .items
+            .iter()
+            .all(|candidate| candidate.item.score.is_none())
+    );
+    // 没打分时保持来源给的顺序。
+    assert_eq!(response.items[0].item.song.song.source_id, "mid0");
+}
+
+#[tokio::test]
+async fn tag_candidates_fail_only_when_every_source_fails_or_the_query_is_empty() {
+    let online = StubOnline::with(vec![], None);
+    online.on_search(|source, _| Err(OnlineError::failed(format!("{}坏了", source.label()))));
+    let manager = manager(&online, vec![]);
+
+    let error = manager
+        .tag_candidates(tag_request("晴天", None), &CancelToken::new())
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind, "failed");
+    assert_eq!(
+        error.message,
+        "网易云音乐：网易云音乐坏了；QQ 音乐：QQ 音乐坏了"
+    );
+
+    let error = manager
+        .tag_candidates(tag_request("  ", None), &CancelToken::new())
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind, "emptyQuery");
+
+    // 关键词留空但带了文件：用文件名推。
+    online.on_search(|_, _| Ok(vec![]));
+    let response = manager
+        .tag_candidates(tag_request("", Some(context())), &CancelToken::new())
+        .await
+        .unwrap();
+    assert_eq!(response.query, "晴天");
+    assert!(response.items.is_empty() && response.failures.is_empty());
+}
+
+#[tokio::test]
+async fn loading_tags_never_asks_for_lyrics_and_can_skip_the_cover() {
+    let online = StubOnline::with(
+        vec![song(QqMusic, "mid1", "晴天", "周杰伦", "叶惠美", 269_000)],
+        None,
+    );
+    online.on_details(|candidate| Ok(Some(details_with_everything(candidate))));
+    let manager = manager(&online, vec![]);
+    manager
+        .tag_candidates(tag_request("晴天", None), &CancelToken::new())
+        .await
+        .unwrap();
+
+    // 只给来源与 ID：摘要从候选搜索的缓存里找回。
+    let loaded = manager
+        .load_tags(
+            TagLoadRequest {
+                source: LyricsSourceKind::QqMusic,
+                id: "mid1".to_owned(),
+                song: None,
+                cover: true,
+            },
+            &CancelToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(loaded.song.song.title, "详情里的标题");
+    assert_eq!(loaded.song.song.album, "叶惠美");
+    let cover = loaded.cover.as_ref().unwrap();
+    assert_eq!((cover.mime_type.as_str(), cover.size), ("image/png", 9));
+    let json = serde_json::to_value(&loaded).unwrap();
+    assert!(json.get("lyrics").is_none() && json.get("lineLyrics").is_none());
+
+    let without_cover = manager
+        .load_tags(
+            TagLoadRequest {
+                source: LyricsSourceKind::QqMusic,
+                id: "mid1".to_owned(),
+                song: None,
+                cover: false,
+            },
+            &CancelToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(without_cover.cover, None);
+
+    assert_eq!(
+        online.tag_detail_calls(),
+        [
+            (QqMusic, "mid1".to_owned(), true),
+            (QqMusic, "mid1".to_owned(), false)
+        ]
+    );
+    assert!(online.detail_calls().is_empty(), "不走带歌词的详情");
+
+    let error = manager
+        .load_tags(
+            TagLoadRequest {
+                source: LyricsSourceKind::Kugou,
+                id: "x".to_owned(),
+                song: None,
+                cover: true,
+            },
+            &CancelToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind, "primarySource");
+}
+
+#[tokio::test]
+async fn cover_sizes_come_from_the_search_service() {
+    let online = StubOnline::with(vec![], None);
+    let manager = manager(&online, vec![]);
+    let candidate = song(Netease, "1", "晴天", "周杰伦", "叶惠美", 269_000);
+
+    assert_eq!(
+        manager
+            .cover_size(&candidate, &CancelToken::new())
+            .await
+            .unwrap(),
+        None
+    );
+    online.set_cover_size(Some((1417, 1417)));
+    let size = manager
+        .cover_size(&candidate, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((size.width, size.height), (1417, 1417));
+    assert_eq!(
+        serde_json::to_string(&size).unwrap(),
+        r#"{"width":1417,"height":1417}"#
+    );
+}
+
 #[test]
 fn the_threshold_view_reads_the_current_settings_and_clamps() {
     let online = StubOnline::with(vec![], None);
@@ -649,6 +932,17 @@ fn requests_deserialize_from_camel_case_json() {
     let load: LoadRequest =
         serde_json::from_str(r#"{"source":"Netease","id":"1","wordLyrics":true}"#).unwrap();
     assert!(load.word_lyrics && load.song.is_none());
+
+    let tags: TagCandidatesRequest =
+        serde_json::from_str(r#"{"query":"晴天","fileContext":{"durationMs":1}}"#).unwrap();
+    assert_eq!(tags.query, "晴天");
+    assert_eq!(tags.file_context.unwrap().duration_ms, 1);
+    let tag_load: TagLoadRequest =
+        serde_json::from_str(r#"{"source":"QQMusic","id":"m"}"#).unwrap();
+    assert!(tag_load.cover && tag_load.song.is_none(), "默认下载封面");
+    let tag_load: TagLoadRequest =
+        serde_json::from_str(r#"{"source":"QQMusic","id":"m","cover":false}"#).unwrap();
+    assert!(!tag_load.cover);
 
     let fallback: FallbackRequest =
         serde_json::from_str(r#"{"source":"Lrclib","title":"x","durationMs":5}"#).unwrap();

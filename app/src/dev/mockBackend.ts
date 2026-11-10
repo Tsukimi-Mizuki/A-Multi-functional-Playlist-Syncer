@@ -1222,6 +1222,65 @@ export function installMockBackend(scenario: string | null): void {
             statusText: `已载入${song.sourceLabel}的标签${label}、封面，请确认后保存。`,
           }
         }
+        case 'online_tag_candidates': {
+          const query = String(args.query ?? '').trim()
+          await sleep(700)
+          if (query === '') throw { kind: 'emptyQuery', message: '请输入要搜索的歌曲、歌手或专辑。' }
+          if (query.includes('全部失败')) {
+            throw { kind: 'failed', message: '网易云音乐：搜索接口暂时无法使用；QQ 音乐：搜索接口不可用（HTTP 500）' }
+          }
+          const neteaseDown = scenario === 'neteasefail'
+          const specs = query.includes('没有结果') ? [] : MOCK_ONLINE_SPECS
+          const scored = args.fileContext != null
+          const sources = neteaseDown ? (['QQMusic'] as const) : (['Netease', 'QQMusic'] as const)
+          const items = sources.flatMap((source) =>
+            specs.map((spec, index) => {
+              // QQ 的同一首分数略低一点，排序后两个来源交错出现；没有专辑的那条没有封面。
+              const total = Math.max(0, spec.total - (source === 'QQMusic' ? 0.02 : 0))
+              const hasCover = spec.album !== ''
+              return {
+                song: {
+                  ...mockOnlineSong(source, spec, index),
+                  genre: source === 'QQMusic' && index % 2 === 0 ? 'Pop' : null,
+                  coverUrl: hasCover ? `https://mock.invalid/${source}/${index}.jpg` : null,
+                },
+                score: scored ? mockScore(total) : null,
+                belowThreshold: scored && total < 0.6,
+                thumbnailUrl: hasCover ? cover((index * 47 + (source === 'QQMusic' ? 180 : 0)) % 360) : null,
+              }
+            }),
+          )
+          if (scored) items.sort((left, right) => (right.score?.total ?? 0) - (left.score?.total ?? 0))
+          return {
+            query,
+            scored,
+            threshold: 0.6,
+            thresholdPercent: '60',
+            items,
+            failures: neteaseDown ? ['网易云音乐：搜索接口暂时无法使用，请稍后再试'] : [],
+          }
+        }
+        case 'online_cover_size': {
+          const song = args.song as ReturnType<typeof mockOnlineSong>
+          const index = Number(/(\d+)\.jpg$/.exec(String(song.coverUrl ?? ''))?.[1] ?? 0)
+          await sleep(300 + index * 180)
+          if (!song.coverUrl || index === 3) return null
+          if (song.source === 'QQMusic') return index % 2 === 0 ? { width: 1200, height: 1200 } : { width: 800, height: 800 }
+          return index === 0 ? { width: 1417, height: 1417 } : { width: 3000, height: 3000 }
+        }
+        case 'online_load_tags': {
+          const song = args.song as ReturnType<typeof mockOnlineSong>
+          await sleep(600)
+          if (song.title.includes('伴奏')) throw { kind: 'failed', message: '网络请求失败：连接被重置' }
+          const png = mockPng(song.source === 'QQMusic' ? 30 : 200)
+          return {
+            song: { ...song, genre: song.genre ?? 'Pop', composer: '周杰伦', year: song.year ?? 2003 },
+            cover:
+              args.cover === false || song.coverUrl == null
+                ? null
+                : { mimeType: 'image/png', base64: png.base64, size: png.size, width: 96, height: 96 },
+          }
+        }
         case 'lyrics_source_fetch': {
           const source = String(args.source)
           await sleep(650)

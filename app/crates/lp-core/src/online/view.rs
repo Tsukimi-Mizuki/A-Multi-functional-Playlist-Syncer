@@ -4,9 +4,12 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
-use super::model::{LyricsSourceCandidate, OnlineSongDetails, OnlineSongResult};
+use super::model::{LyricsSourceCandidate, OnlineMusicSource, OnlineSongDetails, OnlineSongResult};
+use super::qq;
+use crate::library::text::is_blank;
 use crate::lyrics::scorer::{self, LyricsMatchScore};
 use crate::models::LyricsSourceKind;
+use crate::netease::cover;
 use crate::tags::detect_image_mime;
 use crate::tags::text::image_dimensions;
 
@@ -109,6 +112,85 @@ pub struct OnlineSearchResponse {
     pub threshold_percent: String,
     /// 结果。
     pub items: Vec<OnlineSearchItem>,
+}
+
+/// 候选列表里缩略图的最长边（像素）：界面上显示约 100 px，留出高分屏的余量。
+const THUMBNAIL_EDGE: u32 = 240;
+
+/// 候选列表里显示的封面缩略图地址（小图，不是写进文件的那张）；没有封面地址时为 `None`。
+///
+/// 一律换成 `https`：界面的内容安全策略只放行 https 图片，而网易云接口给的常是 `http://`。
+pub(crate) fn thumbnail_url(song: &OnlineSongResult) -> Option<String> {
+    let url = song.cover_url.as_deref().filter(|url| !is_blank(url))?;
+    let small = match song.source {
+        OnlineMusicSource::Netease => cover::cover_thumbnail_url(url, THUMBNAIL_EDGE),
+        OnlineMusicSource::QqMusic => qq::cover_thumbnail_url(url.trim()),
+    };
+    Some(match small.strip_prefix("http://") {
+        Some(rest) => format!("https://{rest}"),
+        None => small,
+    })
+}
+
+/// 在线标签候选列表里的一行：搜索结果 + 匹配度 + 缩略图。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCandidateView {
+    /// 歌曲、打分与是否低于阈值（与 `online_search` 的一项相同）。
+    #[serde(flatten)]
+    pub item: OnlineSearchItem,
+    /// 封面缩略图地址。
+    pub thumbnail_url: Option<String>,
+}
+
+/// `online_tag_candidates` 的返回值。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCandidatesResponse {
+    /// 实际使用的关键词（请求里留空时由文件名推出）。
+    pub query: String,
+    /// 是否按本地文件打了分（打分时按总分从高到低排序，同分网易云在前）。
+    pub scored: bool,
+    /// 当前设置里的匹配度阈值。
+    pub threshold: f64,
+    /// 阈值的百分数文本（「60」）。
+    pub threshold_percent: String,
+    /// 两个来源的候选合在一起。
+    pub items: Vec<TagCandidateView>,
+    /// 搜索失败的来源（「网易云音乐：……」）；另一个来源的结果照常返回。
+    pub failures: Vec<String>,
+}
+
+/// 封面的像素尺寸（`online_cover_size` 的返回值）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoverSizeView {
+    /// 宽度（像素）。
+    pub width: u32,
+    /// 高度（像素）。
+    pub height: u32,
+}
+
+/// `online_load_tags` 的返回值：只有标签字段与封面，没有歌词。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadedTagsView {
+    /// 详情接口返回的歌曲信息（字段比搜索摘要更全）。
+    pub song: OnlineSongView,
+    /// 封面；没要封面或没下载到为 `None`。
+    pub cover: Option<CoverView>,
+}
+
+impl LoadedTagsView {
+    pub(crate) fn new(summary: &OnlineSongResult, details: Option<&OnlineSongDetails>) -> Self {
+        Self {
+            song: OnlineSongView::from(details.map_or(summary, |details| &details.song)),
+            cover: details
+                .and_then(|details| details.cover_data.as_deref())
+                .filter(|data| !data.is_empty())
+                .map(CoverView::new),
+        }
+    }
 }
 
 /// 封面（Base64，不带 `data:` 前缀；可直接填进 `write_tags` 的 `coverBase64`）。
