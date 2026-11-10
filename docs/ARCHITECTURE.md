@@ -67,7 +67,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | NCM 导入 | `ncm_get_state`、`ncm_scan`、`ncm_save_state`、`ncm_import`、`ncm_cancel` |
 | 本地曲库 | `scan_library`、`match_playlist`、`library_cancel` |
 | 下载 / 同步 | `set_quality`、`download_tracks`、`download_missing`（`trackIds`：确认框里仍勾选的歌，只下载其中仍然缺失的）、`sync_playlist`、`download_cancel` |
-| 在线匹配 | `online_search`、`online_load_result`、`lyrics_source_fetch`、`get_match_threshold` |
+| 在线匹配 | `online_search`、`online_load_result`、`lyrics_source_fetch`、`get_match_threshold`；在线标签：`online_tag_candidates`、`online_cover_size`、`online_load_tags` |
 | 批量获取 | `batch_scan`、`batch_run`、`batch_cancel` |
 | 编辑器 / 拖放 | `editor_get_state`、`editor_remember_options`、`resolve_drop`、`take_startup_file` |
 | 设置 / 外观 | `get_settings`、`save_settings`（只传改动的键）、`preview_appearance`（不写盘） |
@@ -172,6 +172,10 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - 读取 → 编辑 → `write_tags(replaceAll: true)` 保存 → 重新读取；保存保留网易云 ID 标记，没提供封面则封面不动，`removeCover` 才删除。
 - 封面旁显示格式、像素尺寸、大小与图片类型（`TagView` 的 `coverMimeType` / `coverWidth` / `coverHeight` / `coverSize` / `coverPictureType`；换成本地图片或在线封面时显示新图片的参数，类型是保存时写入的「正面封面」）。
 - 拖放：`useFileDrop` 监听 `tauri://drag-*`；离开后 180 ms 才隐藏提示层（期间再次进入则取消，避免闪烁）。`editor::resolve_drop` 把拖入的目标展开成音频文件（文件直接取；文件夹展开为其中含子文件夹的全部音频，规则同批量获取扫描目录；按拖入顺序、不区分大小写去重）：只有一首时用编辑器打开（`audio`），两首及以上交给「批量修改标签」（`batch` + `files`，窗口里显示「拖入的 N 首音频」，不再扫描目录，「改用目录…」可切回），一首都没有时拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因；无法处理的目标跳过并在日志里说明。编辑器开着时由编辑器处理（多首打开叠在它上面的批量窗口）；批量窗口开着时新拖入的文件（一首也算）替换它的清单，正在处理时只提示、不替换。C# 版拖入多个只打开第一个，这里有意不同。
+- **在线标签**（「标签信息」右上角的按钮，`OnlineTagsDialog` + `useOnlineTags`）：只找标签与封面，不取歌词。打开时用表单里现在的标题 + 艺术家（标题空着用文件名推）搜一次，关键词可改了重搜；打分用表单里现在的标题 / 艺术家 / 专辑与文件时长。
+  - `online_tag_candidates`（`OnlineManager::tag_candidates`）：同一个关键词并行搜网易云与 QQ 音乐，每个来源最多 10 条，合并后按总分从高到低（同分网易云在前）；一个来源失败时写进 `failures`、另一个照常返回，两个都失败才报错。每条带 `thumbnailUrl`（网易云 `?imageView&thumbnail=240x240&type=jpg`，QQ 换成 300 档，一律 https——CSP 只放行 https 图片），由界面直接加载。
+  - `online_cover_size`：逐行探测「下载下来会是多少像素」（`OnlineHttp::probe_cover_size`：流式读图片开头，`image_dimensions` 认出尺寸就断开，最多读 512 KB；网易云探测的是带 4000 上限参数的下载地址，QQ 按 1200 / 800 / 500 / 300 换档）。前端最多 4 条同时探测，没探到显示「尺寸未知」。
+  - `online_load_tags`：用户按「确定」后才取选中那一条——`OnlineMusicSearch::get_tag_details` 不发歌词请求（网易云只调详情接口，QQ 的标签就是搜索摘要），`cover: false` 时连封面也不下载。前端按勾选的「标签」「封面」填进表单（`useLyricsEditor::applyOnlineTags`：在线结果里空着的字段保持原样，歌词不动），保存仍走编辑器的「保存标签与歌词」。
 - 管理员身份运行时 Windows 用 UIPI 阻断资源管理器向本程序拖放（系统限制），界面顶部与启动日志给出提示。
 - `--edit <文件>` / `--lyrics <文件>` 启动参数由 `parse_startup_args` 解析，前端启动后调 `take_startup_file`（只交出一次）。
 
