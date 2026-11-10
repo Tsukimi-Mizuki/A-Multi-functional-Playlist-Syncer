@@ -144,10 +144,7 @@ fn a_dropped_folder_with_several_songs_goes_to_batch_including_subfolders() {
     assert_eq!(result.files[2].name, "c.ogg");
     assert_eq!(result.resolved_count, 3);
     assert_eq!(result.total, 1);
-    assert_eq!(
-        result.message,
-        "拖入 3 首音频，交给批量获取标签、封面与歌词"
-    );
+    assert_eq!(result.message, "拖入 3 首音频，交给批量修改标签");
 }
 
 #[test]
@@ -181,7 +178,7 @@ fn several_songs_go_to_batch_in_drop_order_and_skip_unusable_targets() {
     assert_eq!(result.total, 3);
     assert_eq!(
         result.message,
-        "拖入 2 首音频，交给批量获取标签、封面与歌词（另有 1 个目标无法处理，已跳过）"
+        "拖入 2 首音频，交给批量修改标签（另有 1 个目标无法处理，已跳过）"
     );
 }
 

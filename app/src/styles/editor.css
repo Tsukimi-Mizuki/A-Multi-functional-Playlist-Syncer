@@ -418,29 +418,6 @@
   opacity: 0.5;
 }
 
-/* ---- 批量获取（复用 NCM 导入的表格 / 进度样式） ---- */
-.batch-dialog {
-  width: min(100%, 980px);
-}
-
-.batch-grid {
-  display: grid;
-  grid-template-columns: minmax(120px, 2fr) minmax(120px, 2fr) 96px minmax(160px, 3fr);
-  column-gap: 12px;
-  align-items: center;
-}
-
-.batch-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-}
-
-.batch-options .editor-select {
-  width: 176px;
-}
-
 /* ---- 拖放提示层 ---- */
 .drop-overlay {
   position: fixed;

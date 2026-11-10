@@ -34,6 +34,7 @@ export interface EditorFields {
   discNumber: string
   genre: string
   composer: string
+  lyricist: string
   comment: string
   lyrics: string
 }
@@ -48,6 +49,7 @@ export const EMPTY_FIELDS: EditorFields = {
   discNumber: '',
   genre: '',
   composer: '',
+  lyricist: '',
   comment: '',
   lyrics: '',
 }
@@ -76,7 +78,7 @@ export interface CoverView {
   tooLarge: boolean
 }
 
-function coverMeta(
+export function coverMeta(
   mimeType: string | null,
   width: number | null,
   height: number | null,
@@ -131,6 +133,7 @@ function fieldsFromInfo(info: TagView): EditorFields {
     discNumber: info.discNumber != null ? String(info.discNumber) : '',
     genre: info.genre ?? '',
     composer: info.composer ?? '',
+    lyricist: info.lyricist ?? '',
     comment: info.comment ?? '',
     lyrics: info.lyrics ?? '',
   }
@@ -144,7 +147,7 @@ export function fileInfoText(info: TagView): string {
 }
 
 /** 可选的非负整数：空白为 null；不是数字时返回 undefined。 */
-function parseOptionalUInt(text: string): number | null | undefined {
+export function parseOptionalUInt(text: string): number | null | undefined {
   const trimmed = text.trim()
   if (trimmed === '') return null
   if (!/^\d+$/.test(trimmed)) return undefined
@@ -153,7 +156,7 @@ function parseOptionalUInt(text: string): number | null | undefined {
 }
 
 /** 艺术家按 `/ ; ； 、` 拆成多个。 */
-function splitArtists(text: string): string[] {
+export function splitArtists(text: string): string[] {
   return text
     .split(/[/;；、]/)
     .map((part) => part.trim())
@@ -551,6 +554,7 @@ export function useLyricsEditor() {
         discNumber: disc,
         genre: trimmedOrNull(values.genre),
         composer: trimmedOrNull(values.composer),
+        lyricist: trimmedOrNull(values.lyricist),
         comment: trimmedOrNull(values.comment),
         plainLyrics: values.lyrics.trim() === '' ? null : values.lyrics,
         neteaseId,

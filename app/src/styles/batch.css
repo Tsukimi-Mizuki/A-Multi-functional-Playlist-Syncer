@@ -1,0 +1,450 @@
+/* ---- 批量修改标签：左边是选中歌曲的标签，右边是歌曲列表 ---- */
+.batch-dialog {
+  width: min(100%, 1480px);
+  height: min(100%, 940px);
+  gap: 12px;
+}
+
+.batch-dialog .modal-body {
+  flex: 1;
+  align-items: stretch;
+}
+
+.batch-dialog .modal-footer {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.batch-dialog .btn:disabled {
+  opacity: 0.5;
+}
+
+.batch-layout {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+/* 目录输入框 / 拖入的清单说明 */
+.batch-source {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-source .ncm-check {
+  flex: none;
+  margin-left: 6px;
+}
+
+/* 拖入的文件代替目录输入框时的说明（与输入框同高、占满剩余宽度） */
+.batch-dropped {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 32px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 304px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+/* ---- 左：标签面板 ---- */
+.tagpane {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 9px 10px 10px 14px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  scrollbar-gutter: stable;
+}
+
+.tagpane::-webkit-scrollbar,
+.batch-table::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.tagpane::-webkit-scrollbar-thumb,
+.batch-table::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: var(--border-strong);
+}
+
+.batch-table::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.batch-table::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.tagpane-heading {
+  flex: none;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagpane-heading-note {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.tagpane-field {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.tagpane > .tagpane-field,
+.tagpane-row {
+  flex: none;
+}
+
+.tagpane-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tagpane-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.tagpane-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tagpane-input {
+  flex: 1;
+  width: 100%;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.tagpane-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tagpane-input:disabled {
+  opacity: 0.55;
+}
+
+/* 动过的字段：强调色描边，右边留出「还原」按钮的位置。 */
+.tagpane-input-edited {
+  padding-right: 28px;
+  border-color: var(--accent-border);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--input);
+}
+
+.tagpane-reset {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: default;
+}
+
+.tagpane-reset:hover {
+  background: var(--control-hover);
+}
+
+.tagpane-reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* 歌词只预览第一行，编辑交给歌词与标签编辑器。 */
+.tagpane-lyrics {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--text-secondary);
+  font-family: Consolas, 'Microsoft YaHei UI', monospace;
+  font-size: 11.5px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 不是歌词原文（「没有歌词」、多首时的统计）：用界面字体。 */
+.tagpane-lyrics-note {
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.tagpane-control .btn-small {
+  flex: none;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.tagpane-cover {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  margin-top: 3px;
+}
+
+.tagpane-cover .editor-cover {
+  width: 92px;
+  height: 92px;
+}
+
+.tagpane-cover .editor-cover-meta {
+  gap: 1px;
+  font-size: 11.5px;
+  line-height: 15px;
+}
+
+/* ---- 右：在线获取的选项 + 歌曲列表 ---- */
+.batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.batch-online {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  min-height: 32px;
+}
+
+.batch-online-title {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.batch-online .ncm-check {
+  font-size: 12.5px;
+}
+
+.batch-online .editor-select {
+  width: 168px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 12.5px;
+}
+
+.batch-online-note {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 列表（固定行高 + 虚拟滚动；行高与表头高度必须与 BatchTagsDialog.tsx 里的常量一致）。
+   列多于可视宽度时横向滚动：表头粘在滚动区顶部，和行一起左右移动。 */
+.batch-table {
+  --batch-row-height: 34px;
+  --batch-head-height: 30px;
+
+  position: relative;
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-alt);
+  outline: none;
+}
+
+.batch-table:focus-visible {
+  border-color: var(--accent-border);
+}
+
+.batch-head,
+.batch-row {
+  display: grid;
+  grid-template-columns: var(--batch-columns);
+  column-gap: 12px;
+  align-items: center;
+  width: var(--batch-width);
+  min-width: 100%;
+  padding: 0 12px;
+}
+
+.batch-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: var(--batch-head-height);
+  border-bottom: 1px solid var(--border);
+  /* 不透明的底：行从表头下面滚过去时不能透上来。 */
+  background: linear-gradient(var(--panel-hover), var(--panel-hover)), var(--app-background);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.batch-spacer {
+  position: relative;
+  width: var(--batch-width);
+  min-width: 100%;
+}
+
+.batch-empty {
+  position: absolute;
+  inset: var(--batch-head-height) 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.batch-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: var(--batch-row-height);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+
+.batch-row:hover {
+  background: var(--row-hover);
+}
+
+.batch-row-selected,
+.batch-row-selected:hover {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* 键盘所在的行：列表有焦点时才画出来。 */
+.batch-table:focus-visible .batch-row-focused {
+  outline: 1px solid var(--accent-border);
+  outline-offset: -1px;
+}
+
+.batch-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-cell-name {
+  font-weight: 600;
+}
+
+.batch-status-muted {
+  color: var(--text-tertiary);
+}
+
+.batch-status-busy {
+  color: var(--accent);
+}
+
+.batch-status-success {
+  color: var(--success);
+}
+
+.batch-status-error {
+  color: var(--danger);
+}
+
+/* 进度条：浮在列表与按钮栏之间的空隙里，不占高度（左边的面板才能在默认窗口大小下放得下）。 */
+.batch-layout > .ncm-progress {
+  position: absolute;
+  right: 0;
+  bottom: -9px;
+  left: 0;
+  height: 5px;
+}
+
+.batch-progress-idle {
+  visibility: hidden;
+}
+
+/* ---- 底栏 ---- */
+.batch-foot-status {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
+}
+
+.batch-foot-count {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-foot-text {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-foot-problem {
+  color: var(--warning);
+}

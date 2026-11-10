@@ -129,6 +129,7 @@ export default function TagsDialog({ path, onClose, onPickAnother }: TagsDialogP
                 <Field label="碟号" value={formatPosition(tags.discNumber, tags.discTotal)} />
                 <Field label="流派" value={tags.genre} />
                 <Field label="作曲家" value={tags.composer} />
+                <Field label="作词家" value={tags.lyricist} />
                 <Field label="备注" value={tags.comment} />
                 <Field label="网易云 ID" value={tags.neteaseId} />
               </dl>

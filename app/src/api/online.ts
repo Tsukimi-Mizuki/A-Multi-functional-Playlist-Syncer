@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
-// 在线匹配（模块 10a）：歌词与标签编辑器、批量获取窗口共用的后端命令与类型。
+// 在线匹配（模块 10a）：歌词与标签编辑器、批量修改标签窗口共用的后端命令与类型。
 // 全部与 Rust 端（lp-core::online / lp-core::lyrics::batch）的 camelCase DTO 一一对应。
 
 /** 歌词检索来源：主词源（网易云、QQ 音乐，可带回标签与封面）与备用词源（酷狗、LRCLIB，只提供歌词）。 */

@@ -17,6 +17,7 @@ export interface TagView {
   discTotal: number | null
   genre: string | null
   composer: string | null
+  lyricist: string | null
   /** 已去掉本程序写入的网易云 ID 标记。 */
   comment: string | null
   lyrics: string | null
@@ -121,6 +122,7 @@ export interface WriteTagsRequest {
   comment?: string | null
   genre?: string | null
   composer?: string | null
+  lyricist?: string | null
   /** 编辑器保存的语义：没填的字段会被清除，但没传封面时封面保持原样。 */
   replaceAll?: boolean
 }
@@ -129,6 +131,91 @@ export interface WriteTagsRequest {
 export async function writeTags(path: string, request: WriteTagsRequest): Promise<void> {
   try {
     await invoke<void>('write_tags', { path, request })
+  } catch (error) {
+    throw toTagLoadError(error)
+  }
+}
+
+// ───────────────────────────── 批量修改标签 ─────────────────────────────
+
+/** 与 Rust 端 `TagRowView`（camelCase）对应：批量修改标签窗口列表里的一行，不带封面数据。 */
+export interface TagRow {
+  path: string
+  fileName: string
+  /** 所在目录。 */
+  directory: string
+  /** 大写扩展名，如 `FLAC`。 */
+  fileFormat: string | null
+  /** 标签是否读出来了；读不出来时 `error` 是原因，其余字段为空。 */
+  readable: boolean
+  error: string | null
+  title: string | null
+  /** 多个艺术家用 `/` 连接。 */
+  artist: string | null
+  album: string | null
+  albumArtist: string | null
+  year: number | null
+  trackNumber: number | null
+  discNumber: number | null
+  genre: string | null
+  composer: string | null
+  lyricist: string | null
+  comment: string | null
+  /** 歌词的第一行（最多 120 个字符）。 */
+  lyricsPreview: string | null
+  hasLyrics: boolean
+  hasCover: boolean
+  durationMs: number
+}
+
+/** 读出这些文件的标签摘要，顺序与 `paths` 一致；读不出来的文件也有一行。 */
+export async function readTagRows(paths: string[]): Promise<TagRow[]> {
+  try {
+    return await invoke<TagRow[]>('read_tag_rows', { paths })
+  } catch (error) {
+    throw toTagLoadError(error)
+  }
+}
+
+/**
+ * 与 Rust 端 `TagPatch`（camelCase）对应：**没出现的字段不动**，`null` / 空白 / 空数组表示清除，其余是新值。
+ * 歌词不在这里改。
+ */
+export interface TagPatch {
+  title?: string | null
+  artists?: string[]
+  album?: string | null
+  albumArtist?: string | null
+  year?: number | null
+  trackNumber?: number | null
+  discNumber?: number | null
+  genre?: string | null
+  composer?: string | null
+  lyricist?: string | null
+  comment?: string | null
+  /** 新封面图片字节的 Base64（不带 `data:` 前缀）。 */
+  coverBase64?: string
+  coverMimeType?: string
+  /** 删除全部封面。 */
+  removeCover?: boolean
+}
+
+export interface TagPatchResult {
+  path: string
+  success: boolean
+  /** 失败原因（中文）；成功为 null。 */
+  message: string | null
+  /** 写入之后重新读出的这一行。 */
+  row: TagRow
+}
+
+/**
+ * 把同一份改动写进这些文件，逐个返回结果（某个文件失败不影响其余）。
+ * 改动本身不合法（一个字段都没提到等）时抛 {@link TagLoadError}。
+ */
+export async function patchTags(paths: string[], patch: TagPatch): Promise<TagPatchResult[]> {
+  try {
+    return await invoke<TagPatchResult[]>('patch_tags', { paths, patch })
   } catch (error) {
     throw toTagLoadError(error)
   }

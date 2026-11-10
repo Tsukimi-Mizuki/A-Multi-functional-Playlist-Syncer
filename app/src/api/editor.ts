@@ -37,7 +37,7 @@ export function rememberEditorOptions(source: LyricsSourceKind, preferWordLyrics
 export interface DropResolution {
   /**
    * `audio`：只有一首可编辑的音频（`path`），用编辑器打开；`batch`：多首（`files`，文件夹已展开、含子文件夹），
-   * 交给批量获取；`ncm`：只有 .ncm（需要先解密）；`error`：没有可用目标。
+   * 交给批量修改标签；`ncm`：只有 .ncm（需要先解密）；`error`：没有可用目标。
    */
   kind: 'audio' | 'batch' | 'ncm' | 'error'
   path: string | null
@@ -47,7 +47,7 @@ export interface DropResolution {
   /** 解析出的音频数（去重后）/ 拖入的目标总数。 */
   resolvedCount: number
   total: number
-  /** `batch` 时交给批量获取的文件（拖入顺序，文件夹内按路径排序）。 */
+  /** `batch` 时交给批量修改标签的文件（拖入顺序，文件夹内按路径排序）。 */
   files: BatchFile[]
 }
 

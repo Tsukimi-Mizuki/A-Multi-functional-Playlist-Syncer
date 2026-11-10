@@ -6,11 +6,38 @@ use thiserror::Error;
 
 use crate::error::CoreError;
 
+/// 可以单独清除的标签字段（[`AudioTagData::clear`] 用）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TagField {
+    /// 标题。
+    Title,
+    /// 艺术家。
+    Artist,
+    /// 专辑。
+    Album,
+    /// 专辑艺术家。
+    AlbumArtist,
+    /// 年份。
+    Year,
+    /// 音轨号（总数一并清除）。
+    TrackNumber,
+    /// 碟号（总数一并清除）。
+    DiscNumber,
+    /// 流派。
+    Genre,
+    /// 作曲家。
+    Composer,
+    /// 作词家。
+    Lyricist,
+    /// 备注（网易云 ID 标记要靠 `netease_id` 保留）。
+    Comment,
+}
+
 /// 要写入的标签数据（对应 C# `AudioTagData`）。
 ///
 /// 默认（`replace_all == false`）只更新“有值”的字段：`None` / 空数组表示不动，所以下载管线可以只写
-/// 标题、歌手、封面而不碰用户已有的其他标签。`replace_all == true` 是编辑器保存的语义：
-/// 编辑器里展示的字段**整体替换**，没填的就清除。
+/// 标题、歌手、封面而不碰用户已有的其他标签；要在这种模式下清掉某个字段，把它列进 `clear`。
+/// `replace_all == true` 是编辑器保存的语义：编辑器里展示的字段**整体替换**，没填的就清除。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AudioTagData {
     /// 标题。
@@ -49,6 +76,11 @@ pub struct AudioTagData {
     pub genre: Option<String>,
     /// 作曲家；多个值的分隔符同 `genre`。
     pub composer: Option<String>,
+    /// 作词家；多个值的分隔符同 `genre`（C# 版没有这个字段）。
+    pub lyricist: Option<String>,
+    /// 要清除的字段（批量修改里把某个字段清空）：只在 `replace_all == false` 时有意义，
+    /// 同一个字段既给了值又列在这里时以值为准。
+    pub clear: Vec<TagField>,
     /// 编辑器保存时替换全部字段（包括清空未填写的标签），而不是只更新非空字段。
     pub replace_all: bool,
 }
@@ -88,6 +120,8 @@ pub struct AudioTagInfo {
     pub genre: Option<String>,
     /// 作曲家；多个值用 `/` 连接。
     pub composer: Option<String>,
+    /// 作词家；多个值用 `/` 连接。
+    pub lyricist: Option<String>,
     /// 备注（已去掉 `LunaticPrincess:<id>` 标记）。
     pub comment: Option<String>,
     /// 封面原始字节（优先正面封面，否则第一张图片）。

@@ -9,8 +9,9 @@
  * 「查看标签」的文件选择器会依次返回 MOCK_AUDIO_FILES 里的假路径，文件名决定 read_tags 的结果。
  * 本地曲库对比：默认自动扫描（约 3 秒，带进度）后按歌曲 ID 给出已存在 / NCM / 需下载；
  * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
- * 歌词与标签编辑器 / 批量获取：`neteasefail` 网易云搜索报“接口暂时无法使用”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
+ * 歌词与标签编辑器 / 批量修改标签：`neteasefail` 网易云搜索报“接口暂时无法使用”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
  * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
+ * 批量目录里的假文件各有一份按序号编出来的标签（每 7 个有一个读不出来的「已损坏」文件，名字带「无权限」的保存失败）。
  * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
  * 外观：默认背景是内置渐变光斑（WebGL 液态玻璃）；`systembg` 改用系统材质（CSS 近似）。
@@ -22,7 +23,7 @@ import type { AccountSummary } from '../api/auth'
 import type { LibrarySummary, LocalMatch, MatchOutcome } from '../api/library'
 import type { NcmFileEntry, NcmFileResult, NcmProgress } from '../api/ncm'
 import type { PlaylistDetail, PlaylistSummary, Song } from '../api/playlists'
-import type { TagView } from '../api/tags'
+import type { TagPatch, TagRow, TagView } from '../api/tags'
 import type { DownloadProgress, TransferItem, TransferKind, TransferSummary } from '../api/transfer'
 import { DEFAULT_LIQUID_GLASS } from '../glass/params'
 
@@ -130,9 +131,42 @@ function mockTagView(path: string): TagView {
       ...base,
       title: null, artist: null, album: null, albumArtist: null, year: null,
       trackNumber: null, trackTotal: null, discNumber: null, discTotal: null,
-      genre: null, composer: null, comment: null, lyrics: null, neteaseId: null,
+      genre: null, composer: null, lyricist: null, comment: null, lyrics: null, neteaseId: null,
       hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
       coverWidth: null, coverHeight: null, coverPictureType: null,
+    }
+  }
+  // 批量目录里的假文件（「歌曲 N」）：按序号编一份各不相同的标签，方便看多选时哪些字段一样。
+  const numbered = /歌曲(?:文件名)? (\d+)/.exec(fileName)
+  if (numbered) {
+    const n = Number(numbered[1])
+    const hasCover = n % 6 !== 0
+    return {
+      ...base,
+      durationMs: 180_000 + ((n * 7919) % 120_000),
+      title: `歌曲 ${n}`,
+      artist: n % 3 === 0 ? '歌手 A/歌手 B' : '歌手 A',
+      album: `专辑 ${Math.ceil(n / 12)}`,
+      albumArtist: '歌手 A',
+      year: 2020 + Math.floor((n - 1) / 12),
+      trackNumber: ((n - 1) % 12) + 1,
+      trackTotal: 12,
+      discNumber: 1,
+      discTotal: null,
+      genre: n % 2 === 0 ? 'Pop' : 'Rock',
+      composer: '作曲 X',
+      lyricist: n % 5 === 0 ? null : '作词 Y',
+      comment: null,
+      lyrics: n % 4 === 0 ? null : `[00:01.000]第 ${n} 首的第一句歌词\n[00:05.000]第二句`,
+      neteaseId: String(186_000 + n),
+      hasCover,
+      coverDataUrl: hasCover ? cover((n * 37) % 360) : null,
+      coverSize: hasCover ? 480_000 + n * 1000 : null,
+      coverTooLarge: false,
+      coverMimeType: hasCover ? 'image/jpeg' : null,
+      coverWidth: hasCover ? 1600 : null,
+      coverHeight: hasCover ? 1600 : null,
+      coverPictureType: hasCover ? '正面封面' : null,
     }
   }
   return {
@@ -148,6 +182,7 @@ function mockTagView(path: string): TagView {
     discTotal: null,
     genre: 'Pop/Rock',
     composer: '周杰伦',
+    lyricist: '方文山',
     comment: '原始备注',
     lyrics:
       '[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记\n' +
@@ -436,6 +471,79 @@ function currentTagView(path: string): TagView {
   return mockTagStore.get(path) ?? mockTagView(path)
 }
 
+/** 批量修改标签列表里的一行：名字带「已损坏」的读不出来。 */
+function mockTagRow(path: string): TagRow {
+  const fileName = path.split('\\').pop() ?? path
+  const directory = path.slice(0, Math.max(0, path.lastIndexOf('\\')))
+  const fileFormat = (fileName.split('.').pop() ?? '').toUpperCase()
+  const empty = {
+    path, fileName, directory, fileFormat,
+    title: null, artist: null, album: null, albumArtist: null, year: null, trackNumber: null, discNumber: null,
+    genre: null, composer: null, lyricist: null, comment: null,
+    lyricsPreview: null, hasLyrics: false, hasCover: false, durationMs: 0,
+  }
+  if (fileName.includes('已损坏')) {
+    return { ...empty, readable: false, error: '无法读取标签：文件不存在、格式不支持或已损坏。' }
+  }
+  const view = currentTagView(path)
+  const firstLine = view.lyrics?.split('\n').find((line) => line.trim() !== '') ?? null
+  return {
+    ...empty,
+    readable: true,
+    error: null,
+    title: view.title,
+    artist: view.artist,
+    album: view.album,
+    albumArtist: view.albumArtist,
+    year: view.year,
+    trackNumber: view.trackNumber,
+    discNumber: view.discNumber,
+    genre: view.genre,
+    composer: view.composer,
+    lyricist: view.lyricist,
+    comment: view.comment,
+    lyricsPreview: firstLine ? firstLine.slice(0, 120) : null,
+    hasLyrics: view.lyrics != null,
+    hasCover: view.hasCover,
+    durationMs: view.durationMs,
+  }
+}
+
+/** 把批量改动套到一份假标签上：没出现的字段不动，null / 空白表示清除（与后端一致）。 */
+function mockApplyPatch(base: TagView, patch: TagPatch): TagView {
+  const next = { ...base }
+  const text = (value: string | null | undefined) => (value != null && value.trim() !== '' ? value.trim() : null)
+  if ('title' in patch) next.title = text(patch.title)
+  if (patch.artists !== undefined) next.artist = patch.artists.join('/') || null
+  if ('album' in patch) next.album = text(patch.album)
+  if ('albumArtist' in patch) next.albumArtist = text(patch.albumArtist)
+  if ('year' in patch) next.year = patch.year ?? null
+  if ('trackNumber' in patch) next.trackNumber = patch.trackNumber ?? null
+  if ('discNumber' in patch) next.discNumber = patch.discNumber ?? null
+  if ('genre' in patch) next.genre = text(patch.genre)
+  if ('composer' in patch) next.composer = text(patch.composer)
+  if ('lyricist' in patch) next.lyricist = text(patch.lyricist)
+  if ('comment' in patch) next.comment = text(patch.comment)
+  if (patch.coverBase64) {
+    const mime = patch.coverMimeType ?? 'image/png'
+    Object.assign(next, {
+      hasCover: true,
+      coverDataUrl: `data:${mime};base64,${patch.coverBase64}`,
+      coverSize: Math.round(patch.coverBase64.length * 0.75),
+      coverTooLarge: false,
+      coverMimeType: mime,
+      ...mockPngSize(patch.coverBase64),
+      coverPictureType: '正面封面',
+    })
+  } else if (patch.removeCover) {
+    Object.assign(next, {
+      hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
+      coverWidth: null, coverHeight: null, coverPictureType: null,
+    })
+  }
+  return next
+}
+
 /** 一张真正的 PNG（渐变），用来模拟在线封面与本地图片。 */
 /** 从 PNG 的 Base64 读出像素尺寸（IHDR 在第 16–24 字节）；不是 PNG 时为 null。 */
 function mockPngSize(base64: string): { coverWidth: number | null; coverHeight: number | null } {
@@ -538,7 +646,7 @@ function mockResolveDrop(targets: string[]) {
     kind, path: null, fileName: null, message, resolvedCount: 0, total, files: [],
   })
   if (total === 0) return fail('error', '没有识别到拖入的文件路径。')
-  // 与后端一致：文件直接取，没有扩展名的当作文件夹（含子文件夹展开成 36 首），去重；一首用编辑器打开，多首交给批量获取。
+  // 与后端一致：文件直接取，没有扩展名的当作文件夹（含子文件夹展开成 36 首），去重；一首用编辑器打开，多首交给批量修改标签。
   const audio = /\.(mp3|flac|m4a|mp4|ogg|opus|wav|aac|wma)$/i
   const resolved: Array<{ path: string; name: string; size: number }> = []
   const seen = new Set<string>()
@@ -569,7 +677,7 @@ function mockResolveDrop(targets: string[]) {
       kind: 'batch',
       path: null,
       fileName: null,
-      message: `拖入 ${resolved.length} 首音频，交给批量获取标签、封面与歌词${extra}`,
+      message: `拖入 ${resolved.length} 首音频，交给批量修改标签${extra}`,
       resolvedCount: resolved.length,
       total,
       files: resolved,
@@ -595,7 +703,12 @@ interface MockBatchState {
 function mockBatchFiles(folder: string, recursive: boolean, big: boolean): Array<{ path: string; name: string; size: number }> {
   const count = big ? 3000 : recursive ? 36 : 24
   return Array.from({ length: count }, (_, index) => {
-    const name = index % 9 === 0 ? `这是一个名字特别特别特别长用来测试省略号的歌曲文件名 ${index + 1} - 某位歌手.mp3` : `${String(index + 1).padStart(2, '0')} - 歌曲 ${index + 1}.${index % 4 === 0 ? 'flac' : 'mp3'}`
+    const name =
+      index % 7 === 5
+        ? `已损坏 ${index + 1}.mp3`
+        : index % 9 === 0
+          ? `这是一个名字特别特别特别长用来测试省略号的歌曲文件名 ${index + 1} - 某位歌手.mp3`
+          : `${String(index + 1).padStart(2, '0')} - 歌曲 ${index + 1}${index % 16 === 7 ? '（无权限）' : ''}.${index % 4 === 0 ? 'flac' : 'mp3'}`
     const sub = recursive && index >= 24 ? `\\子文件夹` : ''
     return { path: `${folder}${sub}\\${name}`, name, size: 4_000_000 + ((index * 7919) % 30_000_000) }
   })
@@ -1031,6 +1144,7 @@ export function installMockBackend(scenario: string | null): void {
             discNumber: (request.discNumber as number | null) ?? null,
             genre: text(request.genre),
             composer: text(request.composer),
+            lyricist: text(request.lyricist),
             comment: text(request.comment),
             lyrics: text(request.plainLyrics),
           }
@@ -1164,6 +1278,10 @@ export function installMockBackend(scenario: string | null): void {
               await sleep(scenario === 'batchbig' ? 10 : 700)
               for (const [offset, path] of group.entries()) {
                 const result = mockBatchResult(path, index + offset, options.overwriteExisting !== false)
+                // 成功的文件真的改一下假标签，列表刷新后能看出来。
+                if (result.success && !path.includes('已损坏')) {
+                  mockTagStore.set(path, { ...currentTagView(path), album: '在线专辑', genre: 'J-Pop' })
+                }
                 results.push(result)
                 await emit('batch:progress', {
                   completed: results.length, total, index: index + offset, path,
@@ -1188,6 +1306,30 @@ export function installMockBackend(scenario: string | null): void {
         case 'batch_cancel':
           batchState.cancelled = batchState.running
           return batchState.running
+        case 'read_tag_rows': {
+          const paths = (args.paths as string[]) ?? []
+          await sleep(scenario === 'batchbig' ? 60 : 250)
+          return paths.map(mockTagRow)
+        }
+        case 'patch_tags': {
+          const paths = (args.paths as string[]) ?? []
+          const patch = args.patch as TagPatch
+          if (Object.keys(patch).length === 0) throw { kind: 'invalid', message: '没有要修改的内容。' }
+          await sleep(scenario === 'batchbig' ? 40 : 350)
+          return paths.map((path) => {
+            const fileName = path.split('\\').pop() ?? path
+            if (path.includes('无权限')) {
+              return {
+                path,
+                success: false,
+                message: `保存标签失败：没有写入权限，请检查文件夹权限，或换一个目录「${fileName}」。`,
+                row: mockTagRow(path),
+              }
+            }
+            mockTagStore.set(path, mockApplyPatch(currentTagView(path), patch))
+            return { path, success: true, message: null, row: mockTagRow(path) }
+          })
+        }
         case 'read_tags': {
           const path = String(args.path)
           await sleep(300)

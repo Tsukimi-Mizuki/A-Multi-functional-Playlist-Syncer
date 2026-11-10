@@ -4,7 +4,7 @@
 //! `LyricsEditorViewModel.LoadDroppedPathsAsync` 的拖入解析、`Program.GetStartupLyricsFile`、`ElevationHelper`。
 //! 放在 lp-core 里才能单测；Tauri 外壳只转发命令。
 //!
-//! 拖入解析与 C# 的差异：C# 拖入多个目标时只打开第一个；这里拖入多首（或一个含多首的文件夹）时交给批量获取。
+//! 拖入解析与 C# 的差异：C# 拖入多个目标时只打开第一个；这里拖入多首（或一个含多首的文件夹）时交给批量修改标签。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -45,9 +45,9 @@ pub struct EditorStateView {
     pub prefer_word_lyrics: bool,
     /// 匹配度阈值（只显示，不在编辑器里改）。
     pub threshold: MatchThresholdView,
-    /// 批量获取窗口显示的标签 / 封面来源优先级文案（来自设置，如“网易云音乐优先”）。
+    /// 批量修改标签窗口显示的标签 / 封面来源优先级文案（来自设置，如“网易云音乐优先”）。
     pub tag_priority_text: &'static str,
-    /// 批量获取窗口显示的歌词来源优先级文案。
+    /// 批量修改标签窗口显示的歌词来源优先级文案。
     pub lyrics_priority_text: &'static str,
     /// 是否以管理员身份运行（拖放会被系统阻断）。
     pub is_elevated: bool,
@@ -112,7 +112,7 @@ pub fn remember_editor_options(
 pub enum DropKind {
     /// 只解析出一个可编辑的音频文件（`path`）：用编辑器打开。
     Audio,
-    /// 解析出多个音频文件（`files`）：交给批量获取标签、封面与歌词。
+    /// 解析出多个音频文件（`files`）：交给批量修改标签。
     Batch,
     /// 没有可编辑的音频，但拖入了 `.ncm`（需要先解密）。
     Ncm,
@@ -136,14 +136,14 @@ pub struct DropResolution {
     pub resolved_count: usize,
     /// 拖入的目标总数。
     pub total: usize,
-    /// `Batch` 时交给批量获取的文件：按拖入顺序，文件夹展开为其中（含子文件夹）的音频、按路径排序，去重。
+    /// `Batch` 时交给批量修改标签的文件：按拖入顺序，文件夹展开为其中（含子文件夹）的音频、按路径排序，去重。
     pub files: Vec<BatchFileView>,
 }
 
 /// 把拖入的路径（文件或文件夹）解析成要处理的音频文件。
 ///
-/// - 文件直接取；文件夹展开为其中（含子文件夹）的全部音频，与批量获取扫描文件夹的规则一致；
-/// - 合计只有一首时用编辑器打开（`Audio`），两首及以上交给批量获取（`Batch`）；
+/// - 文件直接取；文件夹展开为其中（含子文件夹）的全部音频，与批量修改标签扫描文件夹的规则一致；
+/// - 合计只有一首时用编辑器打开（`Audio`），两首及以上交给批量修改标签（`Batch`）；
 /// - 一首都没有时，如果拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因。
 pub fn resolve_drop(targets: &[String]) -> DropResolution {
     let total = targets.len();
@@ -199,7 +199,7 @@ pub fn resolve_drop(targets: &[String]) -> DropResolution {
             }
         }
         count => {
-            let mut message = format!("拖入 {count} 首音频，交给批量获取标签、封面与歌词");
+            let mut message = format!("拖入 {count} 首音频，交给批量修改标签");
             if skipped > 0 {
                 message.push_str(&format!("（另有 {skipped} 个目标无法处理，已跳过）"));
             }

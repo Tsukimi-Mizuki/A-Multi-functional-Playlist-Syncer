@@ -44,6 +44,8 @@ pub struct TagView {
     pub genre: Option<String>,
     /// 作曲家。
     pub composer: Option<String>,
+    /// 作词家。
+    pub lyricist: Option<String>,
     /// 备注（已去掉网易云 ID 标记）。
     pub comment: Option<String>,
     /// 歌词原文。
@@ -110,6 +112,7 @@ impl TagView {
             disc_total: info.disc_total,
             genre: info.genre,
             composer: info.composer,
+            lyricist: info.lyricist,
             comment: info.comment,
             lyrics: info.lyrics,
             netease_id: info.netease_id.map(|id| id.to_string()),
@@ -153,6 +156,7 @@ pub struct WriteTagsRequest {
     pub comment: Option<String>,
     pub genre: Option<String>,
     pub composer: Option<String>,
+    pub lyricist: Option<String>,
     pub replace_all: bool,
 }
 
@@ -186,6 +190,8 @@ impl WriteTagsRequest {
             comment: self.comment,
             genre: self.genre,
             composer: self.composer,
+            lyricist: self.lyricist,
+            clear: Vec::new(),
             replace_all: self.replace_all,
         })
     }

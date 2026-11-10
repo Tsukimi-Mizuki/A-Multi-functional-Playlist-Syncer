@@ -52,6 +52,7 @@ fn full_data() -> AudioTagData {
         year: Some(2003),
         genre: Some("Pop/Rock".into()),
         composer: Some("周杰伦/方文山".into()),
+        lyricist: Some("方文山/黄俊郎".into()),
         comment: Some("原始备注".into()),
         plain_lyrics: Some(PLAIN_LYRICS.into()),
         word_lyrics: Some(WORD_LYRICS.into()),
@@ -427,6 +428,7 @@ fn assert_full_round_trip(ext: &str, info: &AudioTagInfo) {
     assert_eq!(info.year, Some(2003), "{ext}");
     assert_eq!(info.genre.as_deref(), Some("Pop/Rock"), "{ext}");
     assert_eq!(info.composer.as_deref(), Some("周杰伦/方文山"), "{ext}");
+    assert_eq!(info.lyricist.as_deref(), Some("方文山/黄俊郎"), "{ext}");
     assert_eq!(info.comment.as_deref(), Some("原始备注"), "{ext}");
     assert_eq!(info.lyrics.as_deref(), Some(WORD_LYRICS), "{ext}");
     assert_eq!(info.track_number, Some(3), "{ext}");
@@ -494,6 +496,7 @@ fn replace_all_clears_fields_in_every_container() {
         assert_eq!(info.disc_number, None, "{ext}");
         assert_eq!(info.genre, None, "{ext}");
         assert_eq!(info.composer, None, "{ext}");
+        assert_eq!(info.lyricist, None, "{ext}");
         assert_eq!(info.comment, None, "{ext}");
         assert_eq!(info.lyrics, None, "{ext}");
         assert_eq!(

@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import { getEditorState } from '../api/editor'
 
 const TITLES = {
-  main: '松开即可打开：一首用歌词编辑器，多首交给批量获取',
-  editor: '松开即可载入：一首载入编辑器，多首交给批量获取',
+  main: '松开即可打开：一首用歌词编辑器，多首交给批量修改标签',
+  editor: '松开即可载入：一首载入编辑器，多首交给批量修改标签',
   batch: '松开即可换成这批音频',
 } as const
 

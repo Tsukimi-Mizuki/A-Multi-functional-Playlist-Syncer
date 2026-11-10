@@ -55,7 +55,10 @@ use lp_core::playlist::{PlaylistError, PlaylistService};
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
 use lp_core::sync::SyncService;
-use lp_core::tags::{AudioTagService, LoftyTagService, TagCommandError, TagView, WriteTagsRequest};
+use lp_core::tags::{
+    AudioTagService, LoftyTagService, TagCommandError, TagPatch, TagPatchResult, TagRowView,
+    TagView, WriteTagsRequest, apply_patch, read_rows,
+};
 use lp_core::update::{UpdateCheck, UpdateChecker, UpdateError, UpdateRequest, Version};
 use lp_core::utilities::CancelToken;
 use serde::{Deserialize, Serialize};
@@ -762,6 +765,33 @@ async fn write_tags(
     run_tag_task(move || tags.write(&target, &data)).await
 }
 
+/// 批量修改标签窗口的列表：读出这些文件的标签摘要（不带封面数据），顺序与 `paths` 一致。
+/// 读不出来的文件也有一行（`readable == false`，带原因），不会让整批失败。只读，不改文件。
+#[tauri::command]
+async fn read_tag_rows(
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<Vec<TagRowView>, TagCommandError> {
+    let tags = Arc::clone(&state.tags);
+    let targets: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+    run_tag_task(move || Ok(read_rows(tags.as_ref(), &targets))).await
+}
+
+/// 把同一份改动写进这些文件（批量修改标签）：`patch` 里没出现的字段不动，`null` / 空白表示清除。
+/// 逐个文件返回结果与写入后重新读出的那一行；某个文件失败不影响其余文件。
+/// 改动本身不合法（一个字段都没提到、封面不是 Base64）时 `Err` 是 `{ kind: invalid, message }`。
+#[tauri::command]
+async fn patch_tags(
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+    patch: TagPatch,
+) -> Result<Vec<TagPatchResult>, TagCommandError> {
+    let tags = Arc::clone(&state.tags);
+    let data = patch.into_data().map_err(TagCommandError::from)?;
+    let targets: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+    run_tag_task(move || Ok(apply_patch(tags.as_ref(), &targets, &data))).await
+}
+
 /// `ncm_import` 的参数（camelCase）。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1209,7 +1239,7 @@ fn editor_remember_options(
     state.remember_editor_options(source, prefer_word_lyrics);
 }
 
-/// 把拖入的文件 / 文件夹解析成要载入编辑器的音频文件（一首）或交给批量获取的文件（多首）；
+/// 把拖入的文件 / 文件夹解析成要载入编辑器的音频文件（一首）或交给批量修改标签的文件（多首）；
 /// `log` 为真时（主窗口拖放）顺便写运行日志。
 #[tauri::command]
 async fn resolve_drop(
@@ -1498,6 +1528,8 @@ pub fn run() {
             get_song_lyrics,
             read_tags,
             write_tags,
+            read_tag_rows,
+            patch_tags,
             ncm_get_state,
             ncm_scan,
             ncm_save_state,

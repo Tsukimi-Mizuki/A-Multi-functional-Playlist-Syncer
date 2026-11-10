@@ -286,20 +286,3 @@
 .ncm-dialog .btn:disabled {
   opacity: 0.5;
 }
-
-/* 批量获取：拖入的文件代替目录输入框时的说明（与输入框同高、占满剩余宽度） */
-.batch-dropped {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 0;
-  height: 32px;
-  padding: 0 12px;
-  overflow: hidden;
-  border: 1px dashed var(--border-strong);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

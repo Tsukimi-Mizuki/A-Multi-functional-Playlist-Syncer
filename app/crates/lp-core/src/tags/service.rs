@@ -27,7 +27,7 @@ use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::probe::Probe;
 use lofty::tag::{Accessor, ItemKey, ItemValue, Tag, TagExt, TagItem, TagType};
 
-use super::model::{AudioTagData, AudioTagInfo, TagError};
+use super::model::{AudioTagData, AudioTagInfo, TagError, TagField};
 use super::text::{
     NETEASE_COMMENT_PREFIX, clean_comment, clean_display_comment, clean_values, detect_image_mime,
     join_values, null_if_blank, parse_netease_id, split_values, strip_netease_marker,
@@ -174,6 +174,7 @@ fn build_info(tagged: &TaggedFile, path: &Path, file_size: u64) -> AudioTagInfo 
         disc_total: tags.iter().find_map(|tag| positive(tag.disk_total())),
         genre: join_values(texts(ItemKey::Genre).iter().map(String::as_str)),
         composer: join_values(texts(ItemKey::Composer).iter().map(String::as_str)),
+        lyricist: join_values(texts(ItemKey::Lyricist).iter().map(String::as_str)),
         comment: clean_display_comment(comment_raw.as_deref()),
         cover_mime_type: cover.map(|(_, picture)| cover_mime(picture)),
         cover_picture_type: cover
@@ -206,7 +207,7 @@ fn text_of(item: &TagItem) -> Option<&str> {
     }
 }
 
-/// 多值字段（艺术家、专辑艺术家、流派、作曲家）的各个值。
+/// 多值字段（艺术家、专辑艺术家、流派、作曲家、作词家）的各个值。
 ///
 /// MP4 的 `ilst` 没有多值约定：TagLib 把多个值用 `; ` 拼进同一个 `data` 原子，读的时候再按 `;` 拆开。
 /// C# 版写出的 M4A 都是这种形式，所以读 `ilst` 时也要拆，才能与 C# 读出的“a/b”一致。
@@ -575,43 +576,51 @@ fn existing_id3v2_major(path: &Path) -> Option<u8> {
 /// 把 `data` 应用到一个通用标签上，规则逐条对应 C# `ApplyTag`。
 pub(super) fn apply_data(tag: &mut Tag, data: &AudioTagData, id3v23: bool) {
     let replace = data.replace_all;
+    // 这个字段要不要动：完整替换、给了值，或被点名清除（清除时值为空，下面的 set_* 就只删不写）。
+    let touches =
+        |field: TagField, has_value: bool| replace || has_value || data.clear.contains(&field);
     let tag_type = tag.tag_type();
     // ID3v2.3 没有“多值”：TagLib 与多数播放器用 `/` 把多个值拼进同一个帧；lofty 默认写的 NUL 分隔是 2.4 的做法，
     // 2.3 的读取方会在 NUL 处截断，只剩第一个值。2.4 才用每个值一个条目。
     let join_multi = id3v23 && tag_type == TagType::Id3v2;
 
-    if replace || data.title.is_some() {
+    if touches(TagField::Title, data.title.is_some()) {
         set_single(tag, ItemKey::TrackTitle, data.title.as_deref());
     }
 
     let artists = clean_values(&data.artists);
-    if replace || !artists.is_empty() {
+    if touches(TagField::Artist, !artists.is_empty()) {
         set_multi(tag, ItemKey::TrackArtist, &artists, join_multi);
     }
 
-    if replace || data.album.is_some() {
+    if touches(TagField::Album, data.album.is_some()) {
         set_single(tag, ItemKey::AlbumTitle, data.album.as_deref());
     }
 
-    if replace || data.album_artist.is_some() {
+    if touches(TagField::AlbumArtist, data.album_artist.is_some()) {
         let album_artist = null_if_blank(data.album_artist.as_deref());
         set_single(tag, ItemKey::AlbumArtist, album_artist.as_deref());
     }
 
     apply_numbers(tag, data);
 
-    if replace || data.year.is_some() {
+    if touches(TagField::Year, data.year.is_some()) {
         apply_year(tag, data.year);
     }
 
     let genres = split_values(data.genre.as_deref());
-    if replace || !genres.is_empty() {
+    if touches(TagField::Genre, !genres.is_empty()) {
         set_multi(tag, ItemKey::Genre, &genres, join_multi);
     }
 
     let composers = split_values(data.composer.as_deref());
-    if replace || !composers.is_empty() {
+    if touches(TagField::Composer, !composers.is_empty()) {
         set_multi(tag, ItemKey::Composer, &composers, join_multi);
+    }
+
+    let lyricists = split_values(data.lyricist.as_deref());
+    if touches(TagField::Lyricist, !lyricists.is_empty()) {
+        set_multi(tag, ItemKey::Lyricist, &lyricists, join_multi);
     }
 
     let lyrics = first_non_blank(&[data.word_lyrics.as_deref(), data.plain_lyrics.as_deref()]);
@@ -643,7 +652,7 @@ fn set_single(tag: &mut Tag, key: ItemKey, value: Option<&str>) {
     }
 }
 
-/// 多值字段（艺术家、流派、作曲家）：每个值一个条目，由 lofty 按容器规则编码（Vorbis 多个字段，ID3v2.4 NUL 分隔）。
+/// 多值字段（艺术家、流派、作曲家、作词家）：每个值一个条目，由 lofty 按容器规则编码（Vorbis 多个字段，ID3v2.4 NUL 分隔）。
 /// `join` 为真（ID3v2.3）时用 `/` 拼成一个条目。
 fn set_multi(tag: &mut Tag, key: ItemKey, values: &[String], join: bool) {
     tag.remove_key(key);
@@ -660,10 +669,13 @@ fn set_multi(tag: &mut Tag, key: ItemKey, values: &[String], join: bool) {
 
 /// 音轨 / 碟号。语义同 C#：`replace_all` 时没给号码就清除；总数 C# 版没有字段，TagLib 会保留已有总数，
 /// 这里也一样（`track_total` 为 `None` 时沿用文件里的总数），但号码被清除时总数一并清除。
+/// 非 `replace_all` 时被 `clear` 点名的号码同样清除。
 fn apply_numbers(tag: &mut Tag, data: &AudioTagData) {
     let replace = data.replace_all;
-    if replace || data.track_number.is_some() || data.track_total.is_some() {
-        let number = if replace || data.track_number.is_some() {
+    let clear_track = data.clear.contains(&TagField::TrackNumber);
+    let clear_disc = data.clear.contains(&TagField::DiscNumber);
+    if replace || clear_track || data.track_number.is_some() || data.track_total.is_some() {
+        let number = if replace || clear_track || data.track_number.is_some() {
             data.track_number.filter(|&n| n > 0)
         } else {
             tag.track()
@@ -681,8 +693,8 @@ fn apply_numbers(tag: &mut Tag, data: &AudioTagData) {
             }
         }
     }
-    if replace || data.disc_number.is_some() || data.disc_total.is_some() {
-        let number = if replace || data.disc_number.is_some() {
+    if replace || clear_disc || data.disc_number.is_some() || data.disc_total.is_some() {
+        let number = if replace || clear_disc || data.disc_number.is_some() {
             data.disc_number.filter(|&n| n > 0)
         } else {
             tag.disk()
@@ -734,9 +746,10 @@ fn set_lyrics(tag: &mut Tag, tag_type: TagType, lyrics: Option<&str>) {
     tag.push(item);
 }
 
-/// 备注与网易云 ID 标记，逐行对应 C# `ApplyComment`。
+/// 备注与网易云 ID 标记，逐行对应 C# `ApplyComment`；`clear` 点名备注时与 `replace_all` 一样不沿用旧备注。
 fn apply_comment(tag: &mut Tag, data: &AudioTagData) {
-    let existing = if data.replace_all {
+    let replace = data.replace_all || data.clear.contains(&TagField::Comment);
+    let existing = if replace {
         None
     } else {
         null_if_blank(comment_text(&[&*tag]).as_deref())
@@ -751,7 +764,7 @@ fn apply_comment(tag: &mut Tag, data: &AudioTagData) {
         } else {
             format!("{cleaned}; {marker}")
         })
-    } else if data.replace_all {
+    } else if replace {
         Some(null_if_blank(base_comment.as_deref()).unwrap_or_default())
     } else {
         null_if_blank(base_comment.as_deref())

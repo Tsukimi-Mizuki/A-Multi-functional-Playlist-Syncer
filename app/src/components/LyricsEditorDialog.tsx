@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileNameOf, directoryOf } from '../api/editor'
 import { LYRICS_SOURCE_LABELS, type BatchFile, type LyricsSourceKind } from '../api/online'
 import { describeEntry, fileInfoText, useLyricsEditor, type CoverMeta, type EditorFields } from '../state/useLyricsEditor'
-import BatchLyricsDialog, { type BatchDrop } from './BatchLyricsDialog'
+import BatchTagsDialog, { type BatchDrop } from './BatchTagsDialog'
 import ConfirmDialog from './ConfirmDialog'
 import Modal from './Modal'
 
@@ -11,7 +11,7 @@ export interface EditorRequest {
   seq: number
   /** 拖入了一首：要载入的文件。 */
   path: string | null
-  /** 拖入了多首（文件夹已展开）：交给批量获取。 */
+  /** 拖入了多首（文件夹已展开）：交给批量修改标签。 */
   files: BatchFile[] | null
   /** 没有可载入的文件时给用户看的原因（NCM、不支持的格式等）。 */
   message: string | null
@@ -22,6 +22,8 @@ interface LyricsEditorDialogProps {
   initialPath: string | null
   /** 编辑器打开期间到来的拖放请求。 */
   request: EditorRequest | null
+  /** 从批量修改标签窗口里打开（只编辑这一首）：不显示「打开音频文件」与「批量修改」。 */
+  embedded?: boolean
   onClose: () => void
 }
 
@@ -81,11 +83,11 @@ function TextField({
  * 选用模态面板而不是独立 Tauri 窗口：拖放事件、IPC、主题与未保存确认都在同一个 WebView 里，
  * 不需要额外的 capabilities、无边框标题栏与窗口材质处理。
  */
-export default function LyricsEditorDialog({ initialPath, request, onClose }: LyricsEditorDialogProps) {
+export default function LyricsEditorDialog({ initialPath, request, embedded = false, onClose }: LyricsEditorDialogProps) {
   const editor = useLyricsEditor()
   const { config, file, fields, busy, dirty } = editor
   const [batchOpen, setBatchOpen] = useState(false)
-  // 拖入多首时交给批量窗口的清单（从「批量获取」按钮打开时为 null，按目录扫描）。
+  // 拖入多首时交给批量窗口的清单（从「批量修改」按钮打开时为 null，按目录扫描）。
   const [batchDrop, setBatchDrop] = useState<BatchDrop | null>(null)
   const [confirm, setConfirm] = useState<{ message: string; confirmLabel: string; run: () => void } | null>(null)
   const dirtyRef = useRef(dirty)
@@ -114,7 +116,7 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
   }, [initialPath, ready, loadFile])
 
   // 拖放请求：同一个 seq 只处理一次（严格模式会把副作用跑两遍）。
-  // 多首交给批量获取（叠在编辑器上）；批量窗口开着时，拖入的一首也交给它（它在最上面）。
+  // 多首交给批量修改标签（叠在编辑器上）；批量窗口开着时，拖入的一首也交给它（它在最上面）。
   const handledSeq = useRef(0)
   const setStatus = editor.setStatus
   useEffect(() => {
@@ -199,15 +201,17 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
               </p>
             )}
           </div>
-          <button
-            type="button"
-            className="btn"
-            aria-label="打开音频文件"
-            disabled={busy}
-            onClick={() => void openFile()}
-          >
-            打开音频文件
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              className="btn"
+              aria-label="打开音频文件"
+              disabled={busy}
+              onClick={() => void openFile()}
+            >
+              打开音频文件
+            </button>
+          )}
           <button
             type="button"
             className="btn"
@@ -219,17 +223,20 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
           >
             重新读取
           </button>
-          <button
-            type="button"
-            className="btn"
-            aria-label="批量获取标签、封面与歌词"
-            onClick={() => {
-              setBatchDrop(null)
-              setBatchOpen(true)
-            }}
-          >
-            批量获取
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              className="btn"
+              aria-label="批量修改标签"
+              title="列出一个目录里的歌曲，批量修改标签，或在线获取标签、封面与歌词"
+              onClick={() => {
+                setBatchDrop(null)
+                setBatchOpen(true)
+              }}
+            >
+              批量修改
+            </button>
+          )}
         </div>
 
         <section className="editor-card editor-search" aria-label="在线搜索面板">
@@ -372,6 +379,7 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
               </div>
               <TextField label="风格" name="genre" value={fields.genre} onChange={editor.setField} />
               <TextField label="作曲家（多个用 / 分隔）" name="composer" value={fields.composer} onChange={editor.setField} />
+              <TextField label="作词家（多个用 / 分隔）" name="lyricist" value={fields.lyricist} onChange={editor.setField} />
               <TextField label="注释" name="comment" value={fields.comment} onChange={editor.setField} />
             </div>
           </section>
@@ -396,12 +404,15 @@ export default function LyricsEditorDialog({ initialPath, request, onClose }: Ly
         </div>
       </Modal>
       {batchOpen && (
-        <BatchLyricsDialog
+        <BatchTagsDialog
           initialFolder={batchDrop ? directoryOf(batchDrop.files[0]?.path ?? '') || batchFolder : batchFolder}
           drop={batchDrop}
+          renderEditor={(path, close) => <LyricsEditorDialog initialPath={path} request={null} embedded onClose={close} />}
           onClose={() => {
             setBatchOpen(false)
             setBatchDrop(null)
+            // 批量窗口里可能改过正在编辑的这首歌：表单没动过就重新读一遍，免得之后保存时把旧内容写回去。
+            if (file && !dirtyRef.current && !busyRef.current) void loadFile(file.path, false)
           }}
         />
       )}

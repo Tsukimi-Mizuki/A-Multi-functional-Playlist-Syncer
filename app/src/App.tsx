@@ -7,7 +7,7 @@ import { directoryOf, errorMessage, resolveDrop, takeStartupFile, type DropResol
 import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
-import BatchLyricsDialog, { type BatchDrop } from './components/BatchLyricsDialog'
+import BatchTagsDialog, { type BatchDrop } from './components/BatchTagsDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadMissingDialog from './components/DownloadMissingDialog'
 import DropOverlay from './components/DropOverlay'
@@ -41,7 +41,7 @@ type DialogState = 'none' | 'login' | 'logout' | 'ncm' | 'settings'
 const SIDEBAR_KEY = 'lp.sidebarCollapsed'
 const NO_SONGS: Song[] = []
 
-/** 拖入结果里能交给批量获取的文件：多首直接用；只有一首也可以（批量窗口开着时就换成这一首）。 */
+/** 拖入结果里能交给批量修改标签的文件：多首直接用；只有一首也可以（批量窗口开着时就换成这一首）。 */
 function droppedFiles(result: DropResolution): BatchDrop['files'] | null {
   if (result.kind === 'batch') return result.files
   if (result.kind === 'audio' && result.path) {
@@ -79,7 +79,7 @@ export default function App() {
   const [editor, setEditor] = useState<{ key: number; initialPath: string | null } | null>(null)
   const [editorRequest, setEditorRequest] = useState<EditorRequest | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  // 主窗口拖入多首歌时打开的批量获取（编辑器里拖入时由编辑器自己的批量窗口处理）。
+  // 主窗口拖入多首歌时打开的批量修改标签（编辑器里拖入时由编辑器自己的批量窗口处理）。
   const [batch, setBatch] = useState<{ key: number; folder: string; drop: BatchDrop } | null>(null)
   const editorKey = useRef(0)
   const requestSeq = useRef(0)
@@ -224,7 +224,7 @@ export default function App() {
   useEffect(() => {
     openRef.current = { editorOpen, batchOpen }
   })
-  // 拖入一首：用编辑器打开；多首（或含多首的文件夹）：交给批量获取。编辑器开着时交给编辑器决定，
+  // 拖入一首：用编辑器打开；多首（或含多首的文件夹）：交给批量修改标签。编辑器开着时交给编辑器决定，
   // 批量窗口开着时换成新拖入的这批。
   const onDrop = useCallback(
     (paths: string[]) => {
@@ -403,7 +403,13 @@ export default function App() {
       )}
       {editor && <LyricsEditorDialog key={editor.key} initialPath={editor.initialPath} request={editorRequest} onClose={closeEditor} />}
       {batch && (
-        <BatchLyricsDialog key={batch.key} initialFolder={batch.folder} drop={batch.drop} onClose={() => setBatch(null)} />
+        <BatchTagsDialog
+          key={batch.key}
+          initialFolder={batch.folder}
+          drop={batch.drop}
+          renderEditor={(path, close) => <LyricsEditorDialog initialPath={path} request={null} embedded onClose={close} />}
+          onClose={() => setBatch(null)}
+        />
       )}
       {dragging && <DropOverlay target={editorOpen ? 'editor' : batchOpen ? 'batch' : 'main'} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
