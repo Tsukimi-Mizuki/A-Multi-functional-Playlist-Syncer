@@ -15,7 +15,7 @@
 ```
 React 前端（app/src）
   api/*.ts        类型化的 invoke 封装与 DTO 类型
-  state/*.ts      业务 hook（登录、歌单、本地对比、下载同步、日志、拖放、编辑器、外观）
+  state/*.ts      业务 hook（登录、歌单、本地对比、下载同步、日志、拖放、编辑器、批量修改标签、外观）
   components/*    纯展示 + 交互
         │  Tauri IPC：命令（invoke）与事件（listen）
         ▼
@@ -44,7 +44,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
 | `playlist` | `PlaylistService`：歌单列表与曲目加载、写运行日志、301 走登录复核 |
 | `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（歌词预览：按「歌词来源」依次问网易云 / QQ / 备用词源）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
-| `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL） |
+| `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL）、`table`（批量修改标签：列表行 `TagRowView`、只写提到的字段的 `TagPatch`、并行读 / 写） |
 | `ncm` | `NcmDecoder` trait + `FileNcmDecoder`（流式）、`client_comment`（`163 key` 解密取 `musicId`）、`synthetic`（仅测试） |
 | `library` | `LocalLibraryService`（并行扫描）、`matcher`（一对一匹配）、`text`（NFKC / 字符类别，按 UTF-16 码元复现 .NET 语义）、`LibraryManager`（缓存与编排）、`view` |
 | `download` | `DownloadService`、`media`（文件名 / 原子落盘 / 标签数据）、`fetch`（流式下载）、`pool`（并发任务池）、`task`（`TransferManager`：下载选中 / 下载缺失 / 同步）、`ncm_import`（`NcmImportService` + 扫描 + 任务槽） |
@@ -63,7 +63,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 应用 / 日志 | `app_info`、`get_app_state`（路径、便携模式、设置摘要、账号摘要、九档音质选项、读取警告）、`get_logs` |
 | 登录 | `login_status`、`validate_login`、`qr_start`、`qr_poll`、`logout`、`recheck_login` |
 | 歌单 / 歌词 | `list_playlists`、`get_playlist_tracks`、`get_song_lyrics` |
-| 标签 | `read_tags`、`write_tags`、`read_cover_file` |
+| 标签 | `read_tags`、`write_tags`、`read_cover_file`；批量修改标签：`read_tag_rows`（一批文件的标签摘要，不带封面数据，读不出来的文件也有一行）、`patch_tags`（把同一份改动写进一批文件：没出现的字段不动，`null` / 空白表示清除，逐个文件返回结果与写入后的那一行） |
 | NCM 导入 | `ncm_get_state`、`ncm_scan`、`ncm_save_state`、`ncm_import`、`ncm_cancel` |
 | 本地曲库 | `scan_library`、`match_playlist`、`library_cancel` |
 | 下载 / 同步 | `set_quality`、`download_tracks`、`download_missing`（`trackIds`：确认框里仍勾选的歌，只下载其中仍然缺失的）、`sync_playlist`、`download_cancel` |
@@ -164,16 +164,27 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - 网易云 / QQ 都拿不到歌词时按顺序回落备用词源 `LyricsSource`：酷狗（KRC 逐字 + 译文，三段链路）、LRCLIB（逐行，`?q=` 多变体 → `track_name` 兜底，429 / 503 退避重试一次）。备用词源命中的候选同样经打分，写回时标注「（歌词来源：酷狗音乐 / LRCLIB）」，可在设置里单独开关（运行期读共享设置，保存后下一首歌生效）。
 - **歌词预览**（主界面双击歌曲，`get_song_lyrics` → `LyricsService::preview`）跟随设置里的「歌词来源」（`lyricsSourcePriority`，每次调用时读取，保存后下一次预览就生效）：按 `batch::order_sources` 的次序逐个尝试，网易云按歌曲 ID 精确取词，QQ 音乐用歌名 / 歌手 / 专辑 / 时长经 `BatchLyricsService::find_source_lyrics` 检索打分，主来源都没有时再按备用词源开关问酷狗、LRCLIB。某个来源出错就问下一个；网易云确认登录失效时立即返回；都没有歌词时，途中出过错就报第一个错误，否则显示空预览并列出试过的来源。QQ 没有译文时「双语」版本与原文相同，预览不把它算作有翻译。
 - **任何搜索都不自动应用结果**：编辑器里只高亮排序，用户点选后才载入表单，避免悄悄覆盖正在编辑的内容。
-- 批量获取（`BatchManager`）：扫描目录（可递归）或直接用拖入的文件 → 最多 3 个文件并发 → 逐文件 `started` / `finished` 事件 → 汇总；取消后不再启动新文件并保留已完成结果。
+- 批量在线获取（`BatchManager`，入口在「批量修改标签」窗口）：对列表里选中的歌（一首都没选就是整个清单）→ 最多 3 个文件并发 → 逐文件 `started` / `finished` 事件 → 汇总；取消后不再启动新文件并保留已完成结果。
 
 ### 歌词与标签编辑器、拖放
 
 - 编辑器与批量窗口都是叠在主窗口上的模态面板（`Modal` 组件，模态栈：Esc 只关最上面一个），不是独立 Tauri 窗口——拖放事件、IPC、主题 token 与「未保存修改」确认都在同一个 WebView 里。
 - 读取 → 编辑 → `write_tags(replaceAll: true)` 保存 → 重新读取；保存保留网易云 ID 标记，没提供封面则封面不动，`removeCover` 才删除。
 - 封面旁显示格式、像素尺寸、大小与图片类型（`TagView` 的 `coverMimeType` / `coverWidth` / `coverHeight` / `coverSize` / `coverPictureType`；换成本地图片或在线封面时显示新图片的参数，类型是保存时写入的「正面封面」）。
-- 拖放：`useFileDrop` 监听 `tauri://drag-*`；离开后 180 ms 才隐藏提示层（期间再次进入则取消，避免闪烁）。`editor::resolve_drop` 把拖入的目标展开成音频文件（文件直接取；文件夹展开为其中含子文件夹的全部音频，规则同批量获取扫描目录；按拖入顺序、不区分大小写去重）：只有一首时用编辑器打开（`audio`），两首及以上交给「批量获取」（`batch` + `files`，窗口里显示「拖入的 N 首音频」，不再扫描目录，「改用目录…」可切回），一首都没有时拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因；无法处理的目标跳过并在日志里说明。编辑器开着时由编辑器处理（多首打开叠在它上面的批量窗口）；批量窗口开着时新拖入的文件（一首也算）替换它的清单，正在处理时只提示、不替换。C# 版拖入多个只打开第一个，这里有意不同。
+- 拖放：`useFileDrop` 监听 `tauri://drag-*`；离开后 180 ms 才隐藏提示层（期间再次进入则取消，避免闪烁）。`editor::resolve_drop` 把拖入的目标展开成音频文件（文件直接取；文件夹展开为其中含子文件夹的全部音频，规则同批量获取扫描目录；按拖入顺序、不区分大小写去重）：只有一首时用编辑器打开（`audio`），两首及以上交给「批量修改标签」（`batch` + `files`，窗口里显示「拖入的 N 首音频」，不再扫描目录，「改用目录…」可切回），一首都没有时拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因；无法处理的目标跳过并在日志里说明。编辑器开着时由编辑器处理（多首打开叠在它上面的批量窗口）；批量窗口开着时新拖入的文件（一首也算）替换它的清单，正在处理时只提示、不替换。C# 版拖入多个只打开第一个，这里有意不同。
 - 管理员身份运行时 Windows 用 UIPI 阻断资源管理器向本程序拖放（系统限制），界面顶部与启动日志给出提示。
 - `--edit <文件>` / `--lyrics <文件>` 启动参数由 `parse_startup_args` 解析，前端启动后调 `take_startup_file`（只交出一次）。
+
+### 批量修改标签
+
+布局参考用户给的标签编辑器截图（见 `docs/design/README.md`）：右边是歌曲列表，选中歌曲后左边显示它们的标签。组件 `BatchTagsDialog` + 状态 `useBatchTags`，从编辑器的「批量修改」按钮或拖入多首打开。
+
+- **列表**：选目录（`batch_scan`，可含子文件夹；带着目录打开时自动列出）或直接用拖入的文件；标签由 `read_tag_rows` 每 100 个文件一批读出（后端最多 8 个线程并行），边读边填，读不出来的文件也占一行、「状态」栏写原因。固定行高 34 px 的虚拟滚动；列多于可视宽度时横向滚动，表头粘在滚动区顶部一起移动。列的次序同参考图（文件名、目录、格式、标题、艺术家、专辑、专辑艺术家、年份、音轨号、碟号、风格、作曲家、作词家），多出来的「状态」放在文件名后面。
+- **选择**：单击选一首，Ctrl 加选 / 减选，Shift 连选，↑ ↓ PageUp PageDown Home End 移动（带 Shift 连选），Ctrl+A 全选。
+- **左边的面板**：字段次序同参考图（标题、艺术家、专辑、年份 + 音轨号 + 碟号并排、风格、专辑艺术家、作曲家、作词家、注释、歌词、封面），1280×800 的默认窗口里不用滚动。选中的歌某个字段都一样就显示它，不一样显示「〈保持〉」；动过的字段高亮、可单独还原，动过又留空显示「〈清空〉」。保存（按钮或 Ctrl+S）时 `patch_tags` 只带动过的字段，每 20 个文件一批写入（后端最多 4 个线程并行），逐个文件把结果写进「状态」栏并刷新那一行；有文件失败或中途取消时面板里的改动保留，方便再保存一次。封面可以换成一张图片或移除（对所有选中的歌）；只选一首时用 `read_tags` 读出封面预览与参数。
+- **`TagPatch` → `AudioTagData`**（`tags::table`）：没出现的字段不动；给了值的写入；`null` / 空白 / 空数组的进 `AudioTagData::clear`（非 `replace_all` 时清除这些字段，音轨号 / 碟号被清除时总数一并清除）。改动里动了备注时先读出这个文件的网易云 ID 随备注一起写回，`LunaticPrincess:<id>` 标记不会跟着旧备注丢掉。歌词不在面板里改：面板只预览第一行，「编辑…」（或双击一行）用歌词与标签编辑器打开这一首（叠在批量窗口上，不显示「打开音频文件」与「批量修改」），关闭后刷新这一行。
+- **在线获取**：对选中的歌（没选就是全部）调 `batch_run`，选项（覆盖已有、同时获取歌词、歌词格式）在列表上方；逐文件结果写进「状态」栏，成功的文件重新读标签。面板里有没保存的改动时不能开始。
+- **没保存的改动**：换一批选中的歌、重新列目录、换成拖入的文件、打开编辑器、关闭窗口之前都先确认。从编辑器打开的批量窗口关闭后，编辑器里的文件如果没有未保存的修改就重新读一遍，避免之后把旧内容整份写回去。
 
 ### 标签写入的安全性
 
