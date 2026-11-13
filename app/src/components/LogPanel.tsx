@@ -14,9 +14,31 @@ function formatTime(timestampMs: number): string {
   return `${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
 }
 
-/** 底部运行日志：最多 400 条（内存中），新日志到来时若用户停在底部则自动滚动。 */
+const COLLAPSED_KEY = 'lp.logCollapsed'
+
+/** 日志栏收起状态与侧栏一样只是界面偏好，记在 localStorage：存取失败（隐私模式等）时静默回退成展开。 */
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeCollapsed(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0')
+  } catch {
+    // 偏好存不下来不影响使用。
+  }
+}
+
+/**
+ * 底部运行日志：最多 400 条（内存中），新日志到来时若用户停在底部则自动滚动。
+ * 收起 / 展开会记住，下次启动沿用。
+ */
 export default function LogPanel({ logs }: { logs: LogEntry[] }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(() => !readCollapsed())
   const listRef = useRef<HTMLOListElement>(null)
   const stickToBottom = useRef(true)
 
@@ -37,7 +59,10 @@ export default function LogPanel({ logs }: { logs: LogEntry[] }) {
           className="btn btn-ghost btn-small"
           aria-label={expanded ? '收起运行日志' : '展开运行日志'}
           aria-expanded={expanded}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => {
+            setExpanded(!expanded)
+            writeCollapsed(expanded)
+          }}
         >
           {expanded ? '收起' : '展开'}
         </button>
