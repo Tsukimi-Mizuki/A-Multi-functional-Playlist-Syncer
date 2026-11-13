@@ -3,7 +3,7 @@ resolver = "2"
 members = ["src-tauri", "crates/lp-core"]
 
 [workspace.package]
-version = "2.2.4"
+version = "2.2.5"
 edition = "2024"
 license = "AGPL-3.0-only"
 repository = "https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer"
