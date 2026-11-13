@@ -478,7 +478,10 @@ impl BatchLyricsService {
                 .then(|| null_if_blank(tag_title.as_deref()))
                 .flatten(),
             artists: if replace || info.artist.as_deref().is_none_or(is_blank) {
-                split_artists(tag_artist.as_deref())
+                // 来源给了歌手清单就原样用（名字里带 `/` 的歌手不会被拆开）；没有才按分隔符拆。
+                tag_song
+                    .and_then(OnlineSongResult::artist_values)
+                    .unwrap_or_else(|| split_artists(tag_artist.as_deref()))
             } else {
                 Vec::new()
             },

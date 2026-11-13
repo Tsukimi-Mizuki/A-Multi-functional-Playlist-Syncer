@@ -51,6 +51,10 @@ pub struct OnlineSongResult {
     pub title: String,
     /// 歌手（多个以 `/` 连接）。
     pub artist: String,
+    /// 各位歌手的名字，一人一项（来源接口给的就是数组）。写标签时用它，名字里带 `/` 的歌手才不会被拆开；
+    /// 为空表示不知道边界（旧数据、只凭 ID 取详情），这时只能按分隔符拆 `artist`。
+    #[serde(default)]
+    pub artists: Vec<String>,
     /// 专辑。
     pub album: String,
     /// 时长（毫秒），未知为 0。
@@ -82,6 +86,18 @@ impl OnlineSongResult {
     /// 来源名。
     pub fn source_label(&self) -> &'static str {
         self.source.label()
+    }
+
+    /// 写进标签的歌手清单：有 [`artists`](Self::artists) 就用它（修整、去掉空白项），没有返回 `None`。
+    pub fn artist_values(&self) -> Option<Vec<String>> {
+        let values: Vec<String> = self
+            .artists
+            .iter()
+            .map(|name| name.trim())
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+            .collect();
+        (!values.is_empty()).then_some(values)
     }
 
     /// 列表里显示的歌名（空白时显示「未知歌曲」）。

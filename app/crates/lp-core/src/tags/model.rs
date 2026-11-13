@@ -2,12 +2,15 @@
 //!
 //! 对应 C# `IAudioTagService.cs` 里的 `AudioTagData` / `AudioTagInfo`。
 
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::error::CoreError;
 
-/// 可以单独清除的标签字段（[`AudioTagData::clear`] 用）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// 可以单独点名的标签字段（[`AudioTagData::clear`] 清除、[`AudioTagData::keep`] 保持不动）。
+/// 前端用 camelCase 的名字（`artist`、`albumArtist` …）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum TagField {
     /// 标题。
     Title,
@@ -81,6 +84,12 @@ pub struct AudioTagData {
     /// 要清除的字段（批量修改里把某个字段清空）：只在 `replace_all == false` 时有意义，
     /// 同一个字段既给了值又列在这里时以值为准。
     pub clear: Vec<TagField>,
+    /// 保持不动的字段：列在这里的字段无论给没给值、是不是 `replace_all` 都原样留在文件里。
+    ///
+    /// 编辑器用它保住没改过的多值字段：艺术家等在界面上是用 `/` 接起来的一行字，保存时再按 `/` 拆开，
+    /// 名字里带 `/` 的艺术家（`AC/DC`）会被拆成两个；没动过的字段干脆不写，就不会被这一接一拆改坏。
+    /// 备注不支持（它和网易云 ID 标记绑在一起，由 `netease_id` 决定）。
+    pub keep: Vec<TagField>,
     /// 编辑器保存时替换全部字段（包括清空未填写的标签），而不是只更新非空字段。
     pub replace_all: bool,
 }

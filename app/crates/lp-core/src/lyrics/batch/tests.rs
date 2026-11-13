@@ -71,6 +71,44 @@ async fn matches_split_title_and_multiple_artists() {
 }
 
 #[tokio::test]
+async fn the_artist_list_from_the_source_is_written_as_is() {
+    let temp = TempDir::new();
+    let path = file(&temp, "slash.mp3");
+    let tags = StubTags::with(tag_info("晴天", "AC/DC/周杰伦", 269_000));
+    // 来源给的是两位歌手，其中一位的名字里带 `/`。
+    let mut candidate = song(Netease, "1", "晴天", "AC/DC/周杰伦", "叶惠美", 269_000);
+    candidate.artists = vec![" AC/DC ".to_owned(), String::new(), "周杰伦".to_owned()];
+    let online = StubOnline::with(vec![candidate], Some("[00:01.00]晴天"));
+
+    let result = service(&tags, &online, vec![])
+        .fetch_for_file(&path, &overwrite(), &CancelToken::new())
+        .await
+        .unwrap();
+
+    assert!(result.success, "{}", result.message);
+    assert_eq!(tags.written().unwrap().artists, ["AC/DC", "周杰伦"]);
+
+    // 来源没给清单（旧数据）：只能按分隔符拆。
+    let tags = StubTags::with(tag_info("晴天", "AC/DC/周杰伦", 269_000));
+    let online = StubOnline::with(
+        vec![song(
+            Netease,
+            "1",
+            "晴天",
+            "AC/DC/周杰伦",
+            "叶惠美",
+            269_000,
+        )],
+        Some("[00:01.00]晴天"),
+    );
+    service(&tags, &online, vec![])
+        .fetch_for_file(&path, &overwrite(), &CancelToken::new())
+        .await
+        .unwrap();
+    assert_eq!(tags.written().unwrap().artists, ["AC", "DC", "周杰伦"]);
+}
+
+#[tokio::test]
 async fn rejects_an_unrelated_candidate() {
     let temp = TempDir::new();
     let path = file(&temp, "unrelated.mp3");

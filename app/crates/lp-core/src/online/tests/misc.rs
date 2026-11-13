@@ -10,6 +10,34 @@ use crate::online::{KugouLyricsSource, LrclibLyricsSource, fallback_source_enabl
 use crate::settings::AppSettings;
 
 #[test]
+fn artist_values_are_the_trimmed_list_or_nothing() {
+    let mut result = song(
+        OnlineMusicSource::Netease,
+        "1",
+        "歌",
+        "AC/DC/周杰伦",
+        "专辑",
+        1000,
+    );
+    assert_eq!(result.artist_values(), None, "没有清单");
+
+    result.artists = vec![" AC/DC ".to_owned(), " ".to_owned(), "周杰伦".to_owned()];
+    assert_eq!(
+        result.artist_values(),
+        Some(vec!["AC/DC".to_owned(), "周杰伦".to_owned()])
+    );
+
+    // 前端把候选原样传回来：新字段带着清单，旧形状（没有 artists）也认。
+    let json = serde_json::to_value(&result).unwrap();
+    assert_eq!(json["artists"][0], " AC/DC ");
+    let old: OnlineSongResult = serde_json::from_value(serde_json::json!({
+        "source": "Netease", "sourceId": "1", "title": "歌", "artist": "a/b", "album": "", "durationMs": 0
+    }))
+    .unwrap();
+    assert!(old.artists.is_empty());
+}
+
+#[test]
 fn fallback_switches_follow_the_settings_and_unknown_sources_stay_on() {
     let mut settings = AppSettings::new("D:\\x");
     assert!(fallback_source_enabled(&settings, KugouLyricsSource::LABEL));

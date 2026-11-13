@@ -465,6 +465,7 @@ impl OnlineManager {
                     source_id: id.to_owned(),
                     title: String::new(),
                     artist: String::new(),
+                    artists: Vec::new(),
                     album: String::new(),
                     duration_ms: 0,
                     year: None,

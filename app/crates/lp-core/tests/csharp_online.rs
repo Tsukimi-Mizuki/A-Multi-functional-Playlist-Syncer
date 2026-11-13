@@ -231,6 +231,8 @@ fn song_from(spec: &Value) -> OnlineSongResult {
         source_id: spec["sourceId"].as_str().unwrap().to_owned(),
         title: spec["title"].as_str().unwrap().to_owned(),
         artist: spec["artist"].as_str().unwrap().to_owned(),
+        // 黄金数据来自 C# 版：它只有接好的歌手串，写标签时按分隔符拆。
+        artists: Vec::new(),
         album: spec["album"].as_str().unwrap().to_owned(),
         duration_ms: spec["durationMs"].as_i64().unwrap(),
         year: spec["year"].as_u64().map(|v| v as u32),

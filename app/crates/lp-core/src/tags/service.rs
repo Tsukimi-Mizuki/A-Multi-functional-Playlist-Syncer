@@ -576,9 +576,11 @@ fn existing_id3v2_major(path: &Path) -> Option<u8> {
 /// 把 `data` 应用到一个通用标签上，规则逐条对应 C# `ApplyTag`。
 pub(super) fn apply_data(tag: &mut Tag, data: &AudioTagData, id3v23: bool) {
     let replace = data.replace_all;
-    // 这个字段要不要动：完整替换、给了值，或被点名清除（清除时值为空，下面的 set_* 就只删不写）。
-    let touches =
-        |field: TagField, has_value: bool| replace || has_value || data.clear.contains(&field);
+    // 这个字段要不要动：完整替换、给了值，或被点名清除（清除时值为空，下面的 set_* 就只删不写）；
+    // 被点名保持的字段无论如何不动。
+    let touches = |field: TagField, has_value: bool| {
+        !data.keep.contains(&field) && (replace || has_value || data.clear.contains(&field))
+    };
     let tag_type = tag.tag_type();
     // ID3v2.3 没有“多值”：TagLib 与多数播放器用 `/` 把多个值拼进同一个帧；lofty 默认写的 NUL 分隔是 2.4 的做法，
     // 2.3 的读取方会在 NUL 处截断，只剩第一个值。2.4 才用每个值一个条目。
@@ -674,7 +676,11 @@ fn apply_numbers(tag: &mut Tag, data: &AudioTagData) {
     let replace = data.replace_all;
     let clear_track = data.clear.contains(&TagField::TrackNumber);
     let clear_disc = data.clear.contains(&TagField::DiscNumber);
-    if replace || clear_track || data.track_number.is_some() || data.track_total.is_some() {
+    let keep_track = data.keep.contains(&TagField::TrackNumber);
+    let keep_disc = data.keep.contains(&TagField::DiscNumber);
+    if !keep_track
+        && (replace || clear_track || data.track_number.is_some() || data.track_total.is_some())
+    {
         let number = if replace || clear_track || data.track_number.is_some() {
             data.track_number.filter(|&n| n > 0)
         } else {
@@ -693,7 +699,9 @@ fn apply_numbers(tag: &mut Tag, data: &AudioTagData) {
             }
         }
     }
-    if replace || clear_disc || data.disc_number.is_some() || data.disc_total.is_some() {
+    if !keep_disc
+        && (replace || clear_disc || data.disc_number.is_some() || data.disc_total.is_some())
+    {
         let number = if replace || clear_disc || data.disc_number.is_some() {
             data.disc_number.filter(|&n| n > 0)
         } else {

@@ -115,9 +115,23 @@ export async function pickAudioFile(title = '选择要查看标签的音频文�
   return typeof selected === 'string' ? selected : null
 }
 
+/** 可以点名「保持不动」的标签字段（与 Rust 端 `TagField` 的 camelCase 名字一致；备注不支持）。 */
+export type TagFieldName =
+  | 'title'
+  | 'artist'
+  | 'album'
+  | 'albumArtist'
+  | 'year'
+  | 'trackNumber'
+  | 'discNumber'
+  | 'genre'
+  | 'composer'
+  | 'lyricist'
+
 /** 与 Rust 端 `WriteTagsRequest`（camelCase）对应：编辑器保存用 `replaceAll: true`，界面上展示的字段整体替换。 */
 export interface WriteTagsRequest {
   title?: string | null
+  /** 各位艺术家，一人一项：名字里的 `/` 原样写入，不会再拆。 */
   artists?: string[]
   album?: string | null
   albumArtist?: string | null
@@ -137,6 +151,8 @@ export interface WriteTagsRequest {
   lyricist?: string | null
   /** 编辑器保存的语义：没填的字段会被清除，但没传封面时封面保持原样。 */
   replaceAll?: boolean
+  /** 保持不动的字段：列在这里的无论给没给值都原样留在文件里（编辑器把没改过的多值字段列在这里）。 */
+  keep?: TagFieldName[]
 }
 
 /** 写入标签（先写同目录临时副本再原子替换，失败保留原文件）。失败抛 {@link TagLoadError}，`message` 是中文说明。 */

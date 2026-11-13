@@ -174,6 +174,35 @@ fn write_request_converts_to_tag_data() {
     );
     assert_eq!(data.plain_lyrics.as_deref(), Some("[00:01.00]x"));
     assert!(!data.remove_cover);
+    assert!(data.keep.is_empty(), "没说保持哪些字段就是都按请求写");
+}
+
+#[test]
+fn write_request_can_name_the_fields_to_leave_untouched() {
+    let request: WriteTagsRequest = serde_json::from_value(serde_json::json!({
+        "replaceAll": true, "title": "T", "artists": ["AC", "DC"],
+        "keep": ["artist", "albumArtist", "genre", "composer", "lyricist", "trackNumber"]
+    }))
+    .unwrap();
+
+    let data = request.into_data().unwrap();
+
+    assert_eq!(
+        data.keep,
+        [
+            TagField::Artist,
+            TagField::AlbumArtist,
+            TagField::Genre,
+            TagField::Composer,
+            TagField::Lyricist,
+            TagField::TrackNumber
+        ]
+    );
+    // 不认识的字段名是请求写错了，直接拒绝，不悄悄忽略。
+    assert!(
+        serde_json::from_value::<WriteTagsRequest>(serde_json::json!({ "keep": ["artists"] }))
+            .is_err()
+    );
 }
 
 #[test]

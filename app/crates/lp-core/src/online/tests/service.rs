@@ -60,6 +60,7 @@ fn summary() -> OnlineSongResult {
         source_id: "186016".to_owned(),
         title: "晴天".to_owned(),
         artist: "周杰伦".to_owned(),
+        artists: Vec::new(),
         album: "叶惠美".to_owned(),
         duration_ms: 269_000,
         year: Some(2003),
@@ -93,6 +94,7 @@ async fn netease_search_maps_results_and_ignores_blank_keywords() {
     assert_eq!(songs[0].source_id, "186016");
     assert_eq!(songs[0].title, "晴天");
     assert_eq!(songs[0].artist, "周杰伦");
+    assert_eq!(songs[0].artists, ["周杰伦"]);
     assert_eq!(songs[0].album, "叶惠美");
     assert_eq!(songs[0].duration_ms, 269_000);
     assert_eq!(songs[0].year, Some(2003));
@@ -227,6 +229,51 @@ fn png_head(width: u32, height: u32) -> Vec<u8> {
     bytes.extend_from_slice(&height.to_be_bytes());
     bytes.extend_from_slice(&[8, 6, 0, 0, 0, 1, 2, 3, 4]);
     bytes
+}
+
+#[tokio::test]
+async fn netease_artists_come_as_a_list_so_a_slash_in_a_name_survives() {
+    let rig = rig();
+    rig.netease.enqueue_json(
+        r#"{ "code": 200, "result": { "songs": [
+          { "id": 1, "name": "歌", "duration": 1000,
+            "artists": [ { "id": 1, "name": "+α/あるふぁきゅん。" }, { "id": 2, "name": " " }, { "id": 3, "name": "たかやん" } ],
+            "album": { "id": 1, "name": "专辑" } }
+        ] } }"#,
+    );
+
+    let songs = rig
+        .service
+        .search(OnlineMusicSource::Netease, "歌", 10, &CancelToken::new())
+        .await
+        .unwrap();
+
+    // 显示用的文字分不出边界，清单分得出。
+    assert_eq!(songs[0].artist, "+α/あるふぁきゅん。/たかやん");
+    assert_eq!(songs[0].artists, ["+α/あるふぁきゅん。", "たかやん"]);
+
+    // 详情里有歌手就用详情的清单；详情取不到时沿用摘要的。
+    rig.netease.enqueue_json(
+        r#"{ "code": 200, "privileges": [], "songs": [{
+          "id": 1, "name": "歌", "dt": 1000,
+          "ar": [ { "id": 9, "name": "周杰伦" } ], "al": { "id": 1, "name": "专辑" } }] }"#,
+    );
+    rig.other.set_fallback(|_| status(404));
+    let details = rig
+        .service
+        .get_tag_details(&songs[0], false, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(details.song.artists, ["周杰伦"]);
+    rig.netease.enqueue_status(500);
+    let details = rig
+        .service
+        .get_tag_details(&songs[0], false, &CancelToken::new())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(details.song.artists, ["+α/あるふぁきゅん。", "たかやん"]);
 }
 
 #[tokio::test]

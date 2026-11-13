@@ -85,6 +85,7 @@ pub fn song(
         source_id: id.to_owned(),
         title: title.to_owned(),
         artist: artist.to_owned(),
+        artists: Vec::new(),
         album: album.to_owned(),
         duration_ms,
         year: Some(2003),

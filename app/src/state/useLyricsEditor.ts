@@ -21,8 +21,9 @@ import {
   type LoadedTags,
   type LyricsSourceKind,
   type OnlineSearchItem,
+  type OnlineSong,
 } from '../api/online'
-import { pickAudioFile, readTags, toTagLoadError, writeTags, type TagView } from '../api/tags'
+import { pickAudioFile, readTags, toTagLoadError, writeTags, type TagFieldName, type TagView } from '../api/tags'
 import { formatDuration, formatFileSize } from '../lib/format'
 
 /** 编辑器里能改的文本字段（数字字段也用字符串，保存时再校验）。 */
@@ -173,6 +174,40 @@ export function splitArtists(text: string): string[] {
     .filter((part) => part !== '')
 }
 
+/** 界面上用 `/` 接成一行显示的多值字段。 */
+const MULTI_VALUE_FIELDS = ['artist', 'albumArtist', 'genre', 'composer', 'lyricist'] as const
+
+/** 在线结果给的艺术家清单，连同它接成的那行文字（表单里填的就是这行字）。 */
+export interface ArtistList {
+  text: string
+  values: string[]
+}
+
+/** 在线结果里的艺术家清单；来源没给清单或没有歌手时为 null。 */
+export function artistListOf(song: OnlineSong, text: string): ArtistList | null {
+  const values = (song.artists ?? []).map((name) => name.trim()).filter((name) => name !== '')
+  return values.length > 0 && text.trim() !== '' ? { text, values } : null
+}
+
+/**
+ * 保存时多值字段怎么写。艺术家等在文件里是一个个独立的值，界面上却是用 `/` 接起来的一行字，
+ * 保存时再按 `/` 拆开——名字里带 `/` 的人（`AC/DC`）会被拆成两个。所以：
+ * - 这一行字还是在线结果接出来的那一串：直接用在线结果的清单（边界是来源给的，准确）；
+ * - 这一行字和打开文件时一样（没改过）：列进 `keep`，保存时不碰文件里的这个字段；
+ * - 用户改过：只能按分隔符拆。
+ */
+export function multiValuePlan(
+  values: EditorFields,
+  loaded: EditorFields | null,
+  online: ArtistList | null,
+): { artists: string[]; keep: TagFieldName[] } {
+  const fromOnline = online !== null && online.text === values.artist
+  const keep = MULTI_VALUE_FIELDS.filter(
+    (name) => loaded !== null && values[name] === loaded[name] && !(name === 'artist' && fromOnline),
+  )
+  return { artists: fromOnline ? online.values : splitArtists(values.artist), keep }
+}
+
 /** 备用词源歌词按偏好挑选（与 Rust 端 `pick_lyrics` 一致：双语优先，逐字不可用回退逐行）。 */
 export function pickFallbackLyrics(data: FallbackLyrics, preferWord: boolean): string | null {
   const blank = (text: string | null) => text == null || text.trim() === ''
@@ -281,6 +316,16 @@ export function useLyricsEditor() {
   const coverRef = useRef(cover)
   const fileRef = useRef(file)
   const localRef = useRef<LocalContext | null>(null)
+  // 打开文件时表单的样子，与最近一次套用的在线艺术家清单：保存时决定多值字段怎么写（见 `multiValuePlan`）。
+  const loadedFieldsRef = useRef<EditorFields | null>(null)
+  const onlineArtistsRef = useRef<ArtistList | null>(null)
+  // 同一份清单也放进状态：套用在线结果后艺术家那行字可能和文件里的一模一样（只是边界不同），
+  // 这时也要算「有未保存的修改」。
+  const [onlineArtists, setOnlineArtists] = useState<ArtistList | null>(null)
+  const rememberOnlineArtists = useCallback((list: ArtistList | null) => {
+    onlineArtistsRef.current = list
+    setOnlineArtists(list)
+  }, [])
   const resultsRef = useRef(results)
   const selectedKeyRef = useRef(selectedKey)
   const searchToken = useRef(0)
@@ -322,7 +367,13 @@ export function useLyricsEditor() {
   }, [])
 
   const thresholdText = config ? `${config.threshold.percent}%` : '60%'
-  const dirty = useMemo(() => JSON.stringify(fields) !== baseline || cover.kind !== 'file', [fields, baseline, cover])
+  const dirty = useMemo(
+    () =>
+      JSON.stringify(fields) !== baseline ||
+      cover.kind !== 'file' ||
+      (onlineArtists !== null && onlineArtists.text === fields.artist),
+    [fields, baseline, cover, onlineArtists],
+  )
 
   const setField = useCallback(<K extends keyof EditorFields>(name: K, value: string) => {
     setFields((previous) => ({ ...previous, [name]: value }))
@@ -433,6 +484,7 @@ export function useLyricsEditor() {
       const loaded = await onlineLoadResult(summary.source, summary.sourceId, wantWord, summary)
       if (token !== applyToken.current) return
       const song = loaded.song
+      rememberOnlineArtists(artistListOf(song, song.artist))
       setFields((previous) => ({
         ...previous,
         title: song.title,
@@ -460,7 +512,7 @@ export function useLyricsEditor() {
     } catch (error) {
       if (token === applyToken.current) setSearchStatus(`获取在线信息失败：${onlineErrorText(error, '请稍后重试')}`)
     }
-  }, [])
+  }, [rememberOnlineArtists])
 
   const selectEntry = useCallback(
     (entry: ResultEntry) => {
@@ -479,6 +531,8 @@ export function useLyricsEditor() {
     applyToken.current += 1
     const song = loaded.song
     if (parts.tags) {
+      const artistText = trimmedOrNull(song.artist)
+      if (artistText) rememberOnlineArtists(artistListOf(song, artistText))
       setFields((previous) => ({
         ...previous,
         title: trimmedOrNull(song.title) ?? previous.title,
@@ -504,7 +558,7 @@ export function useLyricsEditor() {
       })
     }
     setStatus(onlineTagsStatus(song.sourceLabel, parts.tags, picture ? 'applied' : parts.cover ? 'missing' : 'skipped'))
-  }, [])
+  }, [rememberOnlineArtists])
 
   const setSource = useCallback(
     (next: LyricsSourceKind) => {
@@ -539,11 +593,13 @@ export function useLyricsEditor() {
       album: trimmedOrNull(info.album),
       durationMs: info.durationMs,
     }
+    loadedFieldsRef.current = next
+    rememberOnlineArtists(null)
     setFile({ path, info })
     setFields(next)
     setBaseline(JSON.stringify(next))
     setCover({ kind: 'file' })
-  }, [])
+  }, [rememberOnlineArtists])
 
   /** 读取文件并填进表单；`autoSearch` 为真时用清理过的文件名自动搜索一次（不会自动应用结果）。 */
   const loadFile = useCallback(
@@ -614,13 +670,15 @@ export function useLyricsEditor() {
     const picture = coverRef.current
     const idText = current.info.neteaseId
     const neteaseId = idText != null && /^\d+$/.test(idText) ? Number(idText) : null
+    const multi = multiValuePlan(values, loadedFieldsRef.current, onlineArtistsRef.current)
     setBusy(true)
     setStatus('正在写入标签与歌词...')
     try {
       await writeTags(current.path, {
         replaceAll: true,
         title: trimmedOrNull(values.title),
-        artists: splitArtists(values.artist),
+        artists: multi.artists,
+        keep: multi.keep,
         album: trimmedOrNull(values.album),
         albumArtist: trimmedOrNull(values.albumArtist),
         year,

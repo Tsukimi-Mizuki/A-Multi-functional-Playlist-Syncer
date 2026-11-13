@@ -51,6 +51,7 @@ async fn search_parses_new_json_items_and_builds_the_request() {
     assert_eq!(first.source_id, "0039MnYb0qxYhV");
     assert_eq!(first.title, "晴天");
     assert_eq!(first.artist, "周杰伦/杨瑞代", "空白歌手名被丢弃，用 / 连接");
+    assert_eq!(first.artists, ["周杰伦", "杨瑞代"], "清单里一人一项");
     assert_eq!(first.album, "叶惠美");
     assert_eq!(first.duration_ms, 269_000);
     assert_eq!(first.year, Some(2003), "pubtime 折算 UTC 年份");
@@ -66,6 +67,7 @@ async fn search_parses_new_json_items_and_builds_the_request() {
     assert_eq!(second.disc_number, Some(2), "index_cd = 1 → 第 2 碟");
     assert_eq!(second.duration_ms, 0);
     assert_eq!(second.artist, "");
+    assert!(second.artists.is_empty());
     assert_eq!(second.cover_url, None);
     assert_eq!(second.numeric_source_id, None);
     assert_eq!(second.track_number, None);
@@ -281,6 +283,7 @@ fn qq_song() -> OnlineSongResult {
         source_id: "0039MnYb0qxYhV".to_owned(),
         title: "晴天".to_owned(),
         artist: "周杰伦".to_owned(),
+        artists: vec!["周杰伦".to_owned()],
         album: "叶惠美".to_owned(),
         duration_ms: 269_000,
         year: Some(2003),

@@ -469,16 +469,16 @@ fn first_non_blank(values: &[Option<String>]) -> Option<String> {
         .flatten()
 }
 
-fn read_singers(item: &Value) -> String {
+/// 各位歌手的名字，一人一项。
+fn read_singers(item: &Value) -> Vec<String> {
     let Some(singers) = item.get("singer").and_then(Value::as_array) else {
-        return String::new();
+        return Vec::new();
     };
     singers
         .iter()
         .filter_map(|singer| get_string(singer, "name"))
         .filter(|name| !is_blank(name))
-        .collect::<Vec<_>>()
-        .join("/")
+        .collect()
 }
 
 /// 一条搜索结果。search_cp（`new_json=1`）返回 songname / songmid / albumname / albummid / songid / pubtime，
@@ -495,7 +495,7 @@ fn parse_search_item(item: &Value) -> Option<OnlineSongResult> {
         mid.filter(|m| !is_blank(m))?,
     );
 
-    let artist = read_singers(item);
+    let artists = read_singers(item);
     let mut album_name = get_string(item, "albumname").unwrap_or_default();
     let mut album_mid = get_string(item, "albummid").unwrap_or_default();
     let mut release = String::new();
@@ -527,7 +527,8 @@ fn parse_search_item(item: &Value) -> Option<OnlineSongResult> {
         source: OnlineMusicSource::QqMusic,
         source_id: mid,
         title,
-        artist,
+        artist: artists.join("/"),
+        artists,
         album: album_name,
         duration_ms: if duration > 0 { duration * 1000 } else { 0 },
         year,

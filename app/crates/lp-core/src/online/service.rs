@@ -278,6 +278,7 @@ fn from_netease(song: &NeteaseSong) -> OnlineSongResult {
         source_id: song.id.to_string(),
         title: song.name.clone(),
         artist: song.artist_text(),
+        artists: song.artist_names(),
         album: song.album.name.clone(),
         duration_ms: i64::from(song.duration_ms),
         year: parse_year(song.release_date.as_deref()),
@@ -304,6 +305,12 @@ fn merge_netease_detail(summary: &OnlineSongResult, detail: &NeteaseSong) -> Onl
         source_id: summary.source_id.clone(),
         title: pick(detail.name.clone(), &summary.title),
         artist: pick(detail.artist_text(), &summary.artist),
+        // 歌手清单跟着歌手文字走：详情里有歌手就用详情的，否则沿用摘要的。
+        artists: if is_blank(&detail.artist_text()) {
+            summary.artists.clone()
+        } else {
+            detail.artist_names()
+        },
         album: pick(detail.album.name.clone(), &summary.album),
         duration_ms: if detail.duration_ms > 0 {
             i64::from(detail.duration_ms)

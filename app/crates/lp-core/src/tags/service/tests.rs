@@ -468,6 +468,108 @@ fn every_container_round_trips_all_fields() {
     }
 }
 
+/// 主标签里某个字段的各个原始值（不拼接），用来确认多值字段有没有被动过。
+fn raw_values(path: &Path, key: ItemKey) -> Vec<String> {
+    let file = lofty_file(path);
+    let tag = file.primary_tag().expect("应该有主标签");
+    tag.get_strings(key).map(str::to_owned).collect()
+}
+
+#[test]
+fn kept_fields_survive_a_replace_all_save_in_every_container() {
+    const KEPT: [(TagField, ItemKey); 5] = [
+        (TagField::Artist, ItemKey::TrackArtist),
+        (TagField::AlbumArtist, ItemKey::AlbumArtist),
+        (TagField::Genre, ItemKey::Genre),
+        (TagField::Composer, ItemKey::Composer),
+        (TagField::Lyricist, ItemKey::Lyricist),
+    ];
+    for (ext, bytes) in fixtures::all_formats() {
+        let dir = TempDir::new();
+        let path = create(&dir, &format!("keep.{ext}"), &bytes);
+        // 第一位艺术家的名字里带 `/`：它是一个值，不是两个人。
+        service()
+            .write(
+                &path,
+                &AudioTagData {
+                    artists: vec!["AC/DC".into(), "周杰伦".into()],
+                    ..full_data()
+                },
+            )
+            .unwrap_or_else(|e| panic!("{ext}: {e}"));
+        let before: Vec<Vec<String>> = KEPT
+            .iter()
+            .map(|(_, key)| raw_values(&path, *key))
+            .collect();
+        assert!(!before[0].is_empty(), "{ext}");
+
+        // 编辑器的保存：界面上那行「AC/DC/周杰伦」按 `/` 拆开就成了三个人，别的多值字段没填。
+        // 这些字段都没改过，列进 keep 之后应该原样留着；标题是改过的，照常写入。
+        service()
+            .write(
+                &path,
+                &AudioTagData {
+                    replace_all: true,
+                    title: Some("新标题".into()),
+                    artists: vec!["AC".into(), "DC".into(), "周杰伦".into()],
+                    keep: KEPT
+                        .iter()
+                        .map(|(field, _)| *field)
+                        .chain([TagField::TrackNumber, TagField::DiscNumber])
+                        .collect(),
+                    ..Default::default()
+                },
+            )
+            .unwrap_or_else(|e| panic!("{ext}: {e}"));
+
+        let after: Vec<Vec<String>> = KEPT
+            .iter()
+            .map(|(_, key)| raw_values(&path, *key))
+            .collect();
+        assert_eq!(after, before, "{ext}：点名保持的字段不该变");
+        let info = read(&path);
+        assert_eq!(info.title.as_deref(), Some("新标题"), "{ext}");
+        assert_eq!(info.artist.as_deref(), Some("AC/DC/周杰伦"), "{ext}");
+        assert_eq!(
+            (info.track_number, info.disc_number),
+            (Some(3), Some(1)),
+            "{ext}"
+        );
+        // 没列进 keep 的字段照 replace_all 的规矩清掉。
+        assert_eq!(info.album, None, "{ext}");
+    }
+}
+
+#[test]
+fn a_slash_inside_an_artist_name_is_one_value_unless_the_caller_splits_it() {
+    let dir = TempDir::new();
+    let path = create(&dir, "slash.flac", &fixtures::flac());
+    let write = |artists: &[&str], keep: Vec<TagField>| {
+        service()
+            .write(
+                &path,
+                &AudioTagData {
+                    replace_all: true,
+                    artists: artists.iter().map(|name| (*name).to_owned()).collect(),
+                    keep,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+    };
+
+    // 写的时候给的是清单：带 `/` 的名字是一个值。
+    write(&["AC/DC", "周杰伦"], vec![]);
+    assert_eq!(raw_values(&path, ItemKey::TrackArtist), ["AC/DC", "周杰伦"]);
+
+    // 没有 keep：调用方拆成几个就写几个（这就是编辑器把没改过的字段列进 keep 的原因）。
+    write(&["AC", "DC", "周杰伦"], vec![]);
+    assert_eq!(
+        raw_values(&path, ItemKey::TrackArtist),
+        ["AC", "DC", "周杰伦"]
+    );
+}
+
 #[test]
 fn replace_all_clears_fields_in_every_container() {
     for (ext, bytes) in fixtures::all_formats() {

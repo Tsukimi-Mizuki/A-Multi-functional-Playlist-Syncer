@@ -62,7 +62,10 @@ export interface OnlineSong {
   /** 来源里的歌曲 ID（网易云是数字 ID，QQ 是 `songmid`）。传给 `onlineLoadResult` 的 `id`。 */
   sourceId: string
   title: string
+  /** 歌手，多个用 `/` 连接（显示用）。 */
   artist: string
+  /** 各位歌手的名字，一人一项；写标签时用它，名字里带 `/` 的歌手才不会被拆开。不知道边界时为空。 */
+  artists: string[]
   album: string
   /** 毫秒，未知为 0。 */
   durationMs: number

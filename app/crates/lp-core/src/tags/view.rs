@@ -8,7 +8,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
-use super::model::{AudioTagData, AudioTagInfo, TagError};
+use super::model::{AudioTagData, AudioTagInfo, TagError, TagField};
 use super::sidecar::{SidecarLyrics, read_sidecar_lyrics};
 use super::text::{detect_image_mime, image_dimensions};
 
@@ -170,6 +170,8 @@ pub struct WriteTagsRequest {
     pub composer: Option<String>,
     pub lyricist: Option<String>,
     pub replace_all: bool,
+    /// 保持不动的字段（`artist`、`albumArtist`、`genre` …）：编辑器把没改过的多值字段列在这里。
+    pub keep: Vec<TagField>,
 }
 
 impl WriteTagsRequest {
@@ -204,6 +206,7 @@ impl WriteTagsRequest {
             composer: self.composer,
             lyricist: self.lyricist,
             clear: Vec::new(),
+            keep: self.keep,
             replace_all: self.replace_all,
         })
     }

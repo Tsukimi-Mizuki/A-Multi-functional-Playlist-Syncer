@@ -591,6 +591,8 @@ interface MockOnlineSpec {
   year: number | null
   track: number | null
   total: number
+  /** 各位歌手的名字；不写就按 `/` 拆 `artist`。 */
+  artists?: string[]
 }
 
 const MOCK_ONLINE_SPECS: MockOnlineSpec[] = [
@@ -599,7 +601,8 @@ const MOCK_ONLINE_SPECS: MockOnlineSpec[] = [
   { title: '晴天', artist: '某翻唱歌手', album: '翻唱合集', durationMs: 254_000, year: 2019, track: 1, total: 0.64 },
   { title: '晴天 (伴奏)', artist: '周杰伦', album: '叶惠美 伴奏版', durationMs: 269_000, year: 2003, track: 3, total: 0.52 },
   { title: '七里香', artist: '周杰伦', album: '七里香', durationMs: 299_000, year: 2004, track: 1, total: 0.31 },
-  { title: '这是一首名字特别特别特别长用来测试省略号的歌曲名称', artist: '艺人 A/艺人 B/艺人 C', album: '', durationMs: 0, year: null, track: null, total: 0.22 },
+  // 「艺人 A/艺人 B」是一位名字里带 `/` 的歌手：清单里是两个人，接成文字后看不出边界。
+  { title: '这是一首名字特别特别特别长用来测试省略号的歌曲名称', artist: '艺人 A/艺人 B/艺人 C', artists: ['艺人 A/艺人 B', '艺人 C'], album: '', durationMs: 0, year: null, track: null, total: 0.22 },
 ]
 
 function mockOnlineSong(source: 'Netease' | 'QQMusic', spec: MockOnlineSpec, index: number) {
@@ -609,6 +612,7 @@ function mockOnlineSong(source: 'Netease' | 'QQMusic', spec: MockOnlineSpec, ind
     sourceId: source === 'QQMusic' ? `00${index}ABCmid` : String(186_000 + index),
     title: spec.title,
     artist: spec.artist,
+    artists: spec.artists ?? spec.artist.split('/'),
     album: spec.album,
     durationMs: spec.durationMs,
     year: spec.year,
@@ -1146,18 +1150,20 @@ export function installMockBackend(scenario: string | null): void {
           }
           const base = currentTagView(path)
           const text = (value: unknown) => (typeof value === 'string' && value.trim() !== '' ? value : null)
+          // 被点名保持的字段不动（与后端一致）。
+          const kept = new Set((request.keep as string[] | undefined) ?? [])
           const next = {
             ...base,
             title: text(request.title),
-            artist: ((request.artists as string[]) ?? []).join('/') || null,
+            artist: kept.has('artist') ? base.artist : ((request.artists as string[]) ?? []).join('/') || null,
             album: text(request.album),
-            albumArtist: text(request.albumArtist),
+            albumArtist: kept.has('albumArtist') ? base.albumArtist : text(request.albumArtist),
             year: (request.year as number | null) ?? null,
             trackNumber: (request.trackNumber as number | null) ?? null,
             discNumber: (request.discNumber as number | null) ?? null,
-            genre: text(request.genre),
-            composer: text(request.composer),
-            lyricist: text(request.lyricist),
+            genre: kept.has('genre') ? base.genre : text(request.genre),
+            composer: kept.has('composer') ? base.composer : text(request.composer),
+            lyricist: kept.has('lyricist') ? base.lyricist : text(request.lyricist),
             comment: text(request.comment),
             lyrics: text(request.plainLyrics),
           }

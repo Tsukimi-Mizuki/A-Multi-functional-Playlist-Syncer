@@ -155,6 +155,16 @@ impl NeteaseSong {
         self.cover_url().map(super::cover::cover_download_url)
     }
 
+    /// 各位歌手的名字（去掉空白的），一人一项。
+    pub fn artist_names(&self) -> Vec<String> {
+        self.artists
+            .iter()
+            .map(|artist| artist.name.as_str())
+            .filter(|name| !name.trim().is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
     /// 歌手名以 `/` 连接。
     pub fn artist_text(&self) -> String {
         self.artists
