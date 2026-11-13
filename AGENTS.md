@@ -15,14 +15,14 @@
 | 技术栈 | Rust 1.99（edition 2024）、Tauri 2.12、React 19 + TypeScript 7 + Vite 8、pnpm 11；标签 lofty、HTTP reqwest（Schannel）、测试 `cargo test` |
 | 许可证 | AGPL-3.0（见 `LICENSE`）。仅用于个人备份自己有权访问的音乐，不分发音频、不绕过版权与会员限制 |
 | 仓库 | https://github.com/Tsukimi-Mizuki/A-Multi-functional-Playlist-Syncer |
-| 当前状态 | **2.2.4（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1126 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）、`v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）、`v2.1.2`（2.1.2：背景雾度、精简设置说明）、`v2.1.3`（2.1.3：「下载缺失」「一键同步」二次确认，缺失清单可取消勾选）、`v2.2`（2.2.0：液态玻璃主题重做——内置背景 WebGL 真折射、对话框折射下层界面、高级设置与即时预览）、`v2.2.1`（2.2.1：拖入多首或文件夹时交给批量获取）、`v2.2.2`（2.2.2：封面更清楚——网易云最长边 4000、QQ 1200，自动补全的标签与封面网易云优先）、`v2.2.3`（2.2.3：批量修改标签——右边歌曲列表、左边选中歌曲的标签，可多选批量改；编辑器显示封面参数；新增作词家）与 `v2.2.4`（2.2.4：编辑器的「在线标签」——并列网易云与 QQ 音乐的候选，选一条套用标签或封面，不取歌词）** |
+| 当前状态 | **2.2.4（Rust + Tauri 重写版）**：重写模块 1–12 全部完成，`cargo test --workspace` 1140 个测试全过，fmt / clippy（`-D warnings`）/ `pnpm build` 通过；两个「待修问题」（登录续期、网易云搜索）都已修复。**已发布 tag `v2.0`（2.0.0）、`v2.1`（2.1.0：运行日志收起 / 展开动画、歌词预览跟随「歌词来源」）、`v2.1.1`（2.1.1：启动时检查 GitHub 最新正式版并弹窗提醒）、`v2.1.2`（2.1.2：背景雾度、精简设置说明）、`v2.1.3`（2.1.3：「下载缺失」「一键同步」二次确认，缺失清单可取消勾选）、`v2.2`（2.2.0：液态玻璃主题重做——内置背景 WebGL 真折射、对话框折射下层界面、高级设置与即时预览）、`v2.2.1`（2.2.1：拖入多首或文件夹时交给批量获取）、`v2.2.2`（2.2.2：封面更清楚——网易云最长边 4000、QQ 1200，自动补全的标签与封面网易云优先）、`v2.2.3`（2.2.3：批量修改标签——右边歌曲列表、左边选中歌曲的标签，可多选批量改；编辑器显示封面参数；新增作词家）与 `v2.2.4`（2.2.4：编辑器的「在线标签」——并列网易云与 QQ 音乐的候选，选一条套用标签或封面，不取歌词）** |
 | 分支 | `main` = Tauri 重写版（旧 `main` 的快进延续，历史连续）；`CSharp-GUI` = 旧的 C# / Avalonia 版（v1.x，含 v1.3），只作历史与维护用途，**不要往里合并新功能**；`GUI-Tauri`、`tauri-experiment` 等重写期间的分支已并入 `main` 或删除 |
 | 历史 tag | `v0.0.1`、`v0.0.1-manual`、`v.1.0.0`（带前导点）、`v1.1`、`v1.2`、`v1.3` 都是 C# 版；Tauri 版从 `v2.0`（版本号 2.0.0）起 |
 
 ## 2. 接手后先做的自检（约 20 分钟）
 
 1. **环境**：Windows 10/11 x64 + PowerShell 5.1 以上；Rust stable（≥ 1.99，msvc 工具链，带 rustfmt / clippy）；Visual Studio 2022 生成工具（C++ 桌面开发）；Node.js（开发用 26）与 pnpm 11；WebView2 运行时（Win11 自带）。
-2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1126 个测试全部通过**：lp-core 库内 1052 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
+2. **跑基线**：`.\build.ps1 -Test` → fmt、clippy、`cargo test --workspace`（**1140 个测试全部通过**：lp-core 库内 1066 + 集成 36 + 外壳 38）、`pnpm build` 全过（首次含依赖下载与编译，约 5–10 分钟）。
 3. **出包并试用**：`.\build.ps1` 得到 `app\target\release\LunaticPrincess.exe`；`.\build.ps1 -Bundle` 在 `dist-release\` 得到安装包与便携版 zip。用**自己的**账号扫码登录，确认歌单加载、本地对比、下载、NCM 导入四个链路可用（这四条的「真实账号」验证历来要靠用户真机，见 `docs/TAURI_REWRITE.md` 各模块的「验证」）。
 4. **读文档**：`docs/ARCHITECTURE.md` 的「关键流程」「外观与窗口效果」，`docs/IMPLEMENTATION_STATUS.md` 的「已知限制」，`docs/TAURI_REWRITE.md` 的 **「待修问题」**（两个问题已确认并修复，记录与修复说明都在那里，别重复踩）。
 5. **确认干净**：`git status` 应无改动；`dist-release/`、`.tmp/`、`app/target/`、`app/node_modules/`、`publish/`、`.dotnet/` 等都已 gitignore，不要在仓库里留临时脚本、探针或登录态。
@@ -84,7 +84,7 @@ dist-release/                      # build.ps1 -Bundle 的输出（gitignore）
 | `netease` | 非公开接口：`crypto`（weapi + eapi）、`http`（传输 trait + reqwest 实现）、`client`（会话 / Cookie 合并 / 超时）、`login` `playlists` `songs` `player`（取链）`lyrics` `search`，以及 `mappers` / `models` |
 | `playlist` | 歌单加载编排（取列表 / 曲目、写日志、301 走登录复核） |
 | `lyrics` | `parser`（LRC / 增强 LRC / YRC / QRC / 译文）、`qrc`（QQ 3DES 变体）、`krc`（酷狗）、`zlib`、`html`、`service`（歌词预览，按设置里的「歌词来源」换源）、`scorer`（匹配打分）、`batch`（批量服务 + 任务编排 + 在线补全挂钩） |
-| `tags` | `LoftyTagService`：MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词、网易云 ID（原子写入）；`text` 辅助、`view` DTO、`table`（批量修改标签：列表行、只写提到的字段的 `TagPatch`、并行读 / 写） |
+| `tags` | `LoftyTagService`：MP3 / FLAC / M4A / OGG / OPUS / WAV 标签、封面、歌词、网易云 ID（原子写入）；`text` 辅助、`view` DTO、`table`（批量修改标签：列表行、只写提到的字段的 `TagPatch`、并行读 / 写）、`sidecar`（音频旁边同名的 `.lrc` 歌词文件，只读） |
 | `ncm` | `decoder`（流式解密）、`client_comment`（客户端文件注释里的 `163 key`）、`synthetic`（测试用合成 NCM） |
 | `library` | `scanner`（并行读标签）、`matcher`（一对一匹配）、`text`（.NET 语义的文本归一化）、`manager`（扫描缓存与对比）、`view` |
 | `download` | `service`（单曲下载）、`fetch`（流式取文件）、`media`（文件名 / 原子落盘 / 标签数据）、`pool`（并发任务池）、`task`（下载 / 同步任务编排）、`ncm_import`（NCM 导入） |
@@ -204,6 +204,8 @@ pnpm dev                                                           # 只开前�
 - **拖放**：拖入一首（或只含一首的文件夹）用歌词与标签编辑器打开；拖入多首、或含多首的文件夹（含子文件夹，规则同批量修改标签扫描目录）交给「批量修改标签」，清单就是拖入的文件（`resolve_drop` 返回 `batch` + `files`，按拖入顺序、去重，无法处理的目标跳过并写日志）；编辑器或批量窗口开着时交给最上面的窗口（批量窗口开着时新拖入的一批替换清单，正在处理时不换）；只有 `.ncm` 时提示改用「导入 NCM」。
 - **批量修改标签**（`BatchTagsDialog` + `useBatchTags`，布局参考见 `docs/design/README.md`）：右边是歌曲列表（选目录或拖入，标签由 `read_tag_rows` 分批读出，读不出来的文件也占一行），选中歌曲（单击 / Ctrl / Shift / Ctrl+A / 方向键）后左边显示它们的标签，值不一样的字段显示「〈保持〉」。保存时 `patch_tags` **只写动过的字段**（`TagPatch`：没出现 = 不动，`null` / 空白 = 清除，落到 `AudioTagData::clear`），逐个文件返回结果，一个失败不影响其余；改备注时保留网易云 ID 标记；歌词不在面板里改，「编辑…」用歌词与标签编辑器打开那一首。「在线获取」（原来的批量获取标签、封面与歌词，`batch_run`）只处理选中的歌，没选就是全部；面板里有没保存的改动时不能开始。换选中的歌、换清单、关窗口之前先确认没保存的改动。新增标签字段时要同时改 `AudioTagData` / `AudioTagInfo` / `TagField`、`TagView` / `WriteTagsRequest`、`TagRowView` / `TagPatch`、前端 `api/tags.ts`、编辑器（`useLyricsEditor` 用 `replaceAll` 保存，漏了字段会被清掉）与批量面板（`useBatchTags` 的字段表）。
 - **在线标签**（编辑器「标签信息」右上角的按钮，`OnlineTagsDialog` + `useOnlineTags`，布局参考见 `docs/design/README.md`）：用表单里现在的标题 + 艺术家（标题空着就用文件名）**同时**搜网易云与 QQ 音乐（`online_tag_candidates`，每个来源最多 10 条，一个来源失败不影响另一个），合在一起按匹配度排序，一行一条：封面缩略图、来源一栏（来源 / 封面像素尺寸 / 年份 / 音轨 / 风格）、标题、艺术家、专辑、时长与匹配度；关键词可以改了重搜。封面尺寸由 `online_cover_size` 逐行探测——只读图片开头、认出尺寸就断开，不整张下载；缩略图是图床的小图，直接由界面加载。选一条按「确定」（或双击 / 回车）才 `online_load_tags` 取这一条的标签与封面，按底部勾选的「标签」「封面」填进编辑器表单（在线结果里空着的字段保持原样），仍要点「保存」才写入文件。**全程不请求歌词**（`OnlineMusicSearch::get_tag_details`，与带歌词的 `get_details` 分开），歌词框不动。
+- **同名歌词文件**（`tags::sidecar`）：不少曲库的歌词不在音频文件里，而在旁边同名的 `.lrc`（`歌曲.flac` + `歌曲.lrc`）。音频文件里**没有内嵌歌词**时，歌词与标签编辑器、「查看标签」与批量修改标签的歌词预览显示这个文件的内容并注明来源（`TagView.sidecarLyrics`、`TagRowView.lyricsFile`）；有内嵌歌词就以内嵌的为准、不读 `.lrc`。只认 UTF-8（带不带 BOM）与带 BOM 的 UTF-16，超过 2 MB、读不出来或认不出编码的当作没有。程序**从不写、不删 `.lrc`**：编辑器保存时把歌词框里的内容写进音频标签，之后读到的就是内嵌的。`AudioTagInfo.lyrics` 的含义没变（只是内嵌歌词），下载、同步、批量在线获取判断「有没有歌词」仍然只看音频文件本身。
+- **多值字段与名字里的 `/`**：艺术家、专辑艺术家、风格、作曲家、作词家在文件里是一个个独立的值，界面上却用 `/` 接成一行，保存时再按分隔符拆开——名字里带 `/` 的人（`AC/DC`、`+α/あるふぁきゅん。`）会被拆成两个。现在的三条规矩：①编辑器保存时，**和打开文件时一样的多值字段列进 `keep`**（`WriteTagsRequest.keep` → `AudioTagData::keep`），后端对这些字段一个字节都不碰，哪怕是 `replace_all`；②在线结果带着来源给的歌手清单（`OnlineSongResult.artists`，网易云 `ar[]` / QQ `singer[]`），编辑器套用在线结果后只要那行字没再改，保存就写这份清单（`useLyricsEditor::multiValuePlan`），批量在线获取与下载后的自动补全同样优先用清单（`lyrics::batch`），清单为空才按分隔符拆；③用户手改过的那行字仍然只能按 `/` 拆（要彻底解决得把输入框改成一人一格，还没做）。批量修改标签本来就只写动过的字段，动过的同样按 `/` 拆。注意 ID3v2.3 没有多值、写的时候就是用 `/` 拼成一个帧，这种文件里名字带 `/` 的人天生分不清；M4A 读的时候按 `;` 拆（兼容 TagLib 写出的文件），名字里带分号的人同理。
 - **标签写入**：复制成同目录临时副本 → 写副本 → 重新解析确认类型没变 → 原子替换；任何一步失败都保留原文件。`replace_all` 保存时保留网易云 ID 标记与封面（没提供封面就不动封面）。
 - **检查更新**：启动约 3 秒后，`autoCheckUpdates` 开着就匿名请求 GitHub `releases/latest`（只有正式版），tag 归一后按 SemVer 与当前版本比较：新版本且不是 `ignoredUpdateVersion` → 弹窗（跳转至下载页面 / 忽略本次更新 / 稍后提醒）；忽略过的版本、已是最新 → 只写日志。「稍后提醒」只关窗，下次启动再提醒；「忽略」只跳过这一个版本。设置「关于」的「立即检查」不受开关影响，忽略过的版本也照样弹窗。程序**不下载、不安装**更新，浏览器只会打开本项目的发布页。自动检查失败记普通日志，手动检查失败记警告。
 - **错误文案**：`utilities::error_text` 识别权限不足 / 空间不足 / 文件被占用 / 路径过长并给出「是什么 + 怎么办」；命令的 `Err` 统一是 `{ kind, message }`（message 为中文），**不把英文异常抛给用户**。
@@ -242,7 +244,7 @@ pnpm dev                                                           # 只开前�
 ## 9. 测试约定
 
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
-- 现状（2026-11）：**1126 个**——`lp-core` 库内 1052、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
+- 现状（2026-11）：**1140 个**——`lp-core` 库内 1066、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
@@ -269,7 +271,7 @@ pnpm dev                                                           # 只开前�
 - **界面设计一律以用户提供的设计参考为准**：对话中给出的设计稿 / 截图就是视觉基准，改配色、圆角、间距、控件形态、排版前先对照，不要自行更换视觉语言。设计稿存 `docs/design/`（命名 `ui-<窗口或场景>.png`），并在 `docs/design/README.md` 登记文件名与文字要点——无法看图的人（包括 AI）靠这些文字实现。目前该目录还没有设计稿，视觉基线以下面这一节为准。
 - **液态玻璃**主题（深色 / 浅色 / 跟随系统）：效果参考是用户指定的 liquid-glass-studio（参数含义、范围、默认值见 `docs/design/README.md`）。背景默认是内置的渐变光斑（WebGL 画、面板真正折射，也可选自选图片 / 歌单封面），选「系统材质」时主窗口透明无边框，Rust 侧给窗口铺系统材质（亚克力 / 云母 / 无，`windowMaterial`），失败自动退到另一种；`theme.css` 只定义每套主题的底色三元组与高光，各层不透明度由 `--glass-strength`（`glassOpacity`）推导；`glass.css` 统一给标题栏、侧栏、歌曲区、对话框、设置卡片加顶部柔光、内侧高光、投影与 1px 边缘折光。颜色一律用 CSS 变量，不写死色值。
 - **景深**：给「下一层」加 `filter`：有对话框时整个主界面 `.app-shell` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) .app-shell`），叠放对话框时被盖住的也虚化；单个对话框时 `#root` 上再套 SVG 位移滤镜，让对话框边缘折射下层界面（先模糊再折射，两个滤镜分在两个元素上，雾度的过渡才不被 url() 滤镜打断）。虚化半径与对话框后的遮罩 `--scrim` 都由 `--backdrop-haze`（设置「背景雾度」`backdropHaze`）推导：主界面 `h × 30 px`、被叠住的对话框 `h × 20 px`，遮罩不透明度 `h·(0.4+s)·(1−h) + 0.92·h²`（s 为玻璃浓度），0 时完全清晰、1 时几乎被盖满，默认 0.30 即原来的固定效果。对话框用 `createPortal` 挂到 `body`，避免被上一个对话框的 filter 截成局部定位容器。早期 WebView2 的透明窗口里 `backdrop-filter` 不生效；2026-11 实测 WebView2 156 对页面内容已经生效，但它会在折射之后再模糊一遍、把折射抹掉，所以对话框**不用** `backdrop-filter`。**不要为了「更像玻璃」把对话框底色改回高不透明度，也不要依赖 `backdrop-filter` 做模糊。**
-- **动效**：时长（120 / 200 / 320 / 460 ms）与缓动统一在 `theme.css`；对话框进场缩放 + 淡入，退场靠卸载时留下的静态「残影」播放淡出；主题切换用 View Transition 整窗交叉淡化；「减少动效」（`reduceMotion` 或系统开启「减少动画」）把所有过渡缩到 1 ms。
+- **动效**：时长（120 / 200 / 320 / 460 ms）与缓动统一在 `theme.css`；对话框进场缩放 + 淡入，退场靠卸载时留下的静态「残影」播放淡出；主题切换用 View Transition 整窗交叉淡化；复选框是 `glass.css` 里自己画的（`appearance: none`，勾选时底色渐变、对勾弹出），系统原生的复选框不能加过渡，新增复选框直接用 `<input type="checkbox">` 就带这套样式；「减少动效」（`reduceMotion` 或系统开启「减少动画」）把所有过渡缩到 1 ms。
 - 窗口：无边框自绘标题栏（`TitleBar`，68 px 顶栏即标题栏，自绘最小化 / 最大化 / 关闭，可拖动，双击最大化），窗口最小 960×600；弹出层用 `Modal` 组件（模态栈：Esc 只关最上面一个）。
 - 受限环境（远程桌面 / 关闭透明效果）下系统材质不可用，窗口退化为纯透明 + 界面自身的玻璃底色。
 - **改 UI 必须实机验证**：①普通浏览器 `pnpm dev` + 假后端（`mockBackend.ts`，`?mock=loggedout|empty|listerror|slow|libmanual|libmissing|libbig|dlslow|dlnote|ncmempty|ncmbig|neteasefail|startup|kugounone|batchbig|elevated|systembg` 等场景）检查渲染与状态，深色 / 浅色都看；②启动发布版 exe（复制到独立目录 + 独立数据目录），用 WebView2 远程调试端口读 DOM / 调命令 / 截图，至少确认窗口能开、关键文案正确、设置能保存、深色 / 浅色都不崩。
@@ -321,6 +323,6 @@ pnpm dev                                                           # 只开前�
 - [ ] 新维护者的 `git config user.name/user.email` 已设置；`LICENSE`、README 徽章与仓库链接是否要改（仓库地址变了还要改检查更新用的两个常量，见 §10「GitHub」）。
 - [ ] 删除个人数据：`%LOCALAPPDATA%\LunaticPrincess`、`%MyMusic%\LunaticPrincess` 里的下载内容、本地遗留的 `publish\win-x64\data`（含 `session.dat`）；检查 `settings.json` 里有没有个人路径。
 - [ ] `git status` 干净，仓库里没有临时脚本 / 日志 / 发布产物；`git log` 与远端一致；`main` 与 `CSharp-GUI` 两个分支都已推送。
-- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1126 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
+- [ ] 在干净环境重新跑 `.\build.ps1 -Test`（1140 全过）与 `.\build.ps1 -Bundle`，并在一台没装开发环境的机器上试装安装包、解压便携版确认能启动。
 - [ ] 与接手人当面过一遍 §2 自检、§10 外部接口风险、§12 发版流程，并确认谁负责「待修问题」、后续 tag / Release，以及 2.0.0 的发版时机。
 - [ ] 约定后续节奏：分支策略（是否引入 develop / PR 流程）、发版频率、是否给安装包做代码签名、是否继续推进本地播放。
