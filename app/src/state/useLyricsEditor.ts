@@ -137,8 +137,16 @@ function fieldsFromInfo(info: TagView): EditorFields {
     composer: info.composer ?? '',
     lyricist: info.lyricist ?? '',
     comment: info.comment ?? '',
-    lyrics: info.lyrics ?? '',
+    // 文件里没有内嵌歌词时，显示旁边同名 .lrc 文件里的（保存时随表单一起写进音频文件）。
+    lyrics: info.lyrics ?? info.sidecarLyrics?.text ?? '',
   }
+}
+
+/** 读取完成后的状态栏文字：歌词取自同名 .lrc 文件时说明来源。 */
+export function loadedStatus(info: TagView): string {
+  return info.sidecarLyrics
+    ? `标签已读取；歌词来自同名文件「${info.sidecarLyrics.fileName}」（音频文件里没有内嵌歌词）。`
+    : '标签与歌词已读取。'
 }
 
 /** 文件信息行：「MP3 · 4:29 · 320 kbps · 10.3 MB」。 */
@@ -563,7 +571,7 @@ export function useLyricsEditor() {
       setSelectedKey(null)
       setSearching(false)
       setSearchStatus('')
-      setStatus('标签与歌词已读取。')
+      setStatus(loadedStatus(info))
       setBusy(false)
       if (autoSearch) {
         const suggested = keywordFromFileName(path)

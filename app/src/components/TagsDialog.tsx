@@ -140,6 +140,15 @@ export default function TagsDialog({ path, onClose, onPickAnother }: TagsDialogP
               <pre className="lyrics-text tags-lyrics" tabIndex={0} aria-label="歌词内容（只读）">
                 {tags.lyrics}
               </pre>
+            ) : tags.sidecarLyrics ? (
+              <>
+                <p className="tags-empty tags-no-lyrics" title={tags.sidecarLyrics.path}>
+                  文件里没有内嵌歌词，下面是同名文件「{tags.sidecarLyrics.fileName}」的内容
+                </p>
+                <pre className="lyrics-text tags-lyrics" tabIndex={0} aria-label="歌词内容（只读，来自同名歌词文件）">
+                  {tags.sidecarLyrics.text}
+                </pre>
+              </>
             ) : (
               <p className="tags-empty tags-no-lyrics">文件里没有歌词</p>
             )}

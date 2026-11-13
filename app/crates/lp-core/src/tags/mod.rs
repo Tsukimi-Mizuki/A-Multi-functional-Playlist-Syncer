@@ -5,17 +5,20 @@
 //! - [`model`]：[`AudioTagData`]（要写入的数据）、[`AudioTagInfo`]（读取结果）、[`TagError`]；
 //! - [`service`]：[`AudioTagService`] trait 与 lofty 实现 [`LoftyTagService`]；
 //! - [`text`]：网易云 ID 标记、备注清理、多值拆分等纯函数；
+//! - [`sidecar`]：音频文件旁边的同名 `.lrc` 歌词文件（只读，给界面在文件里没有歌词时显示）；
 //! - [`view`]：给界面用的视图（封面 data URL）、写入请求与错误 DTO；
 //! - [`table`]：批量修改标签窗口的列表行与批量改动（只写提到的字段）。
 
 pub mod model;
 pub mod service;
+pub mod sidecar;
 pub mod table;
 pub mod text;
 pub mod view;
 
 pub use model::{AudioTagData, AudioTagInfo, TagError, TagField};
 pub use service::{AudioTagService, LoftyTagService};
+pub use sidecar::{SidecarLyrics, read_sidecar_lyrics};
 pub use table::{TagPatch, TagPatchResult, TagRowView, apply_patch, read_rows};
 pub use text::{detect_image_mime, parse_netease_id};
 pub use view::{MAX_COVER_PREVIEW_BYTES, TagCommandError, TagView, WriteTagsRequest};

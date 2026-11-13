@@ -13,6 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use super::model::{AudioTagData, AudioTagInfo, TagError, TagField};
 use super::service::AudioTagService;
+use super::sidecar::read_sidecar_lyrics;
 use super::text::clean_values;
 
 /// 读标签的并发上限（与曲库扫描一致）。
@@ -62,8 +63,10 @@ pub struct TagRowView {
     pub comment: Option<String>,
     /// 歌词的第一行（最多 120 个字符）；没有歌词为 `None`。
     pub lyrics_preview: Option<String>,
-    /// 是否有歌词。
+    /// 是否有歌词（内嵌的，或旁边同名的 `.lrc` 文件）。
     pub has_lyrics: bool,
+    /// 歌词来自旁边同名的 `.lrc` 文件时是它的文件名；内嵌歌词或没有歌词为 `None`。
+    pub lyrics_file: Option<String>,
     /// 是否有封面。
     pub has_cover: bool,
     /// 时长（毫秒）。
@@ -92,6 +95,18 @@ impl TagRowView {
             comment: info.comment,
             ..Self::located(path)
         }
+    }
+
+    /// 没有内嵌歌词时，用旁边同名 `.lrc` 文件的第一行当预览。
+    fn with_sidecar_lyrics(mut self, path: &Path) -> Self {
+        if !self.has_lyrics
+            && let Some(sidecar) = read_sidecar_lyrics(path)
+        {
+            self.lyrics_preview = lyrics_preview(&sidecar.text);
+            self.has_lyrics = true;
+            self.lyrics_file = Some(sidecar.file_name);
+        }
+        self
     }
 
     /// 读不出标签的文件：只有路径信息与原因。
@@ -123,9 +138,11 @@ impl TagRowView {
     }
 
     /// 读一个文件并构造一行；读取失败时返回带原因的行，不向上报错（列表里其余文件照常显示）。
+    ///
+    /// 文件里没有内嵌歌词时看一眼旁边同名的 `.lrc`，与歌词与标签编辑器打开这一首时显示的一致。
     pub fn read(service: &dyn AudioTagService, path: &Path) -> Self {
         match service.read(path) {
-            Ok(Some(info)) => Self::new(path, info),
+            Ok(Some(info)) => Self::new(path, info).with_sidecar_lyrics(path),
             Ok(None) => Self::unreadable(
                 path,
                 "无法读取标签：文件不存在、格式不支持或已损坏。".to_owned(),

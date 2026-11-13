@@ -170,6 +170,8 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
   const canSave = hasFile && !busy
   const cover = editor.coverView
   const batchFolder = file ? directoryOf(file.path) : ''
+  // 歌词框里显示的还是同名 .lrc 文件的原样内容（用户还没改过）：在歌词标题下说明来源。
+  const sidecar = info?.sidecarLyrics && info.sidecarLyrics.text === fields.lyrics ? info.sidecarLyrics : null
 
   return (
     <>
@@ -414,9 +416,15 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
             <div className="editor-lyrics-head">
               <div>
                 <h3 className="editor-card-title editor-accent">歌词</h3>
-                <p className="editor-hint">直接编辑并写入音频标签；支持 LRC / 逐字歌词文本。</p>
+                {sidecar ? (
+                  <p className="editor-hint" role="note" title={sidecar.path}>
+                    音频文件里没有内嵌歌词，下面是同名 .lrc 文件的内容；保存后会写进音频文件。
+                  </p>
+                ) : (
+                  <p className="editor-hint">直接编辑并写入音频标签；支持 LRC / 逐字歌词文本。</p>
+                )}
               </div>
-              <span className="editor-hint">{fields.lyrics.length.toLocaleString('zh-CN')} 字符</span>
+              <span className="editor-hint editor-lyrics-count">{fields.lyrics.length.toLocaleString('zh-CN')} 字符</span>
             </div>
             <textarea
               className="editor-textarea"

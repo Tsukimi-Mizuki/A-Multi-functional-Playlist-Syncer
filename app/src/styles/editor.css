@@ -382,6 +382,12 @@
   gap: 12px;
 }
 
+/* 字符数：左边的说明变长（歌词来自同名 .lrc 时）也不把它挤成两行。 */
+.editor-lyrics-count {
+  flex: none;
+  white-space: nowrap;
+}
+
 .editor-textarea {
   flex: 1;
   min-height: 160px;

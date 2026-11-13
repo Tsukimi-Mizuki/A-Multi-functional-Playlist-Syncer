@@ -9,6 +9,7 @@ use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
 use super::model::{AudioTagData, AudioTagInfo, TagError};
+use super::sidecar::{SidecarLyrics, read_sidecar_lyrics};
 use super::text::{detect_image_mime, image_dimensions};
 
 /// 封面预览的大小上限：超过就不内联 data URL（只告诉界面“有封面，太大不预览”），避免一次 IPC 传几十 MB。
@@ -48,8 +49,10 @@ pub struct TagView {
     pub lyricist: Option<String>,
     /// 备注（已去掉网易云 ID 标记）。
     pub comment: Option<String>,
-    /// 歌词原文。
+    /// 歌词原文（音频文件里内嵌的）。
     pub lyrics: Option<String>,
+    /// 文件里没有内嵌歌词时，旁边同名 `.lrc` 文件的内容；有内嵌歌词或没有这个文件时为 `None`。
+    pub sidecar_lyrics: Option<SidecarLyrics>,
     /// 网易云歌曲 ID（字符串）。
     pub netease_id: Option<String>,
     /// 是否有封面。
@@ -115,6 +118,7 @@ impl TagView {
             lyricist: info.lyricist,
             comment: info.comment,
             lyrics: info.lyrics,
+            sidecar_lyrics: None,
             netease_id: info.netease_id.map(|id| id.to_string()),
             has_cover: info.has_cover,
             cover_data_url,
@@ -129,6 +133,14 @@ impl TagView {
             file_size: info.file_size,
             file_format: info.file_format,
         }
+    }
+
+    /// 文件里没有内嵌歌词时，补上旁边同名 `.lrc` 文件的内容（会读一次磁盘；有内嵌歌词就不读）。
+    pub fn with_sidecar_lyrics(mut self) -> Self {
+        if self.lyrics.is_none() {
+            self.sidecar_lyrics = read_sidecar_lyrics(Path::new(&self.path));
+        }
+        self
     }
 }
 

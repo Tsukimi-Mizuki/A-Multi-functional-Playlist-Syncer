@@ -1,6 +1,15 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
+/** 音频文件旁边同名的 `.lrc` 歌词文件（与 Rust 端 `SidecarLyrics` 对应）。 */
+export interface SidecarLyrics {
+  /** 歌词文件的完整路径。 */
+  path: string
+  fileName: string
+  /** 歌词原文（已去掉 BOM）。 */
+  text: string
+}
+
 /** 与 Rust 端 `TagView`（camelCase）一一对应。 */
 export interface TagView {
   path: string
@@ -20,7 +29,10 @@ export interface TagView {
   lyricist: string | null
   /** 已去掉本程序写入的网易云 ID 标记。 */
   comment: string | null
+  /** 音频文件里内嵌的歌词。 */
   lyrics: string | null
+  /** 文件里没有内嵌歌词时，旁边同名 `.lrc` 文件的内容；有内嵌歌词或没有这个文件时为 null。 */
+  sidecarLyrics: SidecarLyrics | null
   /** 字符串：避免超过 2^53 的 ID 在 JS 里丢精度。 */
   neteaseId: string | null
   hasCover: boolean
@@ -163,7 +175,10 @@ export interface TagRow {
   comment: string | null
   /** 歌词的第一行（最多 120 个字符）。 */
   lyricsPreview: string | null
+  /** 有歌词：内嵌的，或旁边同名的 `.lrc` 文件。 */
   hasLyrics: boolean
+  /** 歌词来自旁边同名的 `.lrc` 文件时是它的文件名；内嵌歌词或没有歌词为 null。 */
+  lyricsFile: string | null
   hasCover: boolean
   durationMs: number
 }

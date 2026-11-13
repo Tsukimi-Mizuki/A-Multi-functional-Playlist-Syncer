@@ -87,6 +87,7 @@ fn rows_carry_the_tags_without_cover_bytes_and_keep_the_order() {
     assert_eq!(row.comment.as_deref(), Some("原始备注"));
     assert_eq!(row.lyrics_preview.as_deref(), Some("[00:01.00]第一行"));
     assert!(row.has_lyrics && row.has_cover);
+    assert_eq!(row.lyrics_file, None);
 
     let row = &rows[0];
     assert_eq!(row.file_name, "b 无标签.mp3");
@@ -94,7 +95,39 @@ fn rows_carry_the_tags_without_cover_bytes_and_keep_the_order() {
     assert_eq!(row.title, None);
     assert_eq!(row.lyrics_preview, None);
     assert!(!row.has_lyrics && !row.has_cover);
+    assert_eq!(row.lyrics_file, None);
     assert!(row.duration_ms > 0);
+}
+
+#[test]
+fn rows_without_embedded_lyrics_preview_the_lrc_file_next_to_them() {
+    let dir = TempDir::new();
+    let bare = create(&dir, "歌手 - 歌名.flac", &fixtures::flac());
+    create(
+        &dir,
+        "歌手 - 歌名.lrc",
+        "\u{feff}[ti:歌名]\n[00:01.00]文件里的第一句\n".as_bytes(),
+    );
+    // 内嵌歌词优先：旁边的 .lrc 不看。
+    let embedded = tagged(&dir, "晴天.flac", &fixtures::flac());
+    create(&dir, "晴天.lrc", "[00:01.00]旁边文件里的".as_bytes());
+    // 读不出来的音频：不去读它的 .lrc。
+    let broken = create(&dir, "坏的.mp3", b"not audio");
+    create(&dir, "坏的.lrc", "[00:01.00]x".as_bytes());
+
+    let rows = read_rows(&service(), &[bare.clone(), embedded, broken]);
+
+    assert_eq!(rows[0].lyrics_preview.as_deref(), Some("[ti:歌名]"));
+    assert!(rows[0].has_lyrics);
+    assert_eq!(rows[0].lyrics_file.as_deref(), Some("歌手 - 歌名.lrc"));
+    // 标签本身没有被改动：文件里仍然没有内嵌歌词。
+    assert_eq!(read(&bare).lyrics, None);
+
+    assert_eq!(rows[1].lyrics_preview.as_deref(), Some("[00:01.00]第一行"));
+    assert_eq!(rows[1].lyrics_file, None);
+
+    assert!(!rows[2].readable && !rows[2].has_lyrics);
+    assert_eq!(rows[2].lyrics_file, None);
 }
 
 #[test]

@@ -749,7 +749,12 @@ async fn read_tags(
 ) -> Result<Option<TagView>, TagCommandError> {
     let tags = Arc::clone(&state.tags);
     let target = PathBuf::from(path);
-    run_tag_task(move || Ok(tags.read(&target)?.map(|info| TagView::new(&target, info)))).await
+    run_tag_task(move || {
+        Ok(tags
+            .read(&target)?
+            .map(|info| TagView::new(&target, info).with_sidecar_lyrics()))
+    })
+    .await
 }
 
 /// 写入标签（先写同目录临时副本再原子替换，失败保留原文件）。本模块前端只读，编辑器在模块 10 接入。

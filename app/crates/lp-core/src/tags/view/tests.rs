@@ -2,6 +2,7 @@ use std::path::Path;
 
 use super::*;
 use crate::tags::fixtures::PNG_COVER;
+use crate::test_util::TempDir;
 
 fn info_with_cover(data: Vec<u8>, mime: Option<&str>) -> AudioTagInfo {
     AudioTagInfo {
@@ -85,6 +86,43 @@ fn view_without_cover_has_no_data_url() {
 }
 
 #[test]
+fn view_takes_the_lrc_file_next_to_the_audio_only_when_nothing_is_embedded() {
+    let dir = TempDir::new();
+    let audio = dir.path().join("歌手 - 歌名.flac");
+    std::fs::write(
+        dir.path().join("歌手 - 歌名.lrc"),
+        "[00:01.00]旁边文件里的歌词",
+    )
+    .unwrap();
+
+    // 构造视图本身不读磁盘。
+    let view = TagView::new(&audio, AudioTagInfo::default());
+    assert_eq!(view.sidecar_lyrics, None);
+
+    let view = view.with_sidecar_lyrics();
+    assert_eq!(view.lyrics, None, "内嵌歌词仍然是空的");
+    let sidecar = view.sidecar_lyrics.as_ref().unwrap();
+    assert_eq!(sidecar.file_name, "歌手 - 歌名.lrc");
+    assert_eq!(sidecar.text, "[00:01.00]旁边文件里的歌词");
+    let json = serde_json::to_value(&view).unwrap();
+    assert_eq!(json["sidecarLyrics"]["fileName"], "歌手 - 歌名.lrc");
+    assert!(json["lyrics"].is_null());
+
+    let embedded = AudioTagInfo {
+        lyrics: Some("[00:01.00]内嵌的歌词".into()),
+        ..Default::default()
+    };
+    let view = TagView::new(&audio, embedded).with_sidecar_lyrics();
+    assert_eq!(view.lyrics.as_deref(), Some("[00:01.00]内嵌的歌词"));
+    assert_eq!(view.sidecar_lyrics, None);
+
+    // 没有同名的 .lrc。
+    let view =
+        TagView::new(&dir.path().join("别的.flac"), AudioTagInfo::default()).with_sidecar_lyrics();
+    assert_eq!(view.sidecar_lyrics, None);
+}
+
+#[test]
 fn view_serializes_to_camel_case() {
     let json = serde_json::to_value(TagView::new(
         Path::new("a.mp3"),
@@ -105,6 +143,7 @@ fn view_serializes_to_camel_case() {
         "durationMs",
         "fileSize",
         "fileFormat",
+        "sidecarLyrics",
     ] {
         assert!(json.get(key).is_some(), "缺少 {key}");
     }

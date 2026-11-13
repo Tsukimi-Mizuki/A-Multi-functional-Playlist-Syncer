@@ -11,7 +11,8 @@
  * `libmanual` 关闭「自动对比」，`libmissing` 曲库目录不存在，`libbig` 扫描 2 万个文件（时间更长）。
  * 歌词与标签编辑器 / 批量修改标签：`neteasefail` 网易云搜索报“接口暂时无法使用”错误；`startup` 模拟 `--edit` 启动参数；`kugounone` 酷狗无结果；
  * `batchbig` 批量目录 3000 个文件；`elevated` 模拟管理员运行。写入的标签只存在内存里，重新读取能看到。
- * 批量目录里的假文件各有一份按序号编出来的标签（每 7 个有一个读不出来的「已损坏」文件，名字带「无权限」的保存失败）。
+ * 批量目录里的假文件各有一份按序号编出来的标签（每 7 个有一个读不出来的「已损坏」文件，名字带「无权限」的保存失败；
+ * 序号是 8 的倍数的没有内嵌歌词、但旁边有同名的 .lrc 文件）。
  * 控制台 `__lpMock.drop([路径])` 模拟拖入文件，`dragEnter([路径])` / `dragLeave()` 只触发提示层。
  * 下载 / 同步：假任务最多 3 首并行，歌曲 ID 是 13 的倍数的失败、11 的倍数的降档；`dlslow` 让每首歌慢一倍，`dlnote` 让每首都带降档提示。
  * 外观：默认背景是内置渐变光斑（WebGL 液态玻璃）；`systembg` 改用系统材质（CSS 近似）。
@@ -131,7 +132,7 @@ function mockTagView(path: string): TagView {
       ...base,
       title: null, artist: null, album: null, albumArtist: null, year: null,
       trackNumber: null, trackTotal: null, discNumber: null, discTotal: null,
-      genre: null, composer: null, lyricist: null, comment: null, lyrics: null, neteaseId: null,
+      genre: null, composer: null, lyricist: null, comment: null, lyrics: null, sidecarLyrics: null, neteaseId: null,
       hasCover: false, coverDataUrl: null, coverSize: null, coverTooLarge: false, coverMimeType: null,
       coverWidth: null, coverHeight: null, coverPictureType: null,
     }
@@ -158,6 +159,15 @@ function mockTagView(path: string): TagView {
       lyricist: n % 5 === 0 ? null : '作词 Y',
       comment: null,
       lyrics: n % 4 === 0 ? null : `[00:01.000]第 ${n} 首的第一句歌词\n[00:05.000]第二句`,
+      // 没有内嵌歌词的里面，一半旁边有同名的 .lrc 文件。
+      sidecarLyrics:
+        n % 8 === 0
+          ? {
+              path: path.replace(/\.[^.\\]+$/, '.lrc'),
+              fileName: fileName.replace(/\.[^.]+$/, '.lrc'),
+              text: `[00:01.000]第 ${n} 首：同名歌词文件里的第一句\n[00:05.000]歌词文件里的第二句`,
+            }
+          : null,
       neteaseId: String(186_000 + n),
       hasCover,
       coverDataUrl: hasCover ? cover((n * 37) % 360) : null,
@@ -188,6 +198,7 @@ function mockTagView(path: string): TagView {
       '[00:12.580]<00:12.580>难<00:12.830>以<00:13.130>忘<00:13.500>记\n' +
       '[00:16.960]<00:16.960>一<00:17.200>双<00:17.550>迷<00:18.020>人\n' +
       '[00:20.000]第三行很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长',
+    sidecarLyrics: null,
     neteaseId: '186016',
     hasCover: true,
     coverDataUrl: hugeCover ? null : cover(210),
@@ -480,13 +491,14 @@ function mockTagRow(path: string): TagRow {
     path, fileName, directory, fileFormat,
     title: null, artist: null, album: null, albumArtist: null, year: null, trackNumber: null, discNumber: null,
     genre: null, composer: null, lyricist: null, comment: null,
-    lyricsPreview: null, hasLyrics: false, hasCover: false, durationMs: 0,
+    lyricsPreview: null, hasLyrics: false, lyricsFile: null, hasCover: false, durationMs: 0,
   }
   if (fileName.includes('已损坏')) {
     return { ...empty, readable: false, error: '无法读取标签：文件不存在、格式不支持或已损坏。' }
   }
   const view = currentTagView(path)
-  const firstLine = view.lyrics?.split('\n').find((line) => line.trim() !== '') ?? null
+  const lyrics = view.lyrics ?? view.sidecarLyrics?.text ?? null
+  const firstLine = lyrics?.split('\n').find((line) => line.trim() !== '') ?? null
   return {
     ...empty,
     readable: true,
@@ -503,7 +515,8 @@ function mockTagRow(path: string): TagRow {
     lyricist: view.lyricist,
     comment: view.comment,
     lyricsPreview: firstLine ? firstLine.slice(0, 120) : null,
-    hasLyrics: view.lyrics != null,
+    hasLyrics: lyrics != null,
+    lyricsFile: view.lyrics == null ? (view.sidecarLyrics?.fileName ?? null) : null,
     hasCover: view.hasCover,
     durationMs: view.durationMs,
   }
@@ -1148,6 +1161,8 @@ export function installMockBackend(scenario: string | null): void {
             comment: text(request.comment),
             lyrics: text(request.plainLyrics),
           }
+          // 写进了内嵌歌词：之后读到的就是它，不再看旁边的 .lrc（与后端一致）。
+          if (next.lyrics != null) next.sidecarLyrics = null
           if (typeof request.coverBase64 === 'string' && request.coverBase64 !== '') {
             const mime = String(request.coverMimeType ?? 'image/png')
             Object.assign(next, {

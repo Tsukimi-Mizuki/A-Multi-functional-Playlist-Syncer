@@ -354,6 +354,8 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
   let lyricsText = ''
   if (only) lyricsText = only.lyricsPreview ?? '没有歌词'
   else if (count > 1) lyricsText = `${count} 首中 ${targets.filter((row) => row.hasLyrics).length} 首有歌词`
+  // 歌词不在音频文件里、而在旁边同名的 .lrc 里：悬停时说明来源。
+  const lyricsTitle = only?.lyricsFile ? `${lyricsText}\n（来自同名文件「${only.lyricsFile}」，音频文件里没有内嵌歌词）` : lyricsText
 
   const fieldNodes = PANE_ROWS.map((row) => {
     const nodes = row.map((field) => (
@@ -388,7 +390,7 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
           <span
             className={only?.lyricsPreview ? 'tagpane-lyrics' : 'tagpane-lyrics tagpane-lyrics-note'}
             aria-label="歌词预览"
-            title={lyricsText}
+            title={lyricsTitle}
           >
             {lyricsText}
           </span>
