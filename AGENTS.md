@@ -246,6 +246,7 @@ pnpm dev                                                           # 只开前�
 - 位置：`app/crates/lp-core`（库内 `#[cfg(test)]` 模块与集成测试）和 `app/src-tauri`（外壳的请求结构 / 设置写入范围测试）。**不依赖网络、不依赖真实音频文件**（`cargo test` 全程不联网）。
 - 现状（2026-11）：**1140 个**——`lp-core` 库内 1066、集成测试 36（`csharp_compat` 5、`csharp_download` 2、`csharp_library` 10、`csharp_lyrics` 4、`csharp_ncm` 4、`csharp_online` 7、`csharp_tags` 4）、外壳 38。前端没有自动化测试（见 §14）。
 - **`csharp_*.rs` 是什么**：重写期间用 C# 版（`CSharp-GUI` 分支）在同样的输入上跑出的「黄金」输出，提交在 `tests/fixtures/`；Rust 实现必须与之逐字节 / 逐字段一致（浮点误差 1e-9）。夹具全是合成数据，说明在各子目录 `README.md`。C# 源码已不在 `main` 上，**这些夹具不能再生成，只能读**；确需新增黄金数据，到 `CSharp-GUI` 分支写临时探针（用完即删）。
+- **CI 用的是当时最新的 Rust stable，可能比本机新**：`csharp_library` 里逐字符对照 .NET 的小写映射来自 Rust 标准库，Unicode 版本跟着工具链走（1.99 是 Unicode 17，1.100 是 Unicode 18，多出 4 对大小写）。白名单分成「必须出现」和「可以出现」两组，新旧工具链都能过；本机全过而 CI 的「检查与测试」失败时，先 `rustup check` 看是不是工具链升级了，再用 `rustup toolchain install <版本>` + `cargo +<版本> test` 在本机重现（2026-11-13 的 v2.2.5 就是这样挂的）。
 - 测试夹具与替身（都在 `lp-core` 里）：`test_util::FakeTransport`（按序返回响应、记录请求、可挂起制造「在途」窗口）、`tags/fixtures.rs`（按规范生成最小合法 MP3 / WAV / M4A；FLAC / Ogg / Opus 是 `tests/fixtures/audio/` 里的几百字节静音文件）、`ncm/synthetic.rs`（按格式规范做**逆运算**造出真实可解的 `.ncm`，与生产实现互相独立）、`download/test_support.rs`、`online/test_support.rs`、`TempDir` 帮手。
 - 加测试时同步更新 `docs/IMPLEMENTATION_STATUS.md` 的总数与分项，以及本文件 §1 / §2 / §9 的数字。
 - 真实网络验证：可以临时写探针跑一次（本项目历次都是这么验证的），**验证完立刻删除**，不要把依赖网络的测试提交进仓库，也不要放进会被 `cargo test` 全量执行的路径；歌词正文有版权，不打印不入库。

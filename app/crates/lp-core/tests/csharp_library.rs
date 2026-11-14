@@ -207,10 +207,20 @@ fn character_classes_and_lowercasing_match_dotnet_for_the_whole_bmp() {
         known_newer_class_diffs(),
         "字符类别出现了预期之外的差异（Unicode 版本更新后可更新白名单）"
     );
-    assert_eq!(
-        lower_diffs,
-        known_newer_lowercase_diffs(),
-        "小写映射出现了预期之外的差异（Unicode 版本更新后可更新白名单）"
+    // 小写映射来自 Rust 标准库，跟着工具链的 Unicode 版本走（字符类别来自锁定版本的 ICU4X，不随工具链变）：
+    // 所以这里不要求逐项相等，只要求「该有的都有、多出来的都在白名单里」，新旧工具链都能过。
+    let (required, optional) = known_newer_lowercase_diffs();
+    let unexpected: Vec<&String> = lower_diffs
+        .iter()
+        .filter(|diff| !required.contains(diff) && !optional.contains(diff))
+        .collect();
+    let missing: Vec<&String> = required
+        .iter()
+        .filter(|diff| !lower_diffs.contains(diff))
+        .collect();
+    assert!(
+        unexpected.is_empty() && missing.is_empty(),
+        "小写映射出现了预期之外的差异（Unicode 版本更新后可更新白名单）：多出 {unexpected:?}，缺少 {missing:?}"
     );
 }
 
@@ -238,9 +248,15 @@ fn known_newer_class_diffs() -> Vec<String> {
         .collect()
 }
 
-/// 同上：Unicode 16 新增的大小写对，.NET 8 还不认识。
-fn known_newer_lowercase_diffs() -> Vec<String> {
-    const PAIRS: [(u32, u32); 8] = [
+/// 同上：.NET 8 还不认识的大小写对，分成（必须出现的, 可以出现的）。
+///
+/// - Unicode 17 及以前新增的：本项目支持的最低工具链（Rust 1.99，标准库是 Unicode 17）就有，必须出现；
+/// - Unicode 18 新增的：Rust 1.100 的标准库才带上，旧工具链没有，出不出现都可以。
+///
+/// 这些都是极少见的扩展拉丁字母，歌名 / 歌手名的匹配不受影响（两边用的是同一个函数）。
+/// 以后工具链再升 Unicode 版本、这里又多出几对时，把它们加进「可以出现的」那一组。
+fn known_newer_lowercase_diffs() -> (Vec<String>, Vec<String>) {
+    const UP_TO_UNICODE_17: [(u32, u32); 8] = [
         (0x1C89, 0x1C8A),
         (0xA7CB, 0x0264),
         (0xA7CC, 0xA7CD),
@@ -250,10 +266,19 @@ fn known_newer_lowercase_diffs() -> Vec<String> {
         (0xA7DA, 0xA7DB),
         (0xA7DC, 0x019B),
     ];
-    PAIRS
-        .iter()
-        .map(|&(code, lower)| format!("U+{code:04X}: C# U+{code:04X} / Rust U+{lower:04X}"))
-        .collect()
+    const UNICODE_18: [(u32, u32); 4] = [
+        (0xA7DD, 0x0277),
+        (0xA7E2, 0x027C),
+        (0xAB6C, 0xAB4B),
+        (0xAB6D, 0xAB4C),
+    ];
+    let describe = |pairs: &[(u32, u32)]| -> Vec<String> {
+        pairs
+            .iter()
+            .map(|&(code, lower)| format!("U+{code:04X}: C# U+{code:04X} / Rust U+{lower:04X}"))
+            .collect()
+    };
+    (describe(&UP_TO_UNICODE_17), describe(&UNICODE_18))
 }
 
 fn load_object(name: &str) -> Value {
