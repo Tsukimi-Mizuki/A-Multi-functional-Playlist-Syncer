@@ -23,8 +23,10 @@ import {
   type RowMark,
   type TagFieldName,
 } from '../state/useBatchTags'
+import { useEditorDisplay } from '../state/editorDisplay'
 import type { CoverMeta } from '../state/useLyricsEditor'
 import ConfirmDialog from './ConfirmDialog'
+import EditorDisplayMenu, { HiddenItemsNote } from './EditorDisplayMenu'
 import Modal from './Modal'
 
 /** 拖进来交给批量修改的文件；`seq` 每次加一，同一批文件再拖一次也会重新载入。 */
@@ -345,6 +347,11 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
   const disabled = count === 0 || working
   const only = count === 1 ? targets[0] : undefined
   const pending = selected.size - count
+  // 显示哪些项目与歌词与标签编辑器的「标签信息」是同一份设置：在哪边改，两边都跟着变。
+  const display = useEditorDisplay()
+  const [displayOpen, setDisplayOpen] = useState(false)
+  // 被隐藏却动过的项目（先改了再隐藏）：保存时照样会写进文件，在面板底部点名。
+  const hiddenChanged = display.hidden.filter((id) => (id === 'cover' ? cover.kind !== 'keep' : fields[id].edited))
 
   let heading = '在右边选择要修改的歌曲'
   if (only) heading = only.fileName
@@ -358,17 +365,21 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
   const lyricsTitle = only?.lyricsFile ? `${lyricsText}\n（来自同名文件「${only.lyricsFile}」，音频文件里没有内嵌歌词）` : lyricsText
 
   const fieldNodes = PANE_ROWS.map((row) => {
-    const nodes = row.map((field) => (
-      <PaneField
-        key={field.name}
-        name={field.name}
-        label={field.label}
-        view={fields[field.name]}
-        disabled={disabled}
-        onChange={batch.setField}
-        onReset={batch.resetField}
-      />
-    ))
+    const nodes = row
+      .filter((field) => display.isVisible(field.name))
+      .map((field) => (
+        <PaneField
+          key={field.name}
+          name={field.name}
+          label={field.label}
+          view={fields[field.name]}
+          disabled={disabled}
+          onChange={batch.setField}
+          onReset={batch.resetField}
+        />
+      ))
+    // 这一行的项目全被隐藏了：整行不画。
+    if (nodes.length === 0) return null
     if (row.length === 1) return nodes[0]
     return (
       <div key={row.map((field) => field.name).join('-')} className="tagpane-row">
@@ -379,10 +390,13 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
 
   return (
     <section className="tagpane" aria-label="标签面板">
-      <p className="tagpane-heading" title={only?.path} aria-live="polite">
-        {heading}
-        {pending > 0 && count > 0 && <span className="tagpane-heading-note">（另有 {pending} 首无法修改）</span>}
-      </p>
+      <div className="tagpane-head">
+        <p className="tagpane-heading" title={only?.path} aria-live="polite">
+          {heading}
+          {pending > 0 && count > 0 && <span className="tagpane-heading-note">（另有 {pending} 首无法修改）</span>}
+        </p>
+        <EditorDisplayMenu display={display} open={displayOpen} onOpenChange={setDisplayOpen} />
+      </div>
       {fieldNodes}
       <div className="tagpane-field">
         <span className="tagpane-label">歌词</span>
@@ -406,46 +420,49 @@ function TagPane({ batch, onEditLyrics }: { batch: BatchTags; onEditLyrics: () =
           </button>
         </div>
       </div>
-      <div className="tagpane-cover">
-        <div className="editor-cover" aria-label={coverView.src ? '封面预览' : '没有封面预览'} role="img">
-          {coverView.src ? <img src={coverView.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
-        </div>
-        <div className="editor-cover-side">
-          {coverView.meta && <CoverMetaList meta={coverView.meta} />}
-          {coverView.caption !== '' && <p className="editor-cover-caption">{coverView.caption}</p>}
-          <div className="editor-cover-actions">
-            <button
-              type="button"
-              className="btn btn-small"
-              aria-label="更换封面"
-              disabled={disabled}
-              onClick={() => void batch.chooseCover()}
-            >
-              更换封面…
-            </button>
-            <button
-              type="button"
-              className="btn btn-small"
-              aria-label="移除封面"
-              disabled={disabled || cover.kind === 'removed' || (cover.kind === 'keep' && !targets.some((row) => row.hasCover))}
-              onClick={batch.removeCover}
-            >
-              移除封面
-            </button>
-            {cover.kind !== 'keep' && (
+      {display.isVisible('cover') && (
+        <div className="tagpane-cover">
+          <div className="editor-cover" aria-label={coverView.src ? '封面预览' : '没有封面预览'} role="img">
+            {coverView.src ? <img src={coverView.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
+          </div>
+          <div className="editor-cover-side">
+            {coverView.meta && <CoverMetaList meta={coverView.meta} />}
+            {coverView.caption !== '' && <p className="editor-cover-caption">{coverView.caption}</p>}
+            <div className="editor-cover-actions">
               <button
                 type="button"
-                className="btn btn-small btn-ghost"
-                aria-label="还原封面"
-                disabled={working}
-                onClick={batch.restoreCover}
+                className="btn btn-small"
+                aria-label="更换封面"
+                disabled={disabled}
+                onClick={() => void batch.chooseCover()}
               >
-                还原
+                更换封面…
               </button>
-            )}
+              <button
+                type="button"
+                className="btn btn-small"
+                aria-label="移除封面"
+                disabled={disabled || cover.kind === 'removed' || (cover.kind === 'keep' && !targets.some((row) => row.hasCover))}
+                onClick={batch.removeCover}
+              >
+                移除封面
+              </button>
+              {cover.kind !== 'keep' && (
+                <button
+                  type="button"
+                  className="btn btn-small btn-ghost"
+                  aria-label="还原封面"
+                  disabled={working}
+                  onClick={batch.restoreCover}
+                >
+                  还原
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      <HiddenItemsNote hidden={display.hidden} changed={hiddenChanged} onOpen={() => setDisplayOpen(true)} />
     </section>
   )
 }

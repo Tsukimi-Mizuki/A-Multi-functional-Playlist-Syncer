@@ -9,8 +9,10 @@ import {
   type CoverMeta,
   type EditorFields,
 } from '../state/useLyricsEditor'
+import { useEditorDisplay } from '../state/editorDisplay'
 import BatchTagsDialog, { type BatchDrop } from './BatchTagsDialog'
 import ConfirmDialog from './ConfirmDialog'
+import EditorDisplayMenu, { HiddenItemsNote } from './EditorDisplayMenu'
 import Modal from './Modal'
 import OnlineTagsDialog from './OnlineTagsDialog'
 
@@ -100,6 +102,9 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
   // 「在线标签」窗口：打开那一刻的关键词与打分用的歌曲信息（之后表单再变也不影响这一次）。
   const [onlineTags, setOnlineTags] = useState<{ keyword: string; context: FileContext } | null>(null)
   const [confirm, setConfirm] = useState<{ message: string; confirmLabel: string; run: () => void } | null>(null)
+  // 「标签信息」里显示哪些项目（记在本机），以及「显示选项」浮层开没开。
+  const display = useEditorDisplay()
+  const [displayOpen, setDisplayOpen] = useState(false)
   const dirtyRef = useRef(dirty)
   const busyRef = useRef(busy)
   const batchOpenRef = useRef(batchOpen)
@@ -172,6 +177,11 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
   const batchFolder = file ? directoryOf(file.path) : ''
   // 歌词框里显示的还是同名 .lrc 文件的原样内容（用户还没改过）：在歌词标题下说明来源。
   const sidecar = info?.sidecarLyrics && info.sidecarLyrics.text === fields.lyrics ? info.sidecarLyrics : null
+  const show = display.isVisible
+  // 被隐藏却有未保存修改的项目（套用在线结果会改到看不见的字段）：在卡片底部点名，免得不知不觉写进文件。
+  const hiddenChanged = display.hidden.filter((id) =>
+    id === 'cover' ? editor.cover.kind !== 'file' : fields[id] !== editor.savedFields[id],
+  )
 
   return (
     <>
@@ -348,25 +358,29 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
           <section className="editor-card editor-tags" aria-label="标签信息">
             <div className="editor-card-head">
               <h3 className="editor-card-title">标签信息</h3>
-              <button
-                type="button"
-                className="btn btn-small"
-                aria-label="在线标签"
-                title="在网易云音乐与 QQ 音乐里查找这首歌的标签与封面（不获取歌词）"
-                disabled={!file || busy}
-                onClick={() => file && setOnlineTags(onlineTagsQuery(file, fields))}
-              >
-                在线标签…
-              </button>
-            </div>
-            <div className="editor-cover-row">
-              <div className="editor-cover" aria-label={cover.src ? '封面预览' : '没有封面预览'} role="img">
-                {cover.src ? <img src={cover.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
+              <div className="editor-card-actions">
+                <EditorDisplayMenu display={display} open={displayOpen} onOpenChange={setDisplayOpen} />
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  aria-label="在线标签"
+                  title="在网易云音乐与 QQ 音乐里查找这首歌的标签与封面（不获取歌词）"
+                  disabled={!file || busy}
+                  onClick={() => file && setOnlineTags(onlineTagsQuery(file, fields))}
+                >
+                  在线标签…
+                </button>
               </div>
-              <div className="editor-cover-side">
-                {cover.meta && <CoverMetaList meta={cover.meta} />}
-                {(!hasFile || cover.caption) && (
-                  <p className="editor-cover-caption">{hasFile ? cover.caption : '打开文件后可更换封面'}</p>
+            </div>
+            {show('cover') && (
+              <div className="editor-cover-row">
+                <div className="editor-cover" aria-label={cover.src ? '封面预览' : '没有封面预览'} role="img">
+                  {cover.src ? <img src={cover.src} alt="封面" draggable={false} /> : <span aria-hidden="true">♪</span>}
+                </div>
+                <div className="editor-cover-side">
+                  {cover.meta && <CoverMetaList meta={cover.meta} />}
+                  {(!hasFile || cover.caption) && (
+                    <p className="editor-cover-caption">{hasFile ? cover.caption : '打开文件后可更换封面'}</p>
                 )}
                 <div className="editor-cover-actions">
                   <button
@@ -395,21 +409,37 @@ export default function LyricsEditorDialog({ initialPath, request, embedded = fa
                 </div>
               </div>
             </div>
+            )}
             <div className="editor-tags-scroll">
-              <TextField label="标题" name="title" value={fields.title} onChange={editor.setField} />
-              <TextField label="艺术家（多个用 / 分隔）" name="artist" value={fields.artist} onChange={editor.setField} />
-              <TextField label="专辑" name="album" value={fields.album} onChange={editor.setField} />
-              <TextField label="专辑艺术家" name="albumArtist" value={fields.albumArtist} onChange={editor.setField} />
-              <div className="editor-field-row">
-                <TextField label="年份" name="year" value={fields.year} onChange={editor.setField} />
-                <TextField label="音轨号" name="trackNumber" value={fields.trackNumber} onChange={editor.setField} />
-                <TextField label="碟号" name="discNumber" value={fields.discNumber} onChange={editor.setField} />
-              </div>
-              <TextField label="风格" name="genre" value={fields.genre} onChange={editor.setField} />
-              <TextField label="作曲家（多个用 / 分隔）" name="composer" value={fields.composer} onChange={editor.setField} />
-              <TextField label="作词家（多个用 / 分隔）" name="lyricist" value={fields.lyricist} onChange={editor.setField} />
-              <TextField label="注释" name="comment" value={fields.comment} onChange={editor.setField} />
+              {show('title') && <TextField label="标题" name="title" value={fields.title} onChange={editor.setField} />}
+              {show('artist') && (
+                <TextField label="艺术家（多个用 / 分隔）" name="artist" value={fields.artist} onChange={editor.setField} />
+              )}
+              {show('album') && <TextField label="专辑" name="album" value={fields.album} onChange={editor.setField} />}
+              {show('albumArtist') && (
+                <TextField label="专辑艺术家" name="albumArtist" value={fields.albumArtist} onChange={editor.setField} />
+              )}
+              {(show('year') || show('trackNumber') || show('discNumber')) && (
+                <div className="editor-field-row">
+                  {show('year') && <TextField label="年份" name="year" value={fields.year} onChange={editor.setField} />}
+                  {show('trackNumber') && (
+                    <TextField label="音轨号" name="trackNumber" value={fields.trackNumber} onChange={editor.setField} />
+                  )}
+                  {show('discNumber') && (
+                    <TextField label="碟号" name="discNumber" value={fields.discNumber} onChange={editor.setField} />
+                  )}
+                </div>
+              )}
+              {show('genre') && <TextField label="风格" name="genre" value={fields.genre} onChange={editor.setField} />}
+              {show('composer') && (
+                <TextField label="作曲家（多个用 / 分隔）" name="composer" value={fields.composer} onChange={editor.setField} />
+              )}
+              {show('lyricist') && (
+                <TextField label="作词家（多个用 / 分隔）" name="lyricist" value={fields.lyricist} onChange={editor.setField} />
+              )}
+              {show('comment') && <TextField label="注释" name="comment" value={fields.comment} onChange={editor.setField} />}
             </div>
+            <HiddenItemsNote hidden={display.hidden} changed={hiddenChanged} onOpen={() => setDisplayOpen(true)} />
           </section>
 
           <section className="editor-card editor-lyrics" aria-label="歌词">

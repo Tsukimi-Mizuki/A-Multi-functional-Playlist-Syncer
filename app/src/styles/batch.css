@@ -100,8 +100,18 @@
   background: transparent;
 }
 
-.tagpane-heading {
+/* 面板顶上一行：左边是选中了什么，右边是「显示选项」；浮层相对这一行定位。 */
+.tagpane-head {
+  position: relative;
+  display: flex;
   flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagpane-heading {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text-secondary);

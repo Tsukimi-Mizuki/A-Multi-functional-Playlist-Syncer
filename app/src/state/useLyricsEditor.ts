@@ -374,6 +374,8 @@ export function useLyricsEditor() {
       (onlineArtists !== null && onlineArtists.text === fields.artist),
     [fields, baseline, cover, onlineArtists],
   )
+  // 最近一次读取 / 保存时表单的样子：界面用它判断哪些字段改过（被隐藏的字段改了要提醒）。
+  const savedFields = useMemo(() => JSON.parse(baseline) as EditorFields, [baseline])
 
   const setField = useCallback(<K extends keyof EditorFields>(name: K, value: string) => {
     setFields((previous) => ({ ...previous, [name]: value }))
@@ -766,6 +768,7 @@ export function useLyricsEditor() {
     config,
     file,
     fields,
+    savedFields,
     setField,
     cover,
     coverView,

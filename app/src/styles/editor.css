@@ -86,6 +86,121 @@
   opacity: 0.5;
 }
 
+.editor-card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- 「显示选项」浮层：浮在「标签信息」卡片上，相对标题行定位 ---- */
+.editor-tags .editor-card-head {
+  position: relative;
+}
+
+.editor-display-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  /* 底下是封面与输入框，必须几乎不透明才看得清。 */
+  background: color-mix(in srgb, var(--app-background) 95%, transparent);
+  box-shadow: var(--glass-shadow);
+  transform-origin: top right;
+  animation: editor-display-in var(--dur-2) var(--ease-out);
+}
+
+@keyframes editor-display-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+/* 关闭：浮层留在原处淡出、略微收回去，播完由组件卸载（与对话框的退场一样用 --dur-2 / --ease-in）。 */
+.editor-display-leaving {
+  pointer-events: none;
+  animation: editor-display-out var(--dur-2) var(--ease-in) forwards;
+}
+
+@keyframes editor-display-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.editor-display-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.editor-display-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.editor-display-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  cursor: default;
+}
+
+.editor-display-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.editor-display-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* 卡片底部的「已隐藏 N 项」。 */
+.editor-hidden-note {
+  flex: none;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.editor-hidden-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: default;
+}
+
+.editor-hidden-link:hover {
+  color: var(--text-primary);
+}
+
+.editor-hidden-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---- 在线搜索 ---- */
 .editor-search {
   display: flex;
