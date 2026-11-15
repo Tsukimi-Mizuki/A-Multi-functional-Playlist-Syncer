@@ -29,3 +29,6 @@ obj/
 .nuget-http-cache/
 .nuget-plugins-cache/
 publish/
+
+# Collaboration notes kept on the local machine only (not tracked, not pushed).
+AGENTS.md

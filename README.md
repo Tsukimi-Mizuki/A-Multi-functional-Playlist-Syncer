@@ -79,7 +79,7 @@ Node.js 与 [pnpm](https://pnpm.io/) 11、WebView2 运行时。
 ```powershell
 pnpm install
 pnpm tauri dev      # 带热更新的桌面窗口
-pnpm dev            # 只启动前端，在普通浏览器里用假后端预览（?mock=... 见 AGENTS.md）
+pnpm dev            # 只启动前端，在普通浏览器里用假后端预览（?mock=... 的场景见 app/src/dev/mockBackend.ts 开头）
 cargo test --workspace
 ```
 
@@ -107,4 +107,4 @@ docs/                        # 架构、实现状态、重写记录、界面设�
 - 登录续期走网易云客户端接口（启动后与每约 12 小时一次），服务端会换发新的登录令牌；仍需长期观察实际能保持多久，登录态真正过期或被服务端作废时需要重新扫码。
 
 完整清单与已确认待修的问题见 [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) 和 [docs/TAURI_REWRITE.md](docs/TAURI_REWRITE.md)。
-协作约定与交接说明见 [AGENTS.md](AGENTS.md)，第三方组件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+第三方组件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
