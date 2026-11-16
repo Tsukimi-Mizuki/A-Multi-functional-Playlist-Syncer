@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
+use super::wordify::WordPlans;
 use super::{
     BATCH_CONCURRENCY, BatchError, BatchLyricsOptions, BatchLyricsResult, BatchLyricsService,
 };
@@ -82,7 +83,7 @@ pub struct BatchResultView {
     pub lyrics_format: Option<String>,
 }
 
-fn file_name_of(path: &str) -> String {
+pub(super) fn file_name_of(path: &str) -> String {
     Path::new(path)
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -228,9 +229,11 @@ impl Drop for Job {
 
 /// 批量任务管理器。
 pub struct BatchManager {
-    service: Arc<BatchLyricsService>,
-    logs: Arc<LogHub>,
+    pub(super) service: Arc<BatchLyricsService>,
+    pub(super) logs: Arc<LogHub>,
     pub(super) slot: JobSlot,
+    /// 「歌词转逐字」预览阶段算好、等用户确认后写入的结果（见 `wordify`）。
+    pub(super) word_plans: WordPlans,
 }
 
 impl BatchManager {
@@ -240,6 +243,7 @@ impl BatchManager {
             service,
             logs,
             slot: JobSlot::default(),
+            word_plans: WordPlans::default(),
         }
     }
 

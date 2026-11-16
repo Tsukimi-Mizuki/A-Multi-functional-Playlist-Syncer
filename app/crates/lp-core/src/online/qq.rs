@@ -224,12 +224,14 @@ impl QqClient {
         Ok(details)
     }
 
+    /// 标签、歌词与封面；`with_cover` 为假时不下载封面（只要歌词的场合）。
     pub(crate) async fn details(
         &self,
         song: &OnlineSongResult,
+        with_cover: bool,
         cancel: &CancelToken,
     ) -> Result<OnlineSongDetails, OnlineError> {
-        let mut details = self.tag_details(song, true, cancel).await?;
+        let mut details = self.tag_details(song, with_cover, cancel).await?;
 
         // 优先走 musichall 的 PlayLyricInfo：它同时返回原文和翻译（QQ 的旧 fcg 接口通常没有翻译）。
         match self.play_lyric_info(song, cancel).await {

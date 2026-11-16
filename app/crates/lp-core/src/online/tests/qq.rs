@@ -311,7 +311,7 @@ async fn details_decrypt_the_qrc_word_lyrics_and_build_the_request() {
     );
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -388,7 +388,7 @@ async fn details_without_qrc_use_the_base64_line_lyrics() {
     );
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -415,7 +415,7 @@ async fn encrypted_translations_are_converted_to_line_lrc() {
     );
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -436,7 +436,7 @@ async fn details_fall_back_to_the_legacy_interface_when_play_lyric_fails() {
     );
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -472,7 +472,7 @@ async fn legacy_lyrics_without_translation_are_returned_as_is() {
         .enqueue_json(r#"{"retcode":0,"lyric":"[00:01.00]&#26202;&#23433;"}"#);
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -488,7 +488,7 @@ async fn songs_without_a_numeric_id_go_straight_to_the_legacy_interface() {
     song.numeric_source_id = None;
 
     let details = client(&transport)
-        .details(&song, &CancelToken::new())
+        .details(&song, true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -515,7 +515,7 @@ async fn details_survive_total_lyric_failure_and_still_return_the_cover() {
     song.cover_url = Some("https://y.gtimg.cn/cover.jpg".to_owned());
 
     let details = client(&transport)
-        .details(&song, &CancelToken::new())
+        .details(&song, true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -552,7 +552,7 @@ async fn bad_cover_responses_are_ignored() {
         song.cover_url = Some("https://y.gtimg.cn/cover.jpg".to_owned());
 
         let details = client(&transport)
-            .details(&song, &CancelToken::new())
+            .details(&song, true, &CancelToken::new())
             .await
             .unwrap();
 
@@ -578,7 +578,7 @@ async fn covers_over_ten_megabytes_are_dropped() {
     song.cover_url = Some("https://y.gtimg.cn/big.jpg".to_owned());
 
     let details = client(&transport)
-        .details(&song, &CancelToken::new())
+        .details(&song, true, &CancelToken::new())
         .await
         .unwrap();
     assert_eq!(details.cover_data, None);
@@ -597,7 +597,7 @@ async fn covers_over_ten_megabytes_are_dropped() {
         }
     });
     let details = client(&transport)
-        .details(&song, &CancelToken::new())
+        .details(&song, true, &CancelToken::new())
         .await
         .unwrap();
     assert_eq!(
@@ -613,7 +613,7 @@ async fn a_play_lyric_timeout_fails_the_details_instead_of_silently_retrying() {
     let qq = client_with_timeout(&transport, Duration::from_secs(5));
 
     let error = qq
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap_err();
 
@@ -632,7 +632,7 @@ async fn malformed_play_lyric_json_falls_back_to_the_legacy_interface() {
         .enqueue_json(r#"{"retcode":0,"lyric":"[00:01.00]ok"}"#);
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -648,7 +648,7 @@ async fn a_blank_play_lyric_payload_falls_back_to_the_legacy_interface() {
         .enqueue_json(r#"{"retcode":0,"lyric":"[00:01.00]legacy"}"#);
 
     let details = client(&transport)
-        .details(&qq_song(), &CancelToken::new())
+        .details(&qq_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -687,7 +687,7 @@ async fn covers_step_down_a_size_only_when_the_server_has_no_such_size() {
     });
 
     let details = client(&transport)
-        .details(&standard_cover_song(), &CancelToken::new())
+        .details(&standard_cover_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -710,7 +710,7 @@ async fn covers_try_every_size_then_give_up() {
     transport.set_fallback(|_| status(404));
 
     let details = client(&transport)
-        .details(&standard_cover_song(), &CancelToken::new())
+        .details(&standard_cover_song(), true, &CancelToken::new())
         .await
         .unwrap();
 
@@ -739,7 +739,7 @@ async fn covers_do_not_retry_smaller_sizes_after_other_failures() {
     });
 
     let details = client(&transport)
-        .details(&standard_cover_song(), &CancelToken::new())
+        .details(&standard_cover_song(), true, &CancelToken::new())
         .await
         .unwrap();
 

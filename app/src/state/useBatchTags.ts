@@ -11,9 +11,15 @@ import {
   batchRun,
   batchScan,
   onBatchProgress,
+  onWordLyricsProgress,
+  wordLyricsApply,
+  wordLyricsPreview,
   type BatchFile,
   type BatchProgress,
   type BatchResult,
+  type WordLyricsProgress,
+  type WordLyricsResult,
+  type WordLyricsSummary,
 } from '../api/online'
 import {
   patchTags,
@@ -77,6 +83,14 @@ export interface RowMark {
   detail?: string
 }
 
+/** 「歌词转逐字」检查完、等用户确认要不要写入的结果。 */
+export interface WordLyricsPending {
+  /** 可以转换的文件。 */
+  ready: string[]
+  /** 各种结论各有多少首，给确认框用的一句话。 */
+  text: string
+}
+
 /** `scanning` 扫描目录；`loading` 正在读列表里的标签（可以先选、先看）；`saving` / `online` 正在写文件。 */
 export type BatchPhase = 'idle' | 'scanning' | 'loading' | 'saving' | 'online'
 
@@ -133,6 +147,32 @@ export function buildPatch(edits: TagEdits, cover: CoverEdit): { patch: TagPatch
   return { patch }
 }
 
+/** 「歌词转逐字」一首歌的结论在列表里怎么显示：能换的与换好的算成功，读写失败算错误，其余只是说明。 */
+function wordMarkOf(result: WordLyricsResult): RowMark {
+  const tone = result.status === 'ready' || result.status === 'converted' ? 'success' : result.status === 'failed' ? 'error' : 'muted'
+  return { text: result.message, tone, detail: result.message }
+}
+
+/** 各种结论各有多少首，拼成一句话（数量是 0 的不提）。 */
+export function wordSummaryText(summary: WordLyricsSummary): string {
+  const count = (status: WordLyricsResult['status']) => summary.results.filter((result) => result.status === status).length
+  const parts: [number, string][] = [
+    [count('ready'), '可以转换'],
+    [count('converted'), '已转换'],
+    [count('alreadyWord'), '已经是逐字'],
+    [count('noLyrics'), '没有歌词'],
+    [count('noMatch'), '没找到这首歌'],
+    [count('noWordLyrics'), '没有逐字版本'],
+    [count('mismatch'), '版本对不上'],
+    [count('failed'), '失败'],
+  ]
+  const text = parts
+    .filter(([amount]) => amount > 0)
+    .map(([amount, label]) => `${label} ${amount} 首`)
+    .join('，')
+  return text === '' ? '没有处理任何歌曲' : text
+}
+
 function markOf(result: BatchResult): RowMark {
   const matched = result.matchedTitle
     ? result.matchedArtist
@@ -183,6 +223,7 @@ export function useBatchTags(initialFolder: string, initialFiles: BatchFile[] | 
   const [overwrite, setOverwrite] = useState(true)
   const [fetchLyrics, setFetchLyrics] = useState(true)
   const [preferWord, setPreferWord] = useState(false)
+  const [wordPending, setWordPending] = useState<WordLyricsPending | null>(null)
 
   // 清单每换一次加一：还在路上的读取 / 刷新发现对不上就作废。
   const listToken = useRef(0)
@@ -636,6 +677,117 @@ export function useBatchTags(initialFolder: string, initialFiles: BatchFile[] | 
     }
   }, [overwrite, fetchLyrics, preferWord, refreshRows, report])
 
+  // ───────────────────────────── 歌词转逐字 ─────────────────────────────
+
+  /**
+   * 跑一步「歌词转逐字」：`preview` 联网核对（不写文件），`apply` 把核对好的结果写进文件。
+   * 逐个文件的结论显示在列表的状态列里；返回汇总，出错或清单已经换掉时返回 `null`。
+   */
+  const runWordStep = useCallback(
+    async (step: 'preview' | 'apply', paths: string[]): Promise<WordLyricsSummary | null> => {
+      const token = listToken.current
+      const doing = step === 'preview' ? '正在检查歌词能否换成逐字' : '正在把歌词换成逐字'
+      setCancelling(false)
+      setPhase('online')
+      setProgress({ done: 0, total: paths.length })
+      report(`${doing}… 0/${paths.length}`)
+      setMarks((previous) => {
+        const next = new Map(previous)
+        for (const path of paths) next.set(pathKey(path), { text: '等待处理', tone: 'muted' })
+        return next
+      })
+      const onProgress = (event: WordLyricsProgress) => {
+        if (token !== listToken.current) return
+        const result = event.stage === 'finished' ? event.result : null
+        setMarks((previous) => {
+          const next = new Map(previous)
+          next.set(
+            pathKey(event.path),
+            result ? wordMarkOf(result) : { text: step === 'preview' ? '正在核对…' : '正在写入…', tone: 'busy' },
+          )
+          return next
+        })
+        if (!result) return
+        setProgress({ done: event.completed, total: event.total })
+        report(`${doing}… ${event.completed}/${event.total}`)
+      }
+      let unlisten: (() => void) | undefined
+      try {
+        unlisten = await onWordLyricsProgress(onProgress)
+        const summary = await (step === 'preview' ? wordLyricsPreview(paths) : wordLyricsApply(paths))
+        if (token !== listToken.current) return null
+        // 事件与命令返回值不保证先后：以汇总里的结果为准，取消后没处理到的文件标成「已取消」。
+        const finished = new Set(summary.results.map((result) => pathKey(result.filePath)))
+        setMarks((previous) => {
+          const next = new Map(previous)
+          for (const result of summary.results) next.set(pathKey(result.filePath), wordMarkOf(result))
+          for (const path of paths) {
+            if (!finished.has(pathKey(path))) next.set(pathKey(path), { text: '已取消', tone: 'muted' })
+          }
+          return next
+        })
+        if (step === 'apply') {
+          await refreshRows(summary.results.filter((result) => result.status === 'converted').map((result) => result.filePath))
+        }
+        return summary
+      } catch (error) {
+        if (token === listToken.current) {
+          report(`${step === 'preview' ? '检查歌词' : '歌词转逐字'}失败：${errorMessage(error, '请重试')}`, true)
+        }
+        return null
+      } finally {
+        unlisten?.()
+        if (token === listToken.current) {
+          setPhase('idle')
+          setProgress(null)
+          setCancelling(false)
+          if (step === 'apply') setSingleVersion((value) => value + 1)
+        }
+      }
+    },
+    [refreshRows, report],
+  )
+
+  /**
+   * 歌词转逐字 · 第一步：检查选中的歌（一首都没选就是整个清单）里哪些能换。只联网、不写文件；
+   * 有能换的就把结果交给界面去问用户（`wordPending`）。
+   */
+  const previewWordLyrics = useCallback(async () => {
+    if (phaseRef.current !== 'idle' || dirtyRef.current) return
+    const chosen = selectedRef.current
+    const list = filesRef.current
+    const paths = (chosen.size > 0 ? list.filter((file) => chosen.has(pathKey(file.path))) : list).map((file) => file.path)
+    if (paths.length === 0) return
+    const summary = await runWordStep('preview', paths)
+    if (!summary) return
+    const ready = summary.results.filter((result) => result.status === 'ready').map((result) => result.filePath)
+    const text = wordSummaryText(summary)
+    const lead = summary.cancelled ? `已取消检查（处理了 ${summary.processed}/${summary.total} 首）` : '检查完成'
+    if (ready.length > 0) {
+      setWordPending({ ready, text })
+      report(`${lead}：${text}。`)
+    } else {
+      report(`${lead}，没有可以换成逐字歌词的歌曲：${text}。`, summary.failed > 0)
+    }
+  }, [dirtyRef, report, runWordStep])
+
+  /** 歌词转逐字 · 第二步：用户确认后把检查好的结果写进文件。 */
+  const applyWordLyrics = useCallback(async () => {
+    const pending = wordPending
+    if (!pending || phaseRef.current !== 'idle') return
+    setWordPending(null)
+    const summary = await runWordStep('apply', pending.ready)
+    if (!summary) return
+    const lead = summary.cancelled ? `已取消（处理了 ${summary.processed}/${summary.total} 首）` : '歌词转逐字完成'
+    report(`${lead}：${wordSummaryText(summary)}。`, summary.failed > 0)
+  }, [report, runWordStep, wordPending])
+
+  /** 看完检查结果决定先不换。 */
+  const dismissWordLyrics = useCallback(() => {
+    setWordPending(null)
+    report('没有转换，文件都没有改动。各首歌的检查结果留在列表里。')
+  }, [report])
+
   /** 取消正在进行的保存 / 在线获取：当前这一批处理完后停下。 */
   const cancel = useCallback(() => {
     if (phaseRef.current === 'online') {
@@ -711,6 +863,10 @@ export function useBatchTags(initialFolder: string, initialFiles: BatchFile[] | 
     save,
     onlineTargets,
     runOnline,
+    wordPending,
+    previewWordLyrics,
+    applyWordLyrics,
+    dismissWordLyrics,
     cancel,
     dispose,
     refreshFile,

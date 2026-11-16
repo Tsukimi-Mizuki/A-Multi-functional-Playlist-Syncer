@@ -17,6 +17,7 @@
 //! - 标签读写的 IO 错误以 [`BatchError::Failed`] 返回（中文原因），调用方转成各自的“处理失败 / 在线匹配失败”文案。
 
 mod task;
+mod wordify;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -41,6 +42,11 @@ use crate::utilities::{CancelToken, Cancelled, cancellable};
 pub use task::{
     BatchFileView, BatchJobError, BatchManager, BatchProgressView, BatchRequest, BatchResultView,
     BatchScanView, BatchSummaryView,
+};
+pub use wordify::{
+    Converted, MIN_MATCH_RATIO, Mismatch, TIME_WINDOW_MS, WordLyricsProgressView,
+    WordLyricsRequest, WordLyricsResultView, WordLyricsSummaryView, WordStatus, WordTarget,
+    convert,
 };
 
 /// 批量处理支持的扩展名。

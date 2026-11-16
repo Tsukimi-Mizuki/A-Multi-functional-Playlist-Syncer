@@ -640,7 +640,7 @@ export default function BatchTagsDialog({ initialFolder, drop = null, onClose, r
   const { save } = batch
   const coveredRef = useRef(false)
   useEffect(() => {
-    coveredRef.current = editorPath !== null || confirm !== null
+    coveredRef.current = editorPath !== null || confirm !== null || batch.wordPending !== null
   })
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -687,7 +687,7 @@ export default function BatchTagsDialog({ initialFolder, drop = null, onClose, r
               <button
                 type="button"
                 className="btn btn-danger"
-                aria-label={phase === 'saving' ? '取消保存' : '取消在线获取'}
+                aria-label={phase === 'saving' ? '取消保存' : '取消正在进行的在线任务'}
                 disabled={batch.cancelling}
                 onClick={batch.cancel}
               >
@@ -704,6 +704,20 @@ export default function BatchTagsDialog({ initialFolder, drop = null, onClose, r
                   onClick={() => void batch.runOnline()}
                 >
                   {selected.size > 0 ? `在线获取（选中的 ${onlineCount} 首）` : `在线获取（全部 ${onlineCount} 首）`}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  aria-label="把选中歌曲的逐行歌词换成逐字歌词"
+                  title={
+                    dirty
+                      ? '请先保存或还原左边的修改'
+                      : '重新找到同一首歌的逐字歌词来替换现有的逐行歌词：先联网检查哪些能换（不改文件），确认后才写入'
+                  }
+                  disabled={!canOnline}
+                  onClick={() => void batch.previewWordLyrics()}
+                >
+                  {selected.size > 0 ? `歌词转逐字（选中的 ${onlineCount} 首）` : `歌词转逐字（全部 ${onlineCount} 首）`}
                 </button>
                 <button
                   type="button"
@@ -857,6 +871,16 @@ export default function BatchTagsDialog({ initialFolder, drop = null, onClose, r
           batch.refreshFile(editorPath)
           setEditorPath(null)
         })}
+      {batch.wordPending && (
+        <ConfirmDialog
+          title="把歌词换成逐字歌词"
+          message={`${batch.wordPending.text}。要把这 ${batch.wordPending.ready.length} 首的歌词换成逐字歌词吗？内嵌在音频文件里的歌词会写进音频文件；歌词文件（.lrc）会被改写，原文件先备份到它所在目录的 _backup 文件夹。现有的译文会保留，其他标签不动。`}
+          confirmLabel={`转换 ${batch.wordPending.ready.length} 首`}
+          cancelLabel="先不转换"
+          onConfirm={() => void batch.applyWordLyrics()}
+          onCancel={batch.dismissWordLyrics}
+        />
+      )}
       {confirm && (
         <ConfirmDialog
           title="有未保存的修改"

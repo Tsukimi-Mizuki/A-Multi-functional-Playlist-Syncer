@@ -755,6 +755,59 @@ function mockBatchResult(path: string, index: number, overwrite: boolean) {
   }
 }
 
+/**
+ * 假的「歌词转逐字」结果。预览按位置轮流：每 6 首里依次是可以转换（歌词文件，保留译文）、可以转换（内嵌歌词）、
+ * 已经是逐字、没有逐字版本、版本对不上、没有歌词；`ready` 记下可以转换的文件，转换时只认它们。
+ */
+function mockWordResult(path: string, index: number, preview: boolean, ready: Set<string>) {
+  const fileName = path.split('\\').pop() ?? path
+  const base = { filePath: path, fileName, sourceLabel: null as string | null, targets: [] as string[], keepsTranslation: false }
+  if (!preview) {
+    if (!ready.delete(path)) return { ...base, status: 'failed', message: '处理失败：还没有预览过这首歌，请先预览' }
+    const sidecar = index % 2 === 0
+    return {
+      ...base,
+      status: 'converted',
+      targets: [sidecar ? 'sidecar' : 'embedded'],
+      message: sidecar ? '已换成逐字歌词（歌词文件），原歌词文件备份在 _backup 文件夹' : '已换成逐字歌词（内嵌歌词）',
+    }
+  }
+  ready.delete(path)
+  switch (index % 6) {
+    case 0:
+      ready.add(path)
+      return {
+        ...base,
+        status: 'ready',
+        sourceLabel: 'QQ 音乐',
+        targets: ['sidecar'],
+        keepsTranslation: true,
+        message: '可以转换：QQ 音乐的逐字歌词与现有歌词对上 42/45 行（歌词文件），保留现有译文',
+      }
+    case 1:
+      ready.add(path)
+      return {
+        ...base,
+        status: 'ready',
+        sourceLabel: '网易云音乐',
+        targets: ['embedded'],
+        message: '可以转换：网易云音乐的逐字歌词与现有歌词对上 38/38 行（内嵌歌词）',
+      }
+    case 2:
+      return { ...base, status: 'alreadyWord', message: '已经是逐字歌词' }
+    case 3:
+      return { ...base, status: 'noWordLyrics', message: '在线来源没有这首歌的逐字歌词' }
+    case 4:
+      return {
+        ...base,
+        status: 'mismatch',
+        message: '找到的逐字歌词与现有歌词对不上（只对上 6/40 行，可能是另一个版本），没有替换',
+      }
+    default:
+      return { ...base, status: 'noLyrics', message: '没有歌词' }
+  }
+}
+
 /** 安装假后端；必须在 React 渲染之前调用。 */
 export function installMockBackend(scenario: string | null): void {
   const account = scenario === 'loggedout' ? LOGGED_OUT : ACCOUNT
@@ -778,6 +831,7 @@ export function installMockBackend(scenario: string | null): void {
   let editorSource = 'Netease'
   let editorPreferWord = false
   const batchState: MockBatchState = { running: false, cancelled: false }
+  const mockWordReady = new Set<string>()
 
   // 浏览器里没有真实的文件拖放：控制台调用 `__lpMock.drop(['D:\\mock\\音乐\\晴天 - 周杰伦.mp3'])` 模拟。
   ;(window as unknown as { __lpMock: unknown }).__lpMock = {
@@ -1379,6 +1433,55 @@ export function installMockBackend(scenario: string | null): void {
             success: count('success'),
             skipped: count('skipped'),
             failed: count('failed'),
+            cancelled: batchState.cancelled,
+            results,
+          }
+        }
+        case 'word_lyrics_preview':
+        case 'word_lyrics_apply': {
+          // 歌词转逐字：预览按文件在清单里的位置轮流给出各种结论，转换只认预览里「可以转换」的文件。
+          const preview = command === 'word_lyrics_preview'
+          const paths = (args.request as { files: string[] }).files
+          if (batchState.running) throw { kind: 'busy', message: '已有一个批量任务正在进行，请等待它完成或先取消。' }
+          if (paths.length === 0) throw { kind: 'noFiles', message: '没有可处理的音频文件。' }
+          batchState.running = true
+          batchState.cancelled = false
+          const results: ReturnType<typeof mockWordResult>[] = []
+          const total = paths.length
+          try {
+            for (let index = 0; index < total; index += 3) {
+              if (batchState.cancelled) break
+              const group = paths.slice(index, index + 3)
+              for (const [offset, path] of group.entries()) {
+                await emit('wordlyrics:progress', {
+                  completed: results.length, total, index: index + offset, path,
+                  fileName: path.split('\\').pop() ?? path, stage: 'started', result: null,
+                })
+              }
+              await sleep(scenario === 'batchbig' ? 10 : 600)
+              for (const [offset, path] of group.entries()) {
+                const result = mockWordResult(path, index + offset, preview, mockWordReady)
+                results.push(result)
+                await emit('wordlyrics:progress', {
+                  completed: results.length, total, index: index + offset, path,
+                  fileName: result.fileName, stage: 'finished', result,
+                })
+              }
+            }
+          } finally {
+            batchState.running = false
+          }
+          const count = (status: string) => results.filter((item) => item.status === status).length
+          const ready = count('ready')
+          const converted = count('converted')
+          const failed = count('failed')
+          return {
+            total,
+            processed: results.length,
+            ready,
+            converted,
+            skipped: results.length - ready - converted - failed,
+            failed,
             cancelled: batchState.cancelled,
             results,
           }

@@ -32,7 +32,8 @@ use lp_core::library::{
 use lp_core::logs::{LogEntry, LogHub};
 use lp_core::lyrics::batch::{
     BatchEnricher, BatchJobError, BatchLyricsService, BatchManager, BatchProgressView,
-    BatchRequest, BatchScanView, BatchSummaryView, SettingsProvider,
+    BatchRequest, BatchScanView, BatchSummaryView, SettingsProvider, WordLyricsProgressView,
+    WordLyricsRequest, WordLyricsSummaryView,
 };
 use lp_core::lyrics::{
     LyricsError, LyricsLookup, LyricsMode, LyricsPreview, LyricsPreviewOptions, LyricsService,
@@ -82,6 +83,8 @@ const EVENT_DOWNLOAD_STARTED: &str = "download:started";
 const EVENT_DOWNLOAD_PROGRESS: &str = "download:progress";
 /// 前端订阅的事件名：批量获取标签 / 封面 / 歌词的逐文件进度。
 const EVENT_BATCH_PROGRESS: &str = "batch:progress";
+/// 「歌词转逐字」逐个文件的进度（预览与转换共用）。
+const EVENT_WORD_LYRICS_PROGRESS: &str = "wordlyrics:progress";
 
 /// 返回给前端的应用信息（camelCase）。
 #[derive(Debug, Serialize)]
@@ -1283,6 +1286,38 @@ fn batch_cancel(state: State<'_, AppState>) -> bool {
     state.batch.cancel()
 }
 
+/// 歌词转逐字 · 预览：逐个文件联网核对现有的逐行歌词能不能换成逐字的，**不写任何文件**；
+/// 逐文件发 `wordlyrics:progress` 事件，结束后返回汇总。结果留在后端，等 `word_lyrics_apply` 写入。
+/// 与批量在线获取共用一个任务槽（同一时间只有一个），用 `batch_cancel` 取消。
+#[tauri::command]
+async fn word_lyrics_preview(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: WordLyricsRequest,
+) -> Result<WordLyricsSummaryView, BatchJobError> {
+    let batch = Arc::clone(&state.batch);
+    let settings = state.settings_snapshot();
+    let sink = Arc::new(move |progress: WordLyricsProgressView| {
+        let _ = app.emit(EVENT_WORD_LYRICS_PROGRESS, progress);
+    });
+    batch.word_preview(request, &settings, sink).await
+}
+
+/// 歌词转逐字 · 转换：把预览时算好的逐字歌词写进文件（内嵌的写进音频标签，`.lrc` 里的写回 `.lrc` 并先备份），不再联网。
+/// 只处理预览结论是「可以转换」的文件，其余算失败。
+#[tauri::command]
+async fn word_lyrics_apply(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: WordLyricsRequest,
+) -> Result<WordLyricsSummaryView, BatchJobError> {
+    let batch = Arc::clone(&state.batch);
+    let sink = Arc::new(move |progress: WordLyricsProgressView| {
+        let _ = app.emit(EVENT_WORD_LYRICS_PROGRESS, progress);
+    });
+    batch.word_apply(request, sink).await
+}
+
 /// 编辑器打开时需要恢复的内容：上次的搜索来源与歌词格式、匹配度阈值、是否管理员运行（拖放会被系统阻断）、受支持的扩展名。
 #[tauri::command]
 fn editor_get_state(state: State<'_, AppState>) -> EditorStateView {
@@ -1613,6 +1648,8 @@ pub fn run() {
             batch_scan,
             batch_run,
             batch_cancel,
+            word_lyrics_preview,
+            word_lyrics_apply,
             editor_get_state,
             editor_remember_options,
             resolve_drop,
@@ -2226,6 +2263,12 @@ mod tests {
         }))
         .unwrap();
         assert!(batch.fetch_lyrics && batch.overwrite_existing && batch.prefer_word_lyrics);
+        // 歌词转逐字：预览与转换的请求都只有文件清单。
+        assert_eq!(EVENT_WORD_LYRICS_PROGRESS, "wordlyrics:progress");
+        let word: WordLyricsRequest =
+            serde_json::from_value(serde_json::json!({ "files": [r"D:.mp3", r"D:.flac"] }))
+                .unwrap();
+        assert_eq!(word.files.len(), 2);
         // 在线标签：候选原样传回 `online_cover_size` / `online_load_tags` 的 `song`（派生字段被忽略）。
         let song: OnlineSongResult = serde_json::from_value(serde_json::json!({
             "source": "QQMusic", "sourceId": "mid", "title": "晴天", "artist": "周杰伦", "album": "叶惠美",

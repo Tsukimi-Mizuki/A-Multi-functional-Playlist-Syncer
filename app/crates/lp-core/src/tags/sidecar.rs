@@ -1,11 +1,15 @@
 //! 同名歌词文件：`歌曲.flac` 旁边的 `歌曲.lrc`。
 //!
 //! 不少下载工具与播放器把歌词存成这样的独立文件，音频文件里并没有内嵌歌词。
-//! 界面在“文件里没有歌词”时拿它的内容来显示；这里只读不写，也不改变 [`AudioTagInfo`](super::AudioTagInfo)
+//! 界面在“文件里没有歌词”时拿它的内容来显示；它不改变 [`AudioTagInfo`](super::AudioTagInfo)
 //! 的含义——下载、同步、批量在线获取判断“有没有歌词”时仍然只看音频文件本身。
+//!
+//! 程序平时**只读不写**这个文件。唯一的例外是「歌词转逐字」（[`write_sidecar_lyrics`]，用户 2026-11-16 的决定）：
+//! 歌词本来就在 `.lrc` 里的歌，转换后的逐字歌词写回这个 `.lrc`，写之前把原文件备份到同目录的 `_backup\`。
+//! 程序仍然从不删除 `.lrc`。
 
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -65,6 +69,60 @@ pub fn read_sidecar_lyrics(audio_path: &Path) -> Option<SidecarLyrics> {
         path: path.to_string_lossy().into_owned(),
         text,
     })
+}
+
+/// 备份目录的名字（放在歌词文件所在的目录下）。和用户自己的歌词清理脚本用的是同一个名字。
+pub const SIDECAR_BACKUP_DIRECTORY: &str = "_backup";
+
+/// 把新的歌词写进已有的 `.lrc`（「歌词转逐字」用）。
+///
+/// - 写之前把原文件复制到同目录的 `_backup\<文件名>`；那里已经有同名备份时不覆盖（留着最早的那一份）。
+///   备份失败就不写。
+/// - 一律写成 UTF-8；原文件带 BOM（UTF-8 或 UTF-16）时新文件也带 UTF-8 的 BOM，没有就不带。
+/// - 原文件用 `\r\n` 换行时新内容也换成 `\r\n`。
+/// - 先写临时文件再改名替换，中途失败原文件不变。
+///
+/// 只改写已经存在的歌词文件：文件不存在时返回错误，不会凭空创建。
+pub fn write_sidecar_lyrics(lrc_path: &Path, text: &str) -> std::io::Result<()> {
+    let original = fs::read(lrc_path)?;
+    let had_bom = original.starts_with(&[0xEF, 0xBB, 0xBF])
+        || original.starts_with(&[0xFF, 0xFE])
+        || original.starts_with(&[0xFE, 0xFF]);
+    let crlf = decode_text(&original).is_some_and(|text| text.contains("\r\n"));
+
+    let directory = lrc_path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = lrc_path.file_name().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "歌词文件路径没有文件名")
+    })?;
+    let backup_directory = directory.join(SIDECAR_BACKUP_DIRECTORY);
+    fs::create_dir_all(&backup_directory)?;
+    let backup = backup_directory.join(file_name);
+    if !backup.exists() {
+        fs::copy(lrc_path, &backup)?;
+    }
+
+    let body = if crlf {
+        text.replace("\r\n", "\n").replace('\n', "\r\n")
+    } else {
+        text.to_owned()
+    };
+    let mut temp_name = file_name.to_os_string();
+    temp_name.push(".tmp");
+    let temp = directory.join(temp_name);
+    let written = (|| {
+        let mut file = fs::File::create(&temp)?;
+        if had_bom {
+            file.write_all(&[0xEF, 0xBB, 0xBF])?;
+        }
+        file.write_all(body.as_bytes())?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temp, lrc_path)
+    })();
+    if written.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    written
 }
 
 /// 按 BOM 认编码：UTF-8（带不带 BOM 都行）与带 BOM 的 UTF-16。其他编码（GBK 等）认不出来，返回 `None`，

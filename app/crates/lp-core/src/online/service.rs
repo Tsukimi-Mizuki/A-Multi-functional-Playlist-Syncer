@@ -57,6 +57,23 @@ pub trait OnlineMusicSearch: Send + Sync {
         })
     }
 
+    /// 只取标签字段与歌词，**不下载封面**（把歌词从逐行换成逐字时用，一次要问上千首，封面是白费流量）。
+    ///
+    /// 默认实现取完整详情再丢掉封面；真实实现覆盖它，从一开始就不发封面请求。
+    fn get_lyrics_details<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
+        Box::pin(async move {
+            let details = self.get_details(song, cancel).await?;
+            Ok(details.map(|details| OnlineSongDetails {
+                cover_data: None,
+                ..details
+            }))
+        })
+    }
+
     /// 这首歌的封面下载下来会是多少像素（宽，高）；没有封面或认不出来返回 `Ok(None)`。
     fn cover_size<'a>(
         &'a self,
@@ -216,7 +233,20 @@ impl OnlineMusicSearch for OnlineMusicSearchService {
         Box::pin(async move {
             match song.source {
                 OnlineMusicSource::Netease => self.netease_details(song, true, true, cancel).await,
-                OnlineMusicSource::QqMusic => self.qq.details(song, cancel).await.map(Some),
+                OnlineMusicSource::QqMusic => self.qq.details(song, true, cancel).await.map(Some),
+            }
+        })
+    }
+
+    fn get_lyrics_details<'a>(
+        &'a self,
+        song: &'a OnlineSongResult,
+        cancel: &'a CancelToken,
+    ) -> BoxFuture<'a, Result<Option<OnlineSongDetails>, OnlineError>> {
+        Box::pin(async move {
+            match song.source {
+                OnlineMusicSource::Netease => self.netease_details(song, true, false, cancel).await,
+                OnlineMusicSource::QqMusic => self.qq.details(song, false, cancel).await.map(Some),
             }
         })
     }

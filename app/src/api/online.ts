@@ -401,3 +401,84 @@ export function batchCancel(): Promise<boolean> {
 export function onBatchProgress(handler: (progress: BatchProgress) => void): Promise<UnlistenFn> {
   return listen<BatchProgress>('batch:progress', (event) => handler(event.payload))
 }
+
+/* ---- 歌词转逐字（批量修改标签里，对选中的歌或整个清单） ---- */
+
+/** 歌词放在哪里：音频文件里内嵌的，或旁边同名的 `.lrc`。 */
+export type WordLyricsTarget = 'embedded' | 'sidecar'
+
+/**
+ * 一首歌的结论：`ready` 可以转换（预览）、`converted` 已经换好、`alreadyWord` 本来就是逐字、`noLyrics` 没有歌词或歌词没有时间轴、
+ * `noMatch` 没找到这首歌、`noWordLyrics` 在线来源没有它的逐字歌词、`mismatch` 找到的逐字歌词与现有歌词对不上（多半是另一个版本）、
+ * `failed` 读写失败。
+ */
+export type WordLyricsStatus =
+  | 'ready'
+  | 'converted'
+  | 'alreadyWord'
+  | 'noLyrics'
+  | 'noMatch'
+  | 'noWordLyrics'
+  | 'mismatch'
+  | 'failed'
+
+export interface WordLyricsResult {
+  filePath: string
+  fileName: string
+  status: WordLyricsStatus
+  /** 中文说明，如「可以转换：QQ 音乐的逐字歌词与现有歌词对上 42/45 行（歌词文件），保留现有译文」。 */
+  message: string
+  /** 逐字歌词的来源名。 */
+  sourceLabel: string | null
+  /** 要写（预览）或已经写了（转换）的地方。 */
+  targets: WordLyricsTarget[]
+  /** 现有歌词的译文会保留。 */
+  keepsTranslation: boolean
+}
+
+/** `wordlyrics:progress` 事件的载荷（预览与转换共用）。 */
+export interface WordLyricsProgress {
+  completed: number
+  total: number
+  index: number
+  path: string
+  fileName: string
+  stage: 'started' | 'finished'
+  result: WordLyricsResult | null
+}
+
+export interface WordLyricsSummary {
+  total: number
+  /** 实际处理完的文件数（取消时小于 `total`）。 */
+  processed: number
+  /** 可以转换的（预览）。 */
+  ready: number
+  /** 已经转换的。 */
+  converted: number
+  /** 不需要或没法转换的。 */
+  skipped: number
+  failed: number
+  cancelled: boolean
+  results: WordLyricsResult[]
+}
+
+/**
+ * 歌词转逐字 · 预览：逐个文件联网核对现有的逐行歌词能不能换成逐字的，**不写任何文件**。
+ * 进度走 `wordlyrics:progress` 事件；与批量在线获取共用一个任务槽，用 `batchCancel` 取消。
+ */
+export function wordLyricsPreview(files: string[]): Promise<WordLyricsSummary> {
+  return invoke<WordLyricsSummary>('word_lyrics_preview', { request: { files } })
+}
+
+/**
+ * 歌词转逐字 · 转换：把预览时算好的逐字歌词写进文件（内嵌的写进音频标签，`.lrc` 里的写回 `.lrc`，原文件备份到 `_backup`），
+ * 不再联网。只接受预览结论是 `ready` 的文件。
+ */
+export function wordLyricsApply(files: string[]): Promise<WordLyricsSummary> {
+  return invoke<WordLyricsSummary>('word_lyrics_apply', { request: { files } })
+}
+
+/** 订阅歌词转逐字的进度；返回取消订阅函数。 */
+export function onWordLyricsProgress(handler: (progress: WordLyricsProgress) => void): Promise<UnlistenFn> {
+  return listen<WordLyricsProgress>('wordlyrics:progress', (event) => handler(event.payload))
+}
