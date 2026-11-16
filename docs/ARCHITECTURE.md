@@ -43,7 +43,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `auth` | `LoginManager`：`restore` / `validate`（启动校验）/ `qr_start` / `qr_poll` / `logout` / `handle_runtime_auth_error` / `ensure_keepalive`（12 小时续期）/ `shutdown` |
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
 | `playlist` | `PlaylistService`：歌单列表与曲目加载、写运行日志、301 走登录复核 |
-| `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（歌词预览：按「歌词来源」依次问网易云 / QQ / 备用词源）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
+| `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`notice`（联网取回的歌词先去掉平台插入的声明行；在线来源一律经 `notice::parse_online` 解析）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（歌词预览：按「歌词来源」依次问网易云 / QQ / 备用词源）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
 | `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL）、`table`（批量修改标签：列表行 `TagRowView`、只写提到的字段的 `TagPatch`、并行读 / 写） |
 | `ncm` | `NcmDecoder` trait + `FileNcmDecoder`（流式）、`client_comment`（`163 key` 解密取 `musicId`）、`synthetic`（仅测试） |
 | `library` | `LocalLibraryService`（并行扫描）、`matcher`（一对一匹配）、`text`（NFKC / 字符类别，按 UTF-16 码元复现 .NET 语义）、`LibraryManager`（缓存与编排）、`view` |
@@ -69,6 +69,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | 下载 / 同步 | `set_quality`、`download_tracks`、`download_missing`（`trackIds`：确认框里仍勾选的歌，只下载其中仍然缺失的）、`sync_playlist`、`download_cancel` |
 | 在线匹配 | `online_search`、`online_load_result`、`lyrics_source_fetch`、`get_match_threshold`；在线标签：`online_tag_candidates`、`online_cover_size`、`online_load_tags` |
 | 批量获取 | `batch_scan`、`batch_run`、`batch_cancel` |
+| 歌词转逐字 | `word_lyrics_preview`、`word_lyrics_apply`（取消用 `batch_cancel`） |
 | 编辑器 / 拖放 | `editor_get_state`、`editor_remember_options`、`resolve_drop`、`take_startup_file` |
 | 设置 / 外观 | `get_settings`、`save_settings`（只传改动的键）、`preview_appearance`（不写盘） |
 | 更新 | `check_for_updates`（`manual` 为 false 且关了自动检查时不联网、返回 `null`；失败是 `{ kind: network \| rateLimited \| noRelease \| invalid, message }`）、`ignore_update`、`open_release_page` |
@@ -82,6 +83,7 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `ncm:progress` | `{ completed, total, index, path, fileName, stage: decrypting \| matching \| finished, message, result? }` |
 | `download:started` / `download:progress` | 任务计划 / 逐曲进度（阶段、百分比、字节、最后一条带 `finish`） |
 | `batch:progress` | `{ completed, total, index, path, fileName, stage: started \| finished, result }` |
+| `wordlyrics:progress` | 同上的结构；`result` 是 `{ filePath, fileName, status, message, sourceLabel, targets, keepsTranslation }`（预览与转换共用） |
 
 另外，拖放用 Tauri 窗口事件 `tauri://drag-enter / over / drop / leave`，前端 `useFileDrop` 监听。命令载荷与字段的完整列表见 `app/src/api/*.ts` 和 `docs/TAURI_REWRITE.md`。
 
@@ -171,6 +173,13 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - 编辑器与批量窗口都是叠在主窗口上的模态面板（`Modal` 组件，模态栈：Esc 只关最上面一个），不是独立 Tauri 窗口——拖放事件、IPC、主题 token 与「未保存修改」确认都在同一个 WebView 里。
 - 读取 → 编辑 → `write_tags(replaceAll: true)` 保存 → 重新读取；保存保留网易云 ID 标记，没提供封面则封面不动，`removeCover` 才删除。
 - **多值字段的保存**（`useLyricsEditor::multiValuePlan`）：艺术家等多值字段在界面上是用 `/` 接起来的一行字。保存时：这行字还是在线结果接出来的那一串 → `artists` 用在线结果的歌手清单（`OnlineSong.artists`，边界是来源给的）；这行字和打开文件时一样 → 字段名放进 `keep`，后端不碰文件里的这个字段（`AudioTagData::keep` 优先于 `replace_all`、给的值与 `clear`；备注不支持）；用户改过 → 按 `/ ; ； 、` 拆。套用了在线清单而文字没变时也算「有未保存的修改」。
+- **歌词转逐字**（批量修改标签底部的按钮，`lyrics::batch::wordify`；用户 2026-11-16 提出）：把选中的歌（没选就是全部）现有的**逐行**歌词换成逐字歌词。逐字时间从逐行歌词里算不出来，所以做法是重新找到同一首歌、把平台的逐字歌词取回来替换：
+  1. 读现有歌词——内嵌的与旁边同名的 `.lrc`，两处各自判断。已经是逐字的（尖括号词标签，或方括号写法 `[时间]字[时间]字[时间]`——一行正文里有不在行尾的时间标签）、没有歌词的、没有时间轴的都不动；只在行尾带一个结束时间的 `[开始]歌词[结束]` 仍然是逐行歌词。
+  2. 按标题 / 歌手 / 时长搜索（规则与批量在线获取相同），依次问 QQ 音乐、网易云音乐、备用词源；只取歌词、不下载封面（`OnlineMusicSearch::get_lyrics_details`）。
+  3. **核对是不是同一个版本**（`convert`）：逐字歌词的每一行去现有歌词里找起始时间相差不超过 1.5 秒、文字相同或相近的行（去掉时间标签、NFKC、只留字母数字后比较；4 个字以上的句子相似度 ≥ 0.7 也算，因为各平台同一句常差一两个字；两边断行不同、一行被拆成几行的也认）。对上的不到 60% 就不换，换下一个来源再试。这一步是为了不把现场版、重录版的歌词换上去。
+  4. 现有歌词带译文的（译文行紧跟原文行、时间相同），译文按对上的行原样搬到逐字歌词上；平台声明与 `//` 不算译文。开头的 `[ti:]` `[ar:]` 等说明标签保留，`[offset:]` 不留（核对时已经算进去了）。
+  5. 写回原处：内嵌的写进音频标签（只写歌词）；`.lrc` 里的写回 `.lrc`（`tags::sidecar::write_sidecar_lyrics`：先把原文件备份到同目录 `_backup\`，已有同名备份不覆盖；保留 BOM 与换行风格；临时文件 + 改名）。**这是程序唯一会写 `.lrc` 的地方**，仍然从不删除 `.lrc`。
+  分两步：`word_lyrics_preview` 只联网、不写文件，每首歌的结论（可以转换 / 已是逐字 / 没有歌词 / 没找到 / 没有逐字版本 / 版本对不上）显示在列表的状态栏；有能换的才弹确认框，确认后 `word_lyrics_apply` 写入——用的是预览时留在后端内存里的结果，不再联网，写之前重读文件，歌词被改过就不写。与批量在线获取共用一个任务槽，用 `batch_cancel` 取消。写出的逐字歌词是尖括号写法的增强 LRC（与下载时写进标签的一样；用户确认过不改成方括号写法）。
 - **同名歌词文件**：`read_tags` 读完标签后，若文件里没有内嵌歌词，就读旁边同名的 `.lrc`（`tags::sidecar::read_sidecar_lyrics`：UTF-8 / 带 BOM 的 UTF-16，上限 2 MB，任何问题都当作没有）放进 `TagView.sidecarLyrics`。编辑器把它填进歌词框（不算「有未保存的修改」），歌词标题下与状态栏注明来源；保存时随表单写进音频标签，`.lrc` 文件本身不动。批量修改标签的列表行同样回落（`TagRowView.lyricsFile` 是歌词文件名），「查看标签」也显示它。
 - 封面旁显示格式、像素尺寸、大小与图片类型（`TagView` 的 `coverMimeType` / `coverWidth` / `coverHeight` / `coverSize` / `coverPictureType`；换成本地图片或在线封面时显示新图片的参数，类型是保存时写入的「正面封面」）。
 - 拖放：`useFileDrop` 监听 `tauri://drag-*`；离开后 180 ms 才隐藏提示层（期间再次进入则取消，避免闪烁）。`editor::resolve_drop` 把拖入的目标展开成音频文件（文件直接取；文件夹展开为其中含子文件夹的全部音频，规则同批量获取扫描目录；按拖入顺序、不区分大小写去重）：只有一首时用编辑器打开（`audio`），两首及以上交给「批量修改标签」（`batch` + `files`，窗口里显示「拖入的 N 首音频」，不再扫描目录，「改用目录…」可切回），一首都没有时拖入了 `.ncm` 就提示改用「导入 NCM」，否则给出第一个失败原因；无法处理的目标跳过并在日志里说明。编辑器开着时由编辑器处理（多首打开叠在它上面的批量窗口）；批量窗口开着时新拖入的文件（一首也算）替换它的清单，正在处理时只提示、不替换。C# 版拖入多个只打开第一个，这里有意不同。
@@ -213,6 +222,10 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 - **景深**：给下一层加 `filter`：有对话框时整个主界面 `.app-shell` 平滑虚化（`body:has(> .modal-backdrop:not(.modal-leaving)) .app-shell`），叠放对话框时被盖住的对话框也虚化，拖放提示出现时同样虚化。虚化多重由「背景雾度」（设置 `backdropHaze`，0–1，默认 0.30，写到 `--backdrop-haze`）决定：主界面 `h × 30 px`、被叠住的对话框 `h × 20 px`，对话框后的遮罩 `--scrim` 不透明度为 `h·(0.4+s)·(1−h) + 0.92·h²`（s 为玻璃浓度）——0 时不虚化、不遮暗，能看清下层的一切；1 时虚化 30 px、遮罩约 92%，几乎看不见下层。默认 0.30 与加入这个设置之前的固定效果一致（9 px / 6 px）。设置面板的「下一层 / 玻璃层」示意图按同样的雾度虚化下一层。对话框与拖放提示层用 `createPortal` 挂到 `body`，避免被上一层的 filter 截成局部定位容器。早期 WebView2 的透明窗口里 `backdrop-filter` 不生效（当时实机确认）；2026-11 用 WebView2 156 实测它对页面内容已经生效，但对话框仍然**不用** `backdrop-filter`：它会在折射之后再模糊一遍，把下面这条的折射完全抹掉。
 - **对话框折射下层界面**（`glass/underGlass.ts`）：只有一个对话框时，在 `#root` 上套一个 SVG 滤镜：`feFlood` 中性灰 + `feImage` 位移图（按对话框的尺寸、圆角与折射参数在 2D 画布上按半分辨率生成，与着色器同一套斯涅尔公式）→ `feDisplacementMap`；色散增益大于 0 时 R / G / B 各用不同的位移量取样，再用 `feColorMatrix` 拆通道、`feComposite arithmetic` 拼回并乘回 3。先模糊（`.app-shell`）再折射（`#root`），与参考实现的顺序一致；url() 滤镜不能插值，和可过渡的模糊分在两个元素上，雾度的淡入淡出才不受影响。对话框进场动画结束（`animationend`）后才套上，尺寸变化（ResizeObserver）、窗口缩放、参数变化时重算；叠放对话框时不折射。
 - **动效**：`theme.css` 统一时长（120 / 200 / 320 / 460 ms）与缓动（ease-out、ease-in、弹簧）；对话框进场缩放 + 上移 + 淡入，退场由 `Modal` 卸载时留下的静态「残影」播放淡出后自动移除；主题切换在设置面板里用 View Transition 整窗交叉淡化；按钮、开关、分段控件（`Segmented`）、滑块、设置导航指示条都有统一的弹簧过渡。`reduceMotion` 或系统「减少动画」时所有过渡缩到 1 ms（加载指示器照常转）。
+  - **残影保留滚动位置**：复制出来的节点滚动量是 0，对话框离开文档后原来的滚动量也读不到，所以 `Modal` 平时在捕获阶段听对话框里的滚动、记下各元素滚到了哪里，生成残影时按同样的路径滚回去；否则滚动过的清单（虚拟滚动只画可见的几行）在淡出时是一片空白。残影里的 WebGL 画布（设置里的液态玻璃预览）仍然是空的。
+  - **离场机制**：`lib/presence.ts` 的 `usePresence(value)` 在值变成 `null` 之后把最后一次的值再留一会儿，让内容播完退场动画才卸载（`animationend` 时调用 `done`，400 ms 兜底）。`Reveal` 组件在它上面给「排在版面里、时有时无的一行」做展开 / 收起（高度在 0 与内容高度之间过渡，靠 `interpolate-size: allow-keywords`）：下载 / 同步工具条的进度行、结果行、提示行，顶部提示条，歌单的「部分歌曲没有取回」横幅都用它，下面的歌曲表格不会被突然推开。进场与退场用同样的时长与缓动，一行收起的同时另一行展开时两行高度之和不变。拖放提示层也用 `usePresence` 播退场动画。新增这类时有时无的内容时用 `Reveal`，不要直接写 `{条件 && …}`。
+  - **内容淡入**：换歌单、曲目加载完成时，歌单头部、工具条与歌曲表格淡入并略微上移（`lp-content-in`；头部与表格的 `key` 绑定歌单 ID，同一个歌单从「加载中」到「加载完成」头部不重播）；封面图片用 `FadeImage`，加载完成后淡入，已在缓存里的直接显示。歌曲行里的下载进度条宽度有 200 ms 过渡。
+  - 过渡的时长一律取 `theme.css` 的 `--dur-*` / `--ease-*`，不写死数值（侧栏收起是 `--dur-3`，与日志栏一致）。
 - **主题与外观设置**：外观类设置（主题、背景、材质、玻璃浓度、背景雾度、液态玻璃参数）改动立即预览整个窗口（设置面板本身就是对话框，拖动雾度时身后的主界面实时变化）（`preview_appearance` 不写盘）；取消、Esc 或面板被卸载时还原到已保存的外观；只有「保存」才写盘（`save_settings` 保存后立即应用）。上次保存的外观缓存在 `localStorage`，只为避免启动时主题闪一下，以后端设置为准。
 - **高级设置与即时预览**：外观页最下面的「高级设置」（可展开）按四组列出参考项目的参数（折射与色散 / 菲涅尔与高光 / 模糊、色调与阴影 / 形状，表在 `glass/params.ts` 的 `PARAM_GROUPS`，范围必须与 Rust 的表一致），带「重置为默认」。上方的即时预览（`GlassPreview`，滚动时停在顶部）用自己的 `GlassRenderer` 画一个缩小的主界面（侧栏、卡片、真实的 `.btn` 按钮）和一块可拖动（也可用方向键移动）的玻璃；内置背景下迷你面板也是 WebGL 玻璃，系统材质下是 CSS 近似、背景用渐变光斑代替桌面；渐变背景叠一层细斜纹，平滑的渐变被折射后看不出变化。
 - **标题栏**：68 px 顶栏即标题栏，自绘最小化 / 最大化 / 关闭按钮，`core:window:allow-start-dragging` 拖动，双击最大化；窗口最小 960×600。侧栏展开 272 px / 收起 88 px，`Ctrl+B` 切换。
