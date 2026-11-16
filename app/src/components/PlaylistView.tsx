@@ -7,7 +7,9 @@ import type { useSelection } from '../state/useSelection'
 import type { useTransfer } from '../state/useTransfer'
 import type { useTransferConfirm } from '../state/useTransferConfirm'
 import type { DetailState, ListState } from '../state/usePlaylists'
+import FadeImage from './FadeImage'
 import LocalToolbar from './LocalToolbar'
+import Reveal from './Reveal'
 import SongTable from './SongTable'
 import TransferToolbar from './TransferToolbar'
 
@@ -46,7 +48,7 @@ function BigCover({ url, alt }: { url: string | null; alt: string }) {
         ♪
       </span>
       {src && !failed && (
-        <img src={src} alt={alt} decoding="async" draggable={false} onError={() => setFailed(true)} />
+        <FadeImage src={src} alt={alt} decoding="async" draggable={false} onError={() => setFailed(true)} />
       )}
     </span>
   )
@@ -68,7 +70,7 @@ function Header({
   const parts = [creator ? `创建者：${creator}` : null, trackText].filter(Boolean)
   return (
     <header className="pv-header">
-      {/* key 绑定封面地址：换歌单后重置“加载失败”状态。 */}
+      {/* key 绑定封面地址：换歌单后重置“加载失败”状态，新封面重新淡入。 */}
       <BigCover key={coverUrl ?? ''} url={coverUrl} alt={`歌单封面：${title}`} />
       <div className="pv-header-text">
         <h2 className="pv-title" title={title}>
@@ -177,6 +179,7 @@ export default function PlaylistView({
     return (
       <>
         <Header
+          key={selected.id}
           title={name}
           coverUrl={selected.coverUrl}
           creator={selected.creatorNickname}
@@ -207,6 +210,7 @@ export default function PlaylistView({
     return (
       <>
         <Header
+          key={selected.id}
           title={name}
           coverUrl={selected.coverUrl}
           creator={selected.creatorNickname}
@@ -226,21 +230,25 @@ export default function PlaylistView({
   const note = partialNote(loaded)
   return (
     <>
+      {/* key 绑定歌单：换歌单时头部重新挂载并淡入；同一个歌单从「加载中」到「加载完成」不重播。 */}
       <Header
+        key={selected.id}
         title={loaded.name.trim() === '' ? name : loaded.name}
         coverUrl={loaded.coverUrl ?? selected.coverUrl}
         creator={loaded.creatorNickname ?? selected.creatorNickname}
         trackText={`共 ${loaded.songs.length} 首`}
         description={loaded.description ?? selected.description}
       />
-      {note && (
-        <div className="pv-banner" role="alert">
-          <span>{note}</span>
-          <button type="button" className="btn btn-small" aria-label="重新加载歌单曲目" onClick={onRetryDetail}>
-            重新加载
-          </button>
-        </div>
-      )}
+      <Reveal value={note}>
+        {(text) => (
+          <div className="pv-banner" role="alert">
+            <span>{text}</span>
+            <button type="button" className="btn btn-small" aria-label="重新加载歌单曲目" onClick={onRetryDetail}>
+              重新加载
+            </button>
+          </div>
+        )}
+      </Reveal>
       {loaded.songs.length === 0 ? (
         <Message title="歌单暂无歌曲" text="可以换一个歌单，或稍后点击「重新加载」。">
           <button type="button" className="btn pv-action" aria-label="重新加载歌单曲目" onClick={onRetryDetail}>
@@ -280,7 +288,9 @@ export default function PlaylistView({
             onCancel={transfer.cancel}
             onDismiss={transfer.dismiss}
           />
+          {/* key 绑定歌单：换歌单时表格重新挂载，滚回顶部并淡入。 */}
           <SongTable
+            key={selected.id}
             songs={loaded.songs}
             matches={local.matches}
             selected={selection.selected}

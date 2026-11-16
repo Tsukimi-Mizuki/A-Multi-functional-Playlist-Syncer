@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { PlaylistSummary } from '../api/playlists'
 import { imageSrc } from '../lib/format'
 import type { ListState } from '../state/usePlaylists'
+import FadeImage from './FadeImage'
 
 interface PlaylistSidebarProps {
   collapsed: boolean
@@ -37,7 +38,7 @@ function Cover({ playlist }: { playlist: PlaylistSummary }) {
     <span className="pl-cover" aria-hidden="true">
       <span className="pl-cover-fallback">♪</span>
       {src && !failed && (
-        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(true)} />
+        <FadeImage src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(true)} />
       )}
     </span>
   )

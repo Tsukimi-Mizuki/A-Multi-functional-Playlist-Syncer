@@ -289,7 +289,7 @@ body {
   border-radius: 12px;
   /* 二维码始终白底黑码，深色主题下也能被手机扫描。 */
   background: #fff;
-  transition: opacity 0.2s;
+  transition: opacity var(--dur-2) var(--ease-out);
 }
 
 .qr-frame-dim {

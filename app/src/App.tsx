@@ -10,7 +10,7 @@ import AccountButton from './components/AccountButton'
 import BatchTagsDialog, { type BatchDrop } from './components/BatchTagsDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadMissingDialog from './components/DownloadMissingDialog'
-import DropOverlay from './components/DropOverlay'
+import DropOverlay, { type DropTarget } from './components/DropOverlay'
 import GlassBackdrop from './components/GlassBackdrop'
 import LyricsEditorDialog, { type EditorRequest } from './components/LyricsEditorDialog'
 import LyricsDialog from './components/LyricsDialog'
@@ -20,11 +20,13 @@ import TagsDialog from './components/TagsDialog'
 import PlaylistSidebar from './components/PlaylistSidebar'
 import PlaylistView from './components/PlaylistView'
 import QrLoginDialog from './components/QrLoginDialog'
+import Reveal from './components/Reveal'
 import SettingsDialog from './components/SettingsDialog'
 import SyncConfirmDialog from './components/SyncConfirmDialog'
 import TitleBar from './components/TitleBar'
 import UpdateDialog from './components/UpdateDialog'
 import { installUnderGlass } from './glass/underGlass'
+import { usePresence } from './lib/presence'
 import { appearanceOf, applyAppearance, useAppearance } from './state/appearance'
 import { useAuth } from './state/useAuth'
 import { useFileDrop } from './state/useFileDrop'
@@ -281,6 +283,9 @@ export default function App() {
     batchOpen ||
     (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt && !transferConfirm.pending)
   const { dragging } = useFileDrop(dropEnabled, onDrop)
+  // 松开或拖出窗口后提示层再留一会儿，播完退场动画才卸载。
+  const dropTarget: DropTarget | null = dragging ? (editorOpen ? 'editor' : batchOpen ? 'batch' : 'main') : null
+  const dropOverlay = usePresence(dropTarget)
 
   const openLogin = useCallback(() => setDialog('login'), [])
   const openNcm = useCallback(() => setDialog('ncm'), [])
@@ -341,21 +346,28 @@ export default function App() {
         }
         accountSlot={<AccountButton account={account} onLogin={openLogin} onLogout={() => setDialog('logout')} />}
       />
-      {appState?.session.loadError && (
-        <p className="app-banner" role="alert">
-          登录信息读取失败：{appState.session.loadError}
-        </p>
-      )}
-      {appState?.settingsWarning && (
-        <p className="app-banner" role="alert">
-          设置读取失败，已使用默认设置：{appState.settingsWarning}
-        </p>
-      )}
-      {notice && (
-        <p className="app-banner app-banner-info" role="status">
-          {notice}
-        </p>
-      )}
+      {/* 提示条用 Reveal 展开 / 收起：直接插入的话整个界面会被突然往下挤。 */}
+      <Reveal value={appState?.session.loadError || null}>
+        {(message) => (
+          <p className="app-banner" role="alert">
+            登录信息读取失败：{message}
+          </p>
+        )}
+      </Reveal>
+      <Reveal value={appState?.settingsWarning || null}>
+        {(message) => (
+          <p className="app-banner" role="alert">
+            设置读取失败，已使用默认设置：{message}
+          </p>
+        )}
+      </Reveal>
+      <Reveal value={notice || null}>
+        {(message) => (
+          <p className="app-banner app-banner-info" role="status">
+            {message}
+          </p>
+        )}
+      </Reveal>
       <main className="workspace">
         <PlaylistSidebar
           collapsed={sidebarCollapsed}
@@ -411,7 +423,7 @@ export default function App() {
           onClose={() => setBatch(null)}
         />
       )}
-      {dragging && <DropOverlay target={editorOpen ? 'editor' : batchOpen ? 'batch' : 'main'} />}
+      {dropOverlay.value && <DropOverlay target={dropOverlay.value} leaving={dropOverlay.leaving} onLeft={dropOverlay.done} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
       {lyricsSong && <LyricsDialog key={lyricsSong.id} song={lyricsSong} onClose={() => setLyricsSong(null)} />}
       {transferConfirm.pending?.kind === 'missing' && (

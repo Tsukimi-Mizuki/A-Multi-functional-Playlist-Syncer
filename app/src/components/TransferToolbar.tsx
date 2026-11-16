@@ -1,6 +1,7 @@
 import type { QualityOption } from '../api/app'
 import type { TransferKind, TransferSummary } from '../api/transfer'
 import type { RunningTransfer } from '../state/useTransfer'
+import Reveal from './Reveal'
 
 interface TransferToolbarProps {
   /** 勾选的歌曲数。 */
@@ -39,6 +40,11 @@ export function runningText(running: RunningTransfer): string {
   return `正在${verb(running.kind)} ${running.completed}/${running.total}`
 }
 
+/** 整体进度的百分比；总数还不知道时为 `null`。 */
+function progressPercent(running: RunningTransfer): number | null {
+  return running.total > 0 ? Math.min(100, Math.round((running.completed / running.total) * 100)) : null
+}
+
 /** 任务结束后的汇总文案（与桌面版日志一致）。 */
 export function summaryText(summary: TransferSummary): string {
   const done = summary.results.length
@@ -71,9 +77,7 @@ export default function TransferToolbar({
   onDismiss,
 }: TransferToolbarProps) {
   const busy = running !== null
-  const percent = running && running.total > 0 ? Math.min(100, Math.round((running.completed / running.total) * 100)) : null
   const noMissing = missingCount === 0
-  const failedTone = summary !== null && summary.failed > 0
 
   return (
     <div className="transfer-toolbar" role="group" aria-label="下载与同步">
@@ -147,42 +151,61 @@ export default function TransferToolbar({
         )}
       </div>
 
-      {running && (
-        <div className="transfer-row transfer-progress-row" role="status" aria-live="polite">
-          <span className="spinner spinner-small" aria-hidden="true" />
-          <span className="transfer-running-text">{runningText(running)}</span>
-          {percent !== null && !running.cancelling && (
-            <progress className="transfer-progress" max={100} value={percent} aria-label={`${verb(running.kind)}进度 ${percent}%`} />
-          )}
-        </div>
-      )}
+      {/* 下面几行时有时无：用 Reveal 平滑展开 / 收起，歌曲表格不会被突然推开。 */}
+      <Reveal value={running}>
+        {(task) => {
+          const taskPercent = progressPercent(task)
+          return (
+            <div className="transfer-row transfer-progress-row" role="status" aria-live="polite">
+              <span className="spinner spinner-small" aria-hidden="true" />
+              <span className="transfer-running-text">{runningText(task)}</span>
+              {taskPercent !== null && !task.cancelling && (
+                <progress
+                  className="transfer-progress"
+                  max={100}
+                  value={taskPercent}
+                  aria-label={`${verb(task.kind)}进度 ${taskPercent}%`}
+                />
+              )}
+            </div>
+          )
+        }}
+      </Reveal>
 
-      {!running && summary && (
-        <div className="transfer-row" role="status" aria-live="polite">
-          <span className={failedTone ? 'transfer-summary transfer-summary-warn' : 'transfer-summary'}>{summaryText(summary)}</span>
-          <button type="button" className="transfer-link" aria-label="关闭结果提示" onClick={onDismiss}>
-            知道了
-          </button>
-        </div>
-      )}
-      {!running && notice && (
-        <div className="transfer-row" role="status">
-          <span className="transfer-note">{notice}</span>
-        </div>
-      )}
-      {!running && error && (
-        <div className="transfer-row" role="alert">
-          <span className="transfer-error">{error}</span>
-          <button type="button" className="transfer-link" aria-label="关闭错误提示" onClick={onDismiss}>
-            知道了
-          </button>
-        </div>
-      )}
-      {qualityError && (
-        <div className="transfer-row" role="alert">
-          <span className="transfer-error">{qualityError}</span>
-        </div>
-      )}
+      <Reveal value={running ? null : summary}>
+        {(result) => (
+          <div className="transfer-row" role="status" aria-live="polite">
+            <span className={result.failed > 0 ? 'transfer-summary transfer-summary-warn' : 'transfer-summary'}>{summaryText(result)}</span>
+            <button type="button" className="transfer-link" aria-label="关闭结果提示" onClick={onDismiss}>
+              知道了
+            </button>
+          </div>
+        )}
+      </Reveal>
+      <Reveal value={running ? null : notice || null}>
+        {(text) => (
+          <div className="transfer-row" role="status">
+            <span className="transfer-note">{text}</span>
+          </div>
+        )}
+      </Reveal>
+      <Reveal value={running ? null : error || null}>
+        {(text) => (
+          <div className="transfer-row" role="alert">
+            <span className="transfer-error">{text}</span>
+            <button type="button" className="transfer-link" aria-label="关闭错误提示" onClick={onDismiss}>
+              知道了
+            </button>
+          </div>
+        )}
+      </Reveal>
+      <Reveal value={qualityError || null}>
+        {(text) => (
+          <div className="transfer-row" role="alert">
+            <span className="transfer-error">{text}</span>
+          </div>
+        )}
+      </Reveal>
     </div>
   )
 }

@@ -58,7 +58,7 @@
 
 /* 虚化半径随背景雾度：默认 0.30 时主界面 9 px、被叠住的对话框 6 px（加入设置之前的固定值）。 */
 body:has(> .modal-backdrop:not(.modal-leaving)) .app-shell,
-body:has(> .drop-overlay) .app-shell {
+body:has(> .drop-overlay:not(.drop-overlay-leaving)) .app-shell {
   filter: blur(calc(var(--backdrop-haze) * 30px)) saturate(135%);
 }
 
@@ -305,9 +305,92 @@ body:has(> .drop-overlay) .app-shell {
 .song-row,
 .editor-result,
 .ncm-row {
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+/* 歌单条目另有两样：选中时的描边，以及侧栏收起时跟着变的内边距（时长与侧栏宽度的过渡一致）。 */
+.pl-item {
   transition:
     background-color var(--dur-2) var(--ease-out),
-    padding 0.24s var(--ease-out);
+    border-color var(--dur-2) var(--ease-out),
+    padding var(--dur-3) var(--ease-out);
+}
+
+/* ---- 主区域的内容：换歌单、曲目加载完成时淡入，不是一下子换掉 ---- */
+.pv-header,
+.pv-loading,
+.pv-message,
+.local-toolbar,
+.transfer-toolbar,
+.song-table {
+  animation: lp-content-in var(--dur-3) var(--ease-out) backwards;
+}
+
+@keyframes lp-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* 封面图片（FadeImage）：到了再淡入，没到之前露出下面的占位图标。 */
+.fade-image {
+  opacity: 0;
+  transition: opacity var(--dur-3) var(--ease-out);
+}
+
+.fade-image-ready {
+  opacity: 1;
+}
+
+/* ---- 时有时无的一行（Reveal）：出现时把下面的内容平滑推开，消失时平滑收起 ----
+   高度在 0 与内容高度之间过渡（interpolate-size 让 height: auto 可以参与过渡）。进场与退场用同样的时长与缓动：
+   一行收起的同时另一行展开时（下载结束，进度行换成结果行），两行的高度加起来不变，下面的表格不会晃。
+   --reveal-gap 是所在容器的行间距：收起到 0 时用负的上边距把这段间距也吃掉。 */
+.reveal {
+  flex: none;
+  interpolate-size: allow-keywords;
+  animation: lp-reveal-in var(--dur-2) var(--ease-out) backwards;
+}
+
+.reveal-leaving {
+  pointer-events: none;
+  animation: lp-reveal-out var(--dur-2) var(--ease-out) forwards;
+}
+
+@keyframes lp-reveal-in {
+  from {
+    height: 0;
+    margin-top: calc(var(--reveal-gap, 0px) * -1);
+    overflow: hidden;
+    opacity: 0;
+  }
+
+  to {
+    overflow: hidden;
+  }
+}
+
+@keyframes lp-reveal-out {
+  from {
+    overflow: hidden;
+  }
+
+  to {
+    height: 0;
+    margin-top: calc(var(--reveal-gap, 0px) * -1);
+    overflow: hidden;
+    opacity: 0;
+  }
+}
+
+.transfer-toolbar > .reveal {
+  --reveal-gap: 6px;
+}
+
+/* 歌曲行里的下载进度条：平滑推进，不是一格一格跳。 */
+.transfer-bar-fill {
+  transition: width var(--dur-2) linear;
 }
 
 /* ---- 输入框与下拉框：玻璃底，聚焦时外发光 ---- */
@@ -414,25 +497,21 @@ input[type='checkbox']:disabled {
   opacity: 0.5;
 }
 
-/* ---- 顶部提示条：从标题栏下面滑出来 ---- */
+/* ---- 顶部提示条：出现 / 消失的动画由外面的 Reveal 负责（展开高度 + 淡入） ---- */
 .app-banner {
   backdrop-filter: none;
-  animation: lp-banner-in var(--dur-3) var(--ease-out) both;
 }
 
-@keyframes lp-banner-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-}
-
-/* ---- 拖放提示层 ---- */
+/* ---- 拖放提示层：进场与对话框一样弹出来，松开或拖出窗口后淡出，下面的主界面同时对焦回来 ---- */
 .drop-overlay-card {
   opacity: 1;
   background: linear-gradient(180deg, var(--glass-sheen), transparent 40%), var(--dialog-glass);
   backdrop-filter: blur(var(--glass-blur)) saturate(170%);
   animation: lp-modal-in var(--dur-3) var(--ease-spring) both;
+}
+
+.drop-overlay-leaving .drop-overlay-card {
+  animation: lp-modal-out var(--dur-2) var(--ease-in) forwards;
 }
 
 /* ---- 滚动条：细长的玻璃条 ---- */
