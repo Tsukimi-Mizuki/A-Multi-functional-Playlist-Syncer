@@ -13,7 +13,7 @@ use super::model::{LyricsQuery, LyricsSource, LyricsSourceCandidate, OnlineError
 use super::net::OnlineHttp;
 use crate::library::text::is_blank;
 use crate::lyrics::scorer::{self, DEFAULT_DURATION_TOLERANCE_MS, MAX_THRESHOLD, MIN_THRESHOLD};
-use crate::lyrics::{RawLyrics, parser};
+use crate::lyrics::{RawLyrics, notice, parser};
 use crate::netease::client::escape_data_string;
 use crate::netease::http::{HttpMethod, HttpRequest, HttpTransport};
 use crate::utilities::{CancelToken, Cancelled, cancellable};
@@ -145,7 +145,7 @@ impl LrclibLyricsSource {
                 continue;
             }
 
-            let document = parser::parse(&RawLyrics::from_lrc(synced));
+            let document = notice::parse_online(&RawLyrics::from_lrc(synced));
             if document.is_empty() {
                 continue;
             }

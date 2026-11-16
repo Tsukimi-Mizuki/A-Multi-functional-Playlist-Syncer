@@ -15,7 +15,7 @@ use super::net::OnlineHttp;
 use crate::library::text::is_blank;
 use crate::lyrics::krc::{self, decode_base64_utf8};
 use crate::lyrics::scorer::{self, DEFAULT_DURATION_TOLERANCE_MS, MAX_THRESHOLD, MIN_THRESHOLD};
-use crate::lyrics::{LyricDocument, RawLyrics, parser};
+use crate::lyrics::{LyricDocument, RawLyrics, notice, parser};
 use crate::netease::client::escape_data_string;
 use crate::netease::http::{HttpMethod, HttpRequest, HttpTransport};
 use crate::utilities::{CancelToken, Cancelled};
@@ -222,7 +222,9 @@ impl KugouLyricsSource {
         let krc_text =
             krc::decrypt_base64(self.read_content_base64(&krc_url, cancel).await?.as_deref());
         if let Some(text) = krc_text.filter(|text| !is_blank(text)) {
-            let document = krc::parse(Some(&text));
+            let mut document = krc::parse(Some(&text));
+            // KRC 不经过通用解析器，这里单独去掉平台插入的声明行。
+            notice::strip_document(&mut document);
             if !document.is_empty() {
                 return Ok(Some(document));
             }
@@ -237,7 +239,7 @@ impl KugouLyricsSource {
             return Ok(None);
         };
 
-        let document = parser::parse(&RawLyrics::from_lrc(lrc_text));
+        let document = notice::parse_online(&RawLyrics::from_lrc(lrc_text));
         Ok((!document.is_empty()).then_some(document))
     }
 

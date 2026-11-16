@@ -211,6 +211,37 @@ async fn word_lyrics_mode_writes_the_enhanced_lyrics_too() {
     assert_eq!(tags.word_lyrics.as_deref(), Some("[00:01.000]line"));
 }
 
+/// 平台插在歌词与译文里的声明行不写进文件（规则见 `lyrics::notice`）。
+#[tokio::test]
+async fn platform_notices_are_left_out_of_the_written_lyrics() {
+    let dir = TempDir::new();
+    let api = FakeApi::playing("mp3");
+    api.on_lyrics(|_| {
+        Ok(RawLyrics {
+            lrc: Some(
+                "[00:00.000]未经许可,不得翻唱或使用\n[00:01.000]line one\n[00:05.000]line two"
+                    .to_owned(),
+            ),
+            translated_lrc: Some(
+                "[00:01.000]TME享有本翻译作品的著作权\n[00:05.000]第二句".to_owned(),
+            ),
+            ..RawLyrics::default()
+        })
+    });
+    let h = DownloadHarness::new(api);
+    h.cdn.serve("https://cdn.example/2.mp3", mp3_bytes());
+    let mut options = bare_options(&dir);
+    options.lyrics_mode = LyricsWriteMode::Line;
+
+    let (outcome, _) = run(&h, vec![song_no_cover(2)], options).await;
+
+    assert_eq!(outcome.success_count(), 1);
+    assert_eq!(
+        h.tags.last().plain_lyrics.as_deref(),
+        Some("[00:01.000]line one\n[00:05.000]line two\n[00:05.000]第二句")
+    );
+}
+
 #[tokio::test]
 async fn lyrics_mode_none_never_asks_for_lyrics() {
     let dir = TempDir::new();

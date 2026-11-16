@@ -27,7 +27,7 @@ use super::media::{
 };
 use super::ncm_import::{EnrichError, OnlineEnricher, OnlineMatchOutcome};
 use super::pool::{Slot, Worker, run_pool};
-use crate::lyrics::{RawLyrics, parser};
+use crate::lyrics::{RawLyrics, notice, parser};
 use crate::models::{AudioQuality, LyricsWriteMode};
 use crate::ncm::{NcmDecoder, NcmError};
 use crate::netease::http::BoxFuture;
@@ -1054,7 +1054,8 @@ pub(crate) async fn build_lyrics(
     let Ok(raw) = cancellable(cancel, api.lyrics(song_id)).await? else {
         return Ok((None, None));
     };
-    let document = parser::parse(&raw);
+    // 平台插在歌词里的声明行不写进文件。
+    let document = notice::parse_online(&raw);
     if document.is_empty() {
         return Ok((None, None));
     }

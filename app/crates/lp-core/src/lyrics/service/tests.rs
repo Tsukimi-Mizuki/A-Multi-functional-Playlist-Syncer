@@ -288,6 +288,28 @@ fn build_preview_is_pure_and_serializes_to_camel_case() {
     assert_eq!(mode, LyricsMode::Line);
 }
 
+/// 预览里看不到平台插入的声明行，行数也不把它们算进去。
+#[test]
+fn build_preview_leaves_out_platform_notices() {
+    let preview = build_preview(
+        9,
+        LyricsMode::Line,
+        &RawLyrics {
+            lrc: Some(
+                "[00:00.000]【未经著作权人许可 不得翻唱 翻录或使用】\n[00:03.000]line one"
+                    .to_owned(),
+            ),
+            translated_lrc: Some("[00:03.000]QQ音乐享有本翻译作品的著作权".to_owned()),
+            ..RawLyrics::default()
+        },
+    );
+
+    assert_eq!(preview.text, "[00:03.000]line one");
+    assert_eq!(preview.line_count, 1);
+    assert!(!preview.has_translation);
+    assert!(!preview.is_empty);
+}
+
 #[test]
 fn errors_serialize_as_kind_and_message() {
     let json = serde_json::to_value(LyricsError {

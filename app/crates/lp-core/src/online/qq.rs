@@ -12,7 +12,7 @@ use super::net::{BROWSER_UA, CoverFetch, HttpFailure, OnlineHttp};
 use crate::library::text::is_blank;
 use crate::lyrics::html::html_decode;
 use crate::lyrics::krc::decode_base64_utf8;
-use crate::lyrics::{RawLyrics, parser, qrc};
+use crate::lyrics::{RawLyrics, notice, parser, qrc};
 use crate::netease::client::escape_data_string;
 use crate::netease::http::{HttpMethod, HttpRequest};
 use crate::utilities::{CancelToken, Cancelled};
@@ -289,9 +289,10 @@ impl QqClient {
             .filter(|text| !is_blank(text))
             .map(|text| html_decode(&text));
         match decoded_translation.filter(|text| !is_blank(text)) {
-            None => details.line_lyrics = Some(decoded_lyrics),
+            // 没有译文时原文不经过解析器，直接逐行去掉平台插入的声明。
+            None => details.line_lyrics = Some(notice::strip_lrc_text(&decoded_lyrics)),
             Some(translation) => {
-                let parsed = parser::parse(&RawLyrics {
+                let parsed = notice::parse_online(&RawLyrics {
                     lrc: Some(decoded_lyrics),
                     translated_lrc: Some(translation),
                     ..RawLyrics::default()
@@ -387,7 +388,7 @@ impl QqClient {
 
         let translation = decode_lyric_field(get_string(data, "trans").as_deref());
         let romanization = decode_lyric_field(get_string(data, "roma").as_deref());
-        let parsed = parser::parse(&RawLyrics {
+        let parsed = notice::parse_online(&RawLyrics {
             lrc: line_text,
             translated_lrc: translation,
             romanized_lrc: romanization,

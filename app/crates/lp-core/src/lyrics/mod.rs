@@ -14,11 +14,15 @@
 //! - [`batch`]：`BatchLyricsService`（批量标签 / 封面 / 歌词）、任务编排与在线补全挂钩 `BatchEnricher`。
 //!
 //! 在线搜索与取词（QQ / 酷狗 / LRCLIB）在 [`crate::online`]。
+//!
+//! - [`notice`]：联网取回的歌词先去掉平台插入的声明行（「享有本翻译作品的著作权」之类）再呈现 / 写入；
+//!   在线来源一律用 [`notice::parse_online`] 解析，不直接调 [`parser::parse`]。
 
 pub mod batch;
 pub mod html;
 pub mod krc;
 pub mod models;
+pub mod notice;
 pub mod parser;
 pub mod qrc;
 pub mod scorer;

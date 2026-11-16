@@ -8,7 +8,7 @@ use super::model::{OnlineError, OnlineMusicSource, OnlineSongDetails, OnlineSong
 use super::net::{CoverFetch, OnlineHttp};
 use super::qq::{QqClient, parse_year};
 use crate::library::text::is_blank;
-use crate::lyrics::parser;
+use crate::lyrics::{notice, parser};
 use crate::netease::cover::cover_download_url;
 use crate::netease::http::{BoxFuture, HttpTransport};
 use crate::netease::models::NeteaseSong;
@@ -140,7 +140,7 @@ impl OnlineMusicSearchService {
         if with_lyrics
             && let Ok(raw) = cancellable(cancel, self.netease.get_lyrics(song_id)).await?
         {
-            let parsed = parser::parse(&raw);
+            let parsed = notice::parse_online(&raw);
             let has_word = parsed.has_word_level();
             details.line_lyrics = Some(parser::to_plain_lrc(&parsed, false));
             details.word_lyrics = has_word.then(|| parser::to_enhanced_lrc(&parsed, false));

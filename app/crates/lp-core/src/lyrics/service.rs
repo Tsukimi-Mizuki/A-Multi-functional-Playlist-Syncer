@@ -13,7 +13,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use super::batch::{BatchLyricsService, SongLookup, order_sources};
-use super::parser;
+use super::{notice, parser};
 use crate::auth::{LoginManager, RuntimeAuthOutcome};
 use crate::library::text::is_blank;
 use crate::logs::LogHub;
@@ -461,7 +461,7 @@ fn count_timed_lines(text: &str) -> usize {
 
 /// 把原始歌词解析并序列化成预览（纯函数，不联网）。
 pub fn build_preview(song_id: i64, mode: LyricsMode, raw: &super::RawLyrics) -> LyricsPreview {
-    let document = parser::parse(raw);
+    let document = notice::parse_online(raw);
     let has_word_data = document.has_word_level();
     let is_word_level = mode == LyricsMode::Word && has_word_data;
     let text = if is_word_level {
