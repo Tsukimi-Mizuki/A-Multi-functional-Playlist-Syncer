@@ -13,6 +13,13 @@
   margin: 0;
 }
 
+/* 窗口接近最小宽度时按钮排得紧一点，给账号名多留些地方。 */
+@media (max-width: 1080px) {
+  .titlebar-actions {
+    gap: 8px;
+  }
+}
+
 /* ---- 音频标签查看对话框 ---- */
 .tags-scroll {
   display: flex;

@@ -458,3 +458,39 @@
 .batch-foot-problem {
   color: var(--warning);
 }
+
+/* ---- 歌词转逐字：只有歌曲列表，比批量修改标签窄一些（列表与底栏的样式共用上面的） ---- */
+.batch-dialog.word-dialog {
+  width: min(100%, 1080px);
+  height: min(100%, 820px);
+}
+
+.word-note {
+  flex: none;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* 说明后面的「取消选择」：像链接一样的小按钮。 */
+.word-note-action {
+  margin-left: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+.word-note-action:hover {
+  text-decoration: underline;
+}
+
+.word-note-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
+}

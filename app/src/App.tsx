@@ -8,6 +8,7 @@ import { pickAudioFile } from './api/tags'
 import type { Song } from './api/playlists'
 import AccountButton from './components/AccountButton'
 import BatchTagsDialog, { type BatchDrop } from './components/BatchTagsDialog'
+import WordLyricsDialog from './components/WordLyricsDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadMissingDialog from './components/DownloadMissingDialog'
 import DropOverlay, { type DropTarget } from './components/DropOverlay'
@@ -83,6 +84,8 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null)
   // 主窗口拖入多首歌时打开的批量修改标签（编辑器里拖入时由编辑器自己的批量窗口处理）。
   const [batch, setBatch] = useState<{ key: number; folder: string; drop: BatchDrop } | null>(null)
+  // 歌词转逐字（标题栏的按钮打开）：`drop` 是窗口开着时拖进来的文件。
+  const [words, setWords] = useState<{ key: number; folder: string; drop: BatchDrop | null } | null>(null)
   const editorKey = useRef(0)
   const requestSeq = useRef(0)
   const { account, validated } = useAuth()
@@ -222,15 +225,16 @@ export default function App() {
   // 拖放：编辑器打开时把文件交给编辑器；否则解析后直接用编辑器打开，.ncm 提示改用「导入 NCM」。
   const editorOpen = editor !== null
   const batchOpen = batch !== null
-  const openRef = useRef({ editorOpen, batchOpen })
+  const wordsOpen = words !== null
+  const openRef = useRef({ editorOpen, batchOpen, wordsOpen })
   useEffect(() => {
-    openRef.current = { editorOpen, batchOpen }
+    openRef.current = { editorOpen, batchOpen, wordsOpen }
   })
   // 拖入一首：用编辑器打开；多首（或含多首的文件夹）：交给批量修改标签。编辑器开着时交给编辑器决定，
-  // 批量窗口开着时换成新拖入的这批。
+  // 批量窗口或歌词转逐字窗口开着时换成新拖入的这批。
   const onDrop = useCallback(
     (paths: string[]) => {
-      const { editorOpen: inEditor, batchOpen: inBatch } = openRef.current
+      const { editorOpen: inEditor, batchOpen: inBatch, wordsOpen: inWords } = openRef.current
       resolveDrop(paths, !inEditor)
         .then((result) => {
           if (inEditor) {
@@ -244,7 +248,12 @@ export default function App() {
             return
           }
           const files = droppedFiles(result)
-          if (inBatch) {
+          if (inWords) {
+            requestSeq.current += 1
+            const seq = requestSeq.current
+            if (files) setWords((current) => (current ? { ...current, drop: { seq, files } } : current))
+            else setNotice(result.message)
+          } else if (inBatch) {
             requestSeq.current += 1
             const seq = requestSeq.current
             if (files) setBatch((current) => (current ? { ...current, drop: { seq, files } } : current))
@@ -281,14 +290,22 @@ export default function App() {
   const dropEnabled =
     editorOpen ||
     batchOpen ||
+    wordsOpen ||
     (dialog === 'none' && !lyricsSong && !tagsPath && !updates.prompt && !transferConfirm.pending)
   const { dragging } = useFileDrop(dropEnabled, onDrop)
   // 松开或拖出窗口后提示层再留一会儿，播完退场动画才卸载。
-  const dropTarget: DropTarget | null = dragging ? (editorOpen ? 'editor' : batchOpen ? 'batch' : 'main') : null
+  const dropTarget: DropTarget | null = dragging ? (editorOpen ? 'editor' : batchOpen || wordsOpen ? 'batch' : 'main') : null
   const dropOverlay = usePresence(dropTarget)
 
   const openLogin = useCallback(() => setDialog('login'), [])
   const openNcm = useCallback(() => setDialog('ncm'), [])
+  // 歌词转逐字：先列出曲库目录里的歌（没设曲库目录就等用户选）。
+  const libraryDirectory = appState?.settings.libraryDirectory ?? ''
+  const openWords = useCallback(() => {
+    editorKey.current += 1
+    setNotice(null)
+    setWords({ key: editorKey.current, folder: libraryDirectory, drop: null })
+  }, [libraryDirectory])
   const closeDialog = useCallback(() => setDialog('none'), [])
 
   const confirmLogout = useCallback(() => {
@@ -317,6 +334,15 @@ export default function App() {
           <>
             <button type="button" className="btn" aria-label="打开歌词与标签编辑器" onClick={() => openEditor(null)}>
               歌词编辑
+            </button>
+            <button
+              type="button"
+              className="btn"
+              aria-label="打开歌词转逐字窗口"
+              title="把歌曲现有的逐行歌词换成逐字歌词"
+              onClick={openWords}
+            >
+              歌词转逐字
             </button>
             <button type="button" className="btn" aria-label="导入并解密 NCM 文件" onClick={openNcm}>
               导入 NCM
@@ -422,6 +448,9 @@ export default function App() {
           renderEditor={(path, close) => <LyricsEditorDialog initialPath={path} request={null} embedded onClose={close} />}
           onClose={() => setBatch(null)}
         />
+      )}
+      {words && (
+        <WordLyricsDialog key={words.key} initialFolder={words.folder} drop={words.drop} onClose={() => setWords(null)} />
       )}
       {dropOverlay.value && <DropOverlay target={dropOverlay.value} leaving={dropOverlay.leaving} onLeft={dropOverlay.done} />}
       {tagsPath && <TagsDialog path={tagsPath} onClose={() => setTagsPath(null)} onPickAnother={pickTagsFile} />}
