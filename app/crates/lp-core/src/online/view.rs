@@ -4,7 +4,9 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
-use super::model::{LyricsSourceCandidate, OnlineMusicSource, OnlineSongDetails, OnlineSongResult};
+use super::model::{
+    LyricsSourceCandidate, OnlineMusicSource, OnlineSongDetails, OnlineSongResult, pick_lyrics,
+};
 use super::qq;
 use crate::library::text::is_blank;
 use crate::lyrics::scorer::{self, LyricsMatchScore};
@@ -397,6 +399,25 @@ impl FallbackLyricsView {
             bilingual_word_lyrics: candidate.bilingual_word_lyrics.clone(),
             status_text,
         }
+    }
+
+    /// 按歌词格式偏好从已取回的几种写法里重新挑一份（双语优先；逐字不可用时回退逐行）。
+    ///
+    /// 用户在编辑器里切换「逐字优先」时直接用它，不必重新联网；规则与取回时挑 [`lyrics`](Self::lyrics) 的一样。
+    pub fn pick_lyrics(&self, prefer_word: bool) -> Option<&str> {
+        pick_lyrics(
+            self.line_lyrics.as_deref(),
+            self.word_lyrics.as_deref(),
+            self.bilingual_line_lyrics.as_deref(),
+            self.bilingual_word_lyrics.as_deref(),
+            prefer_word,
+            true,
+        )
+    }
+
+    /// 按歌词格式偏好重新挑选后的格式说明（如「双语逐字歌词」「逐行歌词（该来源无逐字）」）。
+    pub fn format_label(&self, prefer_word: bool) -> String {
+        lyrics_label(prefer_word, self.has_word_lyrics, self.has_translation)
     }
 }
 

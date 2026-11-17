@@ -134,8 +134,8 @@ impl OnlineSongResult {
     }
 }
 
-/// 同一首歌的几种歌词写法，主词源详情与备用词源候选共用选择逻辑。
-fn pick_lyrics<'a>(
+/// 同一首歌的几种歌词写法，主词源详情、备用词源候选与界面切换歌词格式时共用选择逻辑。
+pub(crate) fn pick_lyrics<'a>(
     line: Option<&'a str>,
     word: Option<&'a str>,
     bilingual_line: Option<&'a str>,

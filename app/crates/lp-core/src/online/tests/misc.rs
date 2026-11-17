@@ -1,12 +1,15 @@
 //! 模型、视图文案与备用词源开关。
 
+use crate::lyrics::scorer::LyricsMatchScore;
 use crate::models::LyricsSourceKind;
 use crate::online::model::{
     LyricsSourceCandidate, OnlineMusicSource, OnlineSongDetails, OnlineSongResult, music_source_of,
 };
 use crate::online::test_support::song;
-use crate::online::view::{CoverView, lyrics_label};
-use crate::online::{KugouLyricsSource, LrclibLyricsSource, fallback_source_enabled};
+use crate::online::view::{CoverView, FallbackLyricsView, lyrics_label};
+use crate::online::{
+    KugouLyricsSource, LrclibLyricsSource, fallback_source_enabled, keyword_from_file_name,
+};
 use crate::settings::AppSettings;
 
 #[test]
@@ -160,6 +163,80 @@ fn candidates_select_lyrics_like_details() {
     assert_eq!(candidate.get_lyrics(true, false), Some("W"));
     assert!(candidate.has_word_lyrics());
     assert!(candidate.has_translation());
+}
+
+#[test]
+fn fallback_views_re_pick_lyrics_when_the_format_preference_changes() {
+    let candidate = LyricsSourceCandidate {
+        source_label: "酷狗音乐".to_owned(),
+        title: "t".to_owned(),
+        artist: "a".to_owned(),
+        album: String::new(),
+        duration_ms: 1,
+        line_lyrics: Some("L".to_owned()),
+        word_lyrics: Some("W".to_owned()),
+        bilingual_line_lyrics: Some("BL".to_owned()),
+        bilingual_word_lyrics: None,
+    };
+    let score = LyricsMatchScore {
+        title: 1.0,
+        artist: 1.0,
+        album: 0.0,
+        duration: 1.0,
+        total: 0.9,
+        rejected: false,
+        reject_reason: None,
+    };
+    // 取回时偏好逐行；之后切到逐字优先，不联网直接重新挑。
+    let view = FallbackLyricsView::new(&candidate, &score, false);
+    assert_eq!(view.lyrics.as_deref(), Some("BL"));
+    assert_eq!(view.pick_lyrics(false), Some("BL"));
+    assert_eq!(
+        view.pick_lyrics(true),
+        Some("BL"),
+        "没有双语逐字时用双语逐行"
+    );
+    assert_eq!(view.format_label(true), "双语逐字歌词");
+    assert_eq!(view.format_label(false), "双语逐行歌词");
+
+    // 双语版本空白时退回原文：逐字优先拿逐字，否则拿逐行。
+    let plain = LyricsSourceCandidate {
+        bilingual_line_lyrics: Some("  ".to_owned()),
+        ..candidate.clone()
+    };
+    let view = FallbackLyricsView::new(&plain, &score, true);
+    assert_eq!(view.pick_lyrics(true), Some("W"));
+    assert_eq!(view.pick_lyrics(false), Some("L"));
+
+    // 只有逐行：逐字优先也回退逐行，格式说明写明来源没有逐字。
+    let line_only = LyricsSourceCandidate {
+        word_lyrics: None,
+        bilingual_line_lyrics: None,
+        ..candidate
+    };
+    let view = FallbackLyricsView::new(&line_only, &score, true);
+    assert_eq!(view.pick_lyrics(true), Some("L"));
+    assert_eq!(
+        view.format_label(true),
+        "逐行歌词（该来源无逐字）（该来源无翻译）"
+    );
+}
+
+#[test]
+fn keywords_come_from_the_file_name_without_track_prefix_or_underscores() {
+    assert_eq!(
+        keyword_from_file_name("D:\\Music\\03 - Some_Song.flac"),
+        "Some Song"
+    );
+    assert_eq!(
+        keyword_from_file_name("D:/Music/12.Another   Title.mp3"),
+        "Another Title"
+    );
+    assert_eq!(keyword_from_file_name("  歌名 - 歌手.m4a  "), "歌名 - 歌手");
+    // 四位数字不是音轨前缀（年份、编号）。
+    assert_eq!(keyword_from_file_name("2024 Live.ogg"), "2024 Live");
+    assert_eq!(keyword_from_file_name(""), "");
+    assert_eq!(keyword_from_file_name("   "), "");
 }
 
 #[test]
