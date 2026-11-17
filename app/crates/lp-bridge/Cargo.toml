@@ -1,0 +1,22 @@
+[package]
+# 用下划线而不是连字符：cargokit 拿包名原样拼动态库的文件名（`lp_bridge.dll`），连字符会对不上 Cargo 的产物。
+name = "lp_bridge"
+description = "Lunatic Princess 的 Flutter 桥接层：把 lp-core 的能力经 flutter_rust_bridge 交给 Dart"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+# 库名就是包名：cargokit（`app/flutter/rust_builder`）按包名找编译出的动态库，两者不一致会找不到。
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.13.0"
+lp-core.workspace = true
+# lp-core 的异步代码（reqwest、续期定时器）要在 tokio 运行时里跑；桥接层自己持有一个多线程运行时。
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
