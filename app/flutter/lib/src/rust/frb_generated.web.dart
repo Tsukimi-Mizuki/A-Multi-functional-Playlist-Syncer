@@ -12,6 +12,7 @@ import 'api/library.dart';
 import 'api/login.dart';
 import 'api/playlists.dart';
 import 'api/settings.dart';
+import 'api/tags.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -65,13 +66,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppStateDto dco_decode_app_state_dto(dynamic raw);
 
   @protected
+  ArtistListDto dco_decode_artist_list_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
   AccountDto dco_decode_box_autoadd_account_dto(dynamic raw);
 
   @protected
+  ArtistListDto dco_decode_box_autoadd_artist_list_dto(dynamic raw);
+
+  @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CoverChangeDto dco_decode_box_autoadd_cover_change_dto(dynamic raw);
+
+  @protected
+  EditorFieldsDto dco_decode_box_autoadd_editor_fields_dto(dynamic raw);
 
   @protected
   double dco_decode_box_autoadd_f_64(dynamic raw);
@@ -89,6 +102,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MatchOutcomeDto dco_decode_box_autoadd_match_outcome_dto(dynamic raw);
 
   @protected
+  SidecarLyricsDto dco_decode_box_autoadd_sidecar_lyrics_dto(dynamic raw);
+
+  @protected
+  TagErrorDto dco_decode_box_autoadd_tag_error_dto(dynamic raw);
+
+  @protected
+  TagViewDto dco_decode_box_autoadd_tag_view_dto(dynamic raw);
+
+  @protected
   TransferErrorDto dco_decode_box_autoadd_transfer_error_dto(dynamic raw);
 
   @protected
@@ -96,6 +118,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransferSummaryDto dco_decode_box_autoadd_transfer_summary_dto(dynamic raw);
+
+  @protected
+  CoverChangeDto dco_decode_cover_change_dto(dynamic raw);
+
+  @protected
+  CoverFileDto dco_decode_cover_file_dto(dynamic raw);
+
+  @protected
+  EditorFieldsDto dco_decode_editor_fields_dto(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
@@ -111,6 +142,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LibrarySummaryDto dco_decode_library_summary_dto(dynamic raw);
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw);
 
   @protected
   List<LocalMatchDto> dco_decode_list_local_match_dto(dynamic raw);
@@ -161,7 +195,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto? dco_decode_opt_box_autoadd_account_dto(dynamic raw);
 
   @protected
+  ArtistListDto? dco_decode_opt_box_autoadd_artist_list_dto(dynamic raw);
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  EditorFieldsDto? dco_decode_opt_box_autoadd_editor_fields_dto(dynamic raw);
 
   @protected
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
@@ -179,6 +219,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchOutcomeDto? dco_decode_opt_box_autoadd_match_outcome_dto(dynamic raw);
+
+  @protected
+  SidecarLyricsDto? dco_decode_opt_box_autoadd_sidecar_lyrics_dto(dynamic raw);
+
+  @protected
+  TagErrorDto? dco_decode_opt_box_autoadd_tag_error_dto(dynamic raw);
+
+  @protected
+  TagViewDto? dco_decode_opt_box_autoadd_tag_view_dto(dynamic raw);
 
   @protected
   TransferErrorDto? dco_decode_opt_box_autoadd_transfer_error_dto(dynamic raw);
@@ -219,7 +268,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SettingsDto dco_decode_settings_dto(dynamic raw);
 
   @protected
+  SidecarLyricsDto dco_decode_sidecar_lyrics_dto(dynamic raw);
+
+  @protected
   SongDto dco_decode_song_dto(dynamic raw);
+
+  @protected
+  TagEditorLoadDto dco_decode_tag_editor_load_dto(dynamic raw);
+
+  @protected
+  TagEditorSaveDto dco_decode_tag_editor_save_dto(dynamic raw);
+
+  @protected
+  TagErrorDto dco_decode_tag_error_dto(dynamic raw);
+
+  @protected
+  TagReadResultDto dco_decode_tag_read_result_dto(dynamic raw);
+
+  @protected
+  TagViewDto dco_decode_tag_view_dto(dynamic raw);
 
   @protected
   TransferErrorDto dco_decode_transfer_error_dto(dynamic raw);
@@ -296,13 +363,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppStateDto sse_decode_app_state_dto(SseDeserializer deserializer);
 
   @protected
+  ArtistListDto sse_decode_artist_list_dto(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
   AccountDto sse_decode_box_autoadd_account_dto(SseDeserializer deserializer);
 
   @protected
+  ArtistListDto sse_decode_box_autoadd_artist_list_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CoverChangeDto sse_decode_box_autoadd_cover_change_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  EditorFieldsDto sse_decode_box_autoadd_editor_fields_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
@@ -326,6 +411,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SidecarLyricsDto sse_decode_box_autoadd_sidecar_lyrics_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TagErrorDto sse_decode_box_autoadd_tag_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TagViewDto sse_decode_box_autoadd_tag_view_dto(SseDeserializer deserializer);
+
+  @protected
   TransferErrorDto sse_decode_box_autoadd_transfer_error_dto(
     SseDeserializer deserializer,
   );
@@ -339,6 +437,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TransferSummaryDto sse_decode_box_autoadd_transfer_summary_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  CoverChangeDto sse_decode_cover_change_dto(SseDeserializer deserializer);
+
+  @protected
+  CoverFileDto sse_decode_cover_file_dto(SseDeserializer deserializer);
+
+  @protected
+  EditorFieldsDto sse_decode_editor_fields_dto(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
@@ -356,6 +463,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LibrarySummaryDto sse_decode_library_summary_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
   List<LocalMatchDto> sse_decode_list_local_match_dto(
@@ -414,7 +524,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ArtistListDto? sse_decode_opt_box_autoadd_artist_list_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  EditorFieldsDto? sse_decode_opt_box_autoadd_editor_fields_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
@@ -434,6 +554,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchOutcomeDto? sse_decode_opt_box_autoadd_match_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SidecarLyricsDto? sse_decode_opt_box_autoadd_sidecar_lyrics_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TagErrorDto? sse_decode_opt_box_autoadd_tag_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TagViewDto? sse_decode_opt_box_autoadd_tag_view_dto(
     SseDeserializer deserializer,
   );
 
@@ -482,7 +617,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SettingsDto sse_decode_settings_dto(SseDeserializer deserializer);
 
   @protected
+  SidecarLyricsDto sse_decode_sidecar_lyrics_dto(SseDeserializer deserializer);
+
+  @protected
   SongDto sse_decode_song_dto(SseDeserializer deserializer);
+
+  @protected
+  TagEditorLoadDto sse_decode_tag_editor_load_dto(SseDeserializer deserializer);
+
+  @protected
+  TagEditorSaveDto sse_decode_tag_editor_save_dto(SseDeserializer deserializer);
+
+  @protected
+  TagErrorDto sse_decode_tag_error_dto(SseDeserializer deserializer);
+
+  @protected
+  TagReadResultDto sse_decode_tag_read_result_dto(SseDeserializer deserializer);
+
+  @protected
+  TagViewDto sse_decode_tag_view_dto(SseDeserializer deserializer);
 
   @protected
   TransferErrorDto sse_decode_transfer_error_dto(SseDeserializer deserializer);
@@ -582,6 +735,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_app_state_dto(AppStateDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_artist_list_dto(ArtistListDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
@@ -591,7 +747,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_artist_list_dto(
+    ArtistListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_cover_change_dto(
+    CoverChangeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_editor_fields_dto(
+    EditorFieldsDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
@@ -621,6 +795,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_sidecar_lyrics_dto(
+    SidecarLyricsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tag_error_dto(
+    TagErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tag_view_dto(
+    TagViewDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_transfer_error_dto(
     TransferErrorDto self,
     SseSerializer serializer,
@@ -635,6 +827,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_transfer_summary_dto(
     TransferSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cover_change_dto(
+    CoverChangeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cover_file_dto(CoverFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_editor_fields_dto(
+    EditorFieldsDto self,
     SseSerializer serializer,
   );
 
@@ -658,6 +865,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     LibrarySummaryDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_local_match_dto(
@@ -741,7 +951,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_artist_list_dto(
+    ArtistListDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_editor_fields_dto(
+    EditorFieldsDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
@@ -767,6 +989,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_match_outcome_dto(
     MatchOutcomeDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_sidecar_lyrics_dto(
+    SidecarLyricsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_tag_error_dto(
+    TagErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_tag_view_dto(
+    TagViewDto? self,
     SseSerializer serializer,
   );
 
@@ -828,7 +1068,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_settings_dto(SettingsDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_sidecar_lyrics_dto(
+    SidecarLyricsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_song_dto(SongDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tag_editor_load_dto(
+    TagEditorLoadDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tag_editor_save_dto(
+    TagEditorSaveDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tag_error_dto(TagErrorDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tag_read_result_dto(
+    TagReadResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tag_view_dto(TagViewDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_transfer_error_dto(

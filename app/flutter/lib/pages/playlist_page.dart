@@ -6,11 +6,14 @@ import 'dart:async';
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart';
 import 'package:lunatic_princess/src/rust/api/playlists.dart';
+import 'package:lunatic_princess/widgets/tag_editor_dialog.dart';
 import 'package:lunatic_princess/widgets/transfer_dialogs.dart';
 
 const double _rowHeight = 40;
 const double _headerHeight = 36;
 const double _statusWidth = 24;
+/// 行尾「编辑标签」按钮的宽度；表头也留同样的空位，列才对得齐。
+const double _editWidth = 32;
 
 class PlaylistPage extends StatelessWidget {
   const PlaylistPage({super.key, required this.controller});
@@ -462,6 +465,7 @@ class _SongTable extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: _editWidth),
                   if (selectedCount > 0) ...[
                     const SizedBox(width: 12),
                     Text('已选 $selectedCount 首'),
@@ -609,9 +613,26 @@ class _SongRowState extends State<_SongRow> {
                   ),
                 ),
               ),
+              SizedBox(
+                width: _editWidth,
+                child: _editButton ?? const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 「编辑标签与歌词」入口：只有本地确实存在的文件才有路径可写。
+  Widget? get _editButton {
+    final path = widget.match?.path;
+    if (widget.match?.availability != 'available' || path == null) return null;
+    return Tooltip(
+      message: '编辑标签与歌词',
+      child: IconButton(
+        icon: const Icon(WindowsIcons.edit, size: 14),
+        onPressed: () => showTagEditorDialog(context, path),
       ),
     );
   }

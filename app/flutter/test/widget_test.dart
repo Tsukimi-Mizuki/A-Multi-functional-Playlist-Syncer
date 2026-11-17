@@ -18,6 +18,18 @@ void main() {
     });
   });
 
+  group('formatFileSize', () {
+    test('uses binary units', () {
+      expect(formatFileSize(0), '0 B');
+      expect(formatFileSize(900), '900 B');
+      expect(formatFileSize(1024), '1.0 KB');
+      expect(formatFileSize(10 * 1024 * 1024 + 300 * 1024), '10.3 MB');
+    });
+    test('negative falls back to zero', () {
+      expect(formatFileSize(-5), '0 B');
+    });
+  });
+
   group('mergeLogs', () {
     test('dedupes by id and sorts', () {
       final merged = mergeLogs([line(1), line(3)], [line(2), line(3, 'dup')]);

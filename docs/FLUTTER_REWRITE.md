@@ -111,7 +111,24 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用临时预览入口（`probe_m3.dart`，用完已删）加假数据做了 DPI-aware 截图：歌单页的工具栏四个按钮、「本地 18 · NCM 6 · 缺失 6」、表头「已选 5 首 / 清除」，以及「下载选中的歌曲」确认框（已选中 5 首：本地已有 2 首，2 首是待解密的 NCM，1 首要下载）都渲染正常。
 - 还没验证：真实下载 / 解密 / 同步整条链路（要登录态与会员取链）、任务进行中的进度条与结束后的结果条的实机外观（没有真实任务数据）。
 
+## 第 5 步：标签查看与编辑（M4）
+
+单曲的标签窗口与编辑器合并成一个对话框：打开时就把标签读出来，改完原地保存，省掉 Tauri 版「只读窗口 + 另开编辑器」两套界面。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/tags.rs`:`read_tags(path)`、`tag_editor_open(path)`（读标签并转成表单值）、`tag_editor_save(path, fields, loaded, online, cover)`、`tag_cover_file(path)`（读本地图片做封面，供文件对话框那轮用）。读不出文件时 `view` 与 `error` 同时为空，表示「格式不支持或文件已损坏」；出错时进 `error: { kind, message }`，`kind` 是 `invalid` / `notFound` / `unsupported` / `failed`。
+- 写盘规则全部复用第 1 步搬进 `lp_core::tags::form::editor` 的那套：`build_write_request` 校验年份 / 音轨号 / 碟号、`multi_value_plan` 决定没动过的多值字段进 `keep`、封面按 `CoverChange` 映射成 base64 / 移除。保存时先重新读一遍文件再拼请求，避免拿过期的 `TagView` 写盘；写完再读一次，把新值与 `EditorFields` 一起交给界面刷新表单。
+- 所有标签读写都走 `tokio::task::spawn_blocking`（lofty 是同步 IO），错误文案沿用 `TagCommandError` 的中文；`run()` 与 `blocking()` 两层 `Result` 要写成 `.await?`（`tag_cover_file` 是 `.await??`）。
+- 界面上：歌曲表在本地存在的行尾多一个「编辑标签与歌词」按钮（`availability == 'available'` 且有 `path` 才出现；表头留同样宽的空位保证列对齐），点开是 `tag_editor_dialog.dart` —— 左侧封面与文件信息（格式、时长、码率、大小、路径、网易云 ID），右侧两列表单（标题、艺术家、专辑、专辑艺术家、年份、音轨号、碟号、流派、作曲家、作词家、备注）加多行歌词框。底部「重新读取」「关闭」「保存」；有未保存的修改时关闭会先问一句。封面这轮只能「移除 / 恢复」，换图要等文件对话框（M8）。
+- 表单值放在 12 个 `TextEditingController` 里，脏判断是「和打开时读到的 `EditorFields` 不同，或封面标记为移除」；保存失败把服务端文案原样显示在顶部信息条里，成功后显示「已保存：文件名」。
+
+### 验证
+
+- Rust 测试从 1241 变成 1246 个：桥接层新增 5 个（表单值往返、封面三种状态、缺数据的 replace 被拒、`TagView` 的数字转 `i64`、错误类别透传）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个，新增 `formatFileSize` 两个用例）、`flutter build windows --release` 全过。
+- 还没验证：真的写盘（要挑夹具文件跑一遍）、换封面（等文件对话框）、逐字歌词的编辑（M6 才接）。
+
 ## 下一步
 
-1. M4：标签查看与编辑——`read_tags`、`write_tags`、`get_song_lyrics` 与编辑器画面。
+1. M5：批量标签与在线标签——`read_tag_rows`、`patch_tags`、`online_search`、`online_tag_candidates`、`online_load_tags` 与批量面板。
+2. 之后依次：M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾。
 2. 之后依次：M5 批量标签与在线标签、M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
