@@ -12,7 +12,7 @@
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 工程骨架与构建 | ✅ 完成 | Cargo 工作区（`lp-core` + `src-tauri`）、React + TS 前端、`build.ps1`（默认构建 / `-Test` / `-Bundle`）、`ci.yml` + `main.yml`、`scripts/resolve-version.ps1`；Rust 1.99 / edition 2024，clippy `-D warnings` 干净 |
-| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（27 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
+| 基础层 | ✅ 完成 | 数据目录解析（环境变量 → 便携 `data\` → `%LOCALAPPDATA%` → …，含写入探测与旧目录迁移）、`settings.json`（31 个键，与 C# 版互通）、DPAPI `session.dat`（与 C# 版互读） |
 | 扫码登录与 Cookie 持久化 | ✅ 完成 | type=3 主路 + type=1 降级；803 Cookie 合并；DPAPI 加密落盘；启动恢复；后续响应 Set-Cookie 合并并自动落盘；eapi `login/token/refresh` 启动及每约 12 小时续期（实测换发新 `MUSIC_U` / `__csrf` / `MUSIC_R_U`，2026-11-04 修复了原先 weapi 端点的 `code=400`）；`CookieMerger` 按 `Path` 处理同名多条 Set-Cookie；仅接口 `code==301` 才清除会话。180 天后的实际掉线情况仍待长期观察 |
 | 歌单读取与曲目补齐 | ✅ 完成 | 歌单分页、大歌单 trackIds 按 500 / 批补齐保持顺序、某批重试一次、部分缺失横幅；固定行高虚拟滚动（3000 首只渲染约 24 行） |
 | 歌词解析与预览 | ✅ 完成 | LRC / 增强 LRC / YRC / QQ QRC（3DES 变体）/ 酷狗 KRC；译文对齐；逐行 / 逐字序列化；网易云歌词三级兜底；歌词预览对话框（来源跟随设置里的「歌词来源」，网易云 / QQ / 备用词源依次尝试） |
@@ -174,7 +174,7 @@
 ## 已知限制
 
 1. ~~**`/weapi/login/token/refresh` 返回 `code=400`**~~ **已修复（2026-11-04）**：续期改走 eapi `/eapi/login/token/refresh`，实测换发新的 `MUSIC_U`（约 180 天）/ `__csrf` / `MUSIC_R_U`，旧令牌换发后仍有效；原问题（桌面端扫码会话在 weapi 同名端点返回 `code=400`，C# v1.3 同样受影响）与调查见 `docs/TAURI_REWRITE.md`「待修问题」与「登录续期修复」。仍需长期观察换发的 `MUSIC_U` 到期前是否稳定续上。
-2. ~~网易云搜索匿名不可用~~ **已修复（2026-11-04）**：网易云搜索改走匿名 eapi `/eapi/cloudsearch/pc`（不需要登录，海外 IP 下也是明文），原网页接口 `/api/search/get/web`（海外 IP 下返回密文）只作回退；编辑器默认搜索来源仍是 QQ 音乐，是否改回网易云留给用户决定。详见 `docs/TAURI_REWRITE.md`「待修问题」与「网易云搜索修复」。
+2. ~~网易云搜索匿名不可用~~ **已修复（2026-11-04）**：网易云搜索改走匿名 eapi `/eapi/cloudsearch/pc`（不需要登录，海外 IP 下也是明文），原网页接口 `/api/search/get/web`（海外 IP 下返回密文）只作回退；编辑器默认搜索来源已按用户决定于 2026-11-09 改回网易云（已有设置文件里写着的来源原样保留）。详见 `docs/TAURI_REWRITE.md`「待修问题」与「网易云搜索修复」。
 3. 扫码登录的 803 确认段需要真人手机扫码，自动化只能验证到出码与 801 轮询。
 4. 真实账号下的下载 / 同步 / 状态列 / 歌词预览 / 歌曲行「编」按钮、以及从资源管理器真实拖拽，没有在无人值守环境验证，需要用户真机确认。
 5. 无损 / Hi-Res 以上档位受账号会员权益限制：无权限时服务端静默降档或失败，程序不绕过（会提示实际音质）。
