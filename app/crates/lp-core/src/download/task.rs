@@ -590,13 +590,7 @@ fn not_loaded() -> TransferError {
 
 /// 歌单里每个不同歌曲 ID 第一次出现的行号（保持歌单顺序）。
 fn unique_rows(songs: &[NeteaseSong]) -> Vec<usize> {
-    let mut seen = HashSet::new();
-    songs
-        .iter()
-        .enumerate()
-        .filter(|(_, song)| seen.insert(song.id))
-        .map(|(row, _)| row)
-        .collect()
+    super::plan::unique_rows(songs.iter().map(|song| song.id))
 }
 
 fn summarize_download(
