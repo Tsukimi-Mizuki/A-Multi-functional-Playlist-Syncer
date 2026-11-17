@@ -2,14 +2,14 @@
 //!
 //! 对应 C# `IAudioTagService.cs` 里的 `AudioTagData` / `AudioTagInfo`。
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::CoreError;
 
 /// 可以单独点名的标签字段（[`AudioTagData::clear`] 清除、[`AudioTagData::keep`] 保持不动）。
 /// 前端用 camelCase 的名字（`artist`、`albumArtist` …）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TagField {
     /// 标题。

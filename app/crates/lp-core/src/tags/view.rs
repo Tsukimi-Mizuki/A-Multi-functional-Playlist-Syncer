@@ -145,7 +145,7 @@ impl TagView {
 }
 
 /// 前端写标签的请求（camelCase）；封面用 Base64 传。字段含义同 [`AudioTagData`]。
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct WriteTagsRequest {
     pub title: Option<String>,

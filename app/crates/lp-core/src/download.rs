@@ -6,11 +6,13 @@
 //! - [`media`] / [`fetch`]：扩展名与文件名、原子写标签、流式下载（`MediaFileHelper`）；
 //! - [`pool`]：有并发上限的任务池；
 //! - [`service`]：`DownloadService`；
-//! - [`task`]：下载选中 / 下载缺失 / 一键同步的任务编排（挑歌、日志、结束后重新扫描曲库）。
+//! - [`task`]：下载选中 / 下载缺失 / 一键同步的任务编排（挑歌、日志、结束后重新扫描曲库）；
+//! - [`plan`]：确认框里的任务计划（按本地对比结果数出跳过 / NCM 解密 / 需下载，去重规则与 [`task`] 共用）。
 
 pub mod fetch;
 pub mod media;
 pub mod ncm_import;
+pub mod plan;
 pub mod pool;
 pub mod service;
 pub mod task;

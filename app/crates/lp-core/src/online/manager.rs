@@ -63,18 +63,25 @@ impl FileContext {
         self.keyword_from_file_name()
     }
 
-    /// 从文件名推出的搜索关键词（去掉音轨前缀、下划线换空格、空白折叠）。
+    /// 从文件名推出的搜索关键词（见 [`keyword_from_file_name`]）；没有路径或推不出来时为 `None`。
     fn keyword_from_file_name(&self) -> Option<String> {
         let path = self.file_path.as_deref().filter(|path| !is_blank(path))?;
-        let stem = std::path::Path::new(path)
-            .file_stem()?
-            .to_string_lossy()
-            .into_owned();
-        let name = title_from_file_name(stem.trim());
-        // 与 C# 一致：折叠连续空白。
-        let collapsed = name.split_whitespace().collect::<Vec<_>>().join(" ");
-        (!collapsed.is_empty()).then_some(collapsed)
+        let keyword = keyword_from_file_name(path);
+        (!keyword.is_empty()).then_some(keyword)
     }
+}
+
+/// 从文件路径推出的搜索关键词（同 C# `BuildSearchKeywordFromFileName`）：取文件名去掉扩展名，
+/// 去掉 `01 - ` / `01.` 之类的音轨前缀，下划线换空格，折叠连续空白；推不出来时为空串。
+///
+/// 编辑器打开文件时自动搜索、「在线标签」标题为空时的关键词都用它。
+pub fn keyword_from_file_name(path: &str) -> String {
+    let Some(stem) = std::path::Path::new(path.trim()).file_stem() else {
+        return String::new();
+    };
+    let name = title_from_file_name(stem.to_string_lossy().trim());
+    // 与 C# 一致：折叠连续空白。
+    name.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// `online_search` 的请求。

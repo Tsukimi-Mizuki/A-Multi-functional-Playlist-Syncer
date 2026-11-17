@@ -26,7 +26,7 @@ pub use kugou::KugouLyricsSource;
 pub use lrclib::LrclibLyricsSource;
 pub use manager::{
     FallbackRequest, FileContext, LoadRequest, OnlineManager, SearchRequest, TagCandidatesRequest,
-    TagLoadRequest,
+    TagLoadRequest, keyword_from_file_name,
 };
 pub use model::{
     LyricsQuery, LyricsSource, LyricsSourceCandidate, OnlineError, OnlineMusicSource,

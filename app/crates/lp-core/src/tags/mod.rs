@@ -7,8 +7,10 @@
 //! - [`text`]：网易云 ID 标记、备注清理、多值拆分等纯函数；
 //! - [`sidecar`]：音频文件旁边的同名 `.lrc` 歌词文件（只读，给界面在文件里没有歌词时显示）；
 //! - [`view`]：给界面用的视图（封面 data URL）、写入请求与错误 DTO；
-//! - [`table`]：批量修改标签窗口的列表行与批量改动（只写提到的字段）。
+//! - [`table`]：批量修改标签窗口的列表行与批量改动（只写提到的字段）；
+//! - [`form`]：编辑器与批量面板的表单规则（保存时写什么、哪些字段不动、数字校验），原来在 Tauri 版前端里。
 
+pub mod form;
 pub mod model;
 pub mod service;
 pub mod sidecar;
@@ -16,6 +18,7 @@ pub mod table;
 pub mod text;
 pub mod view;
 
+pub use form::{CoverChange, FormError};
 pub use model::{AudioTagData, AudioTagInfo, TagError, TagField};
 pub use service::{AudioTagService, LoftyTagService};
 pub use sidecar::{SidecarLyrics, read_sidecar_lyrics};
