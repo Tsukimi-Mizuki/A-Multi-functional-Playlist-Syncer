@@ -93,8 +93,8 @@ pub fn load_app() -> Result<AppStateDto, String> {
         is_portable: bridge.paths.is_portable,
         account: bridge.login.account().into(),
         session_error: bridge.session_error.clone(),
-        settings_warning: bridge.settings_warning.clone(),
-        download_directory: bridge.settings.download_directory.clone(),
+        settings_warning: bridge.settings_warning(),
+        download_directory: bridge.settings().download_directory,
     })
 }
 

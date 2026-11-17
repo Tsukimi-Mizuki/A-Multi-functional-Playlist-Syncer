@@ -83,10 +83,13 @@ pub async fn list_playlists() -> Result<Vec<PlaylistDto>, String> {
 
 /// 一个歌单的完整曲目（超过 500 首时分批补齐；原型阶段不推送进度）。
 pub async fn playlist_tracks(id: i64) -> Result<PlaylistDetailDto, String> {
-    let playlists = Arc::clone(&bridge()?.playlists);
+    let bridge = bridge()?;
+    let playlists = Arc::clone(&bridge.playlists);
     let detail = run(async move { playlists.tracks(id, &|_loaded, _total| {}).await })
         .await?
         .map_err(|error| error.to_string())?;
+    // 本地曲库对比只认「已经加载完成」的歌单，这里立刻登记一份。
+    bridge.library.remember_playlist(detail.id, &detail.songs);
     Ok(PlaylistDetailDto {
         id: detail.id,
         name: detail.name,

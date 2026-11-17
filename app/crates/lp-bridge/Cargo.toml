@@ -15,6 +15,9 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 flutter_rust_bridge = "=2.13.0"
 lp-core.workspace = true
+# 设置以 JSON 文本在桥接层与 Dart 之间传递（`apply_patch` 收的就是 `serde_json::Value`）。
+serde = { workspace = true }
+serde_json = { workspace = true }
 # lp-core 的异步代码（reqwest、续期定时器）要在 tokio 运行时里跑；桥接层自己持有一个多线程运行时。
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 

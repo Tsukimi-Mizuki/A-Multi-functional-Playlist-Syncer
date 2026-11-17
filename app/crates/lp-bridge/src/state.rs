@@ -1,18 +1,22 @@
 //! 桥接层的组合根：启动时解析数据目录、读设置与登录态，装配 `lp-core` 的服务（对应 Tauri 外壳的 `AppState::load`）。
 //!
-//! 原型阶段只装配登录与歌单；其余服务（下载、曲库、在线匹配……）按画面的进度逐个接上。
+//! 原型阶段只装配登录、歌单与本地曲库；其余服务（下载、在线检索、NCM……）按画面的进度逐个接上。
 
 use std::future::Future;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use lp_core::auth::{LoginManager, LoginOptions};
+use lp_core::library::{LibraryManager, LocalLibraryService};
 use lp_core::logs::LogHub;
+use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::NeteaseClient;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
 use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::PlaylistService;
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
+use lp_core::tags::{AudioTagService, LoftyTagService};
+use serde_json::Value;
 use tokio::runtime::Runtime;
 
 /// 进程内唯一的桥接状态。
@@ -21,14 +25,68 @@ pub(crate) struct Bridge {
     /// flutter_rust_bridge 自己的执行器不保证是 tokio，直接 `await` 会找不到 reactor。
     pub runtime: Runtime,
     pub paths: AppPaths,
-    pub settings: AppSettings,
-    /// 设置文件读取失败时的中文原因（此时使用默认设置）。
-    pub settings_warning: Option<String>,
+    /// 当前设置。命令在桥接层自己的线程上读写，所以与 Tauri 外壳一样用读写锁而不是裸值。
+    pub settings: Arc<RwLock<AppSettings>>,
+    /// 设置文件（保存设置时写盘）。
+    pub settings_store: JsonSettingsStore,
+    /// 设置文件读取失败时的中文原因；成功保存一次设置后清空。
+    pub settings_warning: Arc<RwLock<Option<String>>>,
     /// 登录文件读取 / 解密失败时的中文原因。
     pub session_error: Option<String>,
     pub logs: Arc<LogHub>,
     pub login: Arc<LoginManager>,
     pub playlists: Arc<PlaylistService>,
+    pub library: Arc<LibraryManager>,
+}
+
+impl Bridge {
+    /// 当前设置的一致快照。
+    pub fn settings(&self) -> AppSettings {
+        self.settings
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// 仍然有效的设置读取警告（保存过新设置后就不再提示）。
+    pub fn settings_warning(&self) -> Option<String> {
+        self.settings_warning
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// 应用设置窗口提交的修改并写盘。
+    ///
+    /// 这是用户的明确操作，所以即使设置文件当初读取失败也照常保存；保存成功后读取失败的提示随之消失。
+    pub fn save_settings_patch(&self, patch: &Value) -> Result<AppSettings, String> {
+        let default_dir = self
+            .paths
+            .default_download_dir
+            .to_string_lossy()
+            .into_owned();
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let next = settings.apply_patch(patch, &default_dir)?;
+        match self.settings_store.save(&next) {
+            Ok(saved) => {
+                *settings = saved.clone();
+                *self
+                    .settings_warning
+                    .write()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+                self.logs.success("设置已保存");
+                Ok(saved)
+            }
+            Err(error) => {
+                let message = format!("保存设置失败：{error}");
+                self.logs.warning(&message);
+                Err(message)
+            }
+        }
+    }
 }
 
 static BRIDGE: OnceLock<Result<Bridge, String>> = OnceLock::new();
@@ -71,11 +129,13 @@ impl Bridge {
             runtime,
             paths: assembled.paths,
             settings: assembled.settings,
+            settings_store: assembled.settings_store,
             settings_warning: assembled.settings_warning,
             session_error: assembled.session_error,
             logs: assembled.logs,
             login: assembled.login,
             playlists: assembled.playlists,
+            library: assembled.library,
         })
     }
 }
@@ -83,12 +143,14 @@ impl Bridge {
 /// 运行时以外的那部分状态（先装配好，再和运行时一起放进 [`Bridge`]）。
 struct Assembled {
     paths: AppPaths,
-    settings: AppSettings,
-    settings_warning: Option<String>,
+    settings: Arc<RwLock<AppSettings>>,
+    settings_store: JsonSettingsStore,
+    settings_warning: Arc<RwLock<Option<String>>>,
     session_error: Option<String>,
     logs: Arc<LogHub>,
     login: Arc<LoginManager>,
     playlists: Arc<PlaylistService>,
+    library: Arc<LibraryManager>,
 }
 
 impl Assembled {
@@ -138,14 +200,26 @@ impl Assembled {
             ));
         }
 
+        // 本地曲库扫描要读音频标签；NCM 只登记为「待解密」，不解密。
+        let tags: Arc<dyn AudioTagService> = Arc::new(LoftyTagService);
+        let library = LibraryManager::new(
+            Arc::new(LocalLibraryService::new(
+                Arc::new(FileNcmDecoder),
+                Arc::clone(&tags),
+            )),
+            Arc::clone(&logs),
+        );
+
         Ok(Self {
             paths,
-            settings,
-            settings_warning,
+            settings: Arc::new(RwLock::new(settings)),
+            settings_store,
+            settings_warning: Arc::new(RwLock::new(settings_warning)),
             session_error: restored.load_failure,
             logs,
             login,
             playlists,
+            library,
         })
     }
 }
