@@ -2,6 +2,7 @@
 
 > 适用于 2.0 起的 Rust + Tauri 2 + React 版。旧的 C# / Avalonia 版（v1.x）在 `CSharp-GUI` 分支，架构见该分支的同名文件。
 > 逐模块的实现细节、与 C# 版的差异和验证记录见 `docs/TAURI_REWRITE.md`。
+> 界面正在 `GUI-Flutter` 分支上改写为 Flutter（进行中，`lp-core` 保留），见 `docs/FLUTTER_REWRITE.md`。
 
 ## 目标
 
@@ -44,12 +45,12 @@ lp-core（app/crates/lp-core，无 Tauri 依赖）
 | `netease` | `crypto`（weapi：AES-128-CBC 双层 + 无填充 RSA；eapi：MD5 摘要 + AES-128-ECB，目前只给搜索用）、`http`（`HttpTransport` trait、`ReqwestTransport`、流式响应）、`cookie_merger`、`client`（会话代数、20 s 超时、Set-Cookie 合并）、`login`（二维码）、`playlists`、`songs`、`player`（取链与逐级降档）、`lyrics`、`search`、`mappers` / `models` / `json` / `error` |
 | `playlist` | `PlaylistService`：歌单列表与曲目加载、写运行日志、301 走登录复核 |
 | `lyrics` | `models` / `parser`（LRC、增强 LRC、YRC、QRC、译文合并、序列化）、`notice`（联网取回的歌词先去掉平台插入的声明行；在线来源一律经 `notice::parse_online` 解析）、`qrc` + `QqTripleDes`、`krc`、`zlib`、`html`、`service`（歌词预览：按「歌词来源」依次问网易云 / QQ / 备用词源）、`scorer`（匹配打分与查询变体）、`batch`（`BatchLyricsService`、`BatchEnricher`、`BatchManager`） |
-| `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL）、`table`（批量修改标签：列表行 `TagRowView`、只写提到的字段的 `TagPatch`、并行读 / 写） |
+| `tags` | `AudioTagService` trait + `LoftyTagService`；`text`（多值拆分、网易云 ID 标记、MIME 判定）、`view`（DTO、封面 data URL）、`table`（批量修改标签：列表行 `TagRowView`、只写提到的字段的 `TagPatch`、并行读 / 写）、`form`（编辑器与批量面板的表单规则：`editor` 决定保存时写什么、哪些多值字段放进 `keep`、在线结果怎么填进表单，`batch` 算共同值 / 「〈保持〉」并生成 `TagPatch`；原来在前端，Flutter 版直接调用，Tauri 版前端仍用自己那份） |
 | `ncm` | `NcmDecoder` trait + `FileNcmDecoder`（流式）、`client_comment`（`163 key` 解密取 `musicId`）、`synthetic`（仅测试） |
 | `library` | `LocalLibraryService`（并行扫描）、`matcher`（一对一匹配）、`text`（NFKC / 字符类别，按 UTF-16 码元复现 .NET 语义）、`LibraryManager`（缓存与编排）、`view` |
-| `download` | `DownloadService`、`media`（文件名 / 原子落盘 / 标签数据）、`fetch`（流式下载）、`pool`（并发任务池）、`task`（`TransferManager`：下载选中 / 下载缺失 / 同步）、`ncm_import`（`NcmImportService` + 扫描 + 任务槽） |
+| `download` | `DownloadService`、`media`（文件名 / 原子落盘 / 标签数据）、`fetch`（流式下载）、`pool`（并发任务池）、`task`（`TransferManager`：下载选中 / 下载缺失 / 同步）、`plan`（确认框的计数 `plan_transfer`；去重 `unique_rows` 与 `task` 共用）、`ncm_import`（`NcmImportService` + 扫描 + 任务槽） |
 | `sync` | `SyncService`：本地命中 / NCM 解密 / 下载三分支 |
-| `online` | `OnlineMusicSearchService`（网易云 + QQ）、`qq`、`kugou`、`lrclib`、`net`、`OnlineManager`（编辑器用的搜索 / 载入 / 备用词源）、`view` |
+| `online` | `OnlineMusicSearchService`（网易云 + QQ）、`qq`、`kugou`、`lrclib`、`net`、`OnlineManager`（编辑器用的搜索 / 载入 / 备用词源）、`view`、`keyword_from_file_name`（文件名推搜索关键词） |
 | `editor` | 编辑器记忆、`resolve_drop`、`parse_startup_args`、`read_cover_file`、`is_elevated` |
 | `update` | `UpdateChecker`（读 GitHub `releases/latest`、比较版本、处理已忽略版本、写运行日志）、`Version`（tag 归一与 SemVer 优先级，规则同 `scripts/resolve-version.ps1`）、`release_notes_text`、`open_release_page`（只打开本项目发布页） |
 | `logs` / `qr` / `error` / `utilities` | `LogHub`（400 条环形缓冲 + 监听器）、二维码 SVG、`CoreError`、`error_text` / `file_name_sanitizer` / `audio_file_types` / `cancel`（`CancelToken`） |
