@@ -9,12 +9,12 @@
 - 界面、交互、动画与主题**从零设计**：不移植 Tauri 版的液态玻璃（WebGL2 渲染器、对话框的 SVG 位移滤镜）、窗口材质（亚克力 / 云母）与 CSS 动效体系。
 - `lp-core` 原样保留；Tauri 外壳（`src-tauri/src/lib.rs`）里命令的编排逻辑改写成 Flutter 的桥接层。
 - 前端里带业务规则的纯逻辑先搬进 `lp-core`（第 1 步，下面），Flutter 那边只剩画面。
+- 数据目录按「换 Flutter 运行时目录名」的办法解决：exe 旁的 `data\` 继续是 `lp-core` 的用户数据目录（便携模式的判断也不动），Flutter 的 `flutter_assets`、`icudtl.dat`、`app.so` 改放 `runtime\`（详见第 2 步）。
 
 ## 还没定的事
 
 - 设计语言：Flutter 内置的 Material 3、`fluent_ui`（贴近 Windows 11），或用户另给设计稿（`AGENTS.md` §11：界面以用户给的设计参考为准）。
 - 外观相关的设置键怎么处理：`windowMaterial`、`glassOpacity`、`backdropHaze`、`background`、`gradientPreset`、`backgroundImage`、`liquidGlass`，以及本来就没用的 `renderFrameRate`；`theme`、`reduceMotion` 看新设计要不要。
-- 数据目录：Flutter 的 Windows 构建在 exe 旁边放 `data\`（`flutter_assets`、`icudtl.dat`、`app.so`），而 `paths.rs` 把「exe 旁边有 `data\`」当成便携模式、设置 / 登录态 / 默认下载目录 `data\Music` 都在那里。要么换目录名并做迁移，要么让两者共存并重写卸载逻辑（绝不能删到 `data\Music`）。
 - 安装包与便携版的做法（Flutter 产物是一整个文件夹，不再是单个 exe）、CI。
 - 版本号（建议 3.0.0）。
 
@@ -57,7 +57,23 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 纯 Rust 改动，Tauri 版界面没有改接，所以不涉及界面验证；`pnpm build` 不受影响。
 - 编辑器与批量面板的规则由子代理在独立的 worktree 里实现，合并前逐行对照前端源码审查过。
 
+## 第 2 步：原型（登录、歌单、歌曲表格）
+
+原型的目标是把 `lp-core` 真的接到 Flutter 里跑一次，顺带定下数据目录的方案（原「还没定的事」里那条）。原型只验证「跑得通」，不做设计。
+
+- 桥接层是新 crate `app/crates/lp-bridge/`（包名 `lp_bridge`，`cdylib` + `staticlib`，依赖 `flutter_rust_bridge = "=2.13.0"` 与 `lp-core`）。`lp-core` 自己不引 Flutter，桥接层只做 DTO 转换、tokio 运行时的进出与事件转发：`app`（启动数据、日志、账号事件、关闭）、`login`（校验登录态、二维码开始 / 轮询、退出登录）、`playlists`（歌单列表、歌单详情）。
+- Flutter 工程在 `app/flutter/`，界面先用 `fluent_ui` 顶着，等设计语言定下来再换。目前已画：概览、歌单详情（歌曲表格）、运行日志、设置（只有窗口材质与主题两项，不持久化），以及扫码登录对话框、自绘标题栏和窗口按钮。
+- **数据目录**：Flutter 的 Windows 构建默认把 `flutter_assets`、`icudtl.dat`、`app.so` 放进 exe 旁的 `data\`，而 `paths.rs` 把「exe 旁边有 `data\`」当成便携模式，两者会撞车。做法是给 Flutter 的运行时目录改名 `runtime\`：`windows/CMakeLists.txt` 的 `INSTALL_BUNDLE_DATA_DIR` 指向 `.../runtime`，`windows/runner/main.cpp` 里 `DartProject` 的目录名改成 `L"runtime"`。`lp-core` 一行没改，exe 旁的 `data\` 仍只放用户数据（便携模式下就是设置、登录态与 `data\Music`），将来安装 / 卸载钩子也不会删到别的东西。
+- 这两个构建文件是 MSVC 用 `/W4 /WX` 编译的、源文件又不带 UTF-8 BOM，注释只能写 ASCII：中文会按代码页 936 读成 `C4819`，进而被 `/WX` 变成构建失败。
+
+### 验证
+
+- `flutter analyze` 无问题；`flutter test` 4 个（`formatDuration`、`mergeLogs`）全过。
+- `flutter build windows --release` 通过；产物目录是 exe、`lp_bridge.dll` 与 `runtime\`（`app.so`、`flutter_assets`、`icudtl.dat`），没有 `data\`。
+- 实机：把 Release 目录复制到 `D:\claude\lp-flutter-build`，手建空 `data\` 后启动，窗口按 1280×800 打开；`data\` 里只出现 `Music\`（默认下载目录），说明便携模式生效、Flutter 资源没混进用户数据。
+- 还没验证：外观（截图在 `D:\claude\shot-overview.png`，等设计语言定下来再细看）、扫码登录全流程（要真扫码）、Tauri 版有而原型没接的功能。
+
 ## 下一步
 
-1. **原型**：flutter_rust_bridge 调 `lp-core` 完成登录（扫码）与读歌单、画一张歌曲表格，并实际打包一次，定下 `data\` 目录的方案。
-2. 定设计语言，然后逐个画面实现：先主流程（登录 → 歌单 → 本地对比 → 下载），再 NCM 导入、编辑器、批量修改标签、歌词转逐字、设置。
+1. 定设计语言（原型已经能登录、读歌单、画表格并打包运行，见上）。
+2. 逐个画面实现：先主流程（登录 → 歌单 → 本地对比 → 下载），再 NCM 导入、编辑器、批量修改标签、歌词转逐字、设置。
