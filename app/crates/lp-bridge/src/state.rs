@@ -1,20 +1,32 @@
 //! 桥接层的组合根：启动时解析数据目录、读设置与登录态，装配 `lp-core` 的服务（对应 Tauri 外壳的 `AppState::load`）。
 //!
-//! 原型阶段只装配登录、歌单与本地曲库；其余服务（下载、在线检索、NCM……）按画面的进度逐个接上。
+//! 目前装配登录、歌单、本地曲库、下载 / 同步；其余服务（在线检索、NCM 导入、标签编辑……）
+//! 按画面的进度逐个接上。
 
 use std::future::Future;
 use std::sync::{Arc, OnceLock, RwLock};
+use std::time::Duration;
 
 use lp_core::auth::{LoginManager, LoginOptions};
+use lp_core::download::fetch::MediaFetcher;
+use lp_core::download::ncm_import::{NcmImportService, OnlineEnricher};
+use lp_core::download::service::{DownloadApi, DownloadService, Downloader};
+use lp_core::download::task::TransferManager;
 use lp_core::library::{LibraryManager, LocalLibraryService};
 use lp_core::logs::LogHub;
+use lp_core::lyrics::batch::{BatchEnricher, BatchLyricsService, SettingsProvider};
 use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::NeteaseClient;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
+use lp_core::online::{
+    KugouLyricsSource, LrclibLyricsSource, LyricsSource, OnlineMusicSearch,
+    OnlineMusicSearchService, fallback_source_enabled,
+};
 use lp_core::paths::{AppPaths, PathEnv};
 use lp_core::playlist::PlaylistService;
 use lp_core::session::SessionStore;
 use lp_core::settings::{AppSettings, JsonSettingsStore};
+use lp_core::sync::SyncService;
 use lp_core::tags::{AudioTagService, LoftyTagService};
 use serde_json::Value;
 use tokio::runtime::Runtime;
@@ -37,6 +49,8 @@ pub(crate) struct Bridge {
     pub login: Arc<LoginManager>,
     pub playlists: Arc<PlaylistService>,
     pub library: Arc<LibraryManager>,
+    /// 下载 / 同步任务（同一时间只允许一个）。
+    pub transfers: Arc<TransferManager>,
 }
 
 impl Bridge {
@@ -136,6 +150,7 @@ impl Bridge {
             login: assembled.login,
             playlists: assembled.playlists,
             library: assembled.library,
+            transfers: assembled.transfers,
         })
     }
 }
@@ -151,6 +166,7 @@ struct Assembled {
     login: Arc<LoginManager>,
     playlists: Arc<PlaylistService>,
     library: Arc<LibraryManager>,
+    transfers: Arc<TransferManager>,
 }
 
 impl Assembled {
@@ -179,11 +195,12 @@ impl Assembled {
             logs.warning(format!("读取设置失败，已使用默认设置：{warning}"));
         }
 
+        let settings = Arc::new(RwLock::new(settings));
         let transport: Arc<dyn HttpTransport> = Arc::new(
             ReqwestTransport::new(lp_core::netease::client::REQUEST_TIMEOUT)
                 .map_err(|error| format!("初始化网络组件失败：{error:?}"))?,
         );
-        let client = Arc::new(NeteaseClient::new(transport));
+        let client = Arc::new(NeteaseClient::new(Arc::clone(&transport)));
         let session_store = Arc::new(SessionStore::with_system_protector(paths.session_file()));
         let login = LoginManager::new(
             client,
@@ -210,9 +227,80 @@ impl Assembled {
             Arc::clone(&logs),
         );
 
+        // 下载 / 同步的装配顺序与 Tauri 外壳一致：在线补全依赖批量歌词服务，
+        // 同步又依赖 NCM 解密服务，所以先造前者再造后者。
+        // 备用词源开关、阈值与歌词写入方式都在运行期读设置，保存设置后立即生效。
+        let settings_provider: SettingsProvider = {
+            let settings = Arc::clone(&settings);
+            Arc::new(move || {
+                settings
+                    .read()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .clone()
+            })
+        };
+        let online_search: Arc<dyn OnlineMusicSearch> = Arc::new(OnlineMusicSearchService::new(
+            login.client().clone(),
+            Arc::clone(&transport),
+        ));
+        let fallback_sources: Vec<Arc<dyn LyricsSource>> = vec![
+            Arc::new(KugouLyricsSource::new(Arc::clone(&transport))),
+            Arc::new(LrclibLyricsSource::new(Arc::clone(&transport))),
+        ];
+        let batch_service = Arc::new(BatchLyricsService::new(
+            Arc::clone(&tags),
+            online_search,
+            fallback_sources,
+        ));
+        batch_service.set_fallback_filter(Some({
+            let settings_provider = Arc::clone(&settings_provider);
+            Arc::new(move |source: &dyn LyricsSource| {
+                fallback_source_enabled(&settings_provider(), source.label())
+            })
+        }));
+        let enricher: Arc<dyn OnlineEnricher> =
+            Arc::new(BatchEnricher::new(batch_service, settings_provider));
+        let ncm = Arc::new(NcmImportService::new(
+            Arc::new(FileNcmDecoder),
+            Arc::clone(&tags),
+            Some(Arc::clone(&enricher)),
+        ));
+
+        // 音频下载用独立的传输层：只限制连接与「相邻两次读到数据的间隔」，不套 20 秒的接口总超时。
+        let download_transport = ReqwestTransport::for_downloads(
+            Duration::from_secs(15),
+            Duration::from_secs(60),
+            Duration::from_secs(30 * 60),
+        )
+        .map_err(|error| format!("初始化下载组件失败：{error:?}"))?;
+        let fetcher = MediaFetcher::new(Arc::new(download_transport));
+        let api: Arc<dyn DownloadApi> = login.client().clone();
+        let downloader = Arc::new(DownloadService::new(
+            Arc::clone(&api),
+            Arc::clone(&tags),
+            Arc::new(FileNcmDecoder),
+            fetcher.clone(),
+            Some(Arc::clone(&enricher)),
+        ));
+        let sync = Arc::new(SyncService::new(
+            api,
+            Arc::new(FileNcmDecoder),
+            Arc::clone(&tags),
+            ncm,
+            Arc::clone(&downloader) as Arc<dyn Downloader>,
+            fetcher,
+            Some(enricher),
+        ));
+        let transfers = Arc::new(TransferManager::new(
+            downloader,
+            sync,
+            Arc::clone(&library),
+            Arc::clone(&logs),
+        ));
+
         Ok(Self {
             paths,
-            settings: Arc::new(RwLock::new(settings)),
+            settings,
             settings_store,
             settings_warning: Arc::new(RwLock::new(settings_warning)),
             session_error: restored.load_failure,
@@ -220,6 +308,7 @@ impl Assembled {
             login,
             playlists,
             library,
+            transfers,
         })
     }
 }

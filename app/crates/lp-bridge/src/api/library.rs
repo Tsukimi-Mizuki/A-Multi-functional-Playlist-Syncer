@@ -203,7 +203,7 @@ fn publish_progress(progress: &ScanProgressView) {
 }
 
 /// 每次扫描交给 `lp-core` 的进度回调（`lp-core` 内部已经按 80 ms 节流）。
-fn progress_sink() -> ScanProgressSink {
+pub(crate) fn progress_sink() -> ScanProgressSink {
     Arc::new(|progress: ScanProgressView| publish_progress(&progress))
 }
 
