@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
 import 'package:lunatic_princess/log_merge.dart';
 import 'package:lunatic_princess/src/rust/api/app.dart';
+import 'package:lunatic_princess/src/rust/api/download.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart' as bridge;
 import 'package:lunatic_princess/src/rust/api/login.dart';
@@ -96,6 +98,22 @@ class AppController extends ChangeNotifier {
   String? notice;
   int _matchSeq = 0;
 
+  // ---- 下载 / 同步 ----
+  /// 正在进行的任务：类别、歌曲总数与要处理的歌曲 ID。
+  TransferStartedDto? transferStarted;
+  /// 最近一条逐首歌进度。
+  TransferProgressDto? transferProgress;
+  /// 最近一次任务的汇总（成功后保留到用户关掉提示）。
+  TransferSummaryDto? transferSummary;
+  /// 任务无法开始 / 无法完成的中文原因。
+  String? transferError;
+  /// 是否有下载 / 同步任务在运行。
+  bool transferBusy = false;
+  /// 曲目表格里选中的行下标（同一首歌在歌单里可能出现两次，所以按行算）。
+  final Set<int> selectedRows = <int>{};
+  /// Shift 连选的起点行。
+  int? selectionAnchor;
+
   // ---- 日志 ----
   List<LogLine> logs = const [];
 
@@ -106,6 +124,8 @@ class AppController extends ChangeNotifier {
   StreamSubscription<LogEntryDto>? _logSub;
   StreamSubscription<AccountDto>? _accountSub;
   StreamSubscription<ScanProgressDto>? _progressSub;
+  StreamSubscription<TransferProgressDto>? _transferProgressSub;
+  StreamSubscription<TransferStartedDto>? _transferStartedSub;
   bool _disposed = false;
 
   /// 启动序列：loadApp -> 设置 -> 订阅事件流 -> 补齐日志 -> 校验登录 -> 拉歌单。
@@ -132,6 +152,20 @@ class AppController extends ChangeNotifier {
     _progressSub = bridge.watchLibraryProgress().listen(
       (p) {
         scanProgress = p;
+        _notify();
+      },
+      onError: (Object _) {},
+    );
+    _transferStartedSub = watchTransferStarted().listen(
+      (started) {
+        transferStarted = started;
+        _notify();
+      },
+      onError: (Object _) {},
+    );
+    _transferProgressSub = watchTransferProgress().listen(
+      (progress) {
+        transferProgress = progress;
         _notify();
       },
       onError: (Object _) {},
@@ -315,6 +349,13 @@ class AppController extends ChangeNotifier {
       match = null;
       matchError = null;
       libraryBusy = false;
+      selectedRows.clear();
+      selectionAnchor = null;
+      transferStarted = null;
+      transferProgress = null;
+      transferSummary = null;
+      transferError = null;
+      transferBusy = false;
       if (selectedKey.startsWith('pl:')) selectedKey = kKeyOverview;
     } else if (!was) {
       unawaited(loadPlaylists());
@@ -362,6 +403,12 @@ class AppController extends ChangeNotifier {
     detailError = null;
     match = null;
     matchError = null;
+    selectedRows.clear();
+    selectionAnchor = null;
+    transferStarted = null;
+    transferProgress = null;
+    transferSummary = null;
+    transferError = null;
     _notify();
     try {
       final d = await playlistTracks(id: id);
@@ -393,6 +440,137 @@ class AppController extends ChangeNotifier {
     _setAccount(const AccountDto(loggedIn: false, userId: 0, vipType: 0));
   }
 
+  // ---- 下载 / 同步 ----
+
+  /// 选中 / 取消选中一行：Ctrl 切换、Shift 连选（与 Tauri 版表格规则一致）。
+  void selectRow(int index, {bool control = false, bool shift = false}) {
+    if (shift && selectionAnchor != null) {
+      final start = selectionAnchor! < index ? selectionAnchor! : index;
+      final end = selectionAnchor! < index ? index : selectionAnchor!;
+      if (!control) selectedRows.clear();
+      selectedRows.addAll([for (var i = start; i <= end; i++) i]);
+    } else if (control) {
+      if (!selectedRows.remove(index)) selectedRows.add(index);
+      selectionAnchor = index;
+    } else {
+      selectedRows
+        ..clear()
+        ..add(index);
+      selectionAnchor = index;
+    }
+    _notify();
+  }
+
+  /// 清除多选。
+  void clearSelection() {
+    if (selectedRows.isEmpty) return;
+    selectedRows.clear();
+    selectionAnchor = null;
+    _notify();
+  }
+
+  /// 选中行的歌曲 ID，按行号顺序。
+  List<int> selectedTrackIds() {
+    final songs = detail?.songs ?? const <SongDto>[];
+    final rows = selectedRows.where((row) => row < songs.length).toList()..sort();
+    return [for (final row in rows) songs[row].id];
+  }
+
+  /// 计算下载缺失 / 一键同步确认框里的计划。
+  ///
+  /// 去重与判定都在 lp-core 里，与真正执行任务时用的是同一条规则。
+  Future<TransferPlanResultDto?> requestTransferPlan() async {
+    final d = detail;
+    if (d == null) return null;
+    try {
+      return await transferPlan(playlistId: d.id);
+    } catch (e) {
+      transferError = e.toString();
+      _notify();
+      return null;
+    }
+  }
+
+  /// 跑一次下载 / 同步任务，并把结果收进界面状态。
+  Future<void> _runTransfer(Future<TransferResultDto> Function() start) async {
+    if (transferBusy) return;
+    transferBusy = true;
+    transferError = null;
+    transferSummary = null;
+    transferProgress = null;
+    transferStarted = null;
+    _notify();
+    try {
+      final result = await start();
+      final summary = result.summary;
+      if (summary == null) {
+        final error = result.error;
+        if (error != null && error.kind == 'cancelled') {
+          notice = '已取消任务';
+        } else {
+          transferError = error?.message ?? '任务失败';
+        }
+      } else {
+        transferSummary = summary;
+        if (summary.cancelled) notice = '任务已取消';
+        // 任务结束后 lp-core 会重新扫描曲库，这里再对比一次让状态列跟上。
+        if (summary.libraryRefreshed) unawaited(matchLocal());
+      }
+    } catch (e) {
+      transferError = e.toString();
+    }
+    transferBusy = false;
+    transferProgress = null;
+    _notify();
+  }
+
+  /// 下载选中的歌曲。
+  Future<void> downloadSelectedTracks() async {
+    final d = detail;
+    final ids = selectedTrackIds();
+    if (d == null || ids.isEmpty) return;
+    await _runTransfer(
+      () => downloadTracks(playlistId: d.id, trackIds: Int64List.fromList(ids)),
+    );
+  }
+
+  /// 下载本地缺失的歌曲；trackIds 是确认框里仍然勾选的歌曲。
+  Future<void> downloadMissingTracks({List<int>? trackIds}) async {
+    final d = detail;
+    if (d == null) return;
+    await _runTransfer(
+      () => downloadMissing(
+        playlistId: d.id,
+        trackIds: trackIds == null ? null : Int64List.fromList(trackIds),
+      ),
+    );
+  }
+
+  /// 一键同步整个歌单。
+  Future<void> syncCurrentPlaylist() async {
+    final d = detail;
+    if (d == null) return;
+    await _runTransfer(() => syncPlaylist(playlistId: d.id));
+  }
+
+  /// 取消正在进行的下载 / 同步。
+  Future<void> cancelTransfer() async {
+    try {
+      await downloadCancel();
+    } catch (e) {
+      transferError = e.toString();
+      _notify();
+    }
+  }
+
+  /// 关掉结果提示。
+  void clearTransferResult() {
+    if (transferSummary == null && transferError == null) return;
+    transferSummary = null;
+    transferError = null;
+    _notify();
+  }
+
   void _mergeLogs(Iterable<LogEntryDto> entries) {
     logs = mergeLogs(
       logs,
@@ -411,6 +589,8 @@ class AppController extends ChangeNotifier {
     _logSub?.cancel();
     _accountSub?.cancel();
     _progressSub?.cancel();
+    _transferProgressSub?.cancel();
+    _transferStartedSub?.cancel();
     super.dispose();
   }
 }

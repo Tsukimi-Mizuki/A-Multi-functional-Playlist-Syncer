@@ -92,7 +92,26 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 实机（`D:\claude\lp-flutter-build`）：设置页改动立即写进 `data\settings.json`；重启后主题与材质保持；歌单页能扫描目录并显示进度，对比后标题行出现「本地 N · NCM N · 缺失 N」。
 - 这一轮没有真的登录（要扫码），所以对比用的是「已加载歌单」的路径；下载相关（M3）还没接。
 
+## 第 4 步：下载与同步（M3）
+
+主流程的最后一段：确认框、任务、进度与结果。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/download.rs`：`transfer_plan(playlist_id)`、`download_tracks(playlist_id, track_ids)`、`download_missing(playlist_id, track_ids?)`、`sync_playlist(playlist_id)`、`download_cancel()`、`transfers_running()`，以及两条流 `watch_transfer_started` / `watch_transfer_progress`。
+- `transfer_plan` 与真正的任务共用 `lp_core::download::plan::plan_transfer`（第 1 步搬的规则），所以框里的数量和实际执行的一致；曲库目录不存在时按「本地为空」算全部缺失，并把警告一起交回界面。任务结果同样做成 `{ summary | error }` 的二选一载荷：`TransferErrorDto.kind` 是 `busy` / `noSongs` / `playlistNotLoaded` / `cancelled` / `failed`，用户取消不算错误、只提示一句。任务结束若 `library_refreshed` 为真，界面自动重新对比；任务末尾「重新扫描曲库」的进度复用曲库那条流。
+- 组合根 `state.rs` 按 Tauri 外壳的顺序装配下载链路：批量歌词服务 → 在线补全器 → NCM 解密 → 下载 → 同步 → `TransferManager`。下载用独立的传输层 `ReqwestTransport::for_downloads(15s 连接 / 60s 读间隔 / 30min 总时长)`，不套 20 秒的接口总超时；备用词源开关、匹配阈值等仍在运行期读设置，保存后立即生效。
+- 歌单页工具栏按状态切换：任务进行中显示「取消」、扫描 / 对比中显示「取消」，否则是「下载选中 (N)」「下载缺失」「一键同步」「对比本地」与「更多」（重新扫描曲库 / 刷新歌单）。歌曲表支持 Ctrl 切换、Shift 连选，表头显示「已选 N 首 / 清除」。
+- 三个确认框：「下载选中」由界面按 `match.availability` 自己计数（本地已有会跳过、NCM 只能靠一键同步解密），「下载缺失」先向桥接层要计划——去重后没有缺失去只提示「没有需要下载的歌曲…」，否则弹可勾选的缺失清单（全选 / 全不选、Ctrl / Shift 连选），「一键同步」带下载目录、覆盖同名文件的提醒与曲库目录缺失的警告。
+- 任务进行中显示阶段（解析中 / 下载中 / 解密中 / 写标签 / 在线匹配）、`已完成 / 总数`、当前歌名与字节进度（百分比优先用 `percent`）；结束后在歌单页顶部出结果条（任务完成 / 有 N 首失败 / 已取消），列出前 5 条失败原因。
+- Flutter 侧的传输任务与选择状态都放在 `AppController`，任务的失败与取消统一在 `_runTransfer` 里收口。
+
+### 验证
+
+- Rust 测试仍是 1241 个（桥接层这轮只做 DTO 转换，没有新增单测；下载规则本身的 8 个计划测试在第 1 步）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`、`flutter build windows --release` 全过。
+- 用临时预览入口（`probe_m3.dart`，用完已删）加假数据做了 DPI-aware 截图：歌单页的工具栏四个按钮、「本地 18 · NCM 6 · 缺失 6」、表头「已选 5 首 / 清除」，以及「下载选中的歌曲」确认框（已选中 5 首：本地已有 2 首，2 首是待解密的 NCM，1 首要下载）都渲染正常。
+- 还没验证：真实下载 / 解密 / 同步整条链路（要登录态与会员取链）、任务进行中的进度条与结束后的结果条的实机外观（没有真实任务数据）。
+
 ## 下一步
 
-1. M3：下载与同步（音质设置已就位）——`download_tracks`、`download_missing`、`sync_playlist`、`download_cancel` 与下载进度流，以及「下载缺失」「一键同步」两个确认框。
-2. 之后依次：M4 标签查看与编辑、M5 批量标签与在线标签、M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
+1. M4：标签查看与编辑——`read_tags`、`write_tags`、`get_song_lyrics` 与编辑器画面。
+2. 之后依次：M5 批量标签与在线标签、M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。

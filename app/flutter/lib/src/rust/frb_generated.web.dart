@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/app.dart';
+import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
 import 'api/playlists.dart';
@@ -44,6 +45,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<TransferProgressDto>
+  dco_decode_StreamSink_transfer_progress_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<TransferStartedDto>
+  dco_decode_StreamSink_transfer_started_dto_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -62,6 +71,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto dco_decode_box_autoadd_account_dto(dynamic raw);
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+
+  @protected
   LibraryErrorDto dco_decode_box_autoadd_library_error_dto(dynamic raw);
 
   @protected
@@ -69,6 +87,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchOutcomeDto dco_decode_box_autoadd_match_outcome_dto(dynamic raw);
+
+  @protected
+  TransferErrorDto dco_decode_box_autoadd_transfer_error_dto(dynamic raw);
+
+  @protected
+  TransferPlanDto dco_decode_box_autoadd_transfer_plan_dto(dynamic raw);
+
+  @protected
+  TransferSummaryDto dco_decode_box_autoadd_transfer_summary_dto(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
@@ -95,6 +122,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<PlaylistDto> dco_decode_list_playlist_dto(dynamic raw);
 
   @protected
+  Int32List dco_decode_list_prim_i_32_strict(dynamic raw);
+
+  @protected
+  Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -102,6 +135,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SongDto> dco_decode_list_song_dto(dynamic raw);
+
+  @protected
+  List<TransferItemDto> dco_decode_list_transfer_item_dto(dynamic raw);
 
   @protected
   LocalMatchDto dco_decode_local_match_dto(dynamic raw);
@@ -125,6 +161,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto? dco_decode_opt_box_autoadd_account_dto(dynamic raw);
 
   @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
   LibraryErrorDto? dco_decode_opt_box_autoadd_library_error_dto(dynamic raw);
 
   @protected
@@ -134,6 +179,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchOutcomeDto? dco_decode_opt_box_autoadd_match_outcome_dto(dynamic raw);
+
+  @protected
+  TransferErrorDto? dco_decode_opt_box_autoadd_transfer_error_dto(dynamic raw);
+
+  @protected
+  TransferPlanDto? dco_decode_opt_box_autoadd_transfer_plan_dto(dynamic raw);
+
+  @protected
+  TransferSummaryDto? dco_decode_opt_box_autoadd_transfer_summary_dto(
+    dynamic raw,
+  );
+
+  @protected
+  Int64List? dco_decode_opt_list_prim_i_64_strict(dynamic raw);
 
   @protected
   PlaylistDetailDto dco_decode_playlist_detail_dto(dynamic raw);
@@ -161,6 +220,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SongDto dco_decode_song_dto(dynamic raw);
+
+  @protected
+  TransferErrorDto dco_decode_transfer_error_dto(dynamic raw);
+
+  @protected
+  TransferItemDto dco_decode_transfer_item_dto(dynamic raw);
+
+  @protected
+  TransferPlanDto dco_decode_transfer_plan_dto(dynamic raw);
+
+  @protected
+  TransferPlanResultDto dco_decode_transfer_plan_result_dto(dynamic raw);
+
+  @protected
+  TransferProgressDto dco_decode_transfer_progress_dto(dynamic raw);
+
+  @protected
+  TransferResultDto dco_decode_transfer_result_dto(dynamic raw);
+
+  @protected
+  TransferStartedDto dco_decode_transfer_started_dto(dynamic raw);
+
+  @protected
+  TransferSummaryDto dco_decode_transfer_summary_dto(dynamic raw);
 
   @protected
   BigInt dco_decode_u_64(dynamic raw);
@@ -193,6 +276,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<TransferProgressDto>
+  sse_decode_StreamSink_transfer_progress_dto_Sse(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<TransferStartedDto>
+  sse_decode_StreamSink_transfer_started_dto_Sse(SseDeserializer deserializer);
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
@@ -211,6 +302,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto sse_decode_box_autoadd_account_dto(SseDeserializer deserializer);
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
   LibraryErrorDto sse_decode_box_autoadd_library_error_dto(
     SseDeserializer deserializer,
   );
@@ -222,6 +322,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchOutcomeDto sse_decode_box_autoadd_match_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferErrorDto sse_decode_box_autoadd_transfer_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferPlanDto sse_decode_box_autoadd_transfer_plan_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferSummaryDto sse_decode_box_autoadd_transfer_summary_dto(
     SseDeserializer deserializer,
   );
 
@@ -254,6 +369,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<PlaylistDto> sse_decode_list_playlist_dto(SseDeserializer deserializer);
 
   @protected
+  Int32List sse_decode_list_prim_i_32_strict(SseDeserializer deserializer);
+
+  @protected
+  Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
@@ -263,6 +384,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SongDto> sse_decode_list_song_dto(SseDeserializer deserializer);
+
+  @protected
+  List<TransferItemDto> sse_decode_list_transfer_item_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LocalMatchDto sse_decode_local_match_dto(SseDeserializer deserializer);
@@ -288,6 +414,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
   LibraryErrorDto? sse_decode_opt_box_autoadd_library_error_dto(
     SseDeserializer deserializer,
   );
@@ -301,6 +436,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MatchOutcomeDto? sse_decode_opt_box_autoadd_match_outcome_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  TransferErrorDto? sse_decode_opt_box_autoadd_transfer_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferPlanDto? sse_decode_opt_box_autoadd_transfer_plan_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferSummaryDto? sse_decode_opt_box_autoadd_transfer_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Int64List? sse_decode_opt_list_prim_i_64_strict(SseDeserializer deserializer);
 
   @protected
   PlaylistDetailDto sse_decode_playlist_detail_dto(
@@ -330,6 +483,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SongDto sse_decode_song_dto(SseDeserializer deserializer);
+
+  @protected
+  TransferErrorDto sse_decode_transfer_error_dto(SseDeserializer deserializer);
+
+  @protected
+  TransferItemDto sse_decode_transfer_item_dto(SseDeserializer deserializer);
+
+  @protected
+  TransferPlanDto sse_decode_transfer_plan_dto(SseDeserializer deserializer);
+
+  @protected
+  TransferPlanResultDto sse_decode_transfer_plan_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferProgressDto sse_decode_transfer_progress_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferResultDto sse_decode_transfer_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferStartedDto sse_decode_transfer_started_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransferSummaryDto sse_decode_transfer_summary_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BigInt sse_decode_u_64(SseDeserializer deserializer);
@@ -368,6 +555,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_transfer_progress_dto_Sse(
+    RustStreamSink<TransferProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_transfer_started_dto_Sse(
+    RustStreamSink<TransferStartedDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
@@ -392,6 +591,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_library_error_dto(
     LibraryErrorDto self,
     SseSerializer serializer,
@@ -406,6 +617,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_match_outcome_dto(
     MatchOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_transfer_error_dto(
+    TransferErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_transfer_plan_dto(
+    TransferPlanDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_transfer_summary_dto(
+    TransferSummaryDto self,
     SseSerializer serializer,
   );
 
@@ -449,6 +678,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_prim_i_32_strict(
+    Int32List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_i_64_strict(
+    Int64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -462,6 +703,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_song_dto(List<SongDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_transfer_item_dto(
+    List<TransferItemDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_local_match_dto(LocalMatchDto self, SseSerializer serializer);
@@ -494,6 +741,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_library_error_dto(
     LibraryErrorDto? self,
     SseSerializer serializer,
@@ -508,6 +767,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_match_outcome_dto(
     MatchOutcomeDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_transfer_error_dto(
+    TransferErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_transfer_plan_dto(
+    TransferPlanDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_transfer_summary_dto(
+    TransferSummaryDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_prim_i_64_strict(
+    Int64List? self,
     SseSerializer serializer,
   );
 
@@ -546,6 +829,54 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_song_dto(SongDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_transfer_error_dto(
+    TransferErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_item_dto(
+    TransferItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_plan_dto(
+    TransferPlanDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_plan_result_dto(
+    TransferPlanResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_progress_dto(
+    TransferProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_result_dto(
+    TransferResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_started_dto(
+    TransferStartedDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transfer_summary_dto(
+    TransferSummaryDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_u_64(BigInt self, SseSerializer serializer);

@@ -1,9 +1,12 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:lunatic_princess/controller.dart';
+import 'dart:async';
+
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart';
 import 'package:lunatic_princess/src/rust/api/playlists.dart';
+import 'package:lunatic_princess/widgets/transfer_dialogs.dart';
 
 const double _rowHeight = 40;
 const double _headerHeight = 36;
@@ -86,13 +89,15 @@ class PlaylistPage extends StatelessWidget {
                 ),
               ),
             ),
+          if (c.transferError != null || c.transferSummary != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: _TransferResult(controller: c),
+            ),
           Expanded(
             child: d.songs.isEmpty
                 ? const Center(child: Text('这个歌单还没有歌曲'))
-                : _SongTable(
-                    songs: d.songs,
-                    matches: c.match?.matches,
-                  ),
+                : _SongTable(controller: c),
           ),
         ],
       );
@@ -162,6 +167,11 @@ class _PlaylistHeader extends StatelessWidget {
               padding: const EdgeInsets.only(top: 10),
               child: _ScanProgress(progress: c.scanProgress),
             ),
+          if (c.transferBusy)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _TransferProgress(controller: c),
+            ),
         ],
       ),
     );
@@ -192,62 +202,141 @@ class _PlaylistHeader extends StatelessWidget {
   }
 }
 
-/// 歌单页右上角的操作：对比本地曲库（主）、重新扫描、刷新。
+/// 歌单页右上角的操作：下载 / 同步为主，扫描与刷新收进「更多」。
 class _HeaderActions extends StatelessWidget {
   const _HeaderActions({required this.controller});
 
   final AppController controller;
 
+  static const _cancel = Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      WindowsIcon(WindowsIcons.cancel, size: 14),
+      SizedBox(width: 6),
+      Text('取消'),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = controller;
     final d = c.detail;
-    final busy = c.libraryBusy;
+    final busy = c.libraryBusy || c.transferBusy;
+    final selected = c.selectedRows.length;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (busy)
-          Button(
-            onPressed: c.cancelLibrary,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                WindowsIcon(WindowsIcons.cancel, size: 14),
-                SizedBox(width: 6),
-                Text('取消'),
-              ],
-            ),
-          )
-        else
+        if (c.transferBusy)
+          Button(onPressed: c.cancelTransfer, child: _cancel)
+        else if (c.libraryBusy)
+          Button(onPressed: c.cancelLibrary, child: _cancel)
+        else ...[
           FilledButton(
-            onPressed: d == null ? null : () => c.matchLocal(),
-            child: const Row(
+            onPressed: d == null || selected == 0
+                ? null
+                : () => unawaited(showDownloadSelectedDialog(context, c)),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                WindowsIcon(WindowsIcons.search, size: 14),
-                SizedBox(width: 6),
-                Text('对比本地曲库'),
+                const WindowsIcon(WindowsIcons.download, size: 14),
+                const SizedBox(width: 6),
+                Text('下载选中${selected > 0 ? ' ($selected)' : ''}'),
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          Button(
+            onPressed: d == null
+                ? null
+                : () => unawaited(showDownloadMissingDialog(context, c)),
+            child: const Text('下载缺失'),
+          ),
+          const SizedBox(width: 8),
+          Button(
+            onPressed:
+                d == null ? null : () => unawaited(showSyncDialog(context, c)),
+            child: const Text('一键同步'),
+          ),
+        ],
         const SizedBox(width: 8),
         Button(
-          onPressed: d == null || busy ? null : () => c.matchLocal(rescan: true),
-          child: const Text('重新扫描'),
-        ),
-        const SizedBox(width: 8),
-        Button(
-          onPressed: d == null ? null : () => c.loadDetail(d.id),
+          onPressed: d == null || busy ? null : () => c.matchLocal(),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WindowsIcon(WindowsIcons.refresh, size: 14),
+              WindowsIcon(WindowsIcons.search, size: 14),
               SizedBox(width: 6),
-              Text('刷新'),
+              Text('对比本地'),
             ],
           ),
         ),
+        const SizedBox(width: 8),
+        _MoreMenu(controller: c),
       ],
+    );
+  }
+}
+
+/// 「更多」菜单：重新扫描、刷新歌单。
+class _MoreMenu extends StatefulWidget {
+  const _MoreMenu({required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<_MoreMenu> createState() => _MoreMenuState();
+}
+
+class _MoreMenuState extends State<_MoreMenu> {
+  final _flyout = FlyoutController();
+
+  void _open() {
+    final c = widget.controller;
+    final d = c.detail;
+    final busy = c.libraryBusy || c.transferBusy;
+    _flyout.showFlyout<void>(
+      builder: (ctx) => MenuFlyout(
+        items: [
+          MenuFlyoutItem(
+            leading: const WindowsIcon(WindowsIcons.sync),
+            text: const Text('重新扫描曲库'),
+            onPressed: d == null || busy
+                ? null
+                : () {
+                    Flyout.of(ctx).close();
+                    unawaited(c.matchLocal(rescan: true));
+                  },
+          ),
+          MenuFlyoutItem(
+            leading: const WindowsIcon(WindowsIcons.refresh),
+            text: const Text('刷新歌单'),
+            onPressed: d == null
+                ? null
+                : () {
+                    Flyout.of(ctx).close();
+                    unawaited(c.loadDetail(d.id));
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FlyoutTarget(
+      controller: _flyout,
+      child: Button(
+        onPressed: _open,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('更多'),
+            SizedBox(width: 4),
+            WindowsIcon(WindowsIcons.more, size: 12),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -333,59 +422,19 @@ class _Cover extends StatelessWidget {
 }
 
 /// 歌曲表格：表头 + 可选中（Ctrl 多选、Shift 连选）的行。
-class _SongTable extends StatefulWidget {
-  const _SongTable({required this.songs, required this.matches});
+///
+/// 选择状态放在 controller 里，右上角的「下载选中」才知道选了多少首。
+class _SongTable extends StatelessWidget {
+  const _SongTable({required this.controller});
 
-  final List<SongDto> songs;
-
-  /// 与 [songs] 按顺序一一对应的本地匹配结果；还没对比时为 null。
-  final List<LocalMatchDto>? matches;
-
-  @override
-  State<_SongTable> createState() => _SongTableState();
-}
-
-class _SongTableState extends State<_SongTable> {
-  /// 选中的行下标（同一首歌可能在歌单里出现两次，所以按行算）。
-  final Set<int> _selected = <int>{};
-  int? _anchor;
-
-  @override
-  void didUpdateWidget(covariant _SongTable oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 换了歌单或曲目数变了，旧的行号就没有意义了。
-    if (oldWidget.songs.length != widget.songs.length ||
-        (widget.songs.isNotEmpty &&
-            oldWidget.songs.isNotEmpty &&
-            oldWidget.songs.first.id != widget.songs.first.id)) {
-      _selected.clear();
-      _anchor = null;
-    }
-  }
-
-  void _onTap(int index, {required bool control, required bool shift}) {
-    setState(() {
-      if (shift && _anchor != null) {
-        final start = _anchor! < index ? _anchor! : index;
-        final end = _anchor! < index ? index : _anchor!;
-        if (!control) _selected.clear();
-        _selected.addAll([for (var i = start; i <= end; i++) i]);
-      } else if (control) {
-        if (!_selected.remove(index)) _selected.add(index);
-        _anchor = index;
-      } else {
-        _selected
-          ..clear()
-          ..add(index);
-        _anchor = index;
-      }
-    });
-  }
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
     final res = FluentTheme.of(context).resources;
-    final selectedCount = _selected.length;
+    final songs = controller.detail!.songs;
+    final matches = controller.match?.matches;
+    final selectedCount = controller.selectedRows.length;
     return Column(
       children: [
         SizedBox(
@@ -418,7 +467,7 @@ class _SongTableState extends State<_SongTable> {
                     Text('已选 $selectedCount 首'),
                     const SizedBox(width: 8),
                     HyperlinkButton(
-                      onPressed: () => setState(_selected.clear),
+                      onPressed: controller.clearSelection,
                       child: const Text('清除'),
                     ),
                   ],
@@ -431,15 +480,14 @@ class _SongTableState extends State<_SongTable> {
         Expanded(
           child: ListView.builder(
             itemExtent: _rowHeight,
-            itemCount: widget.songs.length,
+            itemCount: songs.length,
             itemBuilder: (context, i) => _SongRow(
               index: i,
-              song: widget.songs[i],
-              match: widget.matches != null && i < widget.matches!.length
-                  ? widget.matches![i]
-                  : null,
-              selected: _selected.contains(i),
-              onTap: (control, shift) => _onTap(i, control: control, shift: shift),
+              song: songs[i],
+              match: matches != null && i < matches.length ? matches[i] : null,
+              selected: controller.selectedRows.contains(i),
+              onTap: (control, shift) =>
+                  controller.selectRow(i, control: control, shift: shift),
             ),
           ),
         ),
@@ -616,3 +664,123 @@ class _AvailabilityDot extends StatelessWidget {
         _ => '未匹配',
       };
 }
+
+/// 下载 / 同步进度条：总数、阶段、当前歌曲与字节数。
+class _TransferProgress extends StatelessWidget {
+  const _TransferProgress({required this.controller});
+
+  final AppController controller;
+
+  static const _phases = <String, String>{
+    'resolving': '解析中',
+    'downloading': '下载中',
+    'decrypting': '解密中',
+    'tagging': '写标签',
+    'matching': '在线匹配',
+  };
+
+  static String _size(int? value) {
+    if (value == null) return '';
+    final mb = value / (1024 * 1024);
+    return mb >= 1
+        ? '${mb.toStringAsFixed(1)} MB'
+        : '${(value / 1024).round()} KB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final res = FluentTheme.of(context).resources;
+    final p = controller.transferProgress;
+    final started = controller.transferStarted;
+    final total = p?.total ?? started?.total ?? 0;
+    final done = p?.completed ?? 0;
+    final value = p?.percent ?? (total > 0 ? done / total * 100 : null);
+    final parts = <String>[
+      if (total > 0) '$done / $total',
+      if (p != null && _phases[p.phase] != null) _phases[p.phase]!,
+      if (p != null && p.songName.isNotEmpty) p.songName,
+      if (p != null && (p.bytesTotal ?? 0) > 0)
+        '${_size(p.bytesDone)} / ${_size(p.bytesTotal)}',
+    ];
+    return Row(
+      children: [
+        Expanded(child: ProgressBar(value: value, strokeWidth: 3)),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 380,
+          child: Text(
+            parts.isEmpty ? '正在准备…' : parts.join('  ·  '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(color: res.textFillColorSecondary, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 任务失败 / 完成后的提示条。
+class _TransferResult extends StatelessWidget {
+  const _TransferResult({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    final error = c.transferError;
+    if (error != null) {
+      return InfoBar(
+        title: const Text('任务失败'),
+        content: Text(error),
+        severity: InfoBarSeverity.error,
+        isLong: true,
+        action: Button(
+          onPressed: c.clearTransferResult,
+          child: const Text('知道了'),
+        ),
+      );
+    }
+    final s = c.transferSummary;
+    if (s == null) return const SizedBox.shrink();
+    final failures =
+        s.results.where((item) => !item.success && !item.skipped).toList();
+    final notes = <Widget>[Text(describeTransfer(s))];
+    if (s.onlineMatchSkipped) {
+      notes.add(const SizedBox(height: 4));
+      notes.add(const Text('有歌曲跳过了在线匹配（设置里关掉了自动匹配）。'));
+    }
+    if (failures.isNotEmpty) {
+      notes.add(const SizedBox(height: 6));
+      notes.add(const Text('失败明细：'));
+      for (final item in failures.take(5)) {
+        notes.add(Text('${item.songName}：${item.message ?? '未知原因'}'));
+      }
+      if (failures.length > 5) {
+        notes.add(Text('…另有 ${failures.length - 5} 首失败'));
+      }
+    }
+    return InfoBar(
+      title: Text(
+        s.cancelled
+            ? '任务已取消'
+            : (failures.isEmpty ? '任务完成' : '任务完成，有 ${failures.length} 首失败'),
+      ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: notes,
+      ),
+      severity: s.cancelled || failures.isNotEmpty
+          ? InfoBarSeverity.warning
+          : InfoBarSeverity.success,
+      isLong: true,
+      action: Button(
+        onPressed: c.clearTransferResult,
+        child: const Text('知道了'),
+      ),
+    );
+  }
+}
+
