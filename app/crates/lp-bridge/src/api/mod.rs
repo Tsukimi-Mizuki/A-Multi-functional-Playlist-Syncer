@@ -6,3 +6,4 @@ pub mod library;
 pub mod login;
 pub mod playlists;
 pub mod settings;
+pub mod tags;

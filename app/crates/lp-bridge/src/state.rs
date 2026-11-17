@@ -49,6 +49,8 @@ pub(crate) struct Bridge {
     pub login: Arc<LoginManager>,
     pub playlists: Arc<PlaylistService>,
     pub library: Arc<LibraryManager>,
+    /// 音频标签的读写（标签查看 / 编辑画面直接调用）。
+    pub tags: Arc<dyn AudioTagService>,
     /// 下载 / 同步任务（同一时间只允许一个）。
     pub transfers: Arc<TransferManager>,
 }
@@ -150,6 +152,7 @@ impl Bridge {
             login: assembled.login,
             playlists: assembled.playlists,
             library: assembled.library,
+            tags: assembled.tags,
             transfers: assembled.transfers,
         })
     }
@@ -166,6 +169,7 @@ struct Assembled {
     login: Arc<LoginManager>,
     playlists: Arc<PlaylistService>,
     library: Arc<LibraryManager>,
+    tags: Arc<dyn AudioTagService>,
     transfers: Arc<TransferManager>,
 }
 
@@ -308,6 +312,7 @@ impl Assembled {
             login,
             playlists,
             library,
+            tags,
             transfers,
         })
     }
