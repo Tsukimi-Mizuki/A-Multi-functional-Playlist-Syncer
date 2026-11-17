@@ -1,5 +1,7 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:lunatic_princess/controller.dart';
+import 'package:lunatic_princess/src/rust/api/app.dart';
+import 'package:lunatic_princess/widgets/info_row.dart';
 import 'package:lunatic_princess/widgets/login_dialog.dart';
 
 class OverviewPage extends StatelessWidget {
@@ -11,7 +13,6 @@ class OverviewPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = controller;
     final app = c.appState!;
-    final account = c.account;
     final v = c.validation;
 
     final warnings = <(String, String, InfoBarSeverity)>[
@@ -30,7 +31,7 @@ class OverviewPage extends StatelessWidget {
       children: [
         for (final w in warnings)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 12),
             child: InfoBar(
               title: Text(w.$1),
               content: Text(w.$2),
@@ -38,68 +39,130 @@ class OverviewPage extends StatelessWidget {
               isLong: true,
             ),
           ),
-        Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _row('版本', app.version),
-              _row('数据目录', app.dataDir),
-              _row('运行模式', app.isPortable ? '便携模式' : '标准模式'),
-              _row('下载目录', app.downloadDirectory),
-              _row(
-                '账号',
-                account.loggedIn
-                    ? '${account.nickname ?? '已登录'}'
-                          '${account.vipType > 0 ? '（会员）' : ''}'
-                    : '未登录',
-              ),
-              if (c.starting)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: ProgressRing(strokeWidth: 2.5),
-                      ),
-                      SizedBox(width: 8),
-                      Text('正在验证登录状态…'),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        if (!account.loggedIn && !c.starting)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                onPressed: () => showLoginDialog(context),
-                child: const Text('扫码登录'),
-              ),
-            ),
-          ),
+        _AccountCard(controller: c),
+        const SizedBox(height: 12),
+        _EnvironmentCard(app: app),
       ],
     );
   }
+}
 
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+String _initials(String? nickname) {
+  final name = (nickname ?? '').trim();
+  if (name.isEmpty) return '?';
+  // 取第一个字符就够了：中文昵称一个字，英文昵称一个字首字母。用 runes 而不是
+  // substring，避免表情昵称把代理对拆成两个半个字符。
+  return String.fromCharCode(name.runes.first).toUpperCase();
+}
+
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    final account = c.account;
+    final theme = FluentTheme.of(context);
+    final res = theme.resources;
+    final loggedIn = account.loggedIn;
+    final vip = account.vipType > 0;
+    final status = loggedIn
+        ? (vip ? '已登录 · 会员' : '已登录')
+        : (c.starting ? '正在验证登录状态…' : '未登录，部分功能不可用');
+
+    return Card(
+      padding: const EdgeInsets.all(20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 88,
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFF8A8A8A)),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: loggedIn
+                  ? theme.accentColor.defaultBrushFor(theme.brightness)
+                  : res.subtleFillColorSecondary,
+            ),
+            alignment: Alignment.center,
+            child: loggedIn
+                ? Text(
+                    _initials(account.nickname),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
+                    ),
+                  )
+                : WindowsIcon(
+                    WindowsIcons.contact,
+                    size: 24,
+                    color: res.textFillColorSecondary,
+                  ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loggedIn ? (account.nickname ?? '已登录') : '未登录',
+                  style: theme.typography.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  status,
+                  style: TextStyle(color: res.textFillColorSecondary),
+                ),
+              ],
             ),
           ),
-          Expanded(child: SelectableText(value)),
+          if (c.starting)
+            const SizedBox(width: 20, height: 20, child: ProgressRing(strokeWidth: 2.5))
+          else if (!loggedIn)
+            FilledButton(
+              onPressed: () => showLoginDialog(context),
+              child: const Text('扫码登录'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EnvironmentCard extends StatelessWidget {
+  const _EnvironmentCard({required this.app});
+
+  final AppStateDto app;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FluentTheme.of(context);
+    return Card(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('运行环境', style: theme.typography.bodyStrong),
+          const SizedBox(height: 8),
+          InfoRow(label: '版本', value: app.version, monospace: true),
+          InfoRow(
+            label: '运行模式',
+            value: app.isPortable ? '便携模式（数据在程序目录）' : '标准模式（数据在用户目录）',
+          ),
+          InfoRow(label: '数据目录', value: app.dataDir, monospace: true, copyable: true),
+          InfoRow(
+            label: '下载目录',
+            value: app.downloadDirectory,
+            monospace: true,
+            copyable: true,
+          ),
         ],
       ),
     );

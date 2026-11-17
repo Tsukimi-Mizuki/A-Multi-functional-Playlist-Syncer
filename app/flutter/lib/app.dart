@@ -8,6 +8,7 @@ import 'package:lunatic_princess/pages/overview_page.dart';
 import 'package:lunatic_princess/pages/playlist_page.dart';
 import 'package:lunatic_princess/pages/settings_page.dart';
 import 'package:lunatic_princess/widgets/login_dialog.dart';
+import 'package:lunatic_princess/widgets/sidebar.dart';
 import 'package:lunatic_princess/widgets/window_buttons.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -38,13 +39,10 @@ class _LunaticPrincessAppState extends State<LunaticPrincessApp> {
   FluentThemeData _theme(Brightness b) {
     // 有窗口材质时让各层背景透明，系统材质才透得出来。
     final transparent = controller.material != WindowMaterial.none;
-    return FluentThemeData(
-      brightness: b,
-      fontFamily: _fontFamily,
+    return FluentThemeData(brightness: b, fontFamily: _fontFamily).copyWith(
+      // Win11 的强调色默认是系统蓝，先固定用它；以后接系统强调色只改这里。
+      accentColor: Colors.blue,
       scaffoldBackgroundColor: transparent ? Colors.transparent : null,
-      navigationPaneTheme: NavigationPaneThemeData(
-        backgroundColor: transparent ? Colors.transparent : null,
-      ),
     );
   }
 
@@ -151,58 +149,25 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
-    // 键的顺序必须与 NavigationPane 的 effectiveItems 一致：
-    // items 中的 PaneItem（表头不算）依次排在前，footerItems 随后。
-    final keys = <String>[
-      kKeyOverview,
-      for (final p in c.playlists) playlistKey(p.id),
-      kKeyLog,
-      kKeySettings,
-    ];
-    final selected = keys.indexOf(c.selectedKey);
-
-    // 每个 PaneItem 的 body 必须非空才算可选项；真正的页面由 paneBodyBuilder 渲染。
-    const placeholder = SizedBox.shrink();
-
-    return NavigationView(
-      titleBar: _AppTitleBar(controller: c),
-      paneBodyBuilder: (item, body) => _buildPage(c),
-      pane: NavigationPane(
-        selected: selected < 0 ? 0 : selected,
-        onChanged: (i) => c.select(keys[i]),
-        displayMode: PaneDisplayMode.auto,
-        items: [
-          PaneItem(
-            icon: const WindowsIcon(WindowsIcons.home),
-            title: const Text('概览'),
-            body: placeholder,
-          ),
-          PaneItemHeader(header: const Text('我的歌单')),
-          for (final p in c.playlists)
-            PaneItem(
-              key: ValueKey(playlistKey(p.id)),
-              icon: const WindowsIcon(WindowsIcons.music_note),
-              title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              infoBadge: Text(
-                '${p.trackCount}',
-                style: FluentTheme.of(context).typography.caption,
+    // 侧边栏宽 320 逻辑像素，窗口再窄就只留图标（Win11 的紧凑态）。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 1008;
+        return Column(
+          children: [
+            _AppTitleBar(controller: c),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppSidebar(controller: c, compact: compact),
+                  Expanded(child: _buildPage(c)),
+                ],
               ),
-              body: placeholder,
             ),
-        ],
-        footerItems: [
-          PaneItem(
-            icon: const WindowsIcon(WindowsIcons.document),
-            title: const Text('运行日志'),
-            body: placeholder,
-          ),
-          PaneItem(
-            icon: const WindowsIcon(WindowsIcons.settings),
-            title: const Text('设置'),
-            body: placeholder,
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -223,27 +188,60 @@ class AppShell extends StatelessWidget {
 class _AppTitleBar extends StatelessWidget {
   const _AppTitleBar({required this.controller});
 
+  static const height = 40.0;
+
   final AppController controller;
 
   @override
   Widget build(BuildContext context) {
     final window = WindowManager.instance.getCurrent();
-    return TitleBar(
-      height: 40,
-      isBackButtonVisible: false,
-      title: const Text('Lunatic Princess'),
-      onDragStarted: () => window?.startDragging(),
-      onDoubleTap: () {
-        if (window == null) return;
-        window.isMaximized ? window.unmaximize() : window.maximize();
-      },
-      endHeader: _AccountButton(controller: controller),
-      // widthFactor: 1 让 Align 只有按钮那么宽：TitleBar 把它放在 Flexible 里，
-      // 不收紧的话会占满右侧剩余空间、把按钮与账号按钮挤到中间。
-      captionControls: const Align(
-        alignment: Alignment.topRight,
-        widthFactor: 1,
-        child: WindowButtons(),
+    final theme = FluentTheme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            width: 0.5,
+            color: theme.resources.dividerStrokeColorDefault,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        height: height,
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (_) => window?.startDragging(),
+                onDoubleTap: () {
+                  if (window == null) return;
+                  window.isMaximized ? window.unmaximize() : window.maximize();
+                },
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 16, end: 16),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      'Lunatic Princess',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.typography.body?.copyWith(
+                        color: theme.resources.textFillColorSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            _AccountButton(controller: controller),
+            const SizedBox(width: 8),
+            const Align(
+              alignment: Alignment.topRight,
+              widthFactor: 1,
+              child: WindowButtons(),
+            ),
+          ],
+        ),
       ),
     );
   }

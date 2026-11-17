@@ -4,8 +4,10 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/app.dart';
+import 'api/library.dart';
 import 'api/login.dart';
 import 'api/playlists.dart';
+import 'api/settings.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -35,10 +37,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<ScanProgressDto> dco_decode_StreamSink_scan_progress_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
   AccountDto dco_decode_account_dto(dynamic raw);
+
+  @protected
+  AppSettingsDto dco_decode_app_settings_dto(dynamic raw);
 
   @protected
   AppStateDto dco_decode_app_state_dto(dynamic raw);
@@ -50,10 +60,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto dco_decode_box_autoadd_account_dto(dynamic raw);
 
   @protected
+  LibraryErrorDto dco_decode_box_autoadd_library_error_dto(dynamic raw);
+
+  @protected
+  LibrarySummaryDto dco_decode_box_autoadd_library_summary_dto(dynamic raw);
+
+  @protected
+  MatchOutcomeDto dco_decode_box_autoadd_match_outcome_dto(dynamic raw);
+
+  @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  LibraryErrorDto dco_decode_library_error_dto(dynamic raw);
+
+  @protected
+  LibrarySummaryDto dco_decode_library_summary_dto(dynamic raw);
+
+  @protected
+  List<LocalMatchDto> dco_decode_list_local_match_dto(dynamic raw);
 
   @protected
   List<LogEntryDto> dco_decode_list_log_entry_dto(dynamic raw);
@@ -65,16 +96,42 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<QualityOptionDto> dco_decode_list_quality_option_dto(dynamic raw);
+
+  @protected
   List<SongDto> dco_decode_list_song_dto(dynamic raw);
 
   @protected
+  LocalMatchDto dco_decode_local_match_dto(dynamic raw);
+
+  @protected
   LogEntryDto dco_decode_log_entry_dto(dynamic raw);
+
+  @protected
+  MatchOutcomeDto dco_decode_match_outcome_dto(dynamic raw);
+
+  @protected
+  MatchResultDto dco_decode_match_result_dto(dynamic raw);
+
+  @protected
+  MatchStatsDto dco_decode_match_stats_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
   AccountDto? dco_decode_opt_box_autoadd_account_dto(dynamic raw);
+
+  @protected
+  LibraryErrorDto? dco_decode_opt_box_autoadd_library_error_dto(dynamic raw);
+
+  @protected
+  LibrarySummaryDto? dco_decode_opt_box_autoadd_library_summary_dto(
+    dynamic raw,
+  );
+
+  @protected
+  MatchOutcomeDto? dco_decode_opt_box_autoadd_match_outcome_dto(dynamic raw);
 
   @protected
   PlaylistDetailDto dco_decode_playlist_detail_dto(dynamic raw);
@@ -87,6 +144,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   QrStartDto dco_decode_qr_start_dto(dynamic raw);
+
+  @protected
+  QualityOptionDto dco_decode_quality_option_dto(dynamic raw);
+
+  @protected
+  ScanProgressDto dco_decode_scan_progress_dto(dynamic raw);
+
+  @protected
+  ScanResultDto dco_decode_scan_result_dto(dynamic raw);
+
+  @protected
+  SettingsDto dco_decode_settings_dto(dynamic raw);
 
   @protected
   SongDto dco_decode_song_dto(dynamic raw);
@@ -117,10 +186,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<ScanProgressDto> sse_decode_StreamSink_scan_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
   AccountDto sse_decode_account_dto(SseDeserializer deserializer);
+
+  @protected
+  AppSettingsDto sse_decode_app_settings_dto(SseDeserializer deserializer);
 
   @protected
   AppStateDto sse_decode_app_state_dto(SseDeserializer deserializer);
@@ -132,10 +209,41 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountDto sse_decode_box_autoadd_account_dto(SseDeserializer deserializer);
 
   @protected
+  LibraryErrorDto sse_decode_box_autoadd_library_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LibrarySummaryDto sse_decode_box_autoadd_library_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MatchOutcomeDto sse_decode_box_autoadd_match_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  LibraryErrorDto sse_decode_library_error_dto(SseDeserializer deserializer);
+
+  @protected
+  LibrarySummaryDto sse_decode_library_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LocalMatchDto> sse_decode_list_local_match_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<LogEntryDto> sse_decode_list_log_entry_dto(SseDeserializer deserializer);
@@ -147,16 +255,48 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<QualityOptionDto> sse_decode_list_quality_option_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<SongDto> sse_decode_list_song_dto(SseDeserializer deserializer);
 
   @protected
+  LocalMatchDto sse_decode_local_match_dto(SseDeserializer deserializer);
+
+  @protected
   LogEntryDto sse_decode_log_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  MatchOutcomeDto sse_decode_match_outcome_dto(SseDeserializer deserializer);
+
+  @protected
+  MatchResultDto sse_decode_match_result_dto(SseDeserializer deserializer);
+
+  @protected
+  MatchStatsDto sse_decode_match_stats_dto(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   AccountDto? sse_decode_opt_box_autoadd_account_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LibraryErrorDto? sse_decode_opt_box_autoadd_library_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LibrarySummaryDto? sse_decode_opt_box_autoadd_library_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MatchOutcomeDto? sse_decode_opt_box_autoadd_match_outcome_dto(
     SseDeserializer deserializer,
   );
 
@@ -173,6 +313,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   QrStartDto sse_decode_qr_start_dto(SseDeserializer deserializer);
+
+  @protected
+  QualityOptionDto sse_decode_quality_option_dto(SseDeserializer deserializer);
+
+  @protected
+  ScanProgressDto sse_decode_scan_progress_dto(SseDeserializer deserializer);
+
+  @protected
+  ScanResultDto sse_decode_scan_result_dto(SseDeserializer deserializer);
+
+  @protected
+  SettingsDto sse_decode_settings_dto(SseDeserializer deserializer);
 
   @protected
   SongDto sse_decode_song_dto(SseDeserializer deserializer);
@@ -208,10 +360,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_scan_progress_dto_Sse(
+    RustStreamSink<ScanProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
   void sse_encode_account_dto(AccountDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_app_settings_dto(
+    AppSettingsDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_app_state_dto(AppStateDto self, SseSerializer serializer);
@@ -226,10 +390,49 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_library_error_dto(
+    LibraryErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_library_summary_dto(
+    LibrarySummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_match_outcome_dto(
+    MatchOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_library_error_dto(
+    LibraryErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_library_summary_dto(
+    LibrarySummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_local_match_dto(
+    List<LocalMatchDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_log_entry_dto(
@@ -250,10 +453,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_quality_option_dto(
+    List<QualityOptionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_song_dto(List<SongDto> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_local_match_dto(LocalMatchDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_log_entry_dto(LogEntryDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_match_outcome_dto(
+    MatchOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_match_result_dto(
+    MatchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_match_stats_dto(MatchStatsDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
@@ -261,6 +488,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_account_dto(
     AccountDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_library_error_dto(
+    LibraryErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_library_summary_dto(
+    LibrarySummaryDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_match_outcome_dto(
+    MatchOutcomeDto? self,
     SseSerializer serializer,
   );
 
@@ -278,6 +523,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_qr_start_dto(QrStartDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_quality_option_dto(
+    QualityOptionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_scan_progress_dto(
+    ScanProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_scan_result_dto(ScanResultDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_settings_dto(SettingsDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_song_dto(SongDto self, SseSerializer serializer);

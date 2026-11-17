@@ -52,13 +52,30 @@ class _LogPageState extends State<LogPage> {
     }
 
     return ScaffoldPage(
-      header: const PageHeader(title: Text('运行日志')),
+      header: PageHeader(
+        // PageHeader 没有 subtitle，把条数跟在标题后面。
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('运行日志'),
+            const SizedBox(width: 12),
+            Text(
+              logs.isEmpty ? '暂无日志' : '共 ${logs.length} 条',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+                color: FluentTheme.of(context).resources.textFillColorSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
       // 用页面默认的内边距，标题与其他页面对齐。
       content: logs.isEmpty
           ? const Center(child: Text('暂无日志'))
           : ListView.builder(
               controller: _scroll,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               itemCount: logs.length,
               itemBuilder: (context, i) => _LogRow(line: logs[i]),
             ),
@@ -66,45 +83,64 @@ class _LogPageState extends State<LogPage> {
   }
 }
 
-class _LogRow extends StatelessWidget {
+class _LogRow extends StatefulWidget {
   const _LogRow({required this.line});
 
   final LogLine line;
 
   @override
+  State<_LogRow> createState() => _LogRowState();
+}
+
+class _LogRowState extends State<_LogRow> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
     final res = FluentTheme.of(context).resources;
+    final line = widget.line;
     final (icon, color) = switch (line.level) {
       'success' => (WindowsIcons.accept, Colors.green),
       'warning' => (WindowsIcons.warning, Colors.orange),
       'error' => (WindowsIcons.error_badge, Colors.red),
       _ => (WindowsIcons.info, res.textFillColorSecondary),
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            formatClock(line.timestampMs),
-            style: TextStyle(
-              color: res.textFillColorSecondary,
-              fontFeatures: const [FontFeature.tabularFigures()],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: _hover ? res.subtleFillColorSecondary : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text(
+                formatClock(line.timestampMs),
+                style: TextStyle(
+                  color: res.textFillColorSecondary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: WindowsIcon(icon, size: 13, color: color),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SelectableText(
-              line.message,
-              style: line.level == 'info' ? null : TextStyle(color: color),
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: WindowsIcon(icon, size: 13, color: color),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: SelectableText(
+                line.message,
+                style: line.level == 'info' ? null : TextStyle(color: color),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
