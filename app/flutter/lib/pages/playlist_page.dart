@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart';
 import 'package:lunatic_princess/src/rust/api/playlists.dart';
+import 'package:lunatic_princess/widgets/batch_tags_dialog.dart';
 import 'package:lunatic_princess/widgets/tag_editor_dialog.dart';
 import 'package:lunatic_princess/widgets/transfer_dialogs.dart';
 
@@ -14,6 +15,19 @@ const double _headerHeight = 36;
 const double _statusWidth = 24;
 /// 行尾「编辑标签」按钮的宽度；表头也留同样的空位，列才对得齐。
 const double _editWidth = 32;
+
+/// 批量修改标签从哪个目录开始列：设置里的曲库目录，其次第一首本地文件的所在目录。
+String _batchFolder(AppController c) {
+  final configured = c.settings?.settings.libraryDirectory ?? '';
+  if (configured.trim().isNotEmpty) return configured;
+  for (final match in c.match?.matches ?? const <LocalMatchDto>[]) {
+    final path = match.path;
+    if (path == null || path.isEmpty) continue;
+    final index = path.lastIndexOf(RegExp(r'[\\/]'));
+    if (index > 0) return path.substring(0, index);
+  }
+  return '';
+}
 
 class PlaylistPage extends StatelessWidget {
   const PlaylistPage({super.key, required this.controller});
@@ -319,6 +333,16 @@ class _MoreMenuState extends State<_MoreMenu> {
                     Flyout.of(ctx).close();
                     unawaited(c.loadDetail(d.id));
                   },
+          ),
+          MenuFlyoutItem(
+            leading: const WindowsIcon(WindowsIcons.edit),
+            text: const Text('批量修改标签…'),
+            onPressed: () {
+              Flyout.of(ctx).close();
+              unawaited(
+                showBatchTagsDialog(context, initialFolder: _batchFolder(c)),
+              );
+            },
           ),
         ],
       ),

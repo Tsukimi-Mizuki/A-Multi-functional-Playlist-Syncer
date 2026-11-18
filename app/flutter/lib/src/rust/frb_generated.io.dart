@@ -67,6 +67,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ArtistListDto dco_decode_artist_list_dto(dynamic raw);
 
   @protected
+  BatchFileDto dco_decode_batch_file_dto(dynamic raw);
+
+  @protected
+  BatchScanDto dco_decode_batch_scan_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -145,6 +151,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<BatchFileDto> dco_decode_list_batch_file_dto(dynamic raw);
+
+  @protected
   List<LocalMatchDto> dco_decode_list_local_match_dto(dynamic raw);
 
   @protected
@@ -167,6 +176,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SongDto> dco_decode_list_song_dto(dynamic raw);
+
+  @protected
+  List<TagEditDto> dco_decode_list_tag_edit_dto(dynamic raw);
+
+  @protected
+  List<TagPatchResultDto> dco_decode_list_tag_patch_result_dto(dynamic raw);
+
+  @protected
+  List<TagRowDto> dco_decode_list_tag_row_dto(dynamic raw);
 
   @protected
   List<TransferItemDto> dco_decode_list_transfer_item_dto(dynamic raw);
@@ -242,6 +260,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Int64List? dco_decode_opt_list_prim_i_64_strict(dynamic raw);
 
   @protected
+  List<TagPatchResultDto>? dco_decode_opt_list_tag_patch_result_dto(
+    dynamic raw,
+  );
+
+  @protected
   PlaylistDetailDto dco_decode_playlist_detail_dto(dynamic raw);
 
   @protected
@@ -272,6 +295,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SongDto dco_decode_song_dto(dynamic raw);
 
   @protected
+  TagEditDto dco_decode_tag_edit_dto(dynamic raw);
+
+  @protected
   TagEditorLoadDto dco_decode_tag_editor_load_dto(dynamic raw);
 
   @protected
@@ -281,7 +307,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TagErrorDto dco_decode_tag_error_dto(dynamic raw);
 
   @protected
+  TagPatchOutcomeDto dco_decode_tag_patch_outcome_dto(dynamic raw);
+
+  @protected
+  TagPatchResultDto dco_decode_tag_patch_result_dto(dynamic raw);
+
+  @protected
   TagReadResultDto dco_decode_tag_read_result_dto(dynamic raw);
+
+  @protected
+  TagRowDto dco_decode_tag_row_dto(dynamic raw);
 
   @protected
   TagViewDto dco_decode_tag_view_dto(dynamic raw);
@@ -362,6 +397,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArtistListDto sse_decode_artist_list_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchFileDto sse_decode_batch_file_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchScanDto sse_decode_batch_scan_dto(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -466,6 +507,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<BatchFileDto> sse_decode_list_batch_file_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<LocalMatchDto> sse_decode_list_local_match_dto(
     SseDeserializer deserializer,
   );
@@ -492,6 +538,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SongDto> sse_decode_list_song_dto(SseDeserializer deserializer);
+
+  @protected
+  List<TagEditDto> sse_decode_list_tag_edit_dto(SseDeserializer deserializer);
+
+  @protected
+  List<TagPatchResultDto> sse_decode_list_tag_patch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<TagRowDto> sse_decode_list_tag_row_dto(SseDeserializer deserializer);
 
   @protected
   List<TransferItemDto> sse_decode_list_transfer_item_dto(
@@ -589,6 +646,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Int64List? sse_decode_opt_list_prim_i_64_strict(SseDeserializer deserializer);
 
   @protected
+  List<TagPatchResultDto>? sse_decode_opt_list_tag_patch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PlaylistDetailDto sse_decode_playlist_detail_dto(
     SseDeserializer deserializer,
   );
@@ -621,6 +683,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SongDto sse_decode_song_dto(SseDeserializer deserializer);
 
   @protected
+  TagEditDto sse_decode_tag_edit_dto(SseDeserializer deserializer);
+
+  @protected
   TagEditorLoadDto sse_decode_tag_editor_load_dto(SseDeserializer deserializer);
 
   @protected
@@ -630,7 +695,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TagErrorDto sse_decode_tag_error_dto(SseDeserializer deserializer);
 
   @protected
+  TagPatchOutcomeDto sse_decode_tag_patch_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TagPatchResultDto sse_decode_tag_patch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   TagReadResultDto sse_decode_tag_read_result_dto(SseDeserializer deserializer);
+
+  @protected
+  TagRowDto sse_decode_tag_row_dto(SseDeserializer deserializer);
 
   @protected
   TagViewDto sse_decode_tag_view_dto(SseDeserializer deserializer);
@@ -734,6 +812,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_artist_list_dto(ArtistListDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_batch_file_dto(BatchFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_batch_scan_dto(BatchScanDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -868,6 +952,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_batch_file_dto(
+    List<BatchFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_local_match_dto(
     List<LocalMatchDto> self,
     SseSerializer serializer,
@@ -911,6 +1001,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_song_dto(List<SongDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_tag_edit_dto(
+    List<TagEditDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tag_patch_result_dto(
+    List<TagPatchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tag_row_dto(
+    List<TagRowDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_transfer_item_dto(
@@ -1033,6 +1141,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_tag_patch_result_dto(
+    List<TagPatchResultDto>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_playlist_detail_dto(
     PlaylistDetailDto self,
     SseSerializer serializer,
@@ -1075,6 +1189,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_song_dto(SongDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_tag_edit_dto(TagEditDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_tag_editor_load_dto(
     TagEditorLoadDto self,
     SseSerializer serializer,
@@ -1090,10 +1207,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_tag_error_dto(TagErrorDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_tag_patch_outcome_dto(
+    TagPatchOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tag_patch_result_dto(
+    TagPatchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_tag_read_result_dto(
     TagReadResultDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_tag_row_dto(TagRowDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_tag_view_dto(TagViewDto self, SseSerializer serializer);

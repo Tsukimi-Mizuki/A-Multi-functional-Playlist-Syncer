@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -5,6 +6,7 @@ import 'dart:typed_data';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
+import 'package:lunatic_princess/widgets/batch_tags_dialog.dart';
 
 /// 打开「编辑标签与歌词」面板。
 ///
@@ -621,11 +623,30 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
     );
   }
 
+  /// 打开批量修改标签：从当前文件所在的目录开始列。
+  void _openBatch() {
+    final index = widget.path.lastIndexOf(RegExp(r'[\\/]'));
+    final folder = index <= 0 ? '' : widget.path.substring(0, index);
+    unawaited(showBatchTagsDialog(context, initialFolder: folder));
+  }
+
   Widget _buildFooter() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
       child: Row(
         children: [
+          Button(
+            onPressed: _loading || _saving ? null : _openBatch,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(WindowsIcons.edit, size: 14),
+                SizedBox(width: 6),
+                Text('批量修改'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
           Button(
             onPressed: _loading || _saving ? null : _reload,
             child: Row(

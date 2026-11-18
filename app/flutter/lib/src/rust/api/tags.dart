@@ -7,8 +7,8 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `blocking`, `byte_count`, `failed`, `failed`, `file_label`, `load_editor`, `new`, `read_only`, `read_values`, `save_values`, `small_number`, `to_artist_list`, `to_cover`, `to_fields`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`
+// These functions are ignored because they are not marked as `pub`: `blocking`, `byte_count`, `failed`, `failed`, `failed`, `file_label`, `load_editor`, `new`, `read_only`, `read_values`, `save_values`, `scan_audio_folder`, `small_number`, `to_artist_list`, `to_cover`, `to_field`, `to_fields`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// 读取一个音频文件的标签（只读查看用）。
 Future<TagReadResultDto> readTags({required String path}) =>
@@ -40,6 +40,33 @@ Future<TagEditorSaveDto> tagEditorSave({
 Future<CoverFileDto> tagCoverFile({required String path}) =>
     RustLib.instance.api.crateApiTagsTagCoverFile(path: path);
 
+/// 读出这些文件的标签摘要（不带封面数据），顺序与 `paths` 一致；读不出来的文件也有一行。
+Future<List<TagRowDto>> readTagRows({required List<String> paths}) =>
+    RustLib.instance.api.crateApiTagsReadTagRows(paths: paths);
+
+/// 把同一份改动写进这些文件：`edits` 里出现的字段才改，空白表示清除；某个文件失败不影响其余文件。
+///
+/// 数字校验、艺术家拆分与「空白即清除」都在 `lp-core` 的批量表单规则里（[build_patch]），
+/// 与 Tauri 版共用一份。
+Future<TagPatchOutcomeDto> patchTags({
+  required List<String> paths,
+  required List<TagEditDto> edits,
+  required CoverChangeDto cover,
+}) => RustLib.instance.api.crateApiTagsPatchTags(
+  paths: paths,
+  edits: edits,
+  cover: cover,
+);
+
+/// 列出目录里的音频文件（扩展名规则与 Tauri 版共用 [BatchLyricsService::scan_audio_files]）。
+Future<BatchScanDto> batchScan({
+  required String folder,
+  required bool recursive,
+}) => RustLib.instance.api.crateApiTagsBatchScan(
+  folder: folder,
+  recursive: recursive,
+);
+
 /// 在线结果给的艺术家清单；M4 还没有在线检索，先留着接 M5。
 class ArtistListDto {
   final String text;
@@ -57,6 +84,63 @@ class ArtistListDto {
           runtimeType == other.runtimeType &&
           text == other.text &&
           values == other.values;
+}
+
+/// 批量面板扫描到的一个音频文件。
+class BatchFileDto {
+  final String path;
+  final String name;
+  final PlatformInt64 size;
+
+  const BatchFileDto({
+    required this.path,
+    required this.name,
+    required this.size,
+  });
+
+  @override
+  int get hashCode => path.hashCode ^ name.hashCode ^ size.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchFileDto &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          name == other.name &&
+          size == other.size;
+}
+
+/// `batch_scan` 的结果：目录不存在时 `directory_missing` 为真、文件为空。
+class BatchScanDto {
+  final String folder;
+  final bool recursive;
+  final bool directoryMissing;
+  final List<BatchFileDto> files;
+
+  const BatchScanDto({
+    required this.folder,
+    required this.recursive,
+    required this.directoryMissing,
+    required this.files,
+  });
+
+  @override
+  int get hashCode =>
+      folder.hashCode ^
+      recursive.hashCode ^
+      directoryMissing.hashCode ^
+      files.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchScanDto &&
+          runtimeType == other.runtimeType &&
+          folder == other.folder &&
+          recursive == other.recursive &&
+          directoryMissing == other.directoryMissing &&
+          files == other.files;
 }
 
 /// 封面怎么改：`keep`（原样）、`replace`（换新图，要带 Base64 与 MIME）、`remove`（移除）。
@@ -209,6 +293,26 @@ class SidecarLyricsDto {
           text == other.text;
 }
 
+/// 用户在批量面板里改过的一个字段：`field` 是 camelCase 的字段名（`title`、`albumArtist` …），
+/// `value` 是输入框里的文字。没出现在列表里的字段表示没改过，保存时原样保留。
+class TagEditDto {
+  final String field;
+  final String value;
+
+  const TagEditDto({required this.field, required this.value});
+
+  @override
+  int get hashCode => field.hashCode ^ value.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagEditDto &&
+          runtimeType == other.runtimeType &&
+          field == other.field &&
+          value == other.value;
+}
+
 /// 打开编辑器的结果：`view` 与 `fields` 一起给出，`error` 非空时前两者为空。
 class TagEditorLoadDto {
   final TagViewDto? view;
@@ -270,6 +374,54 @@ class TagErrorDto {
           message == other.message;
 }
 
+/// 批量保存的结果：成功时每个文件一条；改动本身不合法时 `error` 带上原因（此时 `results` 为空）。
+class TagPatchOutcomeDto {
+  final List<TagPatchResultDto>? results;
+  final TagErrorDto? error;
+
+  const TagPatchOutcomeDto({this.results, this.error});
+
+  @override
+  int get hashCode => results.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagPatchOutcomeDto &&
+          runtimeType == other.runtimeType &&
+          results == other.results &&
+          error == other.error;
+}
+
+/// 一个文件套用批量改动的结果。
+class TagPatchResultDto {
+  final String path;
+  final bool success;
+  final String? message;
+  final TagRowDto row;
+
+  const TagPatchResultDto({
+    required this.path,
+    required this.success,
+    this.message,
+    required this.row,
+  });
+
+  @override
+  int get hashCode =>
+      path.hashCode ^ success.hashCode ^ message.hashCode ^ row.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagPatchResultDto &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          success == other.success &&
+          message == other.message &&
+          row == other.row;
+}
+
 /// 只读查看的结果：`view` 与 `error` 都为空表示文件读不出标签（格式不支持或已损坏）。
 class TagReadResultDto {
   final TagViewDto? view;
@@ -287,6 +439,110 @@ class TagReadResultDto {
           runtimeType == other.runtimeType &&
           view == other.view &&
           error == other.error;
+}
+
+/// 批量修改标签窗口列表里的一行。读不出来的文件也有一行（`readable == false`，`error` 是原因）。
+class TagRowDto {
+  final String path;
+  final String fileName;
+  final String directory;
+  final String? fileFormat;
+  final bool readable;
+  final String? error;
+  final String? title;
+  final String? artist;
+  final String? album;
+  final String? albumArtist;
+  final PlatformInt64? year;
+  final PlatformInt64? trackNumber;
+  final PlatformInt64? discNumber;
+  final String? genre;
+  final String? composer;
+  final String? lyricist;
+  final String? comment;
+  final String? lyricsPreview;
+  final bool hasLyrics;
+  final String? lyricsFile;
+  final bool hasCover;
+  final PlatformInt64 durationMs;
+
+  const TagRowDto({
+    required this.path,
+    required this.fileName,
+    required this.directory,
+    this.fileFormat,
+    required this.readable,
+    this.error,
+    this.title,
+    this.artist,
+    this.album,
+    this.albumArtist,
+    this.year,
+    this.trackNumber,
+    this.discNumber,
+    this.genre,
+    this.composer,
+    this.lyricist,
+    this.comment,
+    this.lyricsPreview,
+    required this.hasLyrics,
+    this.lyricsFile,
+    required this.hasCover,
+    required this.durationMs,
+  });
+
+  @override
+  int get hashCode =>
+      path.hashCode ^
+      fileName.hashCode ^
+      directory.hashCode ^
+      fileFormat.hashCode ^
+      readable.hashCode ^
+      error.hashCode ^
+      title.hashCode ^
+      artist.hashCode ^
+      album.hashCode ^
+      albumArtist.hashCode ^
+      year.hashCode ^
+      trackNumber.hashCode ^
+      discNumber.hashCode ^
+      genre.hashCode ^
+      composer.hashCode ^
+      lyricist.hashCode ^
+      comment.hashCode ^
+      lyricsPreview.hashCode ^
+      hasLyrics.hashCode ^
+      lyricsFile.hashCode ^
+      hasCover.hashCode ^
+      durationMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagRowDto &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          fileName == other.fileName &&
+          directory == other.directory &&
+          fileFormat == other.fileFormat &&
+          readable == other.readable &&
+          error == other.error &&
+          title == other.title &&
+          artist == other.artist &&
+          album == other.album &&
+          albumArtist == other.albumArtist &&
+          year == other.year &&
+          trackNumber == other.trackNumber &&
+          discNumber == other.discNumber &&
+          genre == other.genre &&
+          composer == other.composer &&
+          lyricist == other.lyricist &&
+          comment == other.comment &&
+          lyricsPreview == other.lyricsPreview &&
+          hasLyrics == other.hasLyrics &&
+          lyricsFile == other.lyricsFile &&
+          hasCover == other.hasCover &&
+          durationMs == other.durationMs;
 }
 
 /// 查看 / 编辑画面用的标签视图。

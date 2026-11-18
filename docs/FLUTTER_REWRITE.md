@@ -127,8 +127,25 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个，新增 `formatFileSize` 两个用例）、`flutter build windows --release` 全过。
 - 还没验证：真的写盘（要挑夹具文件跑一遍）、换封面（等文件对话框）、逐字歌词的编辑（M6 才接）。
 
+## 第 6 步：批量修改标签（M5a）
+
+一次改一批文件的同一组字段：先选目录扫出音频文件，读成一张表，在左边填要改的值，保存时只写选中的、读得出来的那些行。在线获取标签、歌词与封面的整块留给 M5b。
+
+- 桥接层新增 4 个命令（都在 `app/crates/lp-bridge/src/api/tags.rs`）:`batch_scan(folder, recursive)` 返回 `{ folder, recursive, directory_missing, files: [{ path, name, size }] }`（目录为空或不是目录时只把 `directory_missing` 置真，不报错）；`read_tag_rows(paths)` 返回每行的 `TagRowDto`，读不出来的行照旧占一行、带 `readable: false` 与 `error`；`patch_tags(paths, edits, cover)` 把 `[{ field, value }]` 的改动表映射回 `lp_core::tags::form::batch` 的 `TagEdits`，再 `build_patch` + `TagPatch::into_data`，返回 `{ results | error }`（`error.kind` 是 `invalid` / `notFound` / `unsupported` / `failed`）。`batch_scan` 复用 `lp_core::lyrics::batch::BatchLyricsService::scan_audio_files`，不另写目录遍历。
+- 「改哪些字段」的规则全部复用第 1 步搬进 `lp_core::tags::form::batch` 的那套：`BATCH_FIELDS` 的 11 个字段、`set_edit`（改回共同值就从改动表里去掉，值不一致的字段任何输入都算改动）、`build_patch`（只带改过的字段，文本 trim 成空即清除，数字按年份 → 音轨号 → 碟号顺序校验，错误文案「年份必须是数字。」）。
+- 界面是新文件 `app/flutter/lib/widgets/batch_tags_dialog.dart`（约 1100 行，无状态可复用，全在对话框内部）：上方是目录框 + 「刷新」+「包含子文件夹」；中间左边 304 宽的标签面板（11 个字段，值不同显示「〈保持〉」、改动过显示「〈清空〉」，每项改动后出现「还原」），右边是 14 列的歌曲表（文件名、状态、目录、格式、标题、艺术家、专辑、专辑艺术家、年份、音轨号、碟号、风格、作曲家、作词家，整行横向滚动、表头吸顶）；下方是「已选 X / 共 Y 首」、状态行与「保存修改」「关闭」。
+- 读标签按 100 个文件一块、保存按 20 个一块调用桥接层，块之间检查取消标志，所以「取消」只在块边界生效；保存时先把整批的 `TagEdits` 编译成一个 `TagPatch`，每块只换路径列表，同一份补丁写所有行。逐行状态回填「已保存」或失败原因，末尾汇总「已保存 N 首。」/「已保存 S 首，失败 F 首：…」；只有全部成功才清空改动，有失败就保留改动方便再试。
+- 选中：单击选中、Ctrl 单击切换、Shift 连选（锚点是上一次点的行），Ctrl+A 全选、↑ / ↓ / PageUp / PageDown / Home / End 移动，双击直接打开单曲编辑器。关窗、换目录、重新扫描、打开编辑器之前若有未保存的改动，先弹「有未保存的修改」确认。
+- 入口两处：歌单页「更多」菜单里的「批量修改标签…」（起始目录取设置里的本地音乐目录，没有就用当前歌单第一首本地文件所在目录），以及单曲编辑器底部的「批量修改」（起始目录是当前文件所在目录）。拖放换清单要等 M8 的拖放支持，这一轮只做目录扫描。
+
+### 验证
+
+- Rust 测试从 1246 变成 1251 个：桥接层新增 5 个（批量字段名与 `TagField` 的映射、批量行数字转 `i64`、读不出来的行保留原因、空目录报告缺失、夹具目录能扫出音频文件）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用临时预览入口（`probe_m5.dart`，用完已删）对着测试夹具目录做了 DPI-aware 截图：标题「批量修改标签」、目录框、左侧字段面板、14 列表格（16 行可见、夹具里 71 个文件）、状态列「无法读取标签：文件不存在、格式不支持或已损坏」、底栏「已 0 / 共 71 首」与「保存修改」都渲染正常。
+- 还没验证：真的批量写盘（会改夹具文件，没动）、保存失败/取消的真实分支、拖放换清单。
+
 ## 下一步
 
-1. M5：批量标签与在线标签——`read_tag_rows`、`patch_tags`、`online_search`、`online_tag_candidates`、`online_load_tags` 与批量面板。
-2. 之后依次：M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾。
-2. 之后依次：M5 批量标签与在线标签、M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
+1. M5b：在线获取标签、歌词与封面（`online_tag_candidates`、`online_cover_size`、`online_load_tags` + 编辑器里的在线标签对话框），并把它接进批量面板。
+2. 之后依次：M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
