@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2077395192;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1944191932;
 
 // Section: executor
 
@@ -47,6 +47,44 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
+fn wire__crate__api__tags__batch_scan_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "batch_scan",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_folder = <String>::sse_decode(&mut deserializer);
+            let api_recursive = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::tags::batch_scan(api_folder, api_recursive).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__download__download_cancel_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -494,6 +532,45 @@ fn wire__crate__api__login__logout_impl(
         },
     )
 }
+fn wire__crate__api__tags__patch_tags_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "patch_tags",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_paths = <Vec<String>>::sse_decode(&mut deserializer);
+            let api_edits = <Vec<crate::api::tags::TagEditDto>>::sse_decode(&mut deserializer);
+            let api_cover = <crate::api::tags::CoverChangeDto>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::tags::patch_tags(api_paths, api_edits, api_cover).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__playlists__playlist_tracks_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -593,6 +670,42 @@ fn wire__crate__api__login__qr_start_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::login::qr_start().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__tags__read_tag_rows_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "read_tag_rows",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_paths = <Vec<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::tags::read_tag_rows(api_paths).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1343,6 +1456,36 @@ impl SseDecode for crate::api::tags::ArtistListDto {
     }
 }
 
+impl SseDecode for crate::api::tags::BatchFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_size = <i64>::sse_decode(deserializer);
+        return crate::api::tags::BatchFileDto {
+            path: var_path,
+            name: var_name,
+            size: var_size,
+        };
+    }
+}
+
+impl SseDecode for crate::api::tags::BatchScanDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_folder = <String>::sse_decode(deserializer);
+        let mut var_recursive = <bool>::sse_decode(deserializer);
+        let mut var_directoryMissing = <bool>::sse_decode(deserializer);
+        let mut var_files = <Vec<crate::api::tags::BatchFileDto>>::sse_decode(deserializer);
+        return crate::api::tags::BatchScanDto {
+            folder: var_folder,
+            recursive: var_recursive,
+            directory_missing: var_directoryMissing,
+            files: var_files,
+        };
+    }
+}
+
 impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1477,6 +1620,18 @@ impl SseDecode for Vec<String> {
     }
 }
 
+impl SseDecode for Vec<crate::api::tags::BatchFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::tags::BatchFileDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::library::LocalMatchDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1574,6 +1729,44 @@ impl SseDecode for Vec<crate::api::playlists::SongDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::api::playlists::SongDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::tags::TagEditDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::tags::TagEditDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::tags::TagPatchResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::tags::TagPatchResultDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::tags::TagRowDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::tags::TagRowDto>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -1890,6 +2083,19 @@ impl SseDecode for Option<Vec<i64>> {
     }
 }
 
+impl SseDecode for Option<Vec<crate::api::tags::TagPatchResultDto>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<crate::api::tags::TagPatchResultDto>>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for crate::api::playlists::PlaylistDetailDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2059,6 +2265,18 @@ impl SseDecode for crate::api::playlists::SongDto {
     }
 }
 
+impl SseDecode for crate::api::tags::TagEditDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field = <String>::sse_decode(deserializer);
+        let mut var_value = <String>::sse_decode(deserializer);
+        return crate::api::tags::TagEditDto {
+            field: var_field,
+            value: var_value,
+        };
+    }
+}
+
 impl SseDecode for crate::api::tags::TagEditorLoadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2099,6 +2317,35 @@ impl SseDecode for crate::api::tags::TagErrorDto {
     }
 }
 
+impl SseDecode for crate::api::tags::TagPatchOutcomeDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_results =
+            <Option<Vec<crate::api::tags::TagPatchResultDto>>>::sse_decode(deserializer);
+        let mut var_error = <Option<crate::api::tags::TagErrorDto>>::sse_decode(deserializer);
+        return crate::api::tags::TagPatchOutcomeDto {
+            results: var_results,
+            error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::api::tags::TagPatchResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_message = <Option<String>>::sse_decode(deserializer);
+        let mut var_row = <crate::api::tags::TagRowDto>::sse_decode(deserializer);
+        return crate::api::tags::TagPatchResultDto {
+            path: var_path,
+            success: var_success,
+            message: var_message,
+            row: var_row,
+        };
+    }
+}
+
 impl SseDecode for crate::api::tags::TagReadResultDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2107,6 +2354,58 @@ impl SseDecode for crate::api::tags::TagReadResultDto {
         return crate::api::tags::TagReadResultDto {
             view: var_view,
             error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::api::tags::TagRowDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_fileName = <String>::sse_decode(deserializer);
+        let mut var_directory = <String>::sse_decode(deserializer);
+        let mut var_fileFormat = <Option<String>>::sse_decode(deserializer);
+        let mut var_readable = <bool>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        let mut var_title = <Option<String>>::sse_decode(deserializer);
+        let mut var_artist = <Option<String>>::sse_decode(deserializer);
+        let mut var_album = <Option<String>>::sse_decode(deserializer);
+        let mut var_albumArtist = <Option<String>>::sse_decode(deserializer);
+        let mut var_year = <Option<i64>>::sse_decode(deserializer);
+        let mut var_trackNumber = <Option<i64>>::sse_decode(deserializer);
+        let mut var_discNumber = <Option<i64>>::sse_decode(deserializer);
+        let mut var_genre = <Option<String>>::sse_decode(deserializer);
+        let mut var_composer = <Option<String>>::sse_decode(deserializer);
+        let mut var_lyricist = <Option<String>>::sse_decode(deserializer);
+        let mut var_comment = <Option<String>>::sse_decode(deserializer);
+        let mut var_lyricsPreview = <Option<String>>::sse_decode(deserializer);
+        let mut var_hasLyrics = <bool>::sse_decode(deserializer);
+        let mut var_lyricsFile = <Option<String>>::sse_decode(deserializer);
+        let mut var_hasCover = <bool>::sse_decode(deserializer);
+        let mut var_durationMs = <i64>::sse_decode(deserializer);
+        return crate::api::tags::TagRowDto {
+            path: var_path,
+            file_name: var_fileName,
+            directory: var_directory,
+            file_format: var_fileFormat,
+            readable: var_readable,
+            error: var_error,
+            title: var_title,
+            artist: var_artist,
+            album: var_album,
+            album_artist: var_albumArtist,
+            year: var_year,
+            track_number: var_trackNumber,
+            disc_number: var_discNumber,
+            genre: var_genre,
+            composer: var_composer,
+            lyricist: var_lyricist,
+            comment: var_comment,
+            lyrics_preview: var_lyricsPreview,
+            has_lyrics: var_hasLyrics,
+            lyrics_file: var_lyricsFile,
+            has_cover: var_hasCover,
+            duration_ms: var_durationMs,
         };
     }
 }
@@ -2387,48 +2686,51 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__download__download_cancel_impl(port, ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__download__download_missing_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__download__download_tracks_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__app__init_app_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__library__library_cancel_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__library__library_is_scanning_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__library__library_match_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__library__library_scan_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__library__library_summary_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__playlists__list_playlists_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__app__load_app_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__login__logout_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__playlists__playlist_tracks_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__login__qr_poll_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__login__qr_start_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__tags__read_tags_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__app__recent_logs_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__library__watch_library_progress_impl(
+        1 => wire__crate__api__tags__batch_scan_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__download__download_cancel_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__download__download_missing_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__download__download_tracks_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__app__init_app_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__library__library_cancel_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__library__library_is_scanning_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__library__library_match_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__library__library_scan_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__library__library_summary_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__playlists__list_playlists_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__app__load_app_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__login__logout_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__tags__patch_tags_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__playlists__playlist_tracks_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__login__qr_poll_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__login__qr_start_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__tags__read_tag_rows_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__tags__read_tags_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__app__recent_logs_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__library__watch_library_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        30 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__download__watch_transfer_progress_impl(
+        33 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__download__watch_transfer_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        32 => wire__crate__api__download__watch_transfer_started_impl(
+        35 => wire__crate__api__download__watch_transfer_started_impl(
             port,
             ptr,
             rust_vec_len,
@@ -2548,6 +2850,51 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::ArtistListDto>
     for crate::api::tags::ArtistListDto
 {
     fn into_into_dart(self) -> crate::api::tags::ArtistListDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::BatchFileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.size.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::tags::BatchFileDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::BatchFileDto>
+    for crate::api::tags::BatchFileDto
+{
+    fn into_into_dart(self) -> crate::api::tags::BatchFileDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::BatchScanDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.folder.into_into_dart().into_dart(),
+            self.recursive.into_into_dart().into_dart(),
+            self.directory_missing.into_into_dart().into_dart(),
+            self.files.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::tags::BatchScanDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::BatchScanDto>
+    for crate::api::tags::BatchScanDto
+{
+    fn into_into_dart(self) -> crate::api::tags::BatchScanDto {
         self
     }
 }
@@ -3019,6 +3366,24 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::playlists::SongDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::TagEditDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.field.into_into_dart().into_dart(),
+            self.value.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::tags::TagEditDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagEditDto>
+    for crate::api::tags::TagEditDto
+{
+    fn into_into_dart(self) -> crate::api::tags::TagEditDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::tags::TagEditorLoadDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3081,6 +3446,50 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagErrorDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::TagPatchOutcomeDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.results.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::tags::TagPatchOutcomeDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagPatchOutcomeDto>
+    for crate::api::tags::TagPatchOutcomeDto
+{
+    fn into_into_dart(self) -> crate::api::tags::TagPatchOutcomeDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::TagPatchResultDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.success.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.row.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::tags::TagPatchResultDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagPatchResultDto>
+    for crate::api::tags::TagPatchResultDto
+{
+    fn into_into_dart(self) -> crate::api::tags::TagPatchResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::tags::TagReadResultDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3098,6 +3507,44 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagReadResultDto>
     for crate::api::tags::TagReadResultDto
 {
     fn into_into_dart(self) -> crate::api::tags::TagReadResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::tags::TagRowDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.file_name.into_into_dart().into_dart(),
+            self.directory.into_into_dart().into_dart(),
+            self.file_format.into_into_dart().into_dart(),
+            self.readable.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.artist.into_into_dart().into_dart(),
+            self.album.into_into_dart().into_dart(),
+            self.album_artist.into_into_dart().into_dart(),
+            self.year.into_into_dart().into_dart(),
+            self.track_number.into_into_dart().into_dart(),
+            self.disc_number.into_into_dart().into_dart(),
+            self.genre.into_into_dart().into_dart(),
+            self.composer.into_into_dart().into_dart(),
+            self.lyricist.into_into_dart().into_dart(),
+            self.comment.into_into_dart().into_dart(),
+            self.lyrics_preview.into_into_dart().into_dart(),
+            self.has_lyrics.into_into_dart().into_dart(),
+            self.lyrics_file.into_into_dart().into_dart(),
+            self.has_cover.into_into_dart().into_dart(),
+            self.duration_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::tags::TagRowDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::tags::TagRowDto>
+    for crate::api::tags::TagRowDto
+{
+    fn into_into_dart(self) -> crate::api::tags::TagRowDto {
         self
     }
 }
@@ -3491,6 +3938,25 @@ impl SseEncode for crate::api::tags::ArtistListDto {
     }
 }
 
+impl SseEncode for crate::api::tags::BatchFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <i64>::sse_encode(self.size, serializer);
+    }
+}
+
+impl SseEncode for crate::api::tags::BatchScanDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.folder, serializer);
+        <bool>::sse_encode(self.recursive, serializer);
+        <bool>::sse_encode(self.directory_missing, serializer);
+        <Vec<crate::api::tags::BatchFileDto>>::sse_encode(self.files, serializer);
+    }
+}
+
 impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3586,6 +4052,16 @@ impl SseEncode for Vec<String> {
     }
 }
 
+impl SseEncode for Vec<crate::api::tags::BatchFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::tags::BatchFileDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::library::LocalMatchDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3662,6 +4138,36 @@ impl SseEncode for Vec<crate::api::playlists::SongDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::playlists::SongDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::tags::TagEditDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::tags::TagEditDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::tags::TagPatchResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::tags::TagPatchResultDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::tags::TagRowDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::tags::TagRowDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -3902,6 +4408,16 @@ impl SseEncode for Option<Vec<i64>> {
     }
 }
 
+impl SseEncode for Option<Vec<crate::api::tags::TagPatchResultDto>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<crate::api::tags::TagPatchResultDto>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::api::playlists::PlaylistDetailDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4005,6 +4521,14 @@ impl SseEncode for crate::api::playlists::SongDto {
     }
 }
 
+impl SseEncode for crate::api::tags::TagEditDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.field, serializer);
+        <String>::sse_encode(self.value, serializer);
+    }
+}
+
 impl SseEncode for crate::api::tags::TagEditorLoadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4031,11 +4555,57 @@ impl SseEncode for crate::api::tags::TagErrorDto {
     }
 }
 
+impl SseEncode for crate::api::tags::TagPatchOutcomeDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<Vec<crate::api::tags::TagPatchResultDto>>>::sse_encode(self.results, serializer);
+        <Option<crate::api::tags::TagErrorDto>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::api::tags::TagPatchResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <bool>::sse_encode(self.success, serializer);
+        <Option<String>>::sse_encode(self.message, serializer);
+        <crate::api::tags::TagRowDto>::sse_encode(self.row, serializer);
+    }
+}
+
 impl SseEncode for crate::api::tags::TagReadResultDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<crate::api::tags::TagViewDto>>::sse_encode(self.view, serializer);
         <Option<crate::api::tags::TagErrorDto>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::api::tags::TagRowDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.file_name, serializer);
+        <String>::sse_encode(self.directory, serializer);
+        <Option<String>>::sse_encode(self.file_format, serializer);
+        <bool>::sse_encode(self.readable, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+        <Option<String>>::sse_encode(self.title, serializer);
+        <Option<String>>::sse_encode(self.artist, serializer);
+        <Option<String>>::sse_encode(self.album, serializer);
+        <Option<String>>::sse_encode(self.album_artist, serializer);
+        <Option<i64>>::sse_encode(self.year, serializer);
+        <Option<i64>>::sse_encode(self.track_number, serializer);
+        <Option<i64>>::sse_encode(self.disc_number, serializer);
+        <Option<String>>::sse_encode(self.genre, serializer);
+        <Option<String>>::sse_encode(self.composer, serializer);
+        <Option<String>>::sse_encode(self.lyricist, serializer);
+        <Option<String>>::sse_encode(self.comment, serializer);
+        <Option<String>>::sse_encode(self.lyrics_preview, serializer);
+        <bool>::sse_encode(self.has_lyrics, serializer);
+        <Option<String>>::sse_encode(self.lyrics_file, serializer);
+        <bool>::sse_encode(self.has_cover, serializer);
+        <i64>::sse_encode(self.duration_ms, serializer);
     }
 }
 

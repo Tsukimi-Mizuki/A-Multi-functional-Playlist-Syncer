@@ -4,13 +4,19 @@
 //! 桥接层只负责把「二选一」的结果（数据或带类别的错误）摊平成 frb 能传的类型：
 //! frb 的 `Result` 错误位只能放字符串，带 `kind` 的错误要放进返回值里。
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use lp_core::editor::{CoverFile, read_cover_file};
+use lp_core::lyrics::batch::BatchLyricsService;
 use lp_core::tags::form::CoverChange;
+use lp_core::tags::form::batch::build_patch;
 use lp_core::tags::form::editor::{ArtistList, EditorFields, build_write_request};
-use lp_core::tags::{AudioTagService, SidecarLyrics, TagCommandError, TagView};
+use lp_core::tags::{
+    AudioTagService, SidecarLyrics, TagCommandError, TagField, TagPatchResult, TagRowView, TagView,
+    apply_patch, read_rows,
+};
 
 use crate::state::{bridge, run};
 
@@ -460,10 +466,240 @@ pub async fn tag_cover_file(path: String) -> Result<CoverFileDto, String> {
     .await??
 }
 
+/// 批量修改标签窗口列表里的一行。读不出来的文件也有一行（`readable == false`，`error` 是原因）。
+pub struct TagRowDto {
+    pub path: String,
+    pub file_name: String,
+    pub directory: String,
+    pub file_format: Option<String>,
+    pub readable: bool,
+    pub error: Option<String>,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+    pub year: Option<i64>,
+    pub track_number: Option<i64>,
+    pub disc_number: Option<i64>,
+    pub genre: Option<String>,
+    pub composer: Option<String>,
+    pub lyricist: Option<String>,
+    pub comment: Option<String>,
+    pub lyrics_preview: Option<String>,
+    pub has_lyrics: bool,
+    pub lyrics_file: Option<String>,
+    pub has_cover: bool,
+    pub duration_ms: i64,
+}
+
+impl From<TagRowView> for TagRowDto {
+    fn from(value: TagRowView) -> Self {
+        Self {
+            path: value.path,
+            file_name: value.file_name,
+            directory: value.directory,
+            file_format: value.file_format,
+            readable: value.readable,
+            error: value.error,
+            title: value.title,
+            artist: value.artist,
+            album: value.album,
+            album_artist: value.album_artist,
+            year: small_number(value.year),
+            track_number: small_number(value.track_number),
+            disc_number: small_number(value.disc_number),
+            genre: value.genre,
+            composer: value.composer,
+            lyricist: value.lyricist,
+            comment: value.comment,
+            lyrics_preview: value.lyrics_preview,
+            has_lyrics: value.has_lyrics,
+            lyrics_file: value.lyrics_file,
+            has_cover: value.has_cover,
+            duration_ms: value.duration_ms,
+        }
+    }
+}
+
+/// 用户在批量面板里改过的一个字段：`field` 是 camelCase 的字段名（`title`、`albumArtist` …），
+/// `value` 是输入框里的文字。没出现在列表里的字段表示没改过，保存时原样保留。
+pub struct TagEditDto {
+    pub field: String,
+    pub value: String,
+}
+
+impl TagEditDto {
+    fn to_field(&self) -> Option<TagField> {
+        serde_json::from_value(serde_json::Value::String(self.field.clone())).ok()
+    }
+}
+
+/// 一个文件套用批量改动的结果。
+pub struct TagPatchResultDto {
+    pub path: String,
+    pub success: bool,
+    pub message: Option<String>,
+    pub row: TagRowDto,
+}
+
+impl From<TagPatchResult> for TagPatchResultDto {
+    fn from(value: TagPatchResult) -> Self {
+        Self {
+            path: value.path,
+            success: value.success,
+            message: value.message,
+            row: TagRowDto::from(value.row),
+        }
+    }
+}
+
+/// 批量保存的结果：成功时每个文件一条；改动本身不合法时 `error` 带上原因（此时 `results` 为空）。
+pub struct TagPatchOutcomeDto {
+    pub results: Option<Vec<TagPatchResultDto>>,
+    pub error: Option<TagErrorDto>,
+}
+
+impl TagPatchOutcomeDto {
+    fn failed(kind: &str, message: String) -> Self {
+        Self {
+            results: None,
+            error: Some(TagErrorDto::new(kind, message)),
+        }
+    }
+}
+
+/// 读出这些文件的标签摘要（不带封面数据），顺序与 `paths` 一致；读不出来的文件也有一行。
+pub async fn read_tag_rows(paths: Vec<String>) -> Result<Vec<TagRowDto>, String> {
+    let tags = Arc::clone(&bridge()?.tags);
+    run(async move {
+        blocking(move || {
+            let targets: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+            read_rows(&*tags, &targets)
+        })
+        .await
+        .map(|rows| rows.into_iter().map(TagRowDto::from).collect())
+    })
+    .await?
+}
+
+/// 把同一份改动写进这些文件：`edits` 里出现的字段才改，空白表示清除；某个文件失败不影响其余文件。
+///
+/// 数字校验、艺术家拆分与「空白即清除」都在 `lp-core` 的批量表单规则里（[build_patch]），
+/// 与 Tauri 版共用一份。
+pub async fn patch_tags(
+    paths: Vec<String>,
+    edits: Vec<TagEditDto>,
+    cover: CoverChangeDto,
+) -> Result<TagPatchOutcomeDto, String> {
+    let cover = match cover.to_cover() {
+        Ok(cover) => cover,
+        Err(message) => return Ok(TagPatchOutcomeDto::failed("invalid", message)),
+    };
+    let mut values = HashMap::new();
+    for edit in &edits {
+        let Some(field) = edit.to_field() else {
+            return Ok(TagPatchOutcomeDto::failed(
+                "invalid",
+                format!("无法修改标签字段「{}」。", edit.field),
+            ));
+        };
+        values.insert(field, edit.value.clone());
+    }
+    let patch = match build_patch(&values, &cover) {
+        Ok(patch) => patch,
+        Err(error) => return Ok(TagPatchOutcomeDto::failed("invalid", error.to_string())),
+    };
+    let data = match patch.into_data() {
+        Ok(data) => data,
+        Err(error) => {
+            let error = TagCommandError::from(error);
+            return Ok(TagPatchOutcomeDto::failed(error.kind, error.message));
+        }
+    };
+    let tags = Arc::clone(&bridge()?.tags);
+    run(async move {
+        blocking(move || {
+            let targets: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+            apply_patch(&*tags, &targets, &data)
+        })
+        .await
+        .map(|results| TagPatchOutcomeDto {
+            results: Some(results.into_iter().map(TagPatchResultDto::from).collect()),
+            error: None,
+        })
+    })
+    .await?
+}
+
+/// 批量面板扫描到的一个音频文件。
+pub struct BatchFileDto {
+    pub path: String,
+    pub name: String,
+    pub size: i64,
+}
+
+/// `batch_scan` 的结果：目录不存在时 `directory_missing` 为真、文件为空。
+pub struct BatchScanDto {
+    pub folder: String,
+    pub recursive: bool,
+    pub directory_missing: bool,
+    pub files: Vec<BatchFileDto>,
+}
+
+/// 列出目录里的音频文件（扩展名规则与 Tauri 版共用 [BatchLyricsService::scan_audio_files]）。
+pub async fn batch_scan(folder: String, recursive: bool) -> Result<BatchScanDto, String> {
+    run(async move { blocking(move || scan_audio_folder(folder, recursive)).await }).await?
+}
+
+/// 真正扫目录的那一步：磁盘遍历可能很慢，调用方放在阻塞线程里跑。
+fn scan_audio_folder(folder: String, recursive: bool) -> BatchScanDto {
+    let trimmed = folder.trim().to_owned();
+    let directory_missing = trimmed.is_empty() || !PathBuf::from(&trimmed).is_dir();
+    let files = if directory_missing {
+        Vec::new()
+    } else {
+        BatchLyricsService::scan_audio_files(&trimmed, recursive)
+            .into_iter()
+            .map(|path| BatchFileDto {
+                name: path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                size: std::fs::metadata(&path).map_or(0, |meta| meta.len() as i64),
+                path: path.to_string_lossy().into_owned(),
+            })
+            .collect()
+    };
+    BatchScanDto {
+        folder,
+        recursive,
+        directory_missing,
+        files,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use lp_core::tags::TagError;
+
+    #[test]
+    fn blank_folder_is_reported_missing() {
+        let scan = scan_audio_folder("   ".to_owned(), true);
+        assert!(scan.directory_missing);
+        assert!(scan.files.is_empty());
+    }
+
+    #[test]
+    fn scan_finds_the_audio_fixtures() {
+        let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../lp-core/tests/fixtures/library/music");
+        let scan = scan_audio_folder(folder.to_string_lossy().into_owned(), true);
+        assert!(!scan.directory_missing);
+        assert!(scan.files.iter().any(|file| file.name.ends_with(".mp3")));
+        assert!(scan.files.iter().any(|file| file.name.ends_with(".flac")));
+        assert!(scan.files.iter().all(|file| file.size > 0));
+    }
 
     fn sample_fields() -> EditorFieldsDto {
         EditorFieldsDto {
@@ -560,5 +796,68 @@ mod tests {
             Some("invalid")
         );
         assert!(failed.view.is_none() && failed.fields.is_none());
+    }
+
+    #[test]
+    fn batch_field_names_round_trip() {
+        let names = [
+            ("title", TagField::Title),
+            ("artist", TagField::Artist),
+            ("album", TagField::Album),
+            ("albumArtist", TagField::AlbumArtist),
+            ("year", TagField::Year),
+            ("trackNumber", TagField::TrackNumber),
+            ("discNumber", TagField::DiscNumber),
+            ("genre", TagField::Genre),
+            ("composer", TagField::Composer),
+            ("lyricist", TagField::Lyricist),
+            ("comment", TagField::Comment),
+        ];
+        for (name, field) in names {
+            let edit = TagEditDto {
+                field: name.to_owned(),
+                value: String::new(),
+            };
+            assert_eq!(edit.to_field(), Some(field), "{name}");
+        }
+        let unknown = TagEditDto {
+            field: "coverBase64".to_owned(),
+            value: String::new(),
+        };
+        assert_eq!(unknown.to_field(), None);
+    }
+
+    #[test]
+    fn batch_row_numbers_become_i64() {
+        let row = TagRowView {
+            path: "C:/Music/曲.mp3".to_owned(),
+            readable: true,
+            year: Some(2024),
+            track_number: Some(3),
+            disc_number: Some(1),
+            duration_ms: 245_000,
+            ..TagRowView::default()
+        };
+        let dto = TagRowDto::from(row);
+        assert_eq!(dto.year, Some(2024));
+        assert_eq!(dto.track_number, Some(3));
+        assert_eq!(dto.disc_number, Some(1));
+        assert_eq!(dto.duration_ms, 245_000);
+    }
+
+    #[test]
+    fn unreadable_row_keeps_its_reason() {
+        let row = TagRowView::unreadable(
+            std::path::Path::new("C:/Music/坏文件.mp3"),
+            "无法读取标签：文件不存在、格式不支持或已损坏。".to_owned(),
+        );
+        let dto = TagRowDto::from(row);
+        assert!(!dto.readable);
+        assert_eq!(dto.file_name, "坏文件.mp3");
+        assert!(
+            dto.error
+                .as_deref()
+                .is_some_and(|reason| reason.contains("无法读取标签"))
+        );
     }
 }
