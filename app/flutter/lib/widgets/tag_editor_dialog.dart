@@ -27,6 +27,113 @@ Future<void> showTagEditorDialog(BuildContext context, String path) {
 /// 从本地选图片换封面要文件对话框，排到 M8。
 enum _CoverMode { keep, remove, replace }
 
+/// 歌词来源下拉项：主词源（能带回标签与封面）与备用词源（只补歌词）。
+const List<({String kind, String label})> _lyricsSources = [
+  (kind: 'Netease', label: '网易云音乐'),
+  (kind: 'QQMusic', label: 'QQ 音乐'),
+  (kind: 'Kugou', label: '酷狗音乐（仅歌词）'),
+  (kind: 'Lrclib', label: 'LRCLIB（仅歌词）'),
+];
+
+String _sourceLabel(String kind) {
+  for (final entry in _lyricsSources) {
+    if (entry.kind == kind) return entry.label;
+  }
+  return kind;
+}
+
+/// 备用词源只补歌词，不改写标签与封面。
+bool _isFallbackSource(String kind) => kind == 'Kugou' || kind == 'Lrclib';
+
+/// 一条在线搜索结果：主词源的一首歌，或备用词源的一份歌词。
+class _SearchEntry {
+  _SearchEntry.song(this.item, this.key) : fallback = null;
+
+  _SearchEntry.fallback(this.fallback) : item = null, key = 'fallback-0';
+
+  final OnlineSearchItemDto? item;
+  final FallbackLyricsDto? fallback;
+  final String key;
+}
+
+/// 把文件名清理成搜索关键词（口径同 lp-core 的 `keyword_from_file_name`）：
+/// 去掉扩展名与开头的音轨号，下划线换空格，合并空白。
+String _keywordFromFileName(String path) {
+  final index = path.lastIndexOf(RegExp(r'[\\/]'));
+  final base = (index < 0 ? path : path.substring(index + 1)).trim();
+  final dot = base.lastIndexOf('.');
+  final stem = (dot > 0 ? base.substring(0, dot) : base).trim();
+  if (stem.isEmpty) return '';
+  return stem
+      .replaceFirst(RegExp(r'^\s*\d{1,3}[\s._-]+'), '')
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+/// 备用词源的歌词按偏好挑选（与 lp-core 的 `pick_lyrics` 一致：双语优先，逐字不可用回退逐行）。
+String? _pickFallbackLyrics(FallbackLyricsDto data, bool preferWord) {
+  bool blank(String? text) => text == null || text.trim().isEmpty;
+  final translated = preferWord
+      ? (data.bilingualWordLyrics ?? data.bilingualLineLyrics)
+      : data.bilingualLineLyrics;
+  if (!blank(translated)) return translated;
+  return preferWord ? (data.wordLyrics ?? data.lineLyrics) : data.lineLyrics;
+}
+
+/// 歌词格式说明（双语 / 逐字 / 无翻译）。
+String _fallbackFormatLabel(FallbackLyricsDto data, bool preferWord) {
+  final base = preferWord
+      ? (data.hasWordLyrics ? '逐字歌词' : '逐行歌词（该来源无逐字）')
+      : '逐行歌词';
+  return data.hasTranslation ? '双语$base' : '$base（该来源无翻译）';
+}
+
+/// 「歌手 · 专辑」副标题，空白字段显示「未知」。
+String _songSubtitle(OnlineSongDto song) {
+  final artist = song.artist.trim().isEmpty ? '未知歌手' : song.artist;
+  final album = song.album.trim().isEmpty ? '未知专辑' : song.album;
+  return '$artist · $album';
+}
+
+String _percent(double value) => '${(value * 100).round()}%';
+
+String _scoreTooltip(MatchScoreDto score) =>
+    '标题 ${_percent(score.title)} · 歌手 ${_percent(score.artist)} · 专辑 ${_percent(score.album)} · 时长 ${_percent(score.duration)}';
+
+String _entryTitle(_SearchEntry entry) {
+  final fallback = entry.fallback;
+  if (fallback != null) {
+    return fallback.title.trim().isEmpty ? '未知歌曲' : fallback.title;
+  }
+  return entry.item!.song.displayTitle;
+}
+
+String _entrySubtitle(_SearchEntry entry) {
+  final fallback = entry.fallback;
+  if (fallback != null) {
+    final artist = fallback.artist.trim().isEmpty ? '未知歌手' : fallback.artist;
+    return '$artist · ${fallback.sourceLabel}（仅歌词）';
+  }
+  return _songSubtitle(entry.item!.song);
+}
+
+String _entryMatchText(_SearchEntry entry) {
+  final fallback = entry.fallback;
+  if (fallback != null) return '匹配度 ${_percent(fallback.score.total)}';
+  final item = entry.item!;
+  final score = item.score;
+  if (score == null) return '';
+  return '匹配度 ${_percent(score.total)}${item.belowThreshold ? '（低于阈值）' : ''}';
+}
+
+String _entryScoreTooltip(_SearchEntry entry) {
+  final fallback = entry.fallback;
+  if (fallback != null) return _scoreTooltip(fallback.score);
+  final score = entry.item!.score;
+  return score == null ? '' : _scoreTooltip(score);
+}
+
 class _TagEditorDialog extends StatefulWidget {
   const _TagEditorDialog({required this.path});
 
@@ -80,10 +187,31 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
   /// 在线标签刚回填时的提示，保存或重新读取后清掉。
   String? _onlineNote;
 
+  /// 在线搜索：来源、是否优先逐字、关键词、进行中、状态行、结果与选中项。
+  String _source = 'Netease';
+  bool _preferWord = false;
+  late final TextEditingController _keyword = TextEditingController(
+    text: _keywordFromFileName(widget.path),
+  );
+  bool _searching = false;
+  String _searchStatus = '';
+  List<_SearchEntry> _results = const [];
+  String? _selectedKey;
+  String _thresholdText = '60%';
+
+  /// 用来丢弃过期的搜索结果与过期的载入结果。
+  int _searchToken = 0;
+  int _applyToken = 0;
+
+  /// 打开文件后自动按文件名搜一次（与 Tauri 版一致）；只做一次。
+  bool _autoSearched = false;
+  bool _optionsLoaded = false;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadEditorOptions();
   }
 
   @override
@@ -91,6 +219,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
     for (final controller in _controllers.values) {
       controller.dispose();
     }
+    _keyword.dispose();
     super.dispose();
   }
 
@@ -151,6 +280,11 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
     setState(() {
       _loading = true;
       _loadError = null;
+      _results = const [];
+      _searchStatus = '';
+      _selectedKey = null;
+      _searchToken += 1;
+      _applyToken += 1;
       if (!quiet) {
         _notice = null;
         _saveError = null;
@@ -188,6 +322,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         _onlineArtistsText = null;
         _fill(fields);
       });
+      _maybeAutoSearch();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -456,6 +591,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildSearchPanel(theme),
           Row(
             children: [
               const Text('标签信息', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -729,6 +865,449 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
           ),
           Expanded(child: SelectableText(value, style: const TextStyle(fontSize: 12))),
         ],
+      ),
+    );
+  }
+
+  /// 读取上次用的搜索来源与歌词格式，并把匹配度阈值显示出来。
+  Future<void> _loadEditorOptions() async {
+    try {
+      final options = await editorOptions();
+      if (!mounted) return;
+      setState(() {
+        _source = options.searchSource;
+        _preferWord = options.preferWordLyrics;
+        _thresholdText = options.thresholdPercent;
+      });
+    } catch (_) {
+      // 读不到就用默认值：网易云音乐、逐行歌词、阈值 60%。
+    } finally {
+      _optionsLoaded = true;
+      _maybeAutoSearch();
+    }
+  }
+
+  /// 文件与编辑器选项都就绪后，按关键词自动搜一次（Tauri 版打开文件就搜）。
+  void _maybeAutoSearch() {
+    if (_autoSearched || !_optionsLoaded || _view == null) return;
+    final keyword = _keyword.text.trim();
+    if (keyword.isEmpty) return;
+    _autoSearched = true;
+    unawaited(_runSearch(keyword));
+  }
+
+  /// 记住这次选的来源与歌词格式；记忆失败不影响编辑。
+  Future<void> _rememberOptions() async {
+    try {
+      await editorRememberOptions(
+        source: _source,
+        preferWordLyrics: _preferWord,
+      );
+    } catch (_) {
+      // 忽略：选项只影响下次打开时的默认值。
+    }
+  }
+
+  /// 打分用的本地文件信息：取表单里现在的标题、歌手、专辑与文件时长。
+  FileContextDto _fileContext() {
+    final title = _text('title').trim();
+    final artist = _text('artist').trim();
+    final album = _text('album').trim();
+    return FileContextDto(
+      title: title.isEmpty ? null : title,
+      artist: artist.isEmpty ? null : artist,
+      album: album.isEmpty ? null : album,
+      durationMs: _view?.durationMs ?? 0,
+      filePath: widget.path,
+    );
+  }
+
+  /// 主词源按关键词搜歌；备用词源按当前音频的标题、歌手与时长检索一份歌词。
+  Future<void> _runSearch(String rawKeyword) async {
+    final token = ++_searchToken;
+    _applyToken += 1;
+    setState(() {
+      _results = const [];
+      _selectedKey = null;
+    });
+    final view = _view;
+    if (_isFallbackSource(_source)) {
+      final label = _sourceLabel(_source);
+      if (view == null) {
+        setState(() {
+          _searching = false;
+          _searchStatus = '备用词源按当前音频的标题、歌手和时长检索，请先打开要编辑的音频文件。';
+        });
+        return;
+      }
+      final title = _text('title').trim();
+      final artist = _text('artist').trim();
+      final album = _text('album').trim();
+      setState(() {
+        _searching = true;
+        _searchStatus = '正在从$label检索歌词...';
+      });
+      try {
+        final outcome = await lyricsSourceFetch(
+          source: _source,
+          title: title.isEmpty ? _keywordFromFileName(widget.path) : title,
+          artist: artist,
+          durationMs: view.durationMs,
+          album: album.isEmpty ? null : album,
+          wordLyrics: _preferWord,
+        );
+        if (!mounted || token != _searchToken) return;
+        final error = outcome.error;
+        if (error != null) {
+          setState(() => _searchStatus = '$label检索失败：${error.message}');
+          return;
+        }
+        final data = outcome.data;
+        if (data == null) {
+          setState(
+            () => _searchStatus = '没有在$label找到匹配的歌词；可以改用网易云音乐 / QQ 音乐按关键词搜索。',
+          );
+          return;
+        }
+        setState(() {
+          _results = [_SearchEntry.fallback(data)];
+          _selectedKey = _results.first.key;
+          _searchStatus = '${data.sourceLabel}找到了 1 份歌词，点击结果载入（仅歌词，标签与封面保持当前内容）。';
+        });
+      } catch (error) {
+        if (mounted && token == _searchToken) {
+          setState(() => _searchStatus = '$label检索失败：$error');
+        }
+      } finally {
+        if (mounted && token == _searchToken) {
+          setState(() => _searching = false);
+        }
+      }
+      return;
+    }
+    final keyword = rawKeyword.trim();
+    if (keyword.isEmpty) {
+      setState(() {
+        _searching = false;
+        _searchStatus = '请输入要搜索的歌曲、歌手或专辑。';
+      });
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _searchStatus = '正在搜索...';
+    });
+    try {
+      final outcome = await onlineSearch(
+        source: _source,
+        query: keyword,
+        fileContext: _fileContext(),
+      );
+      if (!mounted || token != _searchToken) return;
+      final error = outcome.error;
+      if (error != null) {
+        setState(() => _searchStatus = '搜索失败：${error.message}');
+        return;
+      }
+      final data = outcome.data;
+      if (data == null) {
+        setState(() => _searchStatus = '搜索失败：没有返回内容，请重试。');
+        return;
+      }
+      final entries = [
+        for (var i = 0; i < data.items.length; i++)
+          _SearchEntry.song(
+            data.items[i],
+            '${data.items[i].song.source}:${data.items[i].song.sourceId}:$i',
+          ),
+      ];
+      setState(() {
+        _results = entries;
+        _selectedKey = null;
+        _searchStatus = entries.isEmpty
+            ? '没有找到匹配歌曲，换个关键词试试。'
+            : data.scored
+            ? '找到 ${entries.length} 首歌曲，按匹配度从高到低排序（低于 ${data.thresholdPercent}% 的已标注）。点击结果载入标签和歌词。'
+            : '找到 ${entries.length} 首歌曲，点击结果即可载入标签和歌词。';
+      });
+    } catch (error) {
+      if (mounted && token == _searchToken) {
+        setState(() => _searchStatus = '搜索失败：$error');
+      }
+    } finally {
+      if (mounted && token == _searchToken) {
+        setState(() => _searching = false);
+      }
+    }
+  }
+
+  /// 把一条搜索结果填进表单：主词源填标签 / 歌词 / 封面，备用词源只填歌词。
+  Future<void> _applyEntry(_SearchEntry entry) async {
+    if (_loading || _saving) return;
+    final token = ++_applyToken;
+    setState(() => _selectedKey = entry.key);
+    final fallback = entry.fallback;
+    if (fallback != null) {
+      final lyrics = _pickFallbackLyrics(fallback, _preferWord);
+      if (lyrics == null || lyrics.trim().isEmpty) {
+        setState(() => _searchStatus = '${fallback.sourceLabel}没有返回可用歌词。');
+        return;
+      }
+      setState(() {
+        _controllers['lyrics']!.text = lyrics;
+        _searchStatus =
+            '已从${fallback.sourceLabel}载入${_fallbackFormatLabel(fallback, _preferWord)}（仅歌词，标签与封面保持当前内容），请确认后保存。';
+      });
+      return;
+    }
+    final summary = entry.item!.song;
+    setState(() => _searchStatus = '正在获取${summary.sourceLabel}的标签和歌词...');
+    try {
+      final outcome = await onlineLoadResult(
+        source: summary.source,
+        id: summary.sourceId,
+        wordLyrics: _preferWord,
+        song: summary,
+      );
+      if (!mounted || token != _applyToken) return;
+      final error = outcome.error;
+      if (error != null) {
+        setState(() => _searchStatus = '获取在线信息失败：${error.message}');
+        return;
+      }
+      final loaded = outcome.data;
+      if (loaded == null) {
+        setState(() => _searchStatus = '获取在线信息失败：没有返回内容。');
+        return;
+      }
+      final song = loaded.song;
+      setState(() {
+        _applyOnlineTags(song);
+        // 来源给了歌手名单就记下来：保存时按它写多值，用户改过艺术家就作废。
+        _onlineArtists = ArtistListDto(text: _text('artist'), values: song.artists);
+        _onlineArtistsText = _text('artist');
+        final lyrics = loaded.lyrics;
+        if (lyrics != null && lyrics.trim().isNotEmpty) {
+          _controllers['lyrics']!.text = lyrics;
+        }
+        final cover = loaded.cover;
+        if (cover != null) {
+          _newCover = cover;
+          _newCoverOrigin = song.sourceLabel;
+          _cover = _CoverMode.replace;
+        }
+        _searchStatus = loaded.statusText;
+      });
+    } catch (error) {
+      if (mounted && token == _applyToken) {
+        setState(() => _searchStatus = '获取在线信息失败：$error');
+      }
+    }
+  }
+
+  /// 在线搜索面板：来源、关键词、歌词格式、搜索按钮、状态行与结果列表。
+  Widget _buildSearchPanel(FluentThemeData theme) {
+    final res = theme.resources;
+    final busy = _searching || _loading || _saving;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text('在线搜索', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '网易云音乐、QQ 音乐能带回标签与封面；酷狗、LRCLIB 只补歌词。',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: res.textFillColorSecondary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            SizedBox(
+              width: 150,
+              child: ComboBox<String>(
+                value: _source,
+                items: [
+                  for (final item in _lyricsSources)
+                    ComboBoxItem(value: item.kind, child: Text(item.label)),
+                ],
+                onChanged: (value) {
+                  if (value == null || value == _source) return;
+                  setState(() => _source = value);
+                  unawaited(_rememberOptions());
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextBox(
+                controller: _keyword,
+                placeholder: '搜索歌曲、歌手或专辑，例如：夜空中最亮的星',
+                onSubmitted: (value) => unawaited(_runSearch(value)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 150,
+              child: ComboBox<String>(
+                value: _preferWord ? 'word' : 'line',
+                items: const [
+                  ComboBoxItem(value: 'line', child: Text('逐行歌词')),
+                  ComboBoxItem(value: 'word', child: Text('逐字歌词（有则优先）')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  final preferWord = value == 'word';
+                  if (preferWord == _preferWord) return;
+                  setState(() => _preferWord = preferWord);
+                  unawaited(_rememberOptions());
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: busy ? null : () => unawaited(_runSearch(_keyword.text)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_searching)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: ProgressRing(),
+                      ),
+                    ),
+                  Text(_searching ? '搜索中…' : '搜索'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (_searchStatus.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _searchStatus,
+              style: TextStyle(fontSize: 12, color: res.textFillColorSecondary),
+            ),
+          ),
+        if (_results.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 168),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: res.dividerStrokeColorDefault,
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _results.length,
+                itemBuilder: (context, index) =>
+                    _buildResultTile(theme, _results[index]),
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            '匹配度阈值 $_thresholdText（在设置的「在线匹配度」里调整）',
+            style: TextStyle(fontSize: 11.5, color: res.textFillColorSecondary),
+          ),
+        ),
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Widget _buildResultTile(FluentThemeData theme, _SearchEntry entry) {
+    final res = theme.resources;
+    final selected = entry.key == _selectedKey;
+    final matchText = _entryMatchText(entry);
+    final scoreTitle = _entryScoreTooltip(entry);
+    final below = entry.item?.belowThreshold ?? false;
+    final fallback = entry.fallback;
+    final durationText = fallback != null
+        ? formatDuration(fallback.durationMs)
+        : entry.item!.song.durationText;
+    final match = Text(
+      matchText,
+      style: TextStyle(
+        fontSize: 11.5,
+        color: below ? res.systemFillColorCaution : res.textFillColorSecondary,
+      ),
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => unawaited(_applyEntry(entry)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? res.subtleFillColorSecondary : null,
+          border: Border(
+            bottom: BorderSide(
+              color: res.dividerStrokeColorDefault,
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _entryTitle(entry),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _entrySubtitle(entry),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: res.textFillColorSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (matchText.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              scoreTitle.isEmpty
+                  ? match
+                  : Tooltip(message: scoreTitle, child: match),
+            ],
+            const SizedBox(width: 8),
+            Text(
+              durationText,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: res.textFillColorSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -114,6 +114,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_box_autoadd_f_64(dynamic raw);
 
   @protected
+  FallbackLyricsDto dco_decode_box_autoadd_fallback_lyrics_dto(dynamic raw);
+
+  @protected
   FileContextDto dco_decode_box_autoadd_file_context_dto(dynamic raw);
 
   @protected
@@ -124,6 +127,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LibrarySummaryDto dco_decode_box_autoadd_library_summary_dto(dynamic raw);
+
+  @protected
+  LoadedResultDto dco_decode_box_autoadd_loaded_result_dto(dynamic raw);
 
   @protected
   LoadedTagsDto dco_decode_box_autoadd_loaded_tags_dto(dynamic raw);
@@ -142,6 +148,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OnlineErrorDto dco_decode_box_autoadd_online_error_dto(dynamic raw);
+
+  @protected
+  OnlineSearchResultDto dco_decode_box_autoadd_online_search_result_dto(
+    dynamic raw,
+  );
 
   @protected
   OnlineSongDto dco_decode_box_autoadd_online_song_dto(dynamic raw);
@@ -196,7 +207,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EditorFieldsDto dco_decode_editor_fields_dto(dynamic raw);
 
   @protected
+  EditorOptionsDto dco_decode_editor_options_dto(dynamic raw);
+
+  @protected
   double dco_decode_f_64(dynamic raw);
+
+  @protected
+  FallbackLyricsDto dco_decode_fallback_lyrics_dto(dynamic raw);
+
+  @protected
+  FallbackLyricsOutcomeDto dco_decode_fallback_lyrics_outcome_dto(dynamic raw);
 
   @protected
   FileContextDto dco_decode_file_context_dto(dynamic raw);
@@ -224,6 +244,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<LogEntryDto> dco_decode_list_log_entry_dto(dynamic raw);
+
+  @protected
+  List<OnlineSearchItemDto> dco_decode_list_online_search_item_dto(dynamic raw);
 
   @protected
   List<PlaylistDto> dco_decode_list_playlist_dto(dynamic raw);
@@ -262,6 +285,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WordLyricsResultDto> dco_decode_list_word_lyrics_result_dto(dynamic raw);
 
   @protected
+  LoadedResultDto dco_decode_loaded_result_dto(dynamic raw);
+
+  @protected
+  LoadedResultOutcomeDto dco_decode_loaded_result_outcome_dto(dynamic raw);
+
+  @protected
   LoadedTagsDto dco_decode_loaded_tags_dto(dynamic raw);
 
   @protected
@@ -298,6 +327,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   OnlineErrorDto dco_decode_online_error_dto(dynamic raw);
 
   @protected
+  OnlineSearchItemDto dco_decode_online_search_item_dto(dynamic raw);
+
+  @protected
+  OnlineSearchOutcomeDto dco_decode_online_search_outcome_dto(dynamic raw);
+
+  @protected
+  OnlineSearchResultDto dco_decode_online_search_result_dto(dynamic raw);
+
+  @protected
   OnlineSongDto dco_decode_online_song_dto(dynamic raw);
 
   @protected
@@ -328,6 +366,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
 
   @protected
+  FallbackLyricsDto? dco_decode_opt_box_autoadd_fallback_lyrics_dto(
+    dynamic raw,
+  );
+
+  @protected
   FileContextDto? dco_decode_opt_box_autoadd_file_context_dto(dynamic raw);
 
   @protected
@@ -340,6 +383,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LibrarySummaryDto? dco_decode_opt_box_autoadd_library_summary_dto(
     dynamic raw,
   );
+
+  @protected
+  LoadedResultDto? dco_decode_opt_box_autoadd_loaded_result_dto(dynamic raw);
 
   @protected
   LoadedTagsDto? dco_decode_opt_box_autoadd_loaded_tags_dto(dynamic raw);
@@ -358,6 +404,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OnlineErrorDto? dco_decode_opt_box_autoadd_online_error_dto(dynamic raw);
+
+  @protected
+  OnlineSearchResultDto? dco_decode_opt_box_autoadd_online_search_result_dto(
+    dynamic raw,
+  );
+
+  @protected
+  OnlineSongDto? dco_decode_opt_box_autoadd_online_song_dto(dynamic raw);
 
   @protected
   SidecarLyricsDto? dco_decode_opt_box_autoadd_sidecar_lyrics_dto(dynamic raw);
@@ -613,6 +667,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
+  FallbackLyricsDto sse_decode_box_autoadd_fallback_lyrics_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   FileContextDto sse_decode_box_autoadd_file_context_dto(
     SseDeserializer deserializer,
   );
@@ -627,6 +686,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LibrarySummaryDto sse_decode_box_autoadd_library_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LoadedResultDto sse_decode_box_autoadd_loaded_result_dto(
     SseDeserializer deserializer,
   );
 
@@ -657,6 +721,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OnlineErrorDto sse_decode_box_autoadd_online_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineSearchResultDto sse_decode_box_autoadd_online_search_result_dto(
     SseDeserializer deserializer,
   );
 
@@ -729,7 +798,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EditorFieldsDto sse_decode_editor_fields_dto(SseDeserializer deserializer);
 
   @protected
+  EditorOptionsDto sse_decode_editor_options_dto(SseDeserializer deserializer);
+
+  @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  FallbackLyricsDto sse_decode_fallback_lyrics_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FallbackLyricsOutcomeDto sse_decode_fallback_lyrics_outcome_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   FileContextDto sse_decode_file_context_dto(SseDeserializer deserializer);
@@ -763,6 +845,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<LogEntryDto> sse_decode_list_log_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  List<OnlineSearchItemDto> sse_decode_list_online_search_item_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<PlaylistDto> sse_decode_list_playlist_dto(SseDeserializer deserializer);
@@ -811,6 +898,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  LoadedResultDto sse_decode_loaded_result_dto(SseDeserializer deserializer);
+
+  @protected
+  LoadedResultOutcomeDto sse_decode_loaded_result_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   LoadedTagsDto sse_decode_loaded_tags_dto(SseDeserializer deserializer);
 
   @protected
@@ -849,6 +944,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OnlineErrorDto sse_decode_online_error_dto(SseDeserializer deserializer);
+
+  @protected
+  OnlineSearchItemDto sse_decode_online_search_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineSearchOutcomeDto sse_decode_online_search_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineSearchResultDto sse_decode_online_search_result_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   OnlineSongDto sse_decode_online_song_dto(SseDeserializer deserializer);
@@ -893,6 +1003,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
+  FallbackLyricsDto? sse_decode_opt_box_autoadd_fallback_lyrics_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   FileContextDto? sse_decode_opt_box_autoadd_file_context_dto(
     SseDeserializer deserializer,
   );
@@ -907,6 +1022,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LibrarySummaryDto? sse_decode_opt_box_autoadd_library_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LoadedResultDto? sse_decode_opt_box_autoadd_loaded_result_dto(
     SseDeserializer deserializer,
   );
 
@@ -937,6 +1057,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OnlineErrorDto? sse_decode_opt_box_autoadd_online_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineSearchResultDto? sse_decode_opt_box_autoadd_online_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  OnlineSongDto? sse_decode_opt_box_autoadd_online_song_dto(
     SseDeserializer deserializer,
   );
 
@@ -1257,6 +1387,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_fallback_lyrics_dto(
+    FallbackLyricsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_file_context_dto(
     FileContextDto self,
     SseSerializer serializer,
@@ -1277,6 +1413,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_library_summary_dto(
     LibrarySummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_loaded_result_dto(
+    LoadedResultDto self,
     SseSerializer serializer,
   );
 
@@ -1313,6 +1455,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_online_error_dto(
     OnlineErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_online_search_result_dto(
+    OnlineSearchResultDto self,
     SseSerializer serializer,
   );
 
@@ -1404,7 +1552,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_editor_options_dto(
+    EditorOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_fallback_lyrics_dto(
+    FallbackLyricsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_fallback_lyrics_outcome_dto(
+    FallbackLyricsOutcomeDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_file_context_dto(
@@ -1448,6 +1614,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_log_entry_dto(
     List<LogEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_online_search_item_dto(
+    List<OnlineSearchItemDto> self,
     SseSerializer serializer,
   );
 
@@ -1521,6 +1693,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_loaded_result_dto(
+    LoadedResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_loaded_result_outcome_dto(
+    LoadedResultOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_loaded_tags_dto(LoadedTagsDto self, SseSerializer serializer);
 
   @protected
@@ -1578,6 +1762,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_online_search_item_dto(
+    OnlineSearchItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_online_search_outcome_dto(
+    OnlineSearchOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_online_search_result_dto(
+    OnlineSearchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_online_song_dto(OnlineSongDto self, SseSerializer serializer);
 
   @protected
@@ -1626,6 +1828,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_fallback_lyrics_dto(
+    FallbackLyricsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_file_context_dto(
     FileContextDto? self,
     SseSerializer serializer,
@@ -1646,6 +1854,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_library_summary_dto(
     LibrarySummaryDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_loaded_result_dto(
+    LoadedResultDto? self,
     SseSerializer serializer,
   );
 
@@ -1682,6 +1896,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_online_error_dto(
     OnlineErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_online_search_result_dto(
+    OnlineSearchResultDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_online_song_dto(
+    OnlineSongDto? self,
     SseSerializer serializer,
   );
 

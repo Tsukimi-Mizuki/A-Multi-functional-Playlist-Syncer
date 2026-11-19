@@ -187,7 +187,26 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用两个临时预览入口（`probe_lyrics.dart`、`probe_words.dart`，用完已删）做了 DPI-aware 截图：歌词预览真的联网拿到了 QQ 音乐的逐行歌词（含翻译、69 行，「逐行 / 逐字优先」分段与元信息都在）；歌词转逐字窗口对夹具目录扫出 71 首，表头、文件名 / 状态 / 所在目录三列与底栏计数正常。
 - 还没验证：真的执行转换写盘（会改夹具文件，没动）、逐字歌词的实机显示（没有逐字歌词的本地文件）、任务进度条在真实处理中的样子。
 
+## 第 9 步：编辑器的在线搜索歌词面板（M6b）
+
+歌词与标签编辑器里新增一块「在线搜索」：挑一个来源、改关键词、点一条候选，就把标签、歌词、封面一起带回表单——仍然要点「保存」才写文件。
+
+- 桥接层在 `app/crates/lp-bridge/src/api/online.rs` 追加三个命令：`online_search(source, query, file_context)` → `{ data | error }`（`OnlineSearchResultDto` 带 `query` / `scored` / `threshold` / `thresholdPercent` / 每条候选的歌曲与匹配度）、`online_load_result(source, id, word_lyrics, song)` → `{ data | error }`（`LoadedResultDto` 带歌词的逐行 / 逐字 / 双语四种形态、封面与 `statusText`）、`lyrics_source_fetch(source, title, artist, duration_ms, album, word_lyrics)` → `{ data | error }`（备用词源只取歌词，没有匹配时两个字段都是 `None`）。来源名沿用 `Netease` / `QQMusic` / `Kugou` / `Lrclib` 字符串，未知来源在桥接层就报「无法识别的歌词来源」。
+- 编辑器选项也过桥：`editor_options()` 返回记忆的搜索来源、逐字偏好与阈值文案，`editor_remember_options(source, prefer_word_lyrics)` 回写；`state.rs` 的 `remember_editor_options` 只在值真的变了才写盘，并且故意不写「设置已保存」日志，免得改下拉框刷屏运行日志。
+- 组合根不用改：`OnlineManager` 在 M5b 已经装配好，这批命令只是把它的 `search` / `load_result` / `fetch_fallback` 暴露出来，`CancelToken` 用新建的。
+- 界面在 `app/flutter/lib/widgets/tag_editor_dialog.dart` 里，挂在「标签信息」上方：标题与一句说明（网易云音乐、QQ 音乐能带回标签与封面；酷狗、LRCLIB 只补歌词）、来源下拉、关键词框（回车即搜）、逐行 / 逐字优先下拉、「搜索」按钮、状态行、结果列表（标题 + 「歌手 · 专辑」+ 匹配度与时长，低于阈值标黄）、底部「匹配度阈值 60%（在设置的「在线匹配度」里调整）」。
+- 打开文件时按文件名推一次关键词（去扩展名、去掉开头的音轨号、下划线换空格）并自动搜一次；关键词框里的文字也能直接改。来源与逐字偏好在切换时记住，下次打开编辑器沿用。
+- 点一条主来源候选 → `online_load_result`：标签按「非空才覆盖」填回表单（专辑艺术家、作词家、备注、歌词不动），歌词非空才覆盖歌词框，封面非空就切成「新封面：来源（保存后写入）」，状态行用后端给的 `statusText`，同时记住来源的艺术家名单供保存时写多值。点一条备用词源候选 → 只用 `lyrics` 覆盖歌词框，双语时优先双语、逐字偏好时优先逐字。
+- 搜索与回填各自带代数，重新搜索或重新读取时在途的旧响应直接丢弃；没有文件时备用词源会给出「请先打开要编辑的音频文件」的提示。
+
+### 验证
+
+- Rust 测试从 1260 变成 1263 个：桥接层新增 3 个（歌词来源名往返、未知歌词来源被拒、搜索结果保留匹配度与阈值标注）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用临时预览入口（`probe_m6b.dart`，用完已删）对夹具里的 `21. 夜に駆ける.mp3` 做了 DPI-aware 截图：面板在「标签信息」上方，自动搜到了 20 首候选（网易云音乐 10、QQ 音乐 10），状态行是「找到 20 首歌曲，按匹配度从高到低排序（低于 60% 的已标注）。点击结果载入标签和歌词。」，每行有标题、「歌手 · 专辑」、匹配度与时长，底部阈值提示也在。夹具标签（Queen）与真实歌曲不一致，所以匹配度偏低，属夹具数据。
+- 还没验证：点候选后回填再保存写盘的完整链路、备用词源（酷狗 / LRCLIB）的真实返回、网络失败时的状态行文案——合成点击点不动 Flutter 界面，回填只做了代码级检查。
+
 ## 下一步
 
-1. M6b：歌词编辑器的在线搜索歌词面板（`online_search`、`online_load_result`、`lyrics_source_fetch`），并把批量面板的「在线获取」一起接上。
-2. 之后依次：M7 NCM 导入与批量整理（含批量面板的在线获取 `batch_run`）、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
+1. M7：NCM 导入与批量整理——`ncm_scan` / `ncm_import` / `ncm_cancel` 的导入窗口，以及批量面板的「在线获取」（`batch_run` / `batch_cancel`）。
+2. 之后 M8 打包收尾：文件对话框（file_selector）、拖放、安装包 / CI、版本号 3.0.0、大歌单压测。

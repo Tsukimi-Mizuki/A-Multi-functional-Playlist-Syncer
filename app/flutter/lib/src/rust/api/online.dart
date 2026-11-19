@@ -7,8 +7,8 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `failed`, `failed`, `invalid`, `number`, `ok`, `ok`, `ok`, `parse_source`, `small_number`, `source_kind`, `source_name`, `to_song`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These functions are ignored because they are not marked as `pub`: `cover_info`, `failed`, `failed`, `failed`, `failed`, `failed`, `invalid`, `kind_name`, `number`, `ok`, `ok`, `ok`, `ok`, `ok`, `ok`, `parse_kind`, `parse_source`, `small_number`, `source_kind`, `source_name`, `to_song`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// 同时搜索网易云与 QQ 音乐，返回合并后按匹配度排序的候选（每个来源最多 10 条）。
 Future<TagCandidatesResultDto> onlineTagCandidates({
@@ -29,6 +29,60 @@ Future<LoadedTagsResultDto> onlineLoadTags({
   required bool cover,
 }) =>
     RustLib.instance.api.crateApiOnlineOnlineLoadTags(song: song, cover: cover);
+
+/// 编辑器打开时要恢复的在线搜索选项（来源、歌词格式、匹配度阈值）。
+Future<EditorOptionsDto> editorOptions() =>
+    RustLib.instance.api.crateApiOnlineEditorOptions();
+
+/// 记住编辑器里选的来源与歌词格式（只改这两个设置；失败只写运行日志）。
+Future<bool> editorRememberOptions({
+  required String source,
+  required bool preferWordLyrics,
+}) => RustLib.instance.api.crateApiOnlineEditorRememberOptions(
+  source: source,
+  preferWordLyrics: preferWordLyrics,
+);
+
+/// 主词源（网易云 / QQ 音乐）按关键词搜歌；带本地文件信息时按匹配度排序。
+Future<OnlineSearchOutcomeDto> onlineSearch({
+  required String source,
+  required String query,
+  FileContextDto? fileContext,
+}) => RustLib.instance.api.crateApiOnlineOnlineSearch(
+  source: source,
+  query: query,
+  fileContext: fileContext,
+);
+
+/// 取一条搜索结果的标签字段、歌词与封面；song 不传时按来源与 ID 从最近搜索结果里找。
+Future<LoadedResultOutcomeDto> onlineLoadResult({
+  required String source,
+  required String id,
+  required bool wordLyrics,
+  OnlineSongDto? song,
+}) => RustLib.instance.api.crateApiOnlineOnlineLoadResult(
+  source: source,
+  id: id,
+  wordLyrics: wordLyrics,
+  song: song,
+);
+
+/// 备用词源按当前音频的标题、歌手与时长检索一份歌词（只补歌词，不改标签与封面）。
+Future<FallbackLyricsOutcomeDto> lyricsSourceFetch({
+  required String source,
+  required String title,
+  required String artist,
+  required PlatformInt64 durationMs,
+  String? album,
+  required bool wordLyrics,
+}) => RustLib.instance.api.crateApiOnlineLyricsSourceFetch(
+  source: source,
+  title: title,
+  artist: artist,
+  durationMs: durationMs,
+  album: album,
+  wordLyrics: wordLyrics,
+);
 
 /// 标签详情里的封面（Base64，不带 `data:` 前缀）。
 class CoverInfoDto {
@@ -104,6 +158,133 @@ class CoverSizeResultDto {
           error == other.error;
 }
 
+/// 编辑器打开时恢复的在线搜索选项：上次的来源、歌词格式与当前匹配度阈值。
+class EditorOptionsDto {
+  final String searchSource;
+  final bool preferWordLyrics;
+  final double threshold;
+  final String thresholdPercent;
+
+  const EditorOptionsDto({
+    required this.searchSource,
+    required this.preferWordLyrics,
+    required this.threshold,
+    required this.thresholdPercent,
+  });
+
+  @override
+  int get hashCode =>
+      searchSource.hashCode ^
+      preferWordLyrics.hashCode ^
+      threshold.hashCode ^
+      thresholdPercent.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EditorOptionsDto &&
+          runtimeType == other.runtimeType &&
+          searchSource == other.searchSource &&
+          preferWordLyrics == other.preferWordLyrics &&
+          threshold == other.threshold &&
+          thresholdPercent == other.thresholdPercent;
+}
+
+/// 备用词源（酷狗 / LRCLIB）找到的一份歌词。
+class FallbackLyricsDto {
+  final String sourceLabel;
+  final String title;
+  final String artist;
+  final String album;
+  final PlatformInt64 durationMs;
+  final MatchScoreDto score;
+  final String? lyrics;
+  final String? lyricsLabel;
+  final bool hasWordLyrics;
+  final bool hasTranslation;
+  final String? lineLyrics;
+  final String? wordLyrics;
+  final String? bilingualLineLyrics;
+  final String? bilingualWordLyrics;
+  final String statusText;
+
+  const FallbackLyricsDto({
+    required this.sourceLabel,
+    required this.title,
+    required this.artist,
+    required this.album,
+    required this.durationMs,
+    required this.score,
+    this.lyrics,
+    this.lyricsLabel,
+    required this.hasWordLyrics,
+    required this.hasTranslation,
+    this.lineLyrics,
+    this.wordLyrics,
+    this.bilingualLineLyrics,
+    this.bilingualWordLyrics,
+    required this.statusText,
+  });
+
+  @override
+  int get hashCode =>
+      sourceLabel.hashCode ^
+      title.hashCode ^
+      artist.hashCode ^
+      album.hashCode ^
+      durationMs.hashCode ^
+      score.hashCode ^
+      lyrics.hashCode ^
+      lyricsLabel.hashCode ^
+      hasWordLyrics.hashCode ^
+      hasTranslation.hashCode ^
+      lineLyrics.hashCode ^
+      wordLyrics.hashCode ^
+      bilingualLineLyrics.hashCode ^
+      bilingualWordLyrics.hashCode ^
+      statusText.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FallbackLyricsDto &&
+          runtimeType == other.runtimeType &&
+          sourceLabel == other.sourceLabel &&
+          title == other.title &&
+          artist == other.artist &&
+          album == other.album &&
+          durationMs == other.durationMs &&
+          score == other.score &&
+          lyrics == other.lyrics &&
+          lyricsLabel == other.lyricsLabel &&
+          hasWordLyrics == other.hasWordLyrics &&
+          hasTranslation == other.hasTranslation &&
+          lineLyrics == other.lineLyrics &&
+          wordLyrics == other.wordLyrics &&
+          bilingualLineLyrics == other.bilingualLineLyrics &&
+          bilingualWordLyrics == other.bilingualWordLyrics &&
+          statusText == other.statusText;
+}
+
+/// lyrics_source_fetch 的结果：数据（没有匹配时为 None）或错误。
+class FallbackLyricsOutcomeDto {
+  final FallbackLyricsDto? data;
+  final OnlineErrorDto? error;
+
+  const FallbackLyricsOutcomeDto({this.data, this.error});
+
+  @override
+  int get hashCode => data.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FallbackLyricsOutcomeDto &&
+          runtimeType == other.runtimeType &&
+          data == other.data &&
+          error == other.error;
+}
+
 /// 本地文件信息，用来给候选打分（编辑器打开了文件才有）。
 class FileContextDto {
   final String? title;
@@ -138,6 +319,93 @@ class FileContextDto {
           album == other.album &&
           durationMs == other.durationMs &&
           filePath == other.filePath;
+}
+
+/// 一首歌的标签字段、歌词与封面（online_load_result）。
+class LoadedResultDto {
+  final OnlineSongDto song;
+  final String? lyrics;
+  final String? lyricsLabel;
+
+  /// 请求了逐字但只有逐行。
+  final bool wordFallback;
+  final bool hasWordLyrics;
+  final bool hasTranslation;
+  final String? lineLyrics;
+  final String? wordLyrics;
+  final String? bilingualLineLyrics;
+  final String? bilingualWordLyrics;
+  final CoverInfoDto? cover;
+
+  /// 与 Tauri 版一致的状态栏文案。
+  final String statusText;
+
+  const LoadedResultDto({
+    required this.song,
+    this.lyrics,
+    this.lyricsLabel,
+    required this.wordFallback,
+    required this.hasWordLyrics,
+    required this.hasTranslation,
+    this.lineLyrics,
+    this.wordLyrics,
+    this.bilingualLineLyrics,
+    this.bilingualWordLyrics,
+    this.cover,
+    required this.statusText,
+  });
+
+  @override
+  int get hashCode =>
+      song.hashCode ^
+      lyrics.hashCode ^
+      lyricsLabel.hashCode ^
+      wordFallback.hashCode ^
+      hasWordLyrics.hashCode ^
+      hasTranslation.hashCode ^
+      lineLyrics.hashCode ^
+      wordLyrics.hashCode ^
+      bilingualLineLyrics.hashCode ^
+      bilingualWordLyrics.hashCode ^
+      cover.hashCode ^
+      statusText.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LoadedResultDto &&
+          runtimeType == other.runtimeType &&
+          song == other.song &&
+          lyrics == other.lyrics &&
+          lyricsLabel == other.lyricsLabel &&
+          wordFallback == other.wordFallback &&
+          hasWordLyrics == other.hasWordLyrics &&
+          hasTranslation == other.hasTranslation &&
+          lineLyrics == other.lineLyrics &&
+          wordLyrics == other.wordLyrics &&
+          bilingualLineLyrics == other.bilingualLineLyrics &&
+          bilingualWordLyrics == other.bilingualWordLyrics &&
+          cover == other.cover &&
+          statusText == other.statusText;
+}
+
+/// online_load_result 的结果：数据或错误。
+class LoadedResultOutcomeDto {
+  final LoadedResultDto? data;
+  final OnlineErrorDto? error;
+
+  const LoadedResultOutcomeDto({this.data, this.error});
+
+  @override
+  int get hashCode => data.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LoadedResultOutcomeDto &&
+          runtimeType == other.runtimeType &&
+          data == other.data &&
+          error == other.error;
 }
 
 /// 一条候选的标签字段与封面（**没有歌词**）。
@@ -247,6 +515,92 @@ class OnlineErrorDto {
           runtimeType == other.runtimeType &&
           kind == other.kind &&
           message == other.message;
+}
+
+/// 关键词搜索里的一行。
+class OnlineSearchItemDto {
+  final OnlineSongDto song;
+  final MatchScoreDto? score;
+
+  /// 总分低于设置里的匹配度阈值。
+  final bool belowThreshold;
+
+  const OnlineSearchItemDto({
+    required this.song,
+    this.score,
+    required this.belowThreshold,
+  });
+
+  @override
+  int get hashCode => song.hashCode ^ score.hashCode ^ belowThreshold.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineSearchItemDto &&
+          runtimeType == other.runtimeType &&
+          song == other.song &&
+          score == other.score &&
+          belowThreshold == other.belowThreshold;
+}
+
+/// online_search 的结果：数据或错误。
+class OnlineSearchOutcomeDto {
+  final OnlineSearchResultDto? data;
+  final OnlineErrorDto? error;
+
+  const OnlineSearchOutcomeDto({this.data, this.error});
+
+  @override
+  int get hashCode => data.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineSearchOutcomeDto &&
+          runtimeType == other.runtimeType &&
+          data == other.data &&
+          error == other.error;
+}
+
+/// online_search 的结果。
+class OnlineSearchResultDto {
+  final String source;
+  final String query;
+  final bool scored;
+  final double threshold;
+  final String thresholdPercent;
+  final List<OnlineSearchItemDto> items;
+
+  const OnlineSearchResultDto({
+    required this.source,
+    required this.query,
+    required this.scored,
+    required this.threshold,
+    required this.thresholdPercent,
+    required this.items,
+  });
+
+  @override
+  int get hashCode =>
+      source.hashCode ^
+      query.hashCode ^
+      scored.hashCode ^
+      threshold.hashCode ^
+      thresholdPercent.hashCode ^
+      items.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnlineSearchResultDto &&
+          runtimeType == other.runtimeType &&
+          source == other.source &&
+          query == other.query &&
+          scored == other.scored &&
+          threshold == other.threshold &&
+          thresholdPercent == other.thresholdPercent &&
+          items == other.items;
 }
 
 /// 一首在线歌曲（候选行与详情）。来源用 `Netease` / `QQMusic` 两个固定字符串。
