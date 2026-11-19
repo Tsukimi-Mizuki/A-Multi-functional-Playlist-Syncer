@@ -10,6 +10,7 @@ import 'package:lunatic_princess/pages/settings_page.dart';
 import 'package:lunatic_princess/widgets/login_dialog.dart';
 import 'package:lunatic_princess/widgets/sidebar.dart';
 import 'package:lunatic_princess/widgets/window_buttons.dart';
+import 'package:lunatic_princess/widgets/word_lyrics_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 const _fontFamily = 'Microsoft YaHei UI';
@@ -233,6 +234,24 @@ class _AppTitleBar extends StatelessWidget {
                 ),
               ),
             ),
+            Button(
+              onPressed: () => unawaited(
+                showWordLyricsDialog(
+                  context,
+                  initialFolder:
+                      controller.settings?.settings.libraryDirectory ?? '',
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  WindowsIcon(WindowsIcons.font, size: 14),
+                  SizedBox(width: 6),
+                  Text('歌词转逐字'),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
             _AccountButton(controller: controller),
             const SizedBox(width: 8),
             const Align(

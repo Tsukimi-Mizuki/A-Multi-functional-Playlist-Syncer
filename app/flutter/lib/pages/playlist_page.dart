@@ -7,6 +7,7 @@ import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/library.dart';
 import 'package:lunatic_princess/src/rust/api/playlists.dart';
 import 'package:lunatic_princess/widgets/batch_tags_dialog.dart';
+import 'package:lunatic_princess/widgets/lyrics_dialog.dart';
 import 'package:lunatic_princess/widgets/tag_editor_dialog.dart';
 import 'package:lunatic_princess/widgets/transfer_dialogs.dart';
 
@@ -15,6 +16,9 @@ const double _headerHeight = 36;
 const double _statusWidth = 24;
 /// 行尾「编辑标签」按钮的宽度；表头也留同样的空位，列才对得齐。
 const double _editWidth = 32;
+
+/// 行尾「查看歌词」按钮的宽度。
+const double _lyricWidth = 32;
 
 /// 批量修改标签从哪个目录开始列：设置里的曲库目录，其次第一首本地文件的所在目录。
 String _batchFolder(AppController c) {
@@ -490,6 +494,7 @@ class _SongTable extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: _editWidth),
+                  const SizedBox(width: _lyricWidth),
                   if (selectedCount > 0) ...[
                     const SizedBox(width: 12),
                     Text('已选 $selectedCount 首'),
@@ -594,6 +599,7 @@ class _SongRowState extends State<_SongRow> {
           final keyboard = HardwareKeyboard.instance;
           widget.onTap(keyboard.isControlPressed, keyboard.isShiftPressed);
         },
+        onDoubleTap: () => showLyricsDialog(context, widget.song),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 12),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -641,6 +647,7 @@ class _SongRowState extends State<_SongRow> {
                 width: _editWidth,
                 child: _editButton ?? const SizedBox.shrink(),
               ),
+              SizedBox(width: _lyricWidth, child: _lyricButton),
             ],
           ),
         ),
@@ -657,6 +664,17 @@ class _SongRowState extends State<_SongRow> {
       child: IconButton(
         icon: const Icon(WindowsIcons.edit, size: 14),
         onPressed: () => showTagEditorDialog(context, path),
+      ),
+    );
+  }
+
+  /// 「查看歌词」入口：歌词只读，任何一首歌都可以看。
+  Widget get _lyricButton {
+    return Tooltip(
+      message: '查看歌词（也可双击这一行）',
+      child: IconButton(
+        icon: const Icon(WindowsIcons.reading_mode, size: 14),
+        onPressed: () => showLyricsDialog(context, widget.song),
       ),
     );
   }

@@ -166,7 +166,28 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用两个临时预览入口（`probe_m5b_editor.dart`、`probe_m5b_online.dart`，用完已删）做了 DPI-aware 截图：编辑器多出「标签信息」与「在线标签…」；在线标签面板真的联网搜到了 20 条候选（网易云音乐 10、QQ 音乐 10），封面尺寸 500×500、匹配度 93% / 97%、QQ 音乐没有封面的行显示「无封面」，底栏复选框与说明都在。
 - 还没验证：回填后保存写盘的完整链路、只勾封面 / 只勾标签的分支、真实网络失败时的错误文案（合成点击点不开面板，回填逻辑只做了代码级检查）。
 
+## 第 8 步：歌词预览与歌词转逐字（M6）
+
+两块界面：歌单里查看一首歌的歌词（逐行 / 逐字两种形式），以及把整批文件的逐行歌词换成逐字歌词（先联网检查、确认后才写盘）。歌词编辑器的「在线搜索歌词」面板留下一轮（M6b）。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/lyrics.rs` 五个命令：`get_song_lyrics(id, mode, title, artist, album, duration_ms)` 返回 `{ data | error }`（`error.kind` 是 `sessionExpired` / `failed`，前者提示重新登录、后者是普通失败）；`word_lyrics_preview(files)`、`word_lyrics_apply(files)` 返回 `{ summary | error }`（`BatchJobErrorDto.kind` 是 `busy` / `noFiles` / `failed`）；`watch_word_lyrics_progress()` 是进度流；`word_lyrics_cancel()` 调批量任务槽的 `cancel()`。
+- 两步走原样透传 `lp-core`：`word_preview` 只联网核对、不碰文件，`word_apply` 才写；内嵌歌词写进音频文件，同名 `.lrc` 先备份到所在目录的 `_backup`。已是逐字的、没有歌词的都不动，译文保留——这些规则都在 `lp_core::lyrics::batch` 里，桥接层只做 DTO 转换与进度广播。
+- 组合根 `state.rs` 新增 `lyrics: Arc<LyricsService>`（`LyricsService::new(login, logs).with_online(batch_service)`，让预览能回退到 QQ / 酷狗 / LRCLIB）与 `batch: Arc<BatchManager>`（歌词转逐字与 M7 的批量在线获取共用一个任务槽）。`batch_service` 先 clone 给这两位，再 move 进 `BatchEnricher`。
+- 状态枚举在桥接层就转成字符串（`WordStatus` → `ready` / `converted` / `alreadyWord` / `noLyrics` / `noMatch` / `noWordLyrics` / `mismatch` / `failed`，`WordTarget` → `embedded` / `sidecar`），界面只按字符串分支，不跟着 Rust 枚举走。
+- 歌词预览是新文件 `app/flutter/lib/widgets/lyrics_dialog.dart`：顶部歌名与歌手，工具栏是自绘的「逐行 / 逐字优先」分段控件加一行元信息（来源、逐字 / 逐行、含翻译、行数），正文用 Consolas 只读、可选中。两种形式各自缓存，切回来不重新联网；逐字优先但文件里没有逐字歌词时上方提示「已显示逐行歌词」，空歌词给出「这首歌暂无歌词」与可能的原因，失败时带「重试」。
+- 入口是歌曲行尾的「词」按钮，双击整行也打开；表头同样留出宽度保证列对齐。
+- 歌词转逐字是新文件 `app/flutter/lib/widgets/word_lyrics_dialog.dart`（目录框 + 「刷新」+「包含子文件夹」+ 三列表格 + 底栏），选择与键盘操作（Ctrl / Shift 连选、Ctrl+A、方向键、PageUp / PageDown、Home / End）沿用 M5a 批量面板那一套。检查完成且确实有歌可以转换时弹一次确认框，确认后立即写盘；检查进度来自进度流，命令返回后以 `summary.results` 为准覆盖每行标记，没处理到的标「已取消」。
+- 取消：进行中点「取消」只置取消标志，任务在当前文件处理完后停下，之后的每个块都检查；关窗时若仍在跑也先取消，并作废在途的目录扫描。
+- 标题栏新增「歌词转逐字」入口，起始目录取设置里的本地音乐目录，为空就让用户自己选。
+
+### 验证
+
+- Rust 测试从 1255 变成 1260 个：桥接层新增 5 个（歌词形式名往返、预览各标志位原样带过、错误类别稳定、逐字状态与目标名稳定、批量任务错误类别透传）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用两个临时预览入口（`probe_lyrics.dart`、`probe_words.dart`，用完已删）做了 DPI-aware 截图：歌词预览真的联网拿到了 QQ 音乐的逐行歌词（含翻译、69 行，「逐行 / 逐字优先」分段与元信息都在）；歌词转逐字窗口对夹具目录扫出 71 首，表头、文件名 / 状态 / 所在目录三列与底栏计数正常。
+- 还没验证：真的执行转换写盘（会改夹具文件，没动）、逐字歌词的实机显示（没有逐字歌词的本地文件）、任务进度条在真实处理中的样子。
+
 ## 下一步
 
-1. M6：歌词——预览、编辑、逐字歌词（`get_song_lyrics`、`lyrics_source_fetch`、`word_lyrics_preview`、`word_lyrics_apply` 与对应画面）。
+1. M6b：歌词编辑器的在线搜索歌词面板（`online_search`、`online_load_result`、`lyrics_source_fetch`），并把批量面板的「在线获取」一起接上。
 2. 之后依次：M7 NCM 导入与批量整理（含批量面板的在线获取 `batch_run`）、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。

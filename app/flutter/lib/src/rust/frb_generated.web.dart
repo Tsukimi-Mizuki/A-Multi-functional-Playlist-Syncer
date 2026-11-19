@@ -10,6 +10,7 @@ import 'api/app.dart';
 import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
+import 'api/lyrics.dart';
 import 'api/online.dart';
 import 'api/playlists.dart';
 import 'api/settings.dart';
@@ -55,6 +56,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_StreamSink_transfer_started_dto_Sse(dynamic raw);
 
   @protected
+  RustStreamSink<WordLyricsProgressDto>
+  dco_decode_StreamSink_word_lyrics_progress_dto_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -73,6 +78,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchFileDto dco_decode_batch_file_dto(dynamic raw);
 
   @protected
+  BatchJobErrorDto dco_decode_batch_job_error_dto(dynamic raw);
+
+  @protected
   BatchScanDto dco_decode_batch_scan_dto(dynamic raw);
 
   @protected
@@ -83,6 +91,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArtistListDto dco_decode_box_autoadd_artist_list_dto(dynamic raw);
+
+  @protected
+  BatchJobErrorDto dco_decode_box_autoadd_batch_job_error_dto(dynamic raw);
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
@@ -118,6 +129,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LoadedTagsDto dco_decode_box_autoadd_loaded_tags_dto(dynamic raw);
 
   @protected
+  LyricsErrorDto dco_decode_box_autoadd_lyrics_error_dto(dynamic raw);
+
+  @protected
+  LyricsPreviewDto dco_decode_box_autoadd_lyrics_preview_dto(dynamic raw);
+
+  @protected
   MatchOutcomeDto dco_decode_box_autoadd_match_outcome_dto(dynamic raw);
 
   @protected
@@ -149,6 +166,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransferSummaryDto dco_decode_box_autoadd_transfer_summary_dto(dynamic raw);
+
+  @protected
+  WordLyricsResultDto dco_decode_box_autoadd_word_lyrics_result_dto(
+    dynamic raw,
+  );
+
+  @protected
+  WordLyricsSummaryDto dco_decode_box_autoadd_word_lyrics_summary_dto(
+    dynamic raw,
+  );
 
   @protected
   CoverChangeDto dco_decode_cover_change_dto(dynamic raw);
@@ -232,6 +259,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TransferItemDto> dco_decode_list_transfer_item_dto(dynamic raw);
 
   @protected
+  List<WordLyricsResultDto> dco_decode_list_word_lyrics_result_dto(dynamic raw);
+
+  @protected
   LoadedTagsDto dco_decode_loaded_tags_dto(dynamic raw);
 
   @protected
@@ -242,6 +272,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LogEntryDto dco_decode_log_entry_dto(dynamic raw);
+
+  @protected
+  LyricsErrorDto dco_decode_lyrics_error_dto(dynamic raw);
+
+  @protected
+  LyricsPreviewDto dco_decode_lyrics_preview_dto(dynamic raw);
+
+  @protected
+  LyricsPreviewResultDto dco_decode_lyrics_preview_result_dto(dynamic raw);
 
   @protected
   MatchOutcomeDto dco_decode_match_outcome_dto(dynamic raw);
@@ -269,6 +308,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArtistListDto? dco_decode_opt_box_autoadd_artist_list_dto(dynamic raw);
+
+  @protected
+  BatchJobErrorDto? dco_decode_opt_box_autoadd_batch_job_error_dto(dynamic raw);
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
@@ -303,6 +345,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LoadedTagsDto? dco_decode_opt_box_autoadd_loaded_tags_dto(dynamic raw);
 
   @protected
+  LyricsErrorDto? dco_decode_opt_box_autoadd_lyrics_error_dto(dynamic raw);
+
+  @protected
+  LyricsPreviewDto? dco_decode_opt_box_autoadd_lyrics_preview_dto(dynamic raw);
+
+  @protected
   MatchOutcomeDto? dco_decode_opt_box_autoadd_match_outcome_dto(dynamic raw);
 
   @protected
@@ -331,6 +379,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransferSummaryDto? dco_decode_opt_box_autoadd_transfer_summary_dto(
+    dynamic raw,
+  );
+
+  @protected
+  WordLyricsResultDto? dco_decode_opt_box_autoadd_word_lyrics_result_dto(
+    dynamic raw,
+  );
+
+  @protected
+  WordLyricsSummaryDto? dco_decode_opt_box_autoadd_word_lyrics_summary_dto(
     dynamic raw,
   );
 
@@ -445,6 +503,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ValidationDto dco_decode_validation_dto(dynamic raw);
 
   @protected
+  WordLyricsOutcomeDto dco_decode_word_lyrics_outcome_dto(dynamic raw);
+
+  @protected
+  WordLyricsProgressDto dco_decode_word_lyrics_progress_dto(dynamic raw);
+
+  @protected
+  WordLyricsResultDto dco_decode_word_lyrics_result_dto(dynamic raw);
+
+  @protected
+  WordLyricsSummaryDto dco_decode_word_lyrics_summary_dto(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
@@ -471,6 +541,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   sse_decode_StreamSink_transfer_started_dto_Sse(SseDeserializer deserializer);
 
   @protected
+  RustStreamSink<WordLyricsProgressDto>
+  sse_decode_StreamSink_word_lyrics_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
@@ -489,6 +565,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchFileDto sse_decode_batch_file_dto(SseDeserializer deserializer);
 
   @protected
+  BatchJobErrorDto sse_decode_batch_job_error_dto(SseDeserializer deserializer);
+
+  @protected
   BatchScanDto sse_decode_batch_scan_dto(SseDeserializer deserializer);
 
   @protected
@@ -499,6 +578,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArtistListDto sse_decode_box_autoadd_artist_list_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchJobErrorDto sse_decode_box_autoadd_batch_job_error_dto(
     SseDeserializer deserializer,
   );
 
@@ -552,6 +636,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  LyricsErrorDto sse_decode_box_autoadd_lyrics_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LyricsPreviewDto sse_decode_box_autoadd_lyrics_preview_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MatchOutcomeDto sse_decode_box_autoadd_match_outcome_dto(
     SseDeserializer deserializer,
   );
@@ -601,6 +695,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransferSummaryDto sse_decode_box_autoadd_transfer_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsResultDto sse_decode_box_autoadd_word_lyrics_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsSummaryDto sse_decode_box_autoadd_word_lyrics_summary_dto(
     SseDeserializer deserializer,
   );
 
@@ -702,6 +806,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<WordLyricsResultDto> sse_decode_list_word_lyrics_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   LoadedTagsDto sse_decode_loaded_tags_dto(SseDeserializer deserializer);
 
   @protected
@@ -714,6 +823,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LogEntryDto sse_decode_log_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  LyricsErrorDto sse_decode_lyrics_error_dto(SseDeserializer deserializer);
+
+  @protected
+  LyricsPreviewDto sse_decode_lyrics_preview_dto(SseDeserializer deserializer);
+
+  @protected
+  LyricsPreviewResultDto sse_decode_lyrics_preview_result_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MatchOutcomeDto sse_decode_match_outcome_dto(SseDeserializer deserializer);
@@ -743,6 +863,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArtistListDto? sse_decode_opt_box_autoadd_artist_list_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchJobErrorDto? sse_decode_opt_box_autoadd_batch_job_error_dto(
     SseDeserializer deserializer,
   );
 
@@ -787,6 +912,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LoadedTagsDto? sse_decode_opt_box_autoadd_loaded_tags_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LyricsErrorDto? sse_decode_opt_box_autoadd_lyrics_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LyricsPreviewDto? sse_decode_opt_box_autoadd_lyrics_preview_dto(
     SseDeserializer deserializer,
   );
 
@@ -837,6 +972,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransferSummaryDto? sse_decode_opt_box_autoadd_transfer_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsResultDto? sse_decode_opt_box_autoadd_word_lyrics_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsSummaryDto? sse_decode_opt_box_autoadd_word_lyrics_summary_dto(
     SseDeserializer deserializer,
   );
 
@@ -969,6 +1114,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ValidationDto sse_decode_validation_dto(SseDeserializer deserializer);
 
   @protected
+  WordLyricsOutcomeDto sse_decode_word_lyrics_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsProgressDto sse_decode_word_lyrics_progress_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsResultDto sse_decode_word_lyrics_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WordLyricsSummaryDto sse_decode_word_lyrics_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
     SseSerializer serializer,
@@ -1005,6 +1170,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_word_lyrics_progress_dto_Sse(
+    RustStreamSink<WordLyricsProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
@@ -1026,6 +1197,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_batch_file_dto(BatchFileDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_batch_job_error_dto(
+    BatchJobErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_batch_scan_dto(BatchScanDto self, SseSerializer serializer);
 
   @protected
@@ -1040,6 +1217,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_artist_list_dto(
     ArtistListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_job_error_dto(
+    BatchJobErrorDto self,
     SseSerializer serializer,
   );
 
@@ -1100,6 +1283,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_loaded_tags_dto(
     LoadedTagsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_lyrics_error_dto(
+    LyricsErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_lyrics_preview_dto(
+    LyricsPreviewDto self,
     SseSerializer serializer,
   );
 
@@ -1166,6 +1361,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_transfer_summary_dto(
     TransferSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_word_lyrics_result_dto(
+    WordLyricsResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_word_lyrics_summary_dto(
+    WordLyricsSummaryDto self,
     SseSerializer serializer,
   );
 
@@ -1308,6 +1515,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_word_lyrics_result_dto(
+    List<WordLyricsResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_loaded_tags_dto(LoadedTagsDto self, SseSerializer serializer);
 
   @protected
@@ -1321,6 +1534,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_log_entry_dto(LogEntryDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_lyrics_error_dto(
+    LyricsErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_lyrics_preview_dto(
+    LyricsPreviewDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_lyrics_preview_result_dto(
+    LyricsPreviewResultDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_match_outcome_dto(
@@ -1361,6 +1592,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_artist_list_dto(
     ArtistListDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_batch_job_error_dto(
+    BatchJobErrorDto? self,
     SseSerializer serializer,
   );
 
@@ -1415,6 +1652,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_loaded_tags_dto(
     LoadedTagsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_lyrics_error_dto(
+    LyricsErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_lyrics_preview_dto(
+    LyricsPreviewDto? self,
     SseSerializer serializer,
   );
 
@@ -1475,6 +1724,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_transfer_summary_dto(
     TransferSummaryDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_word_lyrics_result_dto(
+    WordLyricsResultDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_word_lyrics_summary_dto(
+    WordLyricsSummaryDto? self,
     SseSerializer serializer,
   );
 
@@ -1651,6 +1912,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_validation_dto(ValidationDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_word_lyrics_outcome_dto(
+    WordLyricsOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_word_lyrics_progress_dto(
+    WordLyricsProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_word_lyrics_result_dto(
+    WordLyricsResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_word_lyrics_summary_dto(
+    WordLyricsSummaryDto self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class
