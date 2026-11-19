@@ -6,10 +6,13 @@
 use std::sync::Arc;
 
 use lp_core::models::LyricsSourceKind;
-use lp_core::online::manager::{FileContext, TagCandidatesRequest, TagLoadRequest};
+use lp_core::online::manager::{
+    FallbackRequest, FileContext, LoadRequest, SearchRequest, TagCandidatesRequest, TagLoadRequest,
+};
 use lp_core::online::model::{OnlineMusicSource, OnlineSongResult};
 use lp_core::online::view::{
-    CoverSizeView, LoadedTagsView, MatchScoreView, OnlineCommandError, TagCandidateView,
+    CoverSizeView, FallbackLyricsView, LoadedResultView, LoadedTagsView, MatchScoreView,
+    OnlineCommandError, OnlineSearchItem, OnlineSearchResponse, TagCandidateView,
     TagCandidatesResponse,
 };
 use lp_core::utilities::CancelToken;
@@ -409,6 +412,340 @@ pub async fn online_load_tags(
     .await
 }
 
+/// 歌词来源的固定字符串（与设置文件、lp-core 的 serde 名一致）。
+fn kind_name(kind: LyricsSourceKind) -> &'static str {
+    match kind {
+        LyricsSourceKind::Netease => "Netease",
+        LyricsSourceKind::QqMusic => "QQMusic",
+        LyricsSourceKind::Kugou => "Kugou",
+        LyricsSourceKind::Lrclib => "Lrclib",
+    }
+}
+
+fn parse_kind(name: &str) -> Result<LyricsSourceKind, String> {
+    match name {
+        "Netease" => Ok(LyricsSourceKind::Netease),
+        "QQMusic" => Ok(LyricsSourceKind::QqMusic),
+        "Kugou" => Ok(LyricsSourceKind::Kugou),
+        "Lrclib" => Ok(LyricsSourceKind::Lrclib),
+        other => Err(format!("无法识别的歌词来源：{other}")),
+    }
+}
+
+/// 编辑器打开时恢复的在线搜索选项：上次的来源、歌词格式与当前匹配度阈值。
+pub struct EditorOptionsDto {
+    pub search_source: String,
+    pub prefer_word_lyrics: bool,
+    pub threshold: f64,
+    pub threshold_percent: String,
+}
+
+/// 关键词搜索里的一行。
+pub struct OnlineSearchItemDto {
+    pub song: OnlineSongDto,
+    pub score: Option<MatchScoreDto>,
+    /// 总分低于设置里的匹配度阈值。
+    pub below_threshold: bool,
+}
+
+impl From<&OnlineSearchItem> for OnlineSearchItemDto {
+    fn from(item: &OnlineSearchItem) -> Self {
+        Self {
+            song: OnlineSongDto::from(&item.song.song),
+            score: item.score.as_ref().map(MatchScoreDto::from),
+            below_threshold: item.below_threshold,
+        }
+    }
+}
+
+/// online_search 的结果。
+pub struct OnlineSearchResultDto {
+    pub source: String,
+    pub query: String,
+    pub scored: bool,
+    pub threshold: f64,
+    pub threshold_percent: String,
+    pub items: Vec<OnlineSearchItemDto>,
+}
+
+impl From<OnlineSearchResponse> for OnlineSearchResultDto {
+    fn from(response: OnlineSearchResponse) -> Self {
+        Self {
+            source: kind_name(response.source).to_owned(),
+            query: response.query,
+            scored: response.scored,
+            threshold: response.threshold,
+            threshold_percent: response.threshold_percent,
+            items: response
+                .items
+                .iter()
+                .map(OnlineSearchItemDto::from)
+                .collect(),
+        }
+    }
+}
+
+/// online_search 的结果：数据或错误。
+pub struct OnlineSearchOutcomeDto {
+    pub data: Option<OnlineSearchResultDto>,
+    pub error: Option<OnlineErrorDto>,
+}
+
+impl OnlineSearchOutcomeDto {
+    fn ok(data: OnlineSearchResultDto) -> Self {
+        Self {
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    fn failed(error: impl Into<OnlineErrorDto>) -> Self {
+        Self {
+            data: None,
+            error: Some(error.into()),
+        }
+    }
+}
+
+fn cover_info(cover: Option<&lp_core::online::view::CoverView>) -> Option<CoverInfoDto> {
+    cover.map(|cover| CoverInfoDto {
+        mime_type: cover.mime_type.clone(),
+        base64: cover.base64.clone(),
+        size: i64::try_from(cover.size).unwrap_or(i64::MAX),
+        width: number(cover.width),
+        height: number(cover.height),
+    })
+}
+
+/// 一首歌的标签字段、歌词与封面（online_load_result）。
+pub struct LoadedResultDto {
+    pub song: OnlineSongDto,
+    pub lyrics: Option<String>,
+    pub lyrics_label: Option<String>,
+    /// 请求了逐字但只有逐行。
+    pub word_fallback: bool,
+    pub has_word_lyrics: bool,
+    pub has_translation: bool,
+    pub line_lyrics: Option<String>,
+    pub word_lyrics: Option<String>,
+    pub bilingual_line_lyrics: Option<String>,
+    pub bilingual_word_lyrics: Option<String>,
+    pub cover: Option<CoverInfoDto>,
+    /// 与 Tauri 版一致的状态栏文案。
+    pub status_text: String,
+}
+
+impl From<LoadedResultView> for LoadedResultDto {
+    fn from(view: LoadedResultView) -> Self {
+        let cover = cover_info(view.cover.as_ref());
+        Self {
+            song: OnlineSongDto::from(&view.song.song),
+            lyrics: view.lyrics,
+            lyrics_label: view.lyrics_label,
+            word_fallback: view.word_fallback,
+            has_word_lyrics: view.has_word_lyrics,
+            has_translation: view.has_translation,
+            line_lyrics: view.line_lyrics,
+            word_lyrics: view.word_lyrics,
+            bilingual_line_lyrics: view.bilingual_line_lyrics,
+            bilingual_word_lyrics: view.bilingual_word_lyrics,
+            cover,
+            status_text: view.status_text,
+        }
+    }
+}
+
+/// online_load_result 的结果：数据或错误。
+pub struct LoadedResultOutcomeDto {
+    pub data: Option<LoadedResultDto>,
+    pub error: Option<OnlineErrorDto>,
+}
+
+impl LoadedResultOutcomeDto {
+    fn ok(data: LoadedResultDto) -> Self {
+        Self {
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    fn failed(error: impl Into<OnlineErrorDto>) -> Self {
+        Self {
+            data: None,
+            error: Some(error.into()),
+        }
+    }
+}
+
+/// 备用词源（酷狗 / LRCLIB）找到的一份歌词。
+pub struct FallbackLyricsDto {
+    pub source_label: String,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub duration_ms: i64,
+    pub score: MatchScoreDto,
+    pub lyrics: Option<String>,
+    pub lyrics_label: Option<String>,
+    pub has_word_lyrics: bool,
+    pub has_translation: bool,
+    pub line_lyrics: Option<String>,
+    pub word_lyrics: Option<String>,
+    pub bilingual_line_lyrics: Option<String>,
+    pub bilingual_word_lyrics: Option<String>,
+    pub status_text: String,
+}
+
+impl From<FallbackLyricsView> for FallbackLyricsDto {
+    fn from(view: FallbackLyricsView) -> Self {
+        Self {
+            source_label: view.source_label,
+            title: view.title,
+            artist: view.artist,
+            album: view.album,
+            duration_ms: view.duration_ms,
+            score: MatchScoreDto::from(&view.score),
+            lyrics: view.lyrics,
+            lyrics_label: view.lyrics_label,
+            has_word_lyrics: view.has_word_lyrics,
+            has_translation: view.has_translation,
+            line_lyrics: view.line_lyrics,
+            word_lyrics: view.word_lyrics,
+            bilingual_line_lyrics: view.bilingual_line_lyrics,
+            bilingual_word_lyrics: view.bilingual_word_lyrics,
+            status_text: view.status_text,
+        }
+    }
+}
+
+/// lyrics_source_fetch 的结果：数据（没有匹配时为 None）或错误。
+pub struct FallbackLyricsOutcomeDto {
+    pub data: Option<FallbackLyricsDto>,
+    pub error: Option<OnlineErrorDto>,
+}
+
+impl FallbackLyricsOutcomeDto {
+    fn ok(data: Option<FallbackLyricsDto>) -> Self {
+        Self { data, error: None }
+    }
+
+    fn failed(error: impl Into<OnlineErrorDto>) -> Self {
+        Self {
+            data: None,
+            error: Some(error.into()),
+        }
+    }
+}
+
+/// 编辑器打开时要恢复的在线搜索选项（来源、歌词格式、匹配度阈值）。
+pub fn editor_options() -> Result<EditorOptionsDto, String> {
+    let bridge = bridge()?;
+    let settings = bridge.settings();
+    let threshold = bridge.online.threshold_view();
+    Ok(EditorOptionsDto {
+        search_source: kind_name(settings.lyrics_editor_search_source).to_owned(),
+        prefer_word_lyrics: settings.lyrics_editor_prefer_word_lyrics,
+        threshold: threshold.threshold,
+        threshold_percent: threshold.percent,
+    })
+}
+
+/// 记住编辑器里选的来源与歌词格式（只改这两个设置；失败只写运行日志）。
+pub fn editor_remember_options(source: String, prefer_word_lyrics: bool) -> Result<bool, String> {
+    let kind = parse_kind(&source)?;
+    bridge()?.remember_editor_options(kind, prefer_word_lyrics)
+}
+
+/// 主词源（网易云 / QQ 音乐）按关键词搜歌；带本地文件信息时按匹配度排序。
+pub async fn online_search(
+    source: String,
+    query: String,
+    file_context: Option<FileContextDto>,
+) -> Result<OnlineSearchOutcomeDto, String> {
+    let kind = parse_kind(&source)?;
+    let bridge = bridge()?;
+    let online = Arc::clone(&bridge.online);
+    run(async move {
+        let request = SearchRequest {
+            source: kind,
+            query,
+            file_context: file_context.map(FileContext::from),
+        };
+        match online.search(request, &CancelToken::new()).await {
+            Ok(response) => OnlineSearchOutcomeDto::ok(OnlineSearchResultDto::from(response)),
+            Err(error) => OnlineSearchOutcomeDto::failed(OnlineErrorDto::from(error)),
+        }
+    })
+    .await
+}
+
+/// 取一条搜索结果的标签字段、歌词与封面；song 不传时按来源与 ID 从最近搜索结果里找。
+pub async fn online_load_result(
+    source: String,
+    id: String,
+    word_lyrics: bool,
+    song: Option<OnlineSongDto>,
+) -> Result<LoadedResultOutcomeDto, String> {
+    let kind = parse_kind(&source)?;
+    let bridge = bridge()?;
+    let online = Arc::clone(&bridge.online);
+    let summary = match song {
+        Some(song) => match song.to_song() {
+            Ok(song) => Some(song),
+            Err(message) => {
+                return Ok(LoadedResultOutcomeDto::failed(OnlineErrorDto {
+                    kind: "invalid".to_owned(),
+                    message,
+                }));
+            }
+        },
+        None => None,
+    };
+    run(async move {
+        let request = LoadRequest {
+            source: kind,
+            id,
+            word_lyrics,
+            song: summary,
+        };
+        match online.load_result(request, &CancelToken::new()).await {
+            Ok(view) => LoadedResultOutcomeDto::ok(LoadedResultDto::from(view)),
+            Err(error) => LoadedResultOutcomeDto::failed(OnlineErrorDto::from(error)),
+        }
+    })
+    .await
+}
+
+/// 备用词源按当前音频的标题、歌手与时长检索一份歌词（只补歌词，不改标签与封面）。
+pub async fn lyrics_source_fetch(
+    source: String,
+    title: String,
+    artist: String,
+    duration_ms: i64,
+    album: Option<String>,
+    word_lyrics: bool,
+) -> Result<FallbackLyricsOutcomeDto, String> {
+    let kind = parse_kind(&source)?;
+    let bridge = bridge()?;
+    let online = Arc::clone(&bridge.online);
+    run(async move {
+        let request = FallbackRequest {
+            source: kind,
+            title,
+            artist,
+            album,
+            duration_ms,
+            word_lyrics,
+        };
+        match online.fetch_fallback(request, &CancelToken::new()).await {
+            Ok(Some(view)) => FallbackLyricsOutcomeDto::ok(Some(FallbackLyricsDto::from(view))),
+            Ok(None) => FallbackLyricsOutcomeDto::ok(None),
+            Err(error) => FallbackLyricsOutcomeDto::failed(OnlineErrorDto::from(error)),
+        }
+    })
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -469,5 +806,46 @@ mod tests {
         let result = LoadedTagsResultDto::invalid("无法识别的在线音乐来源：不知道");
         assert!(result.data.is_none());
         assert_eq!(result.error.as_ref().unwrap().kind, "invalid");
+    }
+
+    #[test]
+    fn lyrics_sources_round_trip_through_dart() {
+        for kind in [
+            LyricsSourceKind::Netease,
+            LyricsSourceKind::QqMusic,
+            LyricsSourceKind::Kugou,
+            LyricsSourceKind::Lrclib,
+        ] {
+            assert_eq!(parse_kind(kind_name(kind)).expect("回来"), kind);
+        }
+    }
+
+    #[test]
+    fn unknown_lyrics_source_is_rejected() {
+        let error = parse_kind("Spotify").expect_err("不认识的来源");
+        assert!(error.contains("Spotify"), "{error}");
+    }
+
+    #[test]
+    fn search_item_keeps_the_score_and_the_flag() {
+        let item = OnlineSearchItem {
+            song: lp_core::online::view::OnlineSongView::from(&sample()),
+            score: Some(MatchScoreView {
+                title: 1.0,
+                artist: 1.0,
+                album: 0.5,
+                duration: 1.0,
+                total: 0.93,
+                percent: "93".to_owned(),
+                rejected: false,
+                reject_reason: None,
+                confident: true,
+            }),
+            below_threshold: false,
+        };
+        let dto = OnlineSearchItemDto::from(&item);
+        assert_eq!(dto.song.source, "QQMusic");
+        assert_eq!(dto.score.as_ref().unwrap().percent, "93");
+        assert!(!dto.below_threshold);
     }
 }

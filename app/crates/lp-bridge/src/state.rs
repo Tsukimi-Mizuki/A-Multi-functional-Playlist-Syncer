@@ -16,6 +16,7 @@ use lp_core::library::{LibraryManager, LocalLibraryService};
 use lp_core::logs::LogHub;
 use lp_core::lyrics::LyricsService;
 use lp_core::lyrics::batch::{BatchEnricher, BatchLyricsService, BatchManager, SettingsProvider};
+use lp_core::models::LyricsSourceKind;
 use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::NeteaseClient;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
@@ -105,6 +106,36 @@ impl Bridge {
             }
             Err(error) => {
                 let message = format!("保存设置失败：{error}");
+                self.logs.warning(&message);
+                Err(message)
+            }
+        }
+    }
+
+    /// 记住编辑器里选的在线来源与歌词格式：只改这两个设置并写盘，不写「设置已保存」日志。
+    ///
+    /// 与 [`Bridge::save_settings_patch`] 的区别是它不算用户的「保存设置」操作：改下拉框不该刷屏运行日志。
+    pub fn remember_editor_options(
+        &self,
+        source: LyricsSourceKind,
+        prefer_word_lyrics: bool,
+    ) -> Result<bool, String> {
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut next = settings.clone();
+        if !lp_core::editor::remember_editor_options(&mut next, source, prefer_word_lyrics) {
+            return Ok(false);
+        }
+        match self.settings_store.save(&next) {
+            Ok(saved) => {
+                *settings = saved;
+                Ok(true)
+            }
+            Err(error) => {
+                // 记忆失败不影响编辑，只写一条运行日志。
+                let message = format!("保存编辑器选项失败：{error}");
                 self.logs.warning(&message);
                 Err(message)
             }
