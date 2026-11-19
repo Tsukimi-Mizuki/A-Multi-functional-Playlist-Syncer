@@ -19,7 +19,7 @@ use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::NeteaseClient;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
 use lp_core::online::{
-    KugouLyricsSource, LrclibLyricsSource, LyricsSource, OnlineMusicSearch,
+    KugouLyricsSource, LrclibLyricsSource, LyricsSource, OnlineManager, OnlineMusicSearch,
     OnlineMusicSearchService, fallback_source_enabled,
 };
 use lp_core::paths::{AppPaths, PathEnv};
@@ -51,6 +51,8 @@ pub(crate) struct Bridge {
     pub library: Arc<LibraryManager>,
     /// 音频标签的读写（标签查看 / 编辑画面直接调用）。
     pub tags: Arc<dyn AudioTagService>,
+    /// 在线检索与标签 / 封面详情（编辑器「在线标签」画面）。
+    pub online: Arc<OnlineManager>,
     /// 下载 / 同步任务（同一时间只允许一个）。
     pub transfers: Arc<TransferManager>,
 }
@@ -153,6 +155,7 @@ impl Bridge {
             playlists: assembled.playlists,
             library: assembled.library,
             tags: assembled.tags,
+            online: assembled.online,
             transfers: assembled.transfers,
         })
     }
@@ -170,6 +173,7 @@ struct Assembled {
     playlists: Arc<PlaylistService>,
     library: Arc<LibraryManager>,
     tags: Arc<dyn AudioTagService>,
+    online: Arc<OnlineManager>,
     transfers: Arc<TransferManager>,
 }
 
@@ -251,6 +255,12 @@ impl Assembled {
             Arc::new(KugouLyricsSource::new(Arc::clone(&transport))),
             Arc::new(LrclibLyricsSource::new(Arc::clone(&transport))),
         ];
+        // 在线标签 / 歌词的编排器：搜索句柄与备用词源都要留一份自己的，批量补全用的是另一份。
+        let online = Arc::new(OnlineManager::new(
+            Arc::clone(&online_search),
+            fallback_sources.clone(),
+            Arc::clone(&settings_provider),
+        ));
         let batch_service = Arc::new(BatchLyricsService::new(
             Arc::clone(&tags),
             online_search,
@@ -313,6 +323,7 @@ impl Assembled {
             playlists,
             library,
             tags,
+            online,
             transfers,
         })
     }
