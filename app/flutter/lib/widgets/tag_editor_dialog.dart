@@ -5,8 +5,10 @@ import 'dart:typed_data';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:lunatic_princess/format.dart';
+import 'package:lunatic_princess/src/rust/api/online.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
 import 'package:lunatic_princess/widgets/batch_tags_dialog.dart';
+import 'package:lunatic_princess/widgets/online_tags_dialog.dart';
 
 /// 打开「编辑标签与歌词」面板。
 ///
@@ -20,8 +22,10 @@ Future<void> showTagEditorDialog(BuildContext context, String path) {
   );
 }
 
-/// 封面的三种状态：原样、保存时移除。换图要等文件对话框（M8）接上。
-enum _CoverMode { keep, remove }
+/// 封面的三种状态：原样、保存时移除、换成在线标签取回的新封面。
+///
+/// 从本地选图片换封面要文件对话框，排到 M8。
+enum _CoverMode { keep, remove, replace }
 
 class _TagEditorDialog extends StatefulWidget {
   const _TagEditorDialog({required this.path});
@@ -60,6 +64,21 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
   String? _saveError;
   String? _notice;
   _CoverMode _cover = _CoverMode.keep;
+
+  /// 在线标签取回的新封面，`_cover == replace` 时保存才写入。
+  CoverInfoDto? _newCover;
+
+  /// 新封面的来源名，用于界面文案。
+  String? _newCoverOrigin;
+
+  /// 在线标签给的艺术家名单：保存时优先用它写多值；用户改过艺术家就不再用。
+  ArtistListDto? _onlineArtists;
+
+  /// 记下在线标签填进来的艺术家文字，用来判断用户有没有改过。
+  String? _onlineArtistsText;
+
+  /// 在线标签刚回填时的提示，保存或重新读取后清掉。
+  String? _onlineNote;
 
   @override
   void initState() {
@@ -135,6 +154,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       if (!quiet) {
         _notice = null;
         _saveError = null;
+        _onlineNote = null;
       }
     });
     try {
@@ -162,6 +182,10 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         _view = view;
         _baseline = fields;
         _cover = _CoverMode.keep;
+        _newCover = null;
+        _newCoverOrigin = null;
+        _onlineArtists = null;
+        _onlineArtistsText = null;
         _fill(fields);
       });
     } catch (error) {
@@ -182,13 +206,25 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       _notice = null;
     });
     try {
+      final newCover = _cover == _CoverMode.replace ? _newCover : null;
+      // 艺术家被改过以后，在线给的多值名单就作废了，保存时按文字重新拆分。
+      final online = _onlineArtists != null && _text('artist') == _onlineArtistsText
+          ? _onlineArtists
+          : null;
       final result = await tagEditorSave(
         path: widget.path,
         fields: _collect(),
         loaded: baseline,
-        cover: CoverChangeDto(
-          kind: _cover == _CoverMode.remove ? 'remove' : 'keep',
-        ),
+        online: online,
+        cover: switch (_cover) {
+          _CoverMode.remove => CoverChangeDto(kind: 'remove'),
+          _CoverMode.replace when newCover != null => CoverChangeDto(
+            kind: 'replace',
+            base64: newCover.base64,
+            mimeType: newCover.mimeType,
+          ),
+          _ => CoverChangeDto(kind: 'keep'),
+        },
       );
       if (!mounted) return;
       final error = result.error;
@@ -213,6 +249,11 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         _view = view;
         _baseline = fields;
         _cover = _CoverMode.keep;
+        _newCover = null;
+        _newCoverOrigin = null;
+        _onlineArtists = null;
+        _onlineArtistsText = null;
+        _onlineNote = null;
         _fill(fields);
         _notice = '已保存：${view.fileName}';
       });
@@ -280,7 +321,8 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
             children: [
               _buildHeader(theme),
               Divider(style: DividerThemeData(horizontalMargin: EdgeInsets.zero)),
-              if (_notice != null || _saveError != null) _buildBanners(),
+              if (_notice != null || _saveError != null || _onlineNote != null)
+                _buildBanners(),
               Expanded(child: _buildBody(theme)),
               Divider(style: DividerThemeData(horizontalMargin: EdgeInsets.zero)),
               _buildFooter(),
@@ -344,6 +386,15 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Column(
         children: [
+          if (_onlineNote != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InfoBar(
+                severity: InfoBarSeverity.info,
+                title: const Text('在线标签'),
+                content: Text(_onlineNote!),
+              ),
+            ),
           if (_saveError != null)
             InfoBar(
               severity: InfoBarSeverity.error,
@@ -405,6 +456,24 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              const Text('标签信息', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Button(
+                onPressed: _loading || _saving ? null : _openOnline,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(WindowsIcons.search, size: 14),
+                    SizedBox(width: 6),
+                    Text('在线标签…'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           _pair(_textField('title', '标题')),
           _pair(_textField('artist', '艺术家（多个用 / 分隔）')),
           _pair(_textField('album', '专辑')),
@@ -478,19 +547,30 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
 
   Widget _buildCoverColumn(FluentThemeData theme, TagViewDto view) {
     final res = theme.resources;
+    final newCover = _cover == _CoverMode.replace ? _newCover : null;
     final caption = switch (_cover) {
+      _CoverMode.replace when newCover != null =>
+        '新封面：${_newCoverOrigin ?? '在线标签'}（保存后写入）',
       _CoverMode.remove => '封面将在保存时移除',
       _CoverMode.keep when !view.hasCover => '没有封面',
       _CoverMode.keep when view.coverDataUrl == null => '封面过大，未预览（保存时保持原样）',
-      _ => '当前封面（保存时保持原样）',
+      _CoverMode.keep => '当前封面（保存时保持原样）',
+      _ => '没有封面',
     };
-    final meta = [
-      if (view.coverMimeType != null) view.coverMimeType!,
-      if (view.coverWidth != null && view.coverHeight != null)
-        '${view.coverWidth}×${view.coverHeight}',
-      if (view.coverSize != null) formatFileSize(view.coverSize!),
-      if (view.coverPictureType != null) view.coverPictureType!,
-    ].join('  ·  ');
+    final meta = newCover != null
+        ? [
+            newCover.mimeType,
+            if (newCover.width != null && newCover.height != null)
+              '${newCover.width}×${newCover.height}',
+            formatFileSize(newCover.size),
+          ].join('  ·  ')
+        : [
+            if (view.coverMimeType != null) view.coverMimeType!,
+            if (view.coverWidth != null && view.coverHeight != null)
+              '${view.coverWidth}×${view.coverHeight}',
+            if (view.coverSize != null) formatFileSize(view.coverSize!),
+            if (view.coverPictureType != null) view.coverPictureType!,
+          ].join('  ·  ');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,7 +589,18 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
             ),
           ],
           const SizedBox(height: 8),
-          if (view.hasCover && _cover == _CoverMode.keep)
+          if (_cover == _CoverMode.replace)
+            Button(
+              onPressed: _saving
+                  ? null
+                  : () => setState(() {
+                      _cover = _CoverMode.keep;
+                      _newCover = null;
+                      _newCoverOrigin = null;
+                    }),
+              child: const Text('取消更换封面'),
+            )
+          else if (view.hasCover && _cover == _CoverMode.keep)
             Button(
               onPressed: _saving
                   ? null
@@ -569,6 +660,21 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         ],
       ),
     );
+    final newCover = _cover == _CoverMode.replace ? _newCover : null;
+    final newBytes = newCover == null ? null : _decodeBase64(newCover.base64);
+    if (newBytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          newBytes,
+          width: 200,
+          height: 200,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => placeholder(WindowsIcons.picture, '新封面无法预览'),
+        ),
+      );
+    }
     if (_cover == _CoverMode.remove || !view.hasCover) {
       return placeholder(
         WindowsIcons.cancel,
@@ -596,8 +702,12 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
   Uint8List? _decodeCover(String dataUrl) {
     final comma = dataUrl.indexOf(',');
     if (comma < 0) return null;
+    return _decodeBase64(dataUrl.substring(comma + 1));
+  }
+
+  Uint8List? _decodeBase64(String base64) {
     try {
-      return base64Decode(dataUrl.substring(comma + 1));
+      return base64Decode(base64);
     } catch (_) {
       return null;
     }
@@ -621,6 +731,82 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         ],
       ),
     );
+  }
+
+  /// 打开「在线标签」：关键词与文件上下文都按当前表单内容冻结。
+  ///
+  /// 标题为空时关键词也留空，交给 lp-core 按文件路径推。
+  Future<void> _openOnline() async {
+    final view = _view;
+    if (view == null || _saving || _loading) return;
+    final title = _text('title').trim();
+    final artist = _text('artist').trim();
+    final album = _text('album').trim();
+    final query = title.isEmpty
+        ? ''
+        : [
+            title,
+            ...artist
+                .split(RegExp(r'[/;；、]'))
+                .map((part) => part.trim())
+                .where((part) => part.isNotEmpty),
+          ].join(' ');
+    final result = await showOnlineTagsDialog(
+      context,
+      query: query,
+      fileContext: FileContextDto(
+        title: title.isEmpty ? null : title,
+        artist: artist.isEmpty ? null : artist,
+        album: album.isEmpty ? null : album,
+        durationMs: view.durationMs,
+        filePath: view.path,
+      ),
+    );
+    if (!mounted || result == null) return;
+    final loaded = result.loaded;
+    final song = loaded.song;
+    final cover = loaded.cover;
+    setState(() {
+      if (result.tagsRequested) {
+        _applyOnlineTags(song);
+        _onlineArtists = ArtistListDto(
+          text: _text('artist'),
+          values: song.artists,
+        );
+        _onlineArtistsText = _text('artist');
+      }
+      if (result.coverRequested && cover != null) {
+        _newCover = cover;
+        _newCoverOrigin = song.sourceLabel;
+        _cover = _CoverMode.replace;
+      }
+      final what = result.tagsRequested && result.coverRequested
+          ? '标签与封面'
+          : (result.tagsRequested ? '标签' : '封面');
+      final missingCover = result.tagsRequested && cover == null
+          ? '（没有获取到封面）'
+          : '';
+      _onlineNote =
+          '已载入${song.sourceLabel}的$what$missingCover（歌词没有改动），请确认后保存。';
+    });
+  }
+
+  /// 把在线候选项里非空的字段填进表单；空白字段保持原值，不清空。
+  void _applyOnlineTags(OnlineSongDto song) {
+    void put(String key, String? value) {
+      final text = value?.trim() ?? '';
+      if (text.isEmpty) return;
+      _controllers[key]!.text = text;
+    }
+
+    put('title', song.title);
+    put('artist', song.artist);
+    put('album', song.album);
+    put('year', song.year?.toString());
+    put('trackNumber', song.trackNumber?.toString());
+    put('discNumber', song.discNumber?.toString());
+    put('genre', song.genre);
+    put('composer', song.composer);
   }
 
   /// 打开批量修改标签：从当前文件所在的目录开始列。

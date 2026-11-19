@@ -145,7 +145,28 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用临时预览入口（`probe_m5.dart`，用完已删）对着测试夹具目录做了 DPI-aware 截图：标题「批量修改标签」、目录框、左侧字段面板、14 列表格（16 行可见、夹具里 71 个文件）、状态列「无法读取标签：文件不存在、格式不支持或已损坏」、底栏「已 0 / 共 71 首」与「保存修改」都渲染正常。
 - 还没验证：真的批量写盘（会改夹具文件，没动）、保存失败/取消的真实分支、拖放换清单。
 
+## 第 7 步：在线标签（M5b）
+
+编辑器里的一键补全：按当前表单的标题与歌手同时搜网易云音乐与 QQ 音乐，挑一条候选，把标签字段与封面填回表单——只填不写，仍然要点「保存」才落盘，歌词不动。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/online.rs` 三个命令：`online_tag_candidates(query, file_context)`（关键词为空时由 `lp-core` 用文件路径推）、`online_cover_size(song)`、`online_load_tags(song, cover)`。返回同样是「二选一载荷」：成功带数据，失败带 `OnlineErrorDto { kind, message }`，`kind` 沿用 `lp-core` 的 `emptyQuery` / `fallbackSource` / `primarySource` / `noFile` / `unknownSong` / `cancelled` / `failed`。
+- 候选与歌曲的 DTO 都把来源写成字符串（`Netease` / `QQMusic`），由桥接层自己映射回 `OnlineMusicSource` 与 `LyricsSourceKind`，界面不需要认识 Rust 枚举；`u32` 的年份 / 音轨号 / 碟号转成 `i64` 给 Dart（Windows 上就是 `int`），反向转换溢出时丢成 `None` 而不是回绕。
+- 组合根 `state.rs` 新增 `online: Arc<OnlineManager>`，用与批量歌词服务同一套搜索服务、备用词源与 `settings_provider` 装配，排在 `fallback_sources` 之后——匹配阈值、备用来源顺序等运行时设置改了立即生效。
+- 界面是新文件 `app/flutter/lib/widgets/online_tags_dialog.dart`：搜索行（关键词框 + 「搜索」）、状态行、六列候选表（封面、来源与尺寸 / 年份 / 音轨、标题、艺术家、专辑、时长与匹配度），行高 120、选中左侧竖条、双击即确认；底栏是「标签」「封面」两个复选框加一句「歌词不会改动；确定后填进编辑器，保存才写入文件」。
+- 封面尺寸单独探测：只对有封面地址的行发 `online_cover_size`，最多 4 个并发，先显示「读取尺寸…」，回来是「宽×高」或「尺寸未知」，没有封面直接「无封面」；重新搜索时旧结果按搜索代数丢弃。
+- 编辑器「标签信息」行右端加了「在线标签…」按钮：关键词取当前标题 + 按 `/`、`;`、`；`、`、` 拆开的歌手，标题为空就整个留空交给 `lp-core` 按路径推；`FileContext` 用当前表单的标题 / 艺术家 / 专辑加文件时长与路径。
+- 回填只动标题、艺术家、专辑、年份、音轨号、碟号、流派、作曲家；专辑艺术家、作词家、备注、歌词永远不动；在线给的空白字段保持原值、不清空。勾了封面就把封面切成「新封面：来源（保存后写入）」，保存时走 `CoverChange` 的 `replace`。来源给了艺术家名单时记下来，保存时优先用它写多值字段；用户改过艺术家输入框就作废、改回按文字拆分。
+- 回填后编辑器顶部出信息条「已载入{来源}的{标签|封面|标签与封面}（歌词没有改动），请确认后保存。」，只勾了标签且没拿到封面时补一句「（没有获取到封面）」；重新读取或保存成功后清掉。
+- 批量面板的「在线获取」整块还没做：Tauri 版那里是服务端整批匹配（`batch_run`）并直接写盘，和这里的单曲编辑器取回是两条链路，排进 M7 的批量整理。
+
+### 验证
+
+- Rust 测试从 1251 变成 1255 个：桥接层新增 4 个（歌曲 DTO 往返、未知来源被拒、溢出数字丢成 `None`、错误类别透传）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用两个临时预览入口（`probe_m5b_editor.dart`、`probe_m5b_online.dart`，用完已删）做了 DPI-aware 截图：编辑器多出「标签信息」与「在线标签…」；在线标签面板真的联网搜到了 20 条候选（网易云音乐 10、QQ 音乐 10），封面尺寸 500×500、匹配度 93% / 97%、QQ 音乐没有封面的行显示「无封面」，底栏复选框与说明都在。
+- 还没验证：回填后保存写盘的完整链路、只勾封面 / 只勾标签的分支、真实网络失败时的错误文案（合成点击点不开面板，回填逻辑只做了代码级检查）。
+
 ## 下一步
 
-1. M5b：在线获取标签、歌词与封面（`online_tag_candidates`、`online_cover_size`、`online_load_tags` + 编辑器里的在线标签对话框），并把它接进批量面板。
-2. 之后依次：M6 歌词（预览 / 编辑 / 逐字）、M7 NCM 导入与批量整理、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。
+1. M6：歌词——预览、编辑、逐字歌词（`get_song_lyrics`、`lyrics_source_fetch`、`word_lyrics_preview`、`word_lyrics_apply` 与对应画面）。
+2. 之后依次：M7 NCM 导入与批量整理（含批量面板的在线获取 `batch_run`）、M8 打包收尾（文件对话框、拖放、安装包 / CI、3.0.0、大歌单压测）。

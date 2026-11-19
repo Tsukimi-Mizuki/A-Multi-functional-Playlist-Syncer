@@ -7,6 +7,7 @@ import 'api/app.dart';
 import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
+import 'api/online.dart';
 import 'api/playlists.dart';
 import 'api/settings.dart';
 import 'api/tags.dart';
@@ -75,7 +76,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1944191932;
+  int get rustContentHash => -1616844932;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -126,6 +127,20 @@ abstract class RustLibApi extends BaseApi {
   Future<SettingsDto> crateApiSettingsLoadSettings();
 
   Future<void> crateApiLoginLogout();
+
+  Future<CoverSizeResultDto> crateApiOnlineOnlineCoverSize({
+    required OnlineSongDto song,
+  });
+
+  Future<LoadedTagsResultDto> crateApiOnlineOnlineLoadTags({
+    required OnlineSongDto song,
+    required bool cover,
+  });
+
+  Future<TagCandidatesResultDto> crateApiOnlineOnlineTagCandidates({
+    required String query,
+    FileContextDto? fileContext,
+  });
 
   Future<TagPatchOutcomeDto> crateApiTagsPatchTags({
     required List<String> paths,
@@ -606,6 +621,106 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "logout", argNames: []);
 
   @override
+  Future<CoverSizeResultDto> crateApiOnlineOnlineCoverSize({
+    required OnlineSongDto song,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_online_song_dto(song, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_cover_size_result_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiOnlineOnlineCoverSizeConstMeta,
+        argValues: [song],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOnlineOnlineCoverSizeConstMeta =>
+      const TaskConstMeta(debugName: "online_cover_size", argNames: ["song"]);
+
+  @override
+  Future<LoadedTagsResultDto> crateApiOnlineOnlineLoadTags({
+    required OnlineSongDto song,
+    required bool cover,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_online_song_dto(song, serializer);
+          sse_encode_bool(cover, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_loaded_tags_result_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiOnlineOnlineLoadTagsConstMeta,
+        argValues: [song, cover],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOnlineOnlineLoadTagsConstMeta =>
+      const TaskConstMeta(
+        debugName: "online_load_tags",
+        argNames: ["song", "cover"],
+      );
+
+  @override
+  Future<TagCandidatesResultDto> crateApiOnlineOnlineTagCandidates({
+    required String query,
+    FileContextDto? fileContext,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(query, serializer);
+          sse_encode_opt_box_autoadd_file_context_dto(fileContext, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_tag_candidates_result_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiOnlineOnlineTagCandidatesConstMeta,
+        argValues: [query, fileContext],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOnlineOnlineTagCandidatesConstMeta =>
+      const TaskConstMeta(
+        debugName: "online_tag_candidates",
+        argNames: ["query", "fileContext"],
+      );
+
+  @override
   Future<TagPatchOutcomeDto> crateApiTagsPatchTags({
     required List<String> paths,
     required List<TagEditDto> edits,
@@ -621,7 +736,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 18,
             port: port_,
           );
         },
@@ -653,7 +768,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -681,7 +796,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 20,
             port: port_,
           );
         },
@@ -708,7 +823,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 21,
             port: port_,
           );
         },
@@ -738,7 +853,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 22,
             port: port_,
           );
         },
@@ -766,7 +881,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 23,
             port: port_,
           );
         },
@@ -793,7 +908,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 24,
             port: port_,
           );
         },
@@ -821,7 +936,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 25,
             port: port_,
           );
         },
@@ -848,7 +963,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 26,
             port: port_,
           );
         },
@@ -878,7 +993,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 27,
             port: port_,
           );
         },
@@ -906,7 +1021,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 28,
             port: port_,
           );
         },
@@ -934,7 +1049,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 29,
             port: port_,
           );
         },
@@ -972,7 +1087,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1004,7 +1119,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1031,7 +1146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1058,7 +1173,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1088,7 +1203,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 31,
+              funcId: 34,
               port: port_,
             );
           },
@@ -1120,7 +1235,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 32,
+              funcId: 35,
               port: port_,
             );
           },
@@ -1155,7 +1270,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 33,
+              funcId: 36,
               port: port_,
             );
           },
@@ -1187,7 +1302,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 34,
+              funcId: 37,
               port: port_,
             );
           },
@@ -1222,7 +1337,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 35,
+              funcId: 38,
               port: port_,
             );
           },
@@ -1422,6 +1537,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto dco_decode_box_autoadd_cover_info_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_cover_info_dto(raw);
+  }
+
+  @protected
+  CoverSizeDto dco_decode_box_autoadd_cover_size_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_cover_size_dto(raw);
+  }
+
+  @protected
   EditorFieldsDto dco_decode_box_autoadd_editor_fields_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_editor_fields_dto(raw);
@@ -1431,6 +1558,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  FileContextDto dco_decode_box_autoadd_file_context_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_file_context_dto(raw);
   }
 
   @protected
@@ -1452,15 +1585,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LoadedTagsDto dco_decode_box_autoadd_loaded_tags_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_loaded_tags_dto(raw);
+  }
+
+  @protected
   MatchOutcomeDto dco_decode_box_autoadd_match_outcome_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_match_outcome_dto(raw);
   }
 
   @protected
+  MatchScoreDto dco_decode_box_autoadd_match_score_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_match_score_dto(raw);
+  }
+
+  @protected
+  OnlineErrorDto dco_decode_box_autoadd_online_error_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_online_error_dto(raw);
+  }
+
+  @protected
+  OnlineSongDto dco_decode_box_autoadd_online_song_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_online_song_dto(raw);
+  }
+
+  @protected
   SidecarLyricsDto dco_decode_box_autoadd_sidecar_lyrics_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_sidecar_lyrics_dto(raw);
+  }
+
+  @protected
+  TagCandidatesDto dco_decode_box_autoadd_tag_candidates_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_tag_candidates_dto(raw);
   }
 
   @protected
@@ -1523,6 +1686,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto dco_decode_cover_info_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return CoverInfoDto(
+      mimeType: dco_decode_String(arr[0]),
+      base64: dco_decode_String(arr[1]),
+      size: dco_decode_i_64(arr[2]),
+      width: dco_decode_opt_box_autoadd_i_64(arr[3]),
+      height: dco_decode_opt_box_autoadd_i_64(arr[4]),
+    );
+  }
+
+  @protected
+  CoverSizeDto dco_decode_cover_size_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CoverSizeDto(
+      width: dco_decode_i_64(arr[0]),
+      height: dco_decode_i_64(arr[1]),
+    );
+  }
+
+  @protected
+  CoverSizeResultDto dco_decode_cover_size_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CoverSizeResultDto(
+      size: dco_decode_opt_box_autoadd_cover_size_dto(arr[0]),
+      error: dco_decode_opt_box_autoadd_online_error_dto(arr[1]),
+    );
+  }
+
+  @protected
   EditorFieldsDto dco_decode_editor_fields_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -1548,6 +1750,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  FileContextDto dco_decode_file_context_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return FileContextDto(
+      title: dco_decode_opt_String(arr[0]),
+      artist: dco_decode_opt_String(arr[1]),
+      album: dco_decode_opt_String(arr[2]),
+      durationMs: dco_decode_i_64(arr[3]),
+      filePath: dco_decode_opt_String(arr[4]),
+    );
   }
 
   @protected
@@ -1649,6 +1866,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<TagCandidateDto> dco_decode_list_tag_candidate_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_tag_candidate_dto).toList();
+  }
+
+  @protected
   List<TagEditDto> dco_decode_list_tag_edit_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_tag_edit_dto).toList();
@@ -1670,6 +1893,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<TransferItemDto> dco_decode_list_transfer_item_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_transfer_item_dto).toList();
+  }
+
+  @protected
+  LoadedTagsDto dco_decode_loaded_tags_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return LoadedTagsDto(
+      song: dco_decode_online_song_dto(arr[0]),
+      cover: dco_decode_opt_box_autoadd_cover_info_dto(arr[1]),
+    );
+  }
+
+  @protected
+  LoadedTagsResultDto dco_decode_loaded_tags_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return LoadedTagsResultDto(
+      data: dco_decode_opt_box_autoadd_loaded_tags_dto(arr[0]),
+      error: dco_decode_opt_box_autoadd_online_error_dto(arr[1]),
+    );
   }
 
   @protected
@@ -1735,6 +1982,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MatchScoreDto dco_decode_match_score_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    return MatchScoreDto(
+      title: dco_decode_f_64(arr[0]),
+      artist: dco_decode_f_64(arr[1]),
+      album: dco_decode_f_64(arr[2]),
+      duration: dco_decode_f_64(arr[3]),
+      total: dco_decode_f_64(arr[4]),
+      percent: dco_decode_String(arr[5]),
+      rejected: dco_decode_bool(arr[6]),
+      rejectReason: dco_decode_opt_String(arr[7]),
+      confident: dco_decode_bool(arr[8]),
+    );
+  }
+
+  @protected
   MatchStatsDto dco_decode_match_stats_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -1745,6 +2011,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       available: dco_decode_i_64(arr[1]),
       ncm: dco_decode_i_64(arr[2]),
       missing: dco_decode_i_64(arr[3]),
+    );
+  }
+
+  @protected
+  OnlineErrorDto dco_decode_online_error_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return OnlineErrorDto(
+      kind: dco_decode_String(arr[0]),
+      message: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
+  OnlineSongDto dco_decode_online_song_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 17)
+      throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
+    return OnlineSongDto(
+      source: dco_decode_String(arr[0]),
+      sourceId: dco_decode_String(arr[1]),
+      title: dco_decode_String(arr[2]),
+      artist: dco_decode_String(arr[3]),
+      artists: dco_decode_list_String(arr[4]),
+      album: dco_decode_String(arr[5]),
+      durationMs: dco_decode_i_64(arr[6]),
+      year: dco_decode_opt_box_autoadd_i_64(arr[7]),
+      trackNumber: dco_decode_opt_box_autoadd_i_64(arr[8]),
+      discNumber: dco_decode_opt_box_autoadd_i_64(arr[9]),
+      genre: dco_decode_opt_String(arr[10]),
+      composer: dco_decode_opt_String(arr[11]),
+      coverUrl: dco_decode_opt_String(arr[12]),
+      numericSourceId: dco_decode_opt_String(arr[13]),
+      sourceLabel: dco_decode_String(arr[14]),
+      displayTitle: dco_decode_String(arr[15]),
+      durationText: dco_decode_String(arr[16]),
     );
   }
 
@@ -1773,6 +2078,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto? dco_decode_opt_box_autoadd_cover_info_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_cover_info_dto(raw);
+  }
+
+  @protected
+  CoverSizeDto? dco_decode_opt_box_autoadd_cover_size_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_cover_size_dto(raw);
+  }
+
+  @protected
   EditorFieldsDto? dco_decode_opt_box_autoadd_editor_fields_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_editor_fields_dto(raw);
@@ -1782,6 +2099,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_f_64(raw);
+  }
+
+  @protected
+  FileContextDto? dco_decode_opt_box_autoadd_file_context_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_file_context_dto(raw);
   }
 
   @protected
@@ -1805,15 +2128,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LoadedTagsDto? dco_decode_opt_box_autoadd_loaded_tags_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_loaded_tags_dto(raw);
+  }
+
+  @protected
   MatchOutcomeDto? dco_decode_opt_box_autoadd_match_outcome_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_match_outcome_dto(raw);
   }
 
   @protected
+  MatchScoreDto? dco_decode_opt_box_autoadd_match_score_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_match_score_dto(raw);
+  }
+
+  @protected
+  OnlineErrorDto? dco_decode_opt_box_autoadd_online_error_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_online_error_dto(raw);
+  }
+
+  @protected
   SidecarLyricsDto? dco_decode_opt_box_autoadd_sidecar_lyrics_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_sidecar_lyrics_dto(raw);
+  }
+
+  @protected
+  TagCandidatesDto? dco_decode_opt_box_autoadd_tag_candidates_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_tag_candidates_dto(raw);
   }
 
   @protected
@@ -2004,6 +2351,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       artists: dco_decode_String(arr[3]),
       album: dco_decode_String(arr[4]),
       durationMs: dco_decode_i_32(arr[5]),
+    );
+  }
+
+  @protected
+  TagCandidateDto dco_decode_tag_candidate_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return TagCandidateDto(
+      song: dco_decode_online_song_dto(arr[0]),
+      score: dco_decode_opt_box_autoadd_match_score_dto(arr[1]),
+      belowThreshold: dco_decode_bool(arr[2]),
+      thumbnailUrl: dco_decode_opt_String(arr[3]),
+    );
+  }
+
+  @protected
+  TagCandidatesDto dco_decode_tag_candidates_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return TagCandidatesDto(
+      query: dco_decode_String(arr[0]),
+      scored: dco_decode_bool(arr[1]),
+      threshold: dco_decode_f_64(arr[2]),
+      thresholdPercent: dco_decode_String(arr[3]),
+      items: dco_decode_list_tag_candidate_dto(arr[4]),
+      failures: dco_decode_list_String(arr[5]),
+    );
+  }
+
+  @protected
+  TagCandidatesResultDto dco_decode_tag_candidates_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return TagCandidatesResultDto(
+      data: dco_decode_opt_box_autoadd_tag_candidates_dto(arr[0]),
+      error: dco_decode_opt_box_autoadd_online_error_dto(arr[1]),
     );
   }
 
@@ -2522,6 +2911,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto sse_decode_box_autoadd_cover_info_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_cover_info_dto(deserializer));
+  }
+
+  @protected
+  CoverSizeDto sse_decode_box_autoadd_cover_size_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_cover_size_dto(deserializer));
+  }
+
+  @protected
   EditorFieldsDto sse_decode_box_autoadd_editor_fields_dto(
     SseDeserializer deserializer,
   ) {
@@ -2533,6 +2938,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_f_64(deserializer));
+  }
+
+  @protected
+  FileContextDto sse_decode_box_autoadd_file_context_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_file_context_dto(deserializer));
   }
 
   @protected
@@ -2558,6 +2971,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LoadedTagsDto sse_decode_box_autoadd_loaded_tags_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_loaded_tags_dto(deserializer));
+  }
+
+  @protected
   MatchOutcomeDto sse_decode_box_autoadd_match_outcome_dto(
     SseDeserializer deserializer,
   ) {
@@ -2566,11 +2987,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MatchScoreDto sse_decode_box_autoadd_match_score_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_match_score_dto(deserializer));
+  }
+
+  @protected
+  OnlineErrorDto sse_decode_box_autoadd_online_error_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_online_error_dto(deserializer));
+  }
+
+  @protected
+  OnlineSongDto sse_decode_box_autoadd_online_song_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_online_song_dto(deserializer));
+  }
+
+  @protected
   SidecarLyricsDto sse_decode_box_autoadd_sidecar_lyrics_dto(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_sidecar_lyrics_dto(deserializer));
+  }
+
+  @protected
+  TagCandidatesDto sse_decode_box_autoadd_tag_candidates_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_tag_candidates_dto(deserializer));
   }
 
   @protected
@@ -2644,6 +3097,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto sse_decode_cover_info_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_mimeType = sse_decode_String(deserializer);
+    var var_base64 = sse_decode_String(deserializer);
+    var var_size = sse_decode_i_64(deserializer);
+    var var_width = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_height = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return CoverInfoDto(
+      mimeType: var_mimeType,
+      base64: var_base64,
+      size: var_size,
+      width: var_width,
+      height: var_height,
+    );
+  }
+
+  @protected
+  CoverSizeDto sse_decode_cover_size_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_width = sse_decode_i_64(deserializer);
+    var var_height = sse_decode_i_64(deserializer);
+    return CoverSizeDto(width: var_width, height: var_height);
+  }
+
+  @protected
+  CoverSizeResultDto sse_decode_cover_size_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_size = sse_decode_opt_box_autoadd_cover_size_dto(deserializer);
+    var var_error = sse_decode_opt_box_autoadd_online_error_dto(deserializer);
+    return CoverSizeResultDto(size: var_size, error: var_error);
+  }
+
+  @protected
   EditorFieldsDto sse_decode_editor_fields_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_title = sse_decode_String(deserializer);
@@ -2678,6 +3166,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  FileContextDto sse_decode_file_context_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_opt_String(deserializer);
+    var var_artist = sse_decode_opt_String(deserializer);
+    var var_album = sse_decode_opt_String(deserializer);
+    var var_durationMs = sse_decode_i_64(deserializer);
+    var var_filePath = sse_decode_opt_String(deserializer);
+    return FileContextDto(
+      title: var_title,
+      artist: var_artist,
+      album: var_album,
+      durationMs: var_durationMs,
+      filePath: var_filePath,
+    );
   }
 
   @protected
@@ -2831,6 +3336,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<TagCandidateDto> sse_decode_list_tag_candidate_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <TagCandidateDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_tag_candidate_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<TagEditDto> sse_decode_list_tag_edit_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2880,6 +3399,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ans_.add(sse_decode_transfer_item_dto(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  LoadedTagsDto sse_decode_loaded_tags_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_song = sse_decode_online_song_dto(deserializer);
+    var var_cover = sse_decode_opt_box_autoadd_cover_info_dto(deserializer);
+    return LoadedTagsDto(song: var_song, cover: var_cover);
+  }
+
+  @protected
+  LoadedTagsResultDto sse_decode_loaded_tags_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_data = sse_decode_opt_box_autoadd_loaded_tags_dto(deserializer);
+    var var_error = sse_decode_opt_box_autoadd_online_error_dto(deserializer);
+    return LoadedTagsResultDto(data: var_data, error: var_error);
   }
 
   @protected
@@ -2954,6 +3491,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MatchScoreDto sse_decode_match_score_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_f_64(deserializer);
+    var var_artist = sse_decode_f_64(deserializer);
+    var var_album = sse_decode_f_64(deserializer);
+    var var_duration = sse_decode_f_64(deserializer);
+    var var_total = sse_decode_f_64(deserializer);
+    var var_percent = sse_decode_String(deserializer);
+    var var_rejected = sse_decode_bool(deserializer);
+    var var_rejectReason = sse_decode_opt_String(deserializer);
+    var var_confident = sse_decode_bool(deserializer);
+    return MatchScoreDto(
+      title: var_title,
+      artist: var_artist,
+      album: var_album,
+      duration: var_duration,
+      total: var_total,
+      percent: var_percent,
+      rejected: var_rejected,
+      rejectReason: var_rejectReason,
+      confident: var_confident,
+    );
+  }
+
+  @protected
   MatchStatsDto sse_decode_match_stats_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_total = sse_decode_i_64(deserializer);
@@ -2965,6 +3527,55 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       available: var_available,
       ncm: var_ncm,
       missing: var_missing,
+    );
+  }
+
+  @protected
+  OnlineErrorDto sse_decode_online_error_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_String(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    return OnlineErrorDto(kind: var_kind, message: var_message);
+  }
+
+  @protected
+  OnlineSongDto sse_decode_online_song_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_source = sse_decode_String(deserializer);
+    var var_sourceId = sse_decode_String(deserializer);
+    var var_title = sse_decode_String(deserializer);
+    var var_artist = sse_decode_String(deserializer);
+    var var_artists = sse_decode_list_String(deserializer);
+    var var_album = sse_decode_String(deserializer);
+    var var_durationMs = sse_decode_i_64(deserializer);
+    var var_year = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_trackNumber = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_discNumber = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_genre = sse_decode_opt_String(deserializer);
+    var var_composer = sse_decode_opt_String(deserializer);
+    var var_coverUrl = sse_decode_opt_String(deserializer);
+    var var_numericSourceId = sse_decode_opt_String(deserializer);
+    var var_sourceLabel = sse_decode_String(deserializer);
+    var var_displayTitle = sse_decode_String(deserializer);
+    var var_durationText = sse_decode_String(deserializer);
+    return OnlineSongDto(
+      source: var_source,
+      sourceId: var_sourceId,
+      title: var_title,
+      artist: var_artist,
+      artists: var_artists,
+      album: var_album,
+      durationMs: var_durationMs,
+      year: var_year,
+      trackNumber: var_trackNumber,
+      discNumber: var_discNumber,
+      genre: var_genre,
+      composer: var_composer,
+      coverUrl: var_coverUrl,
+      numericSourceId: var_numericSourceId,
+      sourceLabel: var_sourceLabel,
+      displayTitle: var_displayTitle,
+      durationText: var_durationText,
     );
   }
 
@@ -3017,6 +3628,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverInfoDto? sse_decode_opt_box_autoadd_cover_info_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_cover_info_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  CoverSizeDto? sse_decode_opt_box_autoadd_cover_size_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_cover_size_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   EditorFieldsDto? sse_decode_opt_box_autoadd_editor_fields_dto(
     SseDeserializer deserializer,
   ) {
@@ -3035,6 +3672,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_f_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  FileContextDto? sse_decode_opt_box_autoadd_file_context_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_file_context_dto(deserializer));
     } else {
       return null;
     }
@@ -3078,6 +3728,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LoadedTagsDto? sse_decode_opt_box_autoadd_loaded_tags_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_loaded_tags_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   MatchOutcomeDto? sse_decode_opt_box_autoadd_match_outcome_dto(
     SseDeserializer deserializer,
   ) {
@@ -3091,6 +3754,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MatchScoreDto? sse_decode_opt_box_autoadd_match_score_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_match_score_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  OnlineErrorDto? sse_decode_opt_box_autoadd_online_error_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_online_error_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   SidecarLyricsDto? sse_decode_opt_box_autoadd_sidecar_lyrics_dto(
     SseDeserializer deserializer,
   ) {
@@ -3098,6 +3787,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_sidecar_lyrics_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  TagCandidatesDto? sse_decode_opt_box_autoadd_tag_candidates_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_tag_candidates_dto(deserializer));
     } else {
       return null;
     }
@@ -3346,6 +4048,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       album: var_album,
       durationMs: var_durationMs,
     );
+  }
+
+  @protected
+  TagCandidateDto sse_decode_tag_candidate_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_song = sse_decode_online_song_dto(deserializer);
+    var var_score = sse_decode_opt_box_autoadd_match_score_dto(deserializer);
+    var var_belowThreshold = sse_decode_bool(deserializer);
+    var var_thumbnailUrl = sse_decode_opt_String(deserializer);
+    return TagCandidateDto(
+      song: var_song,
+      score: var_score,
+      belowThreshold: var_belowThreshold,
+      thumbnailUrl: var_thumbnailUrl,
+    );
+  }
+
+  @protected
+  TagCandidatesDto sse_decode_tag_candidates_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_query = sse_decode_String(deserializer);
+    var var_scored = sse_decode_bool(deserializer);
+    var var_threshold = sse_decode_f_64(deserializer);
+    var var_thresholdPercent = sse_decode_String(deserializer);
+    var var_items = sse_decode_list_tag_candidate_dto(deserializer);
+    var var_failures = sse_decode_list_String(deserializer);
+    return TagCandidatesDto(
+      query: var_query,
+      scored: var_scored,
+      threshold: var_threshold,
+      thresholdPercent: var_thresholdPercent,
+      items: var_items,
+      failures: var_failures,
+    );
+  }
+
+  @protected
+  TagCandidatesResultDto sse_decode_tag_candidates_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_data = sse_decode_opt_box_autoadd_tag_candidates_dto(deserializer);
+    var var_error = sse_decode_opt_box_autoadd_online_error_dto(deserializer);
+    return TagCandidatesResultDto(data: var_data, error: var_error);
   }
 
   @protected
@@ -3951,6 +4697,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_cover_info_dto(
+    CoverInfoDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_cover_info_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_cover_size_dto(
+    CoverSizeDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_cover_size_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_editor_fields_dto(
     EditorFieldsDto self,
     SseSerializer serializer,
@@ -3963,6 +4727,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_file_context_dto(
+    FileContextDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_file_context_dto(self, serializer);
   }
 
   @protected
@@ -3993,6 +4766,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_loaded_tags_dto(
+    LoadedTagsDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_loaded_tags_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_match_outcome_dto(
     MatchOutcomeDto self,
     SseSerializer serializer,
@@ -4002,12 +4784,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_match_score_dto(
+    MatchScoreDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_match_score_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_online_error_dto(
+    OnlineErrorDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_online_error_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_online_song_dto(
+    OnlineSongDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_online_song_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_sidecar_lyrics_dto(
     SidecarLyricsDto self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_sidecar_lyrics_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_tag_candidates_dto(
+    TagCandidatesDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_tag_candidates_dto(self, serializer);
   }
 
   @protected
@@ -4078,6 +4896,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_cover_info_dto(CoverInfoDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.mimeType, serializer);
+    sse_encode_String(self.base64, serializer);
+    sse_encode_i_64(self.size, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.width, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_cover_size_dto(CoverSizeDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.width, serializer);
+    sse_encode_i_64(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_cover_size_result_dto(
+    CoverSizeResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_cover_size_dto(self.size, serializer);
+    sse_encode_opt_box_autoadd_online_error_dto(self.error, serializer);
+  }
+
+  @protected
   void sse_encode_editor_fields_dto(
     EditorFieldsDto self,
     SseSerializer serializer,
@@ -4101,6 +4946,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_file_context_dto(
+    FileContextDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_String(self.title, serializer);
+    sse_encode_opt_String(self.artist, serializer);
+    sse_encode_opt_String(self.album, serializer);
+    sse_encode_i_64(self.durationMs, serializer);
+    sse_encode_opt_String(self.filePath, serializer);
   }
 
   @protected
@@ -4246,6 +5104,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_tag_candidate_dto(
+    List<TagCandidateDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_tag_candidate_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_tag_edit_dto(
     List<TagEditDto> self,
     SseSerializer serializer,
@@ -4291,6 +5161,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     for (final item in self) {
       sse_encode_transfer_item_dto(item, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_loaded_tags_dto(
+    LoadedTagsDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_online_song_dto(self.song, serializer);
+    sse_encode_opt_box_autoadd_cover_info_dto(self.cover, serializer);
+  }
+
+  @protected
+  void sse_encode_loaded_tags_result_dto(
+    LoadedTagsResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_loaded_tags_dto(self.data, serializer);
+    sse_encode_opt_box_autoadd_online_error_dto(self.error, serializer);
   }
 
   @protected
@@ -4345,6 +5235,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_match_score_dto(
+    MatchScoreDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_64(self.title, serializer);
+    sse_encode_f_64(self.artist, serializer);
+    sse_encode_f_64(self.album, serializer);
+    sse_encode_f_64(self.duration, serializer);
+    sse_encode_f_64(self.total, serializer);
+    sse_encode_String(self.percent, serializer);
+    sse_encode_bool(self.rejected, serializer);
+    sse_encode_opt_String(self.rejectReason, serializer);
+    sse_encode_bool(self.confident, serializer);
+  }
+
+  @protected
   void sse_encode_match_stats_dto(
     MatchStatsDto self,
     SseSerializer serializer,
@@ -4354,6 +5261,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.available, serializer);
     sse_encode_i_64(self.ncm, serializer);
     sse_encode_i_64(self.missing, serializer);
+  }
+
+  @protected
+  void sse_encode_online_error_dto(
+    OnlineErrorDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.kind, serializer);
+    sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_online_song_dto(
+    OnlineSongDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.source, serializer);
+    sse_encode_String(self.sourceId, serializer);
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.artist, serializer);
+    sse_encode_list_String(self.artists, serializer);
+    sse_encode_String(self.album, serializer);
+    sse_encode_i_64(self.durationMs, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.year, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.trackNumber, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.discNumber, serializer);
+    sse_encode_opt_String(self.genre, serializer);
+    sse_encode_opt_String(self.composer, serializer);
+    sse_encode_opt_String(self.coverUrl, serializer);
+    sse_encode_opt_String(self.numericSourceId, serializer);
+    sse_encode_String(self.sourceLabel, serializer);
+    sse_encode_String(self.displayTitle, serializer);
+    sse_encode_String(self.durationText, serializer);
   }
 
   @protected
@@ -4403,6 +5345,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_cover_info_dto(
+    CoverInfoDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_cover_info_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_cover_size_dto(
+    CoverSizeDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_cover_size_dto(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_editor_fields_dto(
     EditorFieldsDto? self,
     SseSerializer serializer,
@@ -4422,6 +5390,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_f_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_file_context_dto(
+    FileContextDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_file_context_dto(self, serializer);
     }
   }
 
@@ -4465,6 +5446,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_loaded_tags_dto(
+    LoadedTagsDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_loaded_tags_dto(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_match_outcome_dto(
     MatchOutcomeDto? self,
     SseSerializer serializer,
@@ -4478,6 +5472,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_match_score_dto(
+    MatchScoreDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_match_score_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_online_error_dto(
+    OnlineErrorDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_online_error_dto(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_sidecar_lyrics_dto(
     SidecarLyricsDto? self,
     SseSerializer serializer,
@@ -4487,6 +5507,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_sidecar_lyrics_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_tag_candidates_dto(
+    TagCandidatesDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_tag_candidates_dto(self, serializer);
     }
   }
 
@@ -4687,6 +5720,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.artists, serializer);
     sse_encode_String(self.album, serializer);
     sse_encode_i_32(self.durationMs, serializer);
+  }
+
+  @protected
+  void sse_encode_tag_candidate_dto(
+    TagCandidateDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_online_song_dto(self.song, serializer);
+    sse_encode_opt_box_autoadd_match_score_dto(self.score, serializer);
+    sse_encode_bool(self.belowThreshold, serializer);
+    sse_encode_opt_String(self.thumbnailUrl, serializer);
+  }
+
+  @protected
+  void sse_encode_tag_candidates_dto(
+    TagCandidatesDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.query, serializer);
+    sse_encode_bool(self.scored, serializer);
+    sse_encode_f_64(self.threshold, serializer);
+    sse_encode_String(self.thresholdPercent, serializer);
+    sse_encode_list_tag_candidate_dto(self.items, serializer);
+    sse_encode_list_String(self.failures, serializer);
+  }
+
+  @protected
+  void sse_encode_tag_candidates_result_dto(
+    TagCandidatesResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_tag_candidates_dto(self.data, serializer);
+    sse_encode_opt_box_autoadd_online_error_dto(self.error, serializer);
   }
 
   @protected
