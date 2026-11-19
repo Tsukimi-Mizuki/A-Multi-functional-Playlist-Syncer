@@ -14,7 +14,8 @@ use lp_core::download::service::{DownloadApi, DownloadService, Downloader};
 use lp_core::download::task::TransferManager;
 use lp_core::library::{LibraryManager, LocalLibraryService};
 use lp_core::logs::LogHub;
-use lp_core::lyrics::batch::{BatchEnricher, BatchLyricsService, SettingsProvider};
+use lp_core::lyrics::LyricsService;
+use lp_core::lyrics::batch::{BatchEnricher, BatchLyricsService, BatchManager, SettingsProvider};
 use lp_core::ncm::FileNcmDecoder;
 use lp_core::netease::NeteaseClient;
 use lp_core::netease::http::{HttpTransport, ReqwestTransport};
@@ -53,6 +54,10 @@ pub(crate) struct Bridge {
     pub tags: Arc<dyn AudioTagService>,
     /// 在线检索与标签 / 封面详情（编辑器「在线标签」画面）。
     pub online: Arc<OnlineManager>,
+    /// 歌单里的歌词预览（只读，不写任何文件）。
+    pub lyrics: Arc<LyricsService>,
+    /// 批量任务：「歌词转逐字」的两步走与批量在线获取共用一个任务槽。
+    pub batch: Arc<BatchManager>,
     /// 下载 / 同步任务（同一时间只允许一个）。
     pub transfers: Arc<TransferManager>,
 }
@@ -156,6 +161,8 @@ impl Bridge {
             library: assembled.library,
             tags: assembled.tags,
             online: assembled.online,
+            lyrics: assembled.lyrics,
+            batch: assembled.batch,
             transfers: assembled.transfers,
         })
     }
@@ -174,6 +181,8 @@ struct Assembled {
     library: Arc<LibraryManager>,
     tags: Arc<dyn AudioTagService>,
     online: Arc<OnlineManager>,
+    lyrics: Arc<LyricsService>,
+    batch: Arc<BatchManager>,
     transfers: Arc<TransferManager>,
 }
 
@@ -272,6 +281,16 @@ impl Assembled {
                 fallback_source_enabled(&settings_provider(), source.label())
             })
         }));
+        // 歌词预览（按来源取词）与「歌词转逐字」（联网核对 + 写入）都用这份批量检索服务；
+        // 批量任务管理器还要持有它自己的一份，最后剩下的那份交给下载 / 同步的在线补全。
+        let lyrics = Arc::new(
+            LyricsService::new(Arc::clone(&login), Arc::clone(&logs))
+                .with_online(Arc::clone(&batch_service)),
+        );
+        let batch = Arc::new(BatchManager::new(
+            Arc::clone(&batch_service),
+            Arc::clone(&logs),
+        ));
         let enricher: Arc<dyn OnlineEnricher> =
             Arc::new(BatchEnricher::new(batch_service, settings_provider));
         let ncm = Arc::new(NcmImportService::new(
@@ -324,6 +343,8 @@ impl Assembled {
             library,
             tags,
             online,
+            lyrics,
+            batch,
             transfers,
         })
     }

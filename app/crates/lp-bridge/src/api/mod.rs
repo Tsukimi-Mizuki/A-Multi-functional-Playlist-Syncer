@@ -4,6 +4,7 @@ pub mod app;
 pub mod download;
 pub mod library;
 pub mod login;
+pub mod lyrics;
 pub mod online;
 pub mod playlists;
 pub mod settings;
