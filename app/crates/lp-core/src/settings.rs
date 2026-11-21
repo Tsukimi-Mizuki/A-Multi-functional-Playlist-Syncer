@@ -102,7 +102,7 @@ pub struct AppSettings {
     pub auto_check_updates: bool,
     /// 「忽略本次更新」记住的版本（归一后的 SemVer，空表示没有）：只跳过这一个版本，更新的版本照常提醒。
     pub ignored_update_version: String,
-    /// 主界面背景：内置背景（渐变光斑 / 自选图片 / 歌单封面）由界面自己画，玻璃能真正折射它；系统材质透出桌面。
+    /// 主界面背景：内置背景（渐变光斑 / 自选图片）由界面自己画，玻璃能真正折射它；系统材质透出桌面。
     pub background: BackgroundSource,
     /// 内置渐变光斑的配色。
     pub gradient_preset: GradientPreset,
@@ -1194,13 +1194,20 @@ mod tests {
         assert_eq!(defaults.liquid_glass, LiquidGlass::default());
 
         let custom = read(
-            r#"{"background":"PlaylistCover","gradientPreset":"ocean","backgroundImage":"  D:\\bg.png ","liquidGlass":{"glareAngle":30}}"#,
+            r#"{"background":"Image","gradientPreset":"ocean","backgroundImage":"  D:\\bg.png ","liquidGlass":{"glareAngle":30}}"#,
         );
-        assert_eq!(custom.background, BackgroundSource::PlaylistCover);
+        assert_eq!(custom.background, BackgroundSource::Image);
         assert_eq!(custom.gradient_preset, GradientPreset::Ocean);
         assert_eq!(custom.background_image, r"D:\bg.png");
         assert_eq!(custom.liquid_glass.glare_angle, 30.0);
         assert_eq!(custom.liquid_glass.ref_thickness, 20.0, "其余参数取默认");
+
+        let retired = read(r#"{"background":"PlaylistCover"}"#);
+        assert_eq!(
+            retired.background,
+            BackgroundSource::Gradient,
+            "旧设置里的歌单封面回落到渐变光斑"
+        );
 
         let broken = read(r#"{"background":"Video","gradientPreset":9,"liquidGlass":"厚一点"}"#);
         assert_eq!(broken.background, BackgroundSource::Gradient);
@@ -1212,11 +1219,7 @@ mod tests {
     fn builtin_backgrounds_do_not_lay_a_system_material_underneath() {
         let mut settings = AppSettings::new(DEFAULT_DIR);
         settings.window_material = WindowMaterial::Mica;
-        for source in [
-            BackgroundSource::Gradient,
-            BackgroundSource::Image,
-            BackgroundSource::PlaylistCover,
-        ] {
+        for source in [BackgroundSource::Gradient, BackgroundSource::Image] {
             settings.background = source;
             assert_eq!(settings.effective_window_material(), WindowMaterial::None);
         }

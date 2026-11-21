@@ -12,15 +12,13 @@ const KEY_STEP = 12
 interface GlassPreviewProps {
   /** 设置面板里还没保存的草稿：背景、玻璃浓度与液态玻璃参数都按它画。 */
   draft: AppSettings
-  /** 当前选中歌单的封面（背景选「歌单封面」时用）。 */
-  coverUrl: string | null
 }
 
 /**
  * 「高级设置」里的即时预览：一个缩小的主界面（侧栏、卡片、按钮）和一块可以拖动的玻璃。
  * 内置背景下面板也由 WebGL 画成折射的玻璃，和主窗口一样；系统材质下面板是 CSS 近似，背景用渐变代替桌面。
  */
-export default function GlassPreview({ draft, coverUrl }: GlassPreviewProps) {
+export default function GlassPreview({ draft }: GlassPreviewProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderer = useRef<GlassRenderer | null>(null)
@@ -42,7 +40,6 @@ export default function GlassPreview({ draft, coverUrl }: GlassPreviewProps) {
           source: draft.background,
           preset: draft.gradientPreset,
           imagePath: draft.backgroundImage,
-          coverUrl,
           light,
         })
       : Promise.resolve({ background: gradientBackground(draft.gradientPreset, light), note: null })
@@ -52,7 +49,7 @@ export default function GlassPreview({ draft, coverUrl }: GlassPreviewProps) {
     return () => {
       cancelled = true
     }
-  }, [builtin, draft.background, draft.gradientPreset, draft.backgroundImage, coverUrl, light])
+  }, [builtin, draft.background, draft.gradientPreset, draft.backgroundImage, light])
 
   const clampLens = useCallback((x: number, y: number) => {
     const stage = stageRef.current

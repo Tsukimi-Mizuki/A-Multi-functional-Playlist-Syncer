@@ -56,14 +56,12 @@ const MATERIAL_HINTS: Record<WindowMaterial, string> = {
 const BACKGROUNDS = [
   { value: 'Gradient', label: '渐变光斑' },
   { value: 'Image', label: '自选图片' },
-  { value: 'PlaylistCover', label: '歌单封面' },
   { value: 'System', label: '系统材质' },
 ] as const satisfies readonly { value: BackgroundSource; label: string }[]
 
 const BACKGROUND_HINTS: Record<BackgroundSource, string> = {
   Gradient: '界面自己画的背景，玻璃会真正折射它。',
   Image: '用本机的一张图片做背景，玻璃会真正折射它。',
-  PlaylistCover: '用当前歌单的封面做背景，换歌单时跟着变。',
   System: '透出窗口后面的桌面；网页读不到桌面，玻璃效果为近似。',
 }
 
@@ -117,8 +115,6 @@ function appearanceChanged(a: AppSettings, b: AppSettings): boolean {
 const WINDOW_KEYS: readonly (keyof AppSettings)[] = ['theme', 'windowMaterial', 'background']
 
 interface SettingsDialogProps {
-  /** 当前选中歌单的封面（背景选「歌单封面」时预览用）。 */
-  coverUrl: string | null
   /** WebGL2 是否可用；不可用时内置背景退回 CSS 近似。 */
   webglAvailable: boolean
   onClose: () => void
@@ -132,7 +128,7 @@ interface SettingsDialogProps {
  * 设置面板：左侧分区导航（选中块滑动切换），右侧分区内容（切换时淡入滑入）。
  * 外观类设置改动后立即预览整个窗口；取消或按 Esc 会还原到已保存的外观。
  */
-export default function SettingsDialog({ coverUrl, webglAvailable, onClose, onSaved, onUpdateFound }: SettingsDialogProps) {
+export default function SettingsDialog({ webglAvailable, onClose, onSaved, onUpdateFound }: SettingsDialogProps) {
   const [state, setState] = useState<SettingsState | null>(null)
   const [draft, setDraft] = useState<AppSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -481,7 +477,7 @@ export default function SettingsDialog({ coverUrl, webglAvailable, onClose, onSa
                     </div>
                     {advancedOpen && (
                       <>
-                        <GlassPreview draft={draft} coverUrl={coverUrl} />
+                        <GlassPreview draft={draft} />
                         {PARAM_GROUPS.map((group) => (
                           <div key={group.title} className="settings-advanced-group" role="group" aria-label={group.title}>
                             <h4 className="settings-advanced-title">{group.title}</h4>

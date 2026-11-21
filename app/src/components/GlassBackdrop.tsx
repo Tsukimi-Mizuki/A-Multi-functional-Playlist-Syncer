@@ -36,8 +36,6 @@ export function measureShapes(appearance: Appearance, width: number, height: num
 }
 
 interface GlassBackdropProps {
-  /** 当前选中歌单的封面（背景选「歌单封面」时用）。 */
-  coverUrl: string | null
   /** WebGL2 不可用：主界面退回系统材质的样式，由调用方把窗口材质铺回来。 */
   onUnavailable: () => void
 }
@@ -46,7 +44,7 @@ interface GlassBackdropProps {
  * 内置背景：铺满窗口的 WebGL 画布，画背景并把标题栏、侧栏、歌曲区、日志栏画成会折射的液态玻璃。
  * 背景设为「系统材质」时不挂载。只在尺寸、面板位置、外观参数或背景图变化时重画一帧。
  */
-export default function GlassBackdrop({ coverUrl, onUnavailable }: GlassBackdropProps) {
+export default function GlassBackdrop({ onUnavailable }: GlassBackdropProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [appearance, setAppearance] = useState<Appearance | null>(currentAppearance)
   const [resolved, setResolved] = useState<ResolvedBackground | null>(null)
@@ -66,13 +64,13 @@ export default function GlassBackdrop({ coverUrl, onUnavailable }: GlassBackdrop
   useEffect(() => {
     if (!source || !preset || imagePath === undefined) return
     let cancelled = false
-    void resolveBackground({ source, preset, imagePath, coverUrl, light }).then((next) => {
+    void resolveBackground({ source, preset, imagePath, light }).then((next) => {
       if (!cancelled) setResolved(next)
     })
     return () => {
       cancelled = true
     }
-  }, [source, preset, imagePath, coverUrl, light])
+  }, [source, preset, imagePath, light])
 
   const latest = useRef({ appearance, resolved })
   useEffect(() => {

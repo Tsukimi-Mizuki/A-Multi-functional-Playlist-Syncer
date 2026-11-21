@@ -6,8 +6,8 @@ export type WindowMaterial = 'Acrylic' | 'Mica' | 'None'
 export type LyricsWriteMode = 'None' | 'Line' | 'Word'
 export type SourcePriority = 'NeteaseFirst' | 'QQMusicFirst' | 'NeteaseOnly' | 'QQMusicOnly'
 export type LyricsSourceKind = 'Netease' | 'QQMusic' | 'Kugou' | 'Lrclib'
-/** 主界面背景：内置背景（渐变光斑 / 自选图片 / 歌单封面）由界面用 WebGL 画，玻璃能真正折射；`System` 透出桌面。 */
-export type BackgroundSource = 'System' | 'Gradient' | 'Image' | 'PlaylistCover'
+/** 主界面背景：内置背景（渐变光斑 / 自选图片）由界面用 WebGL 画，玻璃能真正折射；`System` 透出桌面。 */
+export type BackgroundSource = 'System' | 'Gradient' | 'Image'
 export type GradientPreset = 'Aurora' | 'Ocean' | 'Sunset' | 'Forest'
 
 /** 与 Rust 端 `LiquidGlass`（camelCase）一一对应：液态玻璃的高级参数，范围见 `glass/params.ts`。 */

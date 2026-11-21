@@ -321,13 +321,10 @@ export default function App() {
   const currentQuality = quality ?? appState?.settings.quality ?? 'ExHigh'
   const qualityOptions = appState?.qualityOptions ?? []
   const qualityLabel = qualityOptions.find((option) => option.value === currentQuality)?.label ?? currentQuality
-  // 背景选「歌单封面」时用当前歌单的封面。
-  const coverUrl = loadedDetail?.coverUrl ?? selected?.coverUrl ?? null
-
   return (
     <div className="app-shell">
       {appearance && appearance.background !== 'System' && webglAvailable && (
-        <GlassBackdrop coverUrl={coverUrl} onUnavailable={onWebglUnavailable} />
+        <GlassBackdrop onUnavailable={onWebglUnavailable} />
       )}
       <TitleBar
         toolsSlot={
@@ -432,7 +429,6 @@ export default function App() {
       {dialog === 'ncm' && <NcmImportDialog onClose={closeDialog} />}
       {dialog === 'settings' && (
         <SettingsDialog
-          coverUrl={coverUrl}
           webglAvailable={webglAvailable}
           onClose={closeDialog}
           onSaved={onSettingsSaved}

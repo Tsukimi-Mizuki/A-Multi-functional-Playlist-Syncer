@@ -207,8 +207,6 @@ name_enum! {
         Gradient = 1 => "Gradient",
         /// 用户自选的本地图片（`backgroundImage`）。
         Image = 2 => "Image",
-        /// 当前选中歌单的封面。
-        PlaylistCover = 3 => "PlaylistCover",
     }
 }
 
@@ -346,18 +344,13 @@ mod tests {
     #[test]
     fn background_sources_tell_whether_the_interface_draws_its_own_backdrop() {
         assert!(!BackgroundSource::System.is_builtin());
-        for source in [
-            BackgroundSource::Gradient,
-            BackgroundSource::Image,
-            BackgroundSource::PlaylistCover,
-        ] {
+        for source in [BackgroundSource::Gradient, BackgroundSource::Image] {
             assert!(source.is_builtin());
         }
         assert_eq!(BackgroundSource::default(), BackgroundSource::Gradient);
-        assert_eq!(
-            BackgroundSource::from_json(&json!("playlistcover")),
-            Some(BackgroundSource::PlaylistCover)
-        );
+        // 旧设置里可能还留着已去掉的「歌单封面」，读不出来就回落到默认的渐变光斑。
+        assert_eq!(BackgroundSource::from_json(&json!("playlistcover")), None);
+        assert_eq!(BackgroundSource::ALL.len(), 3);
         assert_eq!(
             GradientPreset::from_json(&json!(2)),
             Some(GradientPreset::Sunset)

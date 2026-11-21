@@ -126,7 +126,7 @@ export function applyAppearance(next: Appearance, { animate = false, persist = t
   }
 }
 
-const BACKGROUNDS: readonly BackgroundSource[] = ['System', 'Gradient', 'Image', 'PlaylistCover']
+const BACKGROUNDS: readonly BackgroundSource[] = ['System', 'Gradient', 'Image']
 const PRESETS: readonly GradientPreset[] = ['Aurora', 'Ocean', 'Sunset', 'Forest']
 
 /** 启动时、还没拿到后端设置之前，先用上次的外观铺首帧，避免主题闪一下。 */
