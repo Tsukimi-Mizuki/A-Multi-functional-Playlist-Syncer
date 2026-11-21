@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 3.0.0+1
 
 environment:
   sdk: ^3.14.0
@@ -39,6 +39,9 @@ dependencies:
   flutter_acrylic: 1.1.4
   window_manager: 0.7.0
   flutter_svg: 2.4.0
+  # 文件 / 目录选择：Windows 上用系统 IFileOpenDialog（官方插件，依赖面小于 file_picker）。
+  file_selector: ^1.0.3
+  desktop_drop: ^0.8.4
 
 dev_dependencies:
   flutter_test:
