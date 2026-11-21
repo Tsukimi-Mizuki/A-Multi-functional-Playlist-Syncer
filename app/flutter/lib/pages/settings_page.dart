@@ -1,5 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:lunatic_princess/controller.dart';
+import 'package:lunatic_princess/file_dialogs.dart';
 import 'package:lunatic_princess/src/rust/api/settings.dart';
 import 'package:lunatic_princess/widgets/info_row.dart';
 
@@ -33,6 +34,17 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _templateController.dispose();
     super.dispose();
+  }
+
+  /// 用系统目录对话框改下载目录或曲库目录，选好即写入设置文件。
+  Future<void> _pickDirectory(
+    AppController c, {
+    required String key,
+    required String current,
+  }) async {
+    final picked = await pickDirectory(initialDirectory: current);
+    if (picked == null || !mounted) return;
+    await c.saveSettings({key: picked});
   }
 
   /// 输入框跟随设置加载一次；用户正在输入时（值不同）不覆盖。
@@ -231,13 +243,23 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Text('目录', style: FluentTheme.of(context).typography.bodyStrong),
               const SizedBox(height: 4),
-              InfoRow(label: '下载目录', value: s.downloadDirectory, copyable: true),
-              InfoRow(label: '曲库目录', value: s.libraryDirectory, copyable: true),
+              _DirectoryRow(
+                label: '下载目录',
+                value: s.downloadDirectory,
+                onBrowse: () =>
+                    _pickDirectory(c, key: 'downloadDirectory', current: s.downloadDirectory),
+              ),
+              _DirectoryRow(
+                label: '曲库目录',
+                value: s.libraryDirectory,
+                onBrowse: () =>
+                    _pickDirectory(c, key: 'libraryDirectory', current: s.libraryDirectory),
+              ),
               InfoRow(label: '数据目录', value: loaded.dataDir, copyable: true),
               InfoRow(label: '设置文件', value: loaded.settingsFile, copyable: true, monospace: true),
               const SizedBox(height: 8),
               Text(
-                '目录选择会在后续版本里用系统对话框提供，目前只能在这里查看。',
+                '下载目录与曲库目录可以用系统对话框选择；数据目录由启动参数或程序所在位置决定，改不了。',
                 style: TextStyle(color: res.textFillColorSecondary, fontSize: 12),
               ),
             ],
@@ -255,6 +277,43 @@ class _SettingsPageState extends State<SettingsPage> {
           isLong: true,
         ),
       ],
+    );
+  }
+}
+
+/// 目录行：路径可选中复制，右边的按钮打开系统目录对话框。
+class _DirectoryRow extends StatelessWidget {
+  const _DirectoryRow({
+    required this.label,
+    required this.value,
+    required this.onBrowse,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onBrowse;
+
+  @override
+  Widget build(BuildContext context) {
+    final res = FluentTheme.of(context).resources;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: res.textFillColorSecondary),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(value, style: const TextStyle(fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Button(onPressed: onBrowse, child: const Text('浏览…')),
+        ],
+      ),
     );
   }
 }

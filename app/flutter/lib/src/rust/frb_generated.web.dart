@@ -9,6 +9,7 @@
 import 'api/app.dart';
 import 'api/batch.dart';
 import 'api/download.dart';
+import 'api/editor.dart';
 import 'api/library.dart';
 import 'api/login.dart';
 import 'api/lyrics.dart';
@@ -254,6 +255,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoverSizeResultDto dco_decode_cover_size_result_dto(dynamic raw);
 
   @protected
+  DropFileDto dco_decode_drop_file_dto(dynamic raw);
+
+  @protected
+  DropResolutionDto dco_decode_drop_resolution_dto(dynamic raw);
+
+  @protected
   EditorFieldsDto dco_decode_editor_fields_dto(dynamic raw);
 
   @protected
@@ -291,6 +298,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BatchResultDto> dco_decode_list_batch_result_dto(dynamic raw);
+
+  @protected
+  List<DropFileDto> dco_decode_list_drop_file_dto(dynamic raw);
 
   @protected
   List<LocalMatchDto> dco_decode_list_local_match_dto(dynamic raw);
@@ -953,6 +963,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  DropFileDto sse_decode_drop_file_dto(SseDeserializer deserializer);
+
+  @protected
+  DropResolutionDto sse_decode_drop_resolution_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   EditorFieldsDto sse_decode_editor_fields_dto(SseDeserializer deserializer);
 
   @protected
@@ -1000,6 +1018,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BatchResultDto> sse_decode_list_batch_result_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<DropFileDto> sse_decode_list_drop_file_dto(SseDeserializer deserializer);
 
   @protected
   List<LocalMatchDto> sse_decode_list_local_match_dto(
@@ -1846,6 +1867,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_drop_file_dto(DropFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_drop_resolution_dto(
+    DropResolutionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_editor_fields_dto(
     EditorFieldsDto self,
     SseSerializer serializer,
@@ -1908,6 +1938,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_batch_result_dto(
     List<BatchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_drop_file_dto(
+    List<DropFileDto> self,
     SseSerializer serializer,
   );
 

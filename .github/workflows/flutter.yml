@@ -1,0 +1,73 @@
+name: Flutter
+
+# 对 GUI-Flutter 分支跑 Flutter 侧的分析、测试与 Windows 打包（便携版 zip）。
+# 与 ci.yml 分开，main 上的 Tauri 检查不受影响。
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - GUI-Flutter
+  pull_request:
+    branches:
+      - GUI-Flutter
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: analyze / test / 打包便携版
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 安装 Rust（stable，MSVC）
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Cargo 构建
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app
+
+      # cargo fmt --check、clippy -D warnings、cargo test --workspace、pnpm build（tsc + vite）。
+      - name: 检查与测试
+        run: ./build.ps1 -Test
+
+      - name: Flutter 静态检查与单元测试
+        working-directory: app/flutter
+        run: |
+          flutter pub get
+          flutter analyze --no-pub
+          flutter test --no-pub
+
+      # flutter build windows --release + dist-release 下的便携版 zip 与校验值。
+      - name: 打包便携版
+        run: ./scripts/bundle-flutter.ps1
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: LunaticPrincess-flutter-win-x64
+          path: dist-release/*
+          if-no-files-found: error
+          retention-days: 14

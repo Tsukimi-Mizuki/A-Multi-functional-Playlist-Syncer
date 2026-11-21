@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:lunatic_princess/file_dialogs.dart';
 import 'package:lunatic_princess/src/rust/api/lyrics.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
 
@@ -133,6 +134,14 @@ class _WordLyricsDialogState extends State<_WordLyricsDialog> {
         return;
       }
     }
+  }
+
+  /// 用系统目录对话框挑要处理的目录，选好立刻扫描。
+  Future<void> _pickFolder() async {
+    final picked = await pickDirectory(initialDirectory: _folder.text.trim());
+    if (picked == null || !mounted) return;
+    setState(() => _folder.text = picked);
+    await _scan();
   }
 
   Future<void> _scan() async {
@@ -575,6 +584,11 @@ class _WordLyricsDialogState extends State<_WordLyricsDialog> {
                   enabled: !_busy,
                   onSubmitted: (_) => unawaited(_scan()),
                 ),
+              ),
+              const SizedBox(width: 8),
+              Button(
+                onPressed: _busy ? null : () => unawaited(_pickFolder()),
+                child: const Text('浏览…'),
               ),
               const SizedBox(width: 8),
               Button(

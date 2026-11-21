@@ -250,6 +250,12 @@ class AppController extends ChangeNotifier {
     await saveSettings({'theme': _kThemeModeNames[m] ?? 'System'});
   }
 
+  /// 弹一条一次性提示（例如拖入的东西里没有可用的音频）。
+  void showNotice(String message) {
+    notice = message;
+    _notify();
+  }
+
   void clearNotice() {
     if (notice == null) return;
     notice = null;

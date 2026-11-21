@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:lunatic_princess/file_dialogs.dart';
 import 'package:lunatic_princess/src/rust/api/batch.dart';
 import 'package:lunatic_princess/src/rust/api/online.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
@@ -265,6 +266,14 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     for (final field in _fields) {
       _controllers[field.name]!.text = _common(field.name).value;
     }
+  }
+
+  /// 用系统目录对话框换要扫描的目录，选好立刻扫描。
+  Future<void> _pickFolder() async {
+    final picked = await pickDirectory(initialDirectory: _folderController.text.trim());
+    if (picked == null || !mounted) return;
+    setState(() => _folderController.text = picked);
+    await _scan();
   }
 
   Future<void> _scan() async {
@@ -965,6 +974,11 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
               placeholder: '包含音频文件的目录',
               onSubmitted: (_) => unawaited(_scan()),
             ),
+          ),
+          const SizedBox(width: 8),
+          Button(
+            onPressed: enabled ? () => unawaited(_pickFolder()) : null,
+            child: const Text('浏览…'),
           ),
           const SizedBox(width: 8),
           Button(

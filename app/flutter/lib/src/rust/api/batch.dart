@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `progress_sink`, `publish_batch_progress`, `to_request`
+// These functions are ignored because they are not marked as `pub`: `into_request`, `progress_sink`, `publish_batch_progress`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`
 
 /// 订阅批量任务的进度（只保留最后一个订阅者）。

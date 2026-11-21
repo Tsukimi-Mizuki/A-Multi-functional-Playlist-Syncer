@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart' as acrylic;
 import 'package:lunatic_princess/controller.dart';
@@ -7,9 +8,12 @@ import 'package:lunatic_princess/pages/log_page.dart';
 import 'package:lunatic_princess/pages/overview_page.dart';
 import 'package:lunatic_princess/pages/playlist_page.dart';
 import 'package:lunatic_princess/pages/settings_page.dart';
+import 'package:lunatic_princess/src/rust/api/editor.dart';
+import 'package:lunatic_princess/widgets/batch_tags_dialog.dart';
 import 'package:lunatic_princess/widgets/login_dialog.dart';
 import 'package:lunatic_princess/widgets/ncm_import_dialog.dart';
 import 'package:lunatic_princess/widgets/sidebar.dart';
+import 'package:lunatic_princess/widgets/tag_editor_dialog.dart';
 import 'package:lunatic_princess/widgets/window_buttons.dart';
 import 'package:lunatic_princess/widgets/word_lyrics_dialog.dart';
 import 'package:window_manager/window_manager.dart';
@@ -143,33 +147,87 @@ class _StartupErrorPage extends StatelessWidget {
   }
 }
 
-class AppShell extends StatelessWidget {
+/// 主外壳：标题栏 + 侧边栏 + 页面，同时接收从资源管理器拖进来的文件。
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.controller});
 
   final AppController controller;
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  bool _dragging = false;
+  bool _handlingDrop = false;
+
+  AppController get _controller => widget.controller;
+
+  /// 拖入的文件先交给 lp-core 解析：一首开编辑器，多首（或含多首的文件夹）开批量面板，
+  /// 只有 .ncm 时提示去「导入 NCM」。有对话框盖在界面上时不接收，避免塞到看不见的窗口里。
+  Future<void> _handleDrop(List<String> paths) async {
+    setState(() => _dragging = false);
+    if (paths.isEmpty || _handlingDrop) return;
+    if (Navigator.of(context).canPop()) return;
+    _handlingDrop = true;
+    try {
+      final result = await resolveDropPaths(paths: paths);
+      if (!mounted) return;
+      switch (result.kind) {
+        case 'audio':
+          final path = result.path;
+          if (path != null) await showTagEditorDialog(context, path);
+        case 'batch':
+          final folder = result.files.isEmpty
+              ? ''
+              : _directoryOf(result.files.first.path);
+          await showBatchTagsDialog(context, initialFolder: folder);
+        case 'ncm':
+          await showNcmImportDialog(context);
+        default:
+          _controller.showNotice(result.message);
+      }
+    } catch (error) {
+      if (mounted) _controller.showNotice('载入拖入的文件失败：$error');
+    } finally {
+      _handlingDrop = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = controller;
+    final c = _controller;
     // 侧边栏宽 320 逻辑像素，窗口再窄就只留图标（Win11 的紧凑态）。
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 1008;
-        return Column(
-          children: [
-            _AppTitleBar(controller: c),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _dragging = true),
+      onDragExited: (_) => setState(() => _dragging = false),
+      onDragDone: (details) => unawaited(
+        _handleDrop(details.files.map((file) => file.path).toList()),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 1008;
+          return Stack(
+            children: [
+              Column(
                 children: [
-                  AppSidebar(controller: c, compact: compact),
-                  Expanded(child: _buildPage(c)),
+                  _AppTitleBar(controller: c),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppSidebar(controller: c, compact: compact),
+                        Expanded(child: _buildPage(c)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
-        );
-      },
+              if (_dragging) const Positioned.fill(child: _DropOverlay()),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -185,6 +243,43 @@ class AppShell extends StatelessWidget {
         return PlaylistPage(controller: c);
     }
   }
+}
+
+/// 拖放提示层：鼠标拖到窗口上时盖住界面，说明松手会发生什么。
+class _DropOverlay extends StatelessWidget {
+  const _DropOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FluentTheme.of(context);
+    return IgnorePointer(
+      child: Container(
+        color: theme.accentColor.withValues(alpha: 0.10),
+        alignment: Alignment.center,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.resources.solidBackgroundFillColorBase,
+            border: Border.all(color: theme.accentColor, width: 2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+            child: Text(
+              '松开以打开：一首歌用编辑器打开，多首交给批量修改标签',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 取文件所在目录（拖入的文件夹展开后的第一个文件的上级目录）。
+String _directoryOf(String path) {
+  final index = path.lastIndexOf(RegExp(r'[\\/]'));
+  if (index <= 0) return path;
+  return path.substring(0, index);
 }
 
 class _AppTitleBar extends StatelessWidget {

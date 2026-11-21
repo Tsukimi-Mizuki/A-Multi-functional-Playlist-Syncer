@@ -244,8 +244,31 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用临时预览入口（`probe_m7b.dart`，用完已删）做了 DPI-aware 截图：面板右上方是「在线获取」+「覆盖已有标签与歌词」+「同时获取歌词」+「逐行歌词」与来源 / 阈值说明，底栏是「在线获取（全部 71 首）」「保存修改」「关闭」。
 - 还没验证：真实整批写盘（会改夹具与真实音乐文件，没有跑）、`busy` / 取消 / 失败分支的实际界面、覆盖已有标签时的合并结果。
 
+## 第 12 步：打包收尾（M8）
+
+最后一轮补上外壳级的东西：系统文件对话框、拖放、版本号 3.0.0、便携版打包脚本与 CI、大歌单压测。Tauri 版的 41 条命令到这里全部有对应的 Flutter 实现。
+
+- 新增依赖 `file_selector`（解析到 1.1.0）与 `desktop_drop`（0.8.4），`app/flutter/windows/flutter/generated_plugin_registrant.cc` 里自动注册了 `FileSelectorWindows` 与 `DesktopDrop`。
+- 文件对话框集中在新文件 `app/flutter/lib/file_dialogs.dart`：`pickDirectory({initialDirectory, confirmButtonText})` 与 `pickCoverImage({initialDirectory})`（图片扩展名 png / jpg / jpeg / gif / bmp / webp），取消与异常都返回 null；初始目录不存在时先过滤掉，免得对话框每次弹在无效路径上。
+- 接进五处：设置页的下载目录 / 曲库目录换成「值 + 浏览…」（选中即写设置）、批量修改标签面板的目录行、歌词转逐字窗口的目录行、NCM 导入的文件夹与输出目录、单曲编辑器的封面区（「更换封面…」走 `tag_cover_file` 转成 `CoverInfoDto`，保存时才写盘；换错了可以「取消更换封面」）。
+- 拖放走桥接层新增的 `app/crates/lp-bridge/src/api/editor.rs`：`resolve_drop_paths(paths)` 直接调 `lp_core::editor::resolve_drop`，返回 `{ kind, path, fileName, message, resolvedCount, total, files }`，`kind` 是 `audio` / `batch` / `ncm` / `error`。判定规则（哪些算音频、文件夹里有没有音频、被 UIPI 挡住时提示什么）都在 `lp-core`，桥接层只转 DTO。
+- 界面在 `app/flutter/lib/app.dart`：`AppShell` 从 StatelessWidget 改成 StatefulWidget，外层套 `DropTarget`；拖进来时叠一层半透明遮罩与提示「松开以打开：一首歌用编辑器打开，多首交给批量修改标签」。松手后按 `kind` 路由：单曲开编辑器、多首 / 文件夹开批量修改标签（起始目录取第一个文件所在目录）、`.ncm` 开导入窗口、其它情况把 `message` 作为提示显示。有对话框盖着时不接拖放（`Navigator.canPop()` 直接返回）。
+- 版本号从 2.3.1 升到 3.0.0：`app/Cargo.toml` 的 `[workspace.package] version`、`app/package.json`、`app/src-tauri/tauri.conf.json`、`app/flutter/pubspec.yaml`（`version: 3.0.0+1`）一起改，`app/Cargo.lock` 已刷新。界面显示的版本来自 `lp_core::app_info()`，所以设置为里看到的也是 3.0.0。
+- 新增 `scripts/bundle-flutter.ps1`：`flutter build windows --release --no-pub` → 复制产物到 `build/portable` → 写一个说明便携模式与 `data\` 用途的 `data/README.txt` → 压成 `dist-release/LunaticPrincess-<版本>-win-x64-flutter-portable.zip` → 追加 `dist-release/SHA256SUMS-flutter.txt`。脚本是纯 ASCII（PowerShell 5.1 按 ANSI 读无 BOM 脚本），版本号默认从 `pubspec.yaml` 的 `version:` 取、可用 `-Version` 覆盖。
+- 新增 `.github/workflows/flutter.yml`：`GUI-Flutter` 分支的 push / PR 与手动触发，跑 `flutter-action` + Rust 工具链 + 缓存 → `./build.ps1 -Test` → `flutter analyze` / `flutter test` → `bundle-flutter.ps1` → 上传 zip 与校验和。原有的 `ci.yml` / `main.yml` 仍只覆盖 Tauri 版。
+- 安装包（NSIS / MSIX）没有做：本机没有 NSIS（`%LOCALAPPDATA%\tauri` 不存在、也找不到 `makensis`），Tauri 的 bundle 流程无法直接套到 Flutter 产物上；这一轮交付便携版 zip。要安装包就得另外给 Flutter 产物写 NSIS 脚本，并把 `main.yml` 的发布流程切过去。
+
+### 验证
+
+- Rust 测试从 1271 变成 1274 个：桥接层新增 3 个（四种拖放类型名稳定、空目标得到带原因的 error、文件列表与计数转换）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`build.ps1 -Test` 全过。
+- 便携版真跑过：`bundle-flutter.ps1` 打出 14.7 MB 的 zip（`LunaticPrincess-3.0.0-win-x64-flutter-portable.zip`，SHA256 `ccab7c09ba379766ec09e39097eaeb1d956344a5ea86df5587380387f29c972d`），解压后含 exe 与 `lp_bridge.dll` / `flutter_windows.dll` / `desktop_drop_plugin.dll` / `file_selector_windows_plugin.dll` 与 `data/README.txt`；直接运行会在旁边建出 `data/Music`，设置里显示「便携模式（数据在程序目录）」，标题栏的「导入 NCM」「歌词转逐字」入口都在。截图 `D:/claude/m8-portable.png`。
+- 大歌单压测：临时预览入口（`probe_stress.dart`，用完已删）伪造 3000 首歌的歌单与对应本地匹配结果，首帧 24 ms，列表照常虚拟化滚动（`ListView.builder`）。截图 `D:/claude/m8-stress.png`。
+- 还没验证：系统文件对话框和拖放的真实交互——想用预览入口直接 `pickDirectory()` 截图，但系统对话框抢前台后截图脚本抓到的总是别的窗口，最后只在代码级与插件注册表层面确认（插件已注册、带插件的便携版能正常启动）。这一项留给实机点一次「浏览…」和真拖一个文件。
+- 还没验证：安装包（NSIS / MSIX）、CI 工作流在 GitHub 上的首次运行、大歌单下的搜索与拖放交互。
+
 ## 下一步
 
-
-1. M8 打包收尾：文件对话框（`file_selector`，替换现在所有的路径文本框）、拖放（把文件或文件夹拖进批量面板与 NCM 导入窗口）、安装包与便携版 / CI、版本号 3.0.0、大歌单压测与整体回归。
-2. 之后把 `GUI-Flutter` 追平后再考虑合并回 `main`。
+1. 实机回归：拖放、五个「浏览…」入口、3000 首歌单的滚动与搜索，发现的问题按里程碑回补。
+2. 安装包与发布：给 Flutter 产物写 NSIS（或 MSIX）脚本，把 `main.yml` 的 tag 发布切到这条件流水线，更新 README 里的下载说明。
+3. 之后 `GUI-Flutter` 追平再考虑合并回 `main`。

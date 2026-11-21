@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:lunatic_princess/file_dialogs.dart';
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/online.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
@@ -681,6 +682,32 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
     );
   }
 
+  /// 从本地挑一张图片当新封面。大小与图片格式由 lp-core 校验，错误显示在顶部信息条。
+  Future<void> _pickCover() async {
+    if (_saving) return;
+    final file = await pickCoverImage();
+    if (file == null || !mounted) return;
+    try {
+      final cover = await tagCoverFile(path: file.path);
+      if (!mounted) return;
+      setState(() {
+        _newCover = CoverInfoDto(
+          mimeType: cover.mimeType,
+          base64: cover.base64,
+          size: cover.size,
+          width: cover.width,
+          height: cover.height,
+        );
+        _newCoverOrigin = cover.fileName;
+        _cover = _CoverMode.replace;
+        _saveError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saveError = '更换封面失败：$error');
+    }
+  }
+
   Widget _buildCoverColumn(FluentThemeData theme, TagViewDto view) {
     final res = theme.resources;
     final newCover = _cover == _CoverMode.replace ? _newCover : null;
@@ -725,31 +752,41 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
             ),
           ],
           const SizedBox(height: 8),
-          if (_cover == _CoverMode.replace)
-            Button(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() {
-                      _cover = _CoverMode.keep;
-                      _newCover = null;
-                      _newCoverOrigin = null;
-                    }),
-              child: const Text('取消更换封面'),
-            )
-          else if (view.hasCover && _cover == _CoverMode.keep)
-            Button(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() => _cover = _CoverMode.remove),
-              child: const Text('移除封面'),
-            )
-          else if (_cover == _CoverMode.remove)
-            Button(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() => _cover = _CoverMode.keep),
-              child: const Text('恢复封面'),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Button(
+                onPressed: _saving ? null : () => unawaited(_pickCover()),
+                child: const Text('更换封面…'),
+              ),
+              if (_cover == _CoverMode.replace)
+                Button(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() {
+                          _cover = _CoverMode.keep;
+                          _newCover = null;
+                          _newCoverOrigin = null;
+                        }),
+                  child: const Text('取消更换封面'),
+                )
+              else if (view.hasCover && _cover == _CoverMode.keep)
+                Button(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _cover = _CoverMode.remove),
+                  child: const Text('移除封面'),
+                )
+              else if (_cover == _CoverMode.remove)
+                Button(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _cover = _CoverMode.keep),
+                  child: const Text('恢复封面'),
+                ),
+            ],
+          ),
           const SizedBox(height: 16),
           _infoLine(theme, '格式', view.fileFormat ?? '未知'),
           _infoLine(theme, '时长', formatDuration(view.durationMs)),

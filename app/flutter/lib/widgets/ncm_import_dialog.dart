@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:lunatic_princess/file_dialogs.dart';
 import 'package:lunatic_princess/format.dart';
 import 'package:lunatic_princess/src/rust/api/ncm.dart';
 
@@ -182,8 +183,26 @@ class _NcmImportDialogState extends State<_NcmImportDialog> {
     return '（${parts.join('，')}）';
   }
 
-  Future<void> _addFolder() async {
-    final text = _folderInput.text.trim();
+  Future<void> _addFolder() => _addFolderPath(_folderInput.text.trim());
+
+  /// 用系统目录对话框挑一个 NCM 文件夹，直接加进列表。
+  Future<void> _pickFolder() async {
+    final picked = await pickDirectory(initialDirectory: _folderInput.text.trim());
+    if (picked == null || !mounted) return;
+    await _addFolderPath(picked);
+  }
+
+  /// 输出目录也走系统对话框；选好只改输入框，开始解密时才写入设置。
+  Future<void> _pickOutput() async {
+    final picked = await pickDirectory(
+      initialDirectory: _output.text.trim(),
+      confirmButtonText: '选择输出目录',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _output.text = picked);
+  }
+
+  Future<void> _addFolderPath(String text) async {
     if (text.isEmpty) {
       setState(() {
         _problem = true;
@@ -432,6 +451,11 @@ class _NcmImportDialogState extends State<_NcmImportDialog> {
             ),
             const SizedBox(width: 8),
             Button(
+              onPressed: _busy ? null : () => unawaited(_pickFolder()),
+              child: const Text('浏览…'),
+            ),
+            const SizedBox(width: 8),
+            Button(
               onPressed: _busy ? null : () => unawaited(_addFolder()),
               child: const Text('添加文件夹'),
             ),
@@ -486,11 +510,22 @@ class _NcmImportDialogState extends State<_NcmImportDialog> {
       children: [
         const Text('输出目录', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        TextBox(
-          controller: _output,
-          enabled: !_busy,
-          placeholder: '解密后的文件放在哪里，例如 D:/音乐/解密',
-          onSubmitted: (_) => unawaited(_saveState()),
+        Row(
+          children: [
+            Expanded(
+              child: TextBox(
+                controller: _output,
+                enabled: !_busy,
+                placeholder: '解密后的文件放在哪里，例如 D:/音乐/解密',
+                onSubmitted: (_) => unawaited(_saveState()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Button(
+              onPressed: _busy ? null : () => unawaited(_pickOutput()),
+              child: const Text('浏览…'),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
         Text(
