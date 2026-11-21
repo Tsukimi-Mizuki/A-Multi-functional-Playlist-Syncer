@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use lp_core::editor::priority_label;
 use lp_core::models::LyricsSourceKind;
 use lp_core::online::manager::{
     FallbackRequest, FileContext, LoadRequest, SearchRequest, TagCandidatesRequest, TagLoadRequest,
@@ -438,6 +439,10 @@ pub struct EditorOptionsDto {
     pub prefer_word_lyrics: bool,
     pub threshold: f64,
     pub threshold_percent: String,
+    /// 批量修改标签窗口显示的标签 / 封面来源优先级文案（来自设置）。
+    pub tag_priority_text: String,
+    /// 批量修改标签窗口显示的歌词来源优先级文案。
+    pub lyrics_priority_text: String,
 }
 
 /// 关键词搜索里的一行。
@@ -647,6 +652,8 @@ pub fn editor_options() -> Result<EditorOptionsDto, String> {
         prefer_word_lyrics: settings.lyrics_editor_prefer_word_lyrics,
         threshold: threshold.threshold,
         threshold_percent: threshold.percent,
+        tag_priority_text: priority_label(settings.tag_source_priority).to_owned(),
+        lyrics_priority_text: priority_label(settings.lyrics_source_priority).to_owned(),
     })
 }
 
