@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 856232698;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2069206045;
 
 // Section: executor
 
@@ -1393,6 +1393,42 @@ fn wire__crate__api__app__recent_logs_impl(
         },
     )
 }
+fn wire__crate__api__editor__resolve_drop_paths_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "resolve_drop_paths",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_paths = <Vec<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::editor::resolve_drop_paths(api_paths).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__settings__save_settings_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2554,6 +2590,42 @@ impl SseDecode for crate::api::online::CoverSizeResultDto {
     }
 }
 
+impl SseDecode for crate::api::editor::DropFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_size = <i64>::sse_decode(deserializer);
+        return crate::api::editor::DropFileDto {
+            path: var_path,
+            name: var_name,
+            size: var_size,
+        };
+    }
+}
+
+impl SseDecode for crate::api::editor::DropResolutionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_kind = <String>::sse_decode(deserializer);
+        let mut var_path = <Option<String>>::sse_decode(deserializer);
+        let mut var_fileName = <Option<String>>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        let mut var_resolvedCount = <i64>::sse_decode(deserializer);
+        let mut var_total = <i64>::sse_decode(deserializer);
+        let mut var_files = <Vec<crate::api::editor::DropFileDto>>::sse_decode(deserializer);
+        return crate::api::editor::DropResolutionDto {
+            kind: var_kind,
+            path: var_path,
+            file_name: var_fileName,
+            message: var_message,
+            resolved_count: var_resolvedCount,
+            total: var_total,
+            files: var_files,
+        };
+    }
+}
+
 impl SseDecode for crate::api::tags::EditorFieldsDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2757,6 +2829,18 @@ impl SseDecode for Vec<crate::api::batch::BatchResultDto> {
             ans_.push(<crate::api::batch::BatchResultDto>::sse_decode(
                 deserializer,
             ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::editor::DropFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::editor::DropFileDto>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -4702,46 +4786,47 @@ fn pde_ffi_dispatcher_primary_impl(
         35 => wire__crate__api__tags__read_tag_rows_impl(port, ptr, rust_vec_len, data_len),
         36 => wire__crate__api__tags__read_tags_impl(port, ptr, rust_vec_len, data_len),
         37 => wire__crate__api__app__recent_logs_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__batch__watch_batch_progress_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__library__watch_library_progress_impl(
+        38 => wire__crate__api__editor__resolve_drop_paths_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__batch__watch_batch_progress_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__library__watch_library_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        50 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__ncm__watch_ncm_progress_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__download__watch_transfer_progress_impl(
+        51 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__ncm__watch_ncm_progress_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__download__watch_transfer_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        53 => wire__crate__api__download__watch_transfer_started_impl(
+        54 => wire__crate__api__download__watch_transfer_started_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        54 => wire__crate__api__lyrics__watch_word_lyrics_progress_impl(
+        55 => wire__crate__api__lyrics__watch_word_lyrics_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        55 => wire__crate__api__lyrics__word_lyrics_apply_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__lyrics__word_lyrics_cancel_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__lyrics__word_lyrics_preview_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__lyrics__word_lyrics_apply_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__lyrics__word_lyrics_cancel_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__lyrics__word_lyrics_preview_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -5181,6 +5266,54 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::online::CoverSizeResultDto>
     for crate::api::online::CoverSizeResultDto
 {
     fn into_into_dart(self) -> crate::api::online::CoverSizeResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::editor::DropFileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.size.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::editor::DropFileDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::editor::DropFileDto>
+    for crate::api::editor::DropFileDto
+{
+    fn into_into_dart(self) -> crate::api::editor::DropFileDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::editor::DropResolutionDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.kind.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.file_name.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.resolved_count.into_into_dart().into_dart(),
+            self.total.into_into_dart().into_dart(),
+            self.files.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::editor::DropResolutionDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::editor::DropResolutionDto>
+    for crate::api::editor::DropResolutionDto
+{
+    fn into_into_dart(self) -> crate::api::editor::DropResolutionDto {
         self
     }
 }
@@ -7118,6 +7251,28 @@ impl SseEncode for crate::api::online::CoverSizeResultDto {
     }
 }
 
+impl SseEncode for crate::api::editor::DropFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <i64>::sse_encode(self.size, serializer);
+    }
+}
+
+impl SseEncode for crate::api::editor::DropResolutionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.kind, serializer);
+        <Option<String>>::sse_encode(self.path, serializer);
+        <Option<String>>::sse_encode(self.file_name, serializer);
+        <String>::sse_encode(self.message, serializer);
+        <i64>::sse_encode(self.resolved_count, serializer);
+        <i64>::sse_encode(self.total, serializer);
+        <Vec<crate::api::editor::DropFileDto>>::sse_encode(self.files, serializer);
+    }
+}
+
 impl SseEncode for crate::api::tags::EditorFieldsDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7253,6 +7408,16 @@ impl SseEncode for Vec<crate::api::batch::BatchResultDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::batch::BatchResultDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::editor::DropFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::editor::DropFileDto>::sse_encode(item, serializer);
         }
     }
 }

@@ -3,6 +3,7 @@
 pub mod app;
 pub mod batch;
 pub mod download;
+pub mod editor;
 pub mod library;
 pub mod login;
 pub mod lyrics;
