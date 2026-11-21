@@ -8,6 +8,7 @@ import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
 import 'api/lyrics.dart';
+import 'api/ncm.dart';
 import 'api/online.dart';
 import 'api/playlists.dart';
 import 'api/settings.dart';
@@ -77,7 +78,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -137902079;
+  int get rustContentHash => 1774197598;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -153,6 +154,21 @@ abstract class RustLibApi extends BaseApi {
     String? album,
     required bool wordLyrics,
   });
+
+  Future<bool> crateApiNcmNcmCancel();
+
+  Future<NcmDialogStateDto> crateApiNcmNcmGetState();
+
+  Future<NcmSummaryDto> crateApiNcmNcmImport({
+    required NcmImportRequestDto request,
+  });
+
+  Future<bool> crateApiNcmNcmSaveState({
+    required List<String> folders,
+    required String outputDirectory,
+  });
+
+  Future<NcmScanDto> crateApiNcmNcmScan({required List<String> folders});
 
   Future<CoverSizeResultDto> crateApiOnlineOnlineCoverSize({
     required OnlineSongDto song,
@@ -236,6 +252,8 @@ abstract class RustLibApi extends BaseApi {
   Stream<ScanProgressDto> crateApiLibraryWatchLibraryProgress();
 
   Stream<LogEntryDto> crateApiAppWatchLogs();
+
+  Stream<NcmProgressDto> crateApiNcmWatchNcmProgress();
 
   Stream<TransferProgressDto> crateApiDownloadWatchTransferProgress();
 
@@ -827,6 +845,152 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<bool> crateApiNcmNcmCancel() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiNcmNcmCancelConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNcmNcmCancelConstMeta =>
+      const TaskConstMeta(debugName: "ncm_cancel", argNames: []);
+
+  @override
+  Future<NcmDialogStateDto> crateApiNcmNcmGetState() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ncm_dialog_state_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiNcmNcmGetStateConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNcmNcmGetStateConstMeta =>
+      const TaskConstMeta(debugName: "ncm_get_state", argNames: []);
+
+  @override
+  Future<NcmSummaryDto> crateApiNcmNcmImport({
+    required NcmImportRequestDto request,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_ncm_import_request_dto(request, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ncm_summary_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiNcmNcmImportConstMeta,
+        argValues: [request],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNcmNcmImportConstMeta =>
+      const TaskConstMeta(debugName: "ncm_import", argNames: ["request"]);
+
+  @override
+  Future<bool> crateApiNcmNcmSaveState({
+    required List<String> folders,
+    required String outputDirectory,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_String(folders, serializer);
+          sse_encode_String(outputDirectory, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 22,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiNcmNcmSaveStateConstMeta,
+        argValues: [folders, outputDirectory],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNcmNcmSaveStateConstMeta => const TaskConstMeta(
+    debugName: "ncm_save_state",
+    argNames: ["folders", "outputDirectory"],
+  );
+
+  @override
+  Future<NcmScanDto> crateApiNcmNcmScan({required List<String> folders}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_String(folders, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ncm_scan_dto,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiNcmNcmScanConstMeta,
+        argValues: [folders],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNcmNcmScanConstMeta =>
+      const TaskConstMeta(debugName: "ncm_scan", argNames: ["folders"]);
+
+  @override
   Future<CoverSizeResultDto> crateApiOnlineOnlineCoverSize({
     required OnlineSongDto song,
   }) {
@@ -838,7 +1002,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 24,
             port: port_,
           );
         },
@@ -874,7 +1038,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 25,
             port: port_,
           );
         },
@@ -909,7 +1073,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 26,
             port: port_,
           );
         },
@@ -946,7 +1110,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 27,
             port: port_,
           );
         },
@@ -980,7 +1144,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1017,7 +1181,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1049,7 +1213,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1077,7 +1241,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1104,7 +1268,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1134,7 +1298,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1162,7 +1326,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1189,7 +1353,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1217,7 +1381,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1244,7 +1408,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1274,7 +1438,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1302,7 +1466,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1330,7 +1494,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1368,7 +1532,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1400,7 +1564,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1427,7 +1591,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1454,7 +1618,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1484,7 +1648,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 40,
+              funcId: 45,
               port: port_,
             );
           },
@@ -1516,7 +1680,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 41,
+              funcId: 46,
               port: port_,
             );
           },
@@ -1551,7 +1715,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 42,
+              funcId: 47,
               port: port_,
             );
           },
@@ -1572,6 +1736,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "watch_logs", argNames: ["sink"]);
 
   @override
+  Stream<NcmProgressDto> crateApiNcmWatchNcmProgress() {
+    final sink = RustStreamSink<NcmProgressDto>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_StreamSink_ncm_progress_dto_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 48,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_String,
+          ),
+          constMeta: kCrateApiNcmWatchNcmProgressConstMeta,
+          argValues: [sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiNcmWatchNcmProgressConstMeta =>
+      const TaskConstMeta(debugName: "watch_ncm_progress", argNames: ["sink"]);
+
+  @override
   Stream<TransferProgressDto> crateApiDownloadWatchTransferProgress() {
     final sink = RustStreamSink<TransferProgressDto>();
     unawaited(
@@ -1583,7 +1779,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 43,
+              funcId: 49,
               port: port_,
             );
           },
@@ -1618,7 +1814,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 44,
+              funcId: 50,
               port: port_,
             );
           },
@@ -1656,7 +1852,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 45,
+              funcId: 51,
               port: port_,
             );
           },
@@ -1691,7 +1887,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 52,
             port: port_,
           );
         },
@@ -1718,7 +1914,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 53,
             port: port_,
           );
         },
@@ -1748,7 +1944,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 54,
             port: port_,
           );
         },
@@ -1785,6 +1981,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   RustStreamSink<LogEntryDto> dco_decode_StreamSink_log_entry_dto_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<NcmProgressDto> dco_decode_StreamSink_ncm_progress_dto_Sse(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -2058,6 +2262,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MatchScoreDto dco_decode_box_autoadd_match_score_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_match_score_dto(raw);
+  }
+
+  @protected
+  NcmFileResultDto dco_decode_box_autoadd_ncm_file_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_ncm_file_result_dto(raw);
+  }
+
+  @protected
+  NcmImportRequestDto dco_decode_box_autoadd_ncm_import_request_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_ncm_import_request_dto(raw);
   }
 
   @protected
@@ -2363,6 +2581,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<NcmFileDto> dco_decode_list_ncm_file_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ncm_file_dto).toList();
+  }
+
+  @protected
+  List<NcmFileResultDto> dco_decode_list_ncm_file_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_ncm_file_result_dto).toList();
+  }
+
+  @protected
   List<OnlineSearchItemDto> dco_decode_list_online_search_item_dto(
     dynamic raw,
   ) {
@@ -2645,6 +2875,117 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NcmDialogStateDto dco_decode_ncm_dialog_state_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return NcmDialogStateDto(
+      folders: dco_decode_list_String(arr[0]),
+      outputDirectory: dco_decode_String(arr[1]),
+      downloadDirectory: dco_decode_String(arr[2]),
+      onlineMatchAvailable: dco_decode_bool(arr[3]),
+      onlineMatchHint: dco_decode_String(arr[4]),
+    );
+  }
+
+  @protected
+  NcmFileDto dco_decode_ncm_file_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return NcmFileDto(
+      path: dco_decode_String(arr[0]),
+      name: dco_decode_String(arr[1]),
+      size: dco_decode_i_64(arr[2]),
+    );
+  }
+
+  @protected
+  NcmFileResultDto dco_decode_ncm_file_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return NcmFileResultDto(
+      path: dco_decode_String(arr[0]),
+      success: dco_decode_bool(arr[1]),
+      outputPath: dco_decode_opt_String(arr[2]),
+      outputFileName: dco_decode_opt_String(arr[3]),
+      format: dco_decode_opt_String(arr[4]),
+      errorMessage: dco_decode_opt_String(arr[5]),
+      enrichmentMessage: dco_decode_opt_String(arr[6]),
+      title: dco_decode_opt_String(arr[7]),
+      artists: dco_decode_opt_String(arr[8]),
+      album: dco_decode_opt_String(arr[9]),
+    );
+  }
+
+  @protected
+  NcmImportRequestDto dco_decode_ncm_import_request_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return NcmImportRequestDto(
+      paths: dco_decode_list_String(arr[0]),
+      folders: dco_decode_list_String(arr[1]),
+      outputDirectory: dco_decode_String(arr[2]),
+      overwrite: dco_decode_bool(arr[3]),
+      autoMatchOnline: dco_decode_bool(arr[4]),
+    );
+  }
+
+  @protected
+  NcmProgressDto dco_decode_ncm_progress_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return NcmProgressDto(
+      completed: dco_decode_i_64(arr[0]),
+      total: dco_decode_i_64(arr[1]),
+      index: dco_decode_i_64(arr[2]),
+      path: dco_decode_String(arr[3]),
+      fileName: dco_decode_String(arr[4]),
+      stage: dco_decode_String(arr[5]),
+      message: dco_decode_String(arr[6]),
+      result: dco_decode_opt_box_autoadd_ncm_file_result_dto(arr[7]),
+    );
+  }
+
+  @protected
+  NcmScanDto dco_decode_ncm_scan_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return NcmScanDto(
+      files: dco_decode_list_ncm_file_dto(arr[0]),
+      missingFolders: dco_decode_list_String(arr[1]),
+      skippedDirectories: dco_decode_i_64(arr[2]),
+    );
+  }
+
+  @protected
+  NcmSummaryDto dco_decode_ncm_summary_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return NcmSummaryDto(
+      results: dco_decode_list_ncm_file_result_dto(arr[0]),
+      total: dco_decode_i_64(arr[1]),
+      succeeded: dco_decode_i_64(arr[2]),
+      failed: dco_decode_i_64(arr[3]),
+      cancelled: dco_decode_bool(arr[4]),
+      outputDirectory: dco_decode_String(arr[5]),
+      matchedOnline: dco_decode_i_64(arr[6]),
+    );
+  }
+
+  @protected
   OnlineErrorDto dco_decode_online_error_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2848,6 +3189,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MatchScoreDto? dco_decode_opt_box_autoadd_match_score_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_match_score_dto(raw);
+  }
+
+  @protected
+  NcmFileResultDto? dco_decode_opt_box_autoadd_ncm_file_result_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_ncm_file_result_dto(raw);
   }
 
   @protected
@@ -3544,6 +3893,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<NcmProgressDto> sse_decode_StreamSink_ncm_progress_dto_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<ScanProgressDto> sse_decode_StreamSink_scan_progress_dto_Sse(
     SseDeserializer deserializer,
   ) {
@@ -3856,6 +4213,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_match_score_dto(deserializer));
+  }
+
+  @protected
+  NcmFileResultDto sse_decode_box_autoadd_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_ncm_file_result_dto(deserializer));
+  }
+
+  @protected
+  NcmImportRequestDto sse_decode_box_autoadd_ncm_import_request_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_ncm_import_request_dto(deserializer));
   }
 
   @protected
@@ -4229,6 +4602,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<NcmFileDto> sse_decode_list_ncm_file_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <NcmFileDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ncm_file_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<NcmFileResultDto> sse_decode_list_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <NcmFileResultDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_ncm_file_result_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<OnlineSearchItemDto> sse_decode_list_online_search_item_dto(
     SseDeserializer deserializer,
   ) {
@@ -4595,6 +4994,141 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NcmDialogStateDto sse_decode_ncm_dialog_state_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_folders = sse_decode_list_String(deserializer);
+    var var_outputDirectory = sse_decode_String(deserializer);
+    var var_downloadDirectory = sse_decode_String(deserializer);
+    var var_onlineMatchAvailable = sse_decode_bool(deserializer);
+    var var_onlineMatchHint = sse_decode_String(deserializer);
+    return NcmDialogStateDto(
+      folders: var_folders,
+      outputDirectory: var_outputDirectory,
+      downloadDirectory: var_downloadDirectory,
+      onlineMatchAvailable: var_onlineMatchAvailable,
+      onlineMatchHint: var_onlineMatchHint,
+    );
+  }
+
+  @protected
+  NcmFileDto sse_decode_ncm_file_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_path = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_size = sse_decode_i_64(deserializer);
+    return NcmFileDto(path: var_path, name: var_name, size: var_size);
+  }
+
+  @protected
+  NcmFileResultDto sse_decode_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_path = sse_decode_String(deserializer);
+    var var_success = sse_decode_bool(deserializer);
+    var var_outputPath = sse_decode_opt_String(deserializer);
+    var var_outputFileName = sse_decode_opt_String(deserializer);
+    var var_format = sse_decode_opt_String(deserializer);
+    var var_errorMessage = sse_decode_opt_String(deserializer);
+    var var_enrichmentMessage = sse_decode_opt_String(deserializer);
+    var var_title = sse_decode_opt_String(deserializer);
+    var var_artists = sse_decode_opt_String(deserializer);
+    var var_album = sse_decode_opt_String(deserializer);
+    return NcmFileResultDto(
+      path: var_path,
+      success: var_success,
+      outputPath: var_outputPath,
+      outputFileName: var_outputFileName,
+      format: var_format,
+      errorMessage: var_errorMessage,
+      enrichmentMessage: var_enrichmentMessage,
+      title: var_title,
+      artists: var_artists,
+      album: var_album,
+    );
+  }
+
+  @protected
+  NcmImportRequestDto sse_decode_ncm_import_request_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_paths = sse_decode_list_String(deserializer);
+    var var_folders = sse_decode_list_String(deserializer);
+    var var_outputDirectory = sse_decode_String(deserializer);
+    var var_overwrite = sse_decode_bool(deserializer);
+    var var_autoMatchOnline = sse_decode_bool(deserializer);
+    return NcmImportRequestDto(
+      paths: var_paths,
+      folders: var_folders,
+      outputDirectory: var_outputDirectory,
+      overwrite: var_overwrite,
+      autoMatchOnline: var_autoMatchOnline,
+    );
+  }
+
+  @protected
+  NcmProgressDto sse_decode_ncm_progress_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_completed = sse_decode_i_64(deserializer);
+    var var_total = sse_decode_i_64(deserializer);
+    var var_index = sse_decode_i_64(deserializer);
+    var var_path = sse_decode_String(deserializer);
+    var var_fileName = sse_decode_String(deserializer);
+    var var_stage = sse_decode_String(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    var var_result = sse_decode_opt_box_autoadd_ncm_file_result_dto(
+      deserializer,
+    );
+    return NcmProgressDto(
+      completed: var_completed,
+      total: var_total,
+      index: var_index,
+      path: var_path,
+      fileName: var_fileName,
+      stage: var_stage,
+      message: var_message,
+      result: var_result,
+    );
+  }
+
+  @protected
+  NcmScanDto sse_decode_ncm_scan_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_files = sse_decode_list_ncm_file_dto(deserializer);
+    var var_missingFolders = sse_decode_list_String(deserializer);
+    var var_skippedDirectories = sse_decode_i_64(deserializer);
+    return NcmScanDto(
+      files: var_files,
+      missingFolders: var_missingFolders,
+      skippedDirectories: var_skippedDirectories,
+    );
+  }
+
+  @protected
+  NcmSummaryDto sse_decode_ncm_summary_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_results = sse_decode_list_ncm_file_result_dto(deserializer);
+    var var_total = sse_decode_i_64(deserializer);
+    var var_succeeded = sse_decode_i_64(deserializer);
+    var var_failed = sse_decode_i_64(deserializer);
+    var var_cancelled = sse_decode_bool(deserializer);
+    var var_outputDirectory = sse_decode_String(deserializer);
+    var var_matchedOnline = sse_decode_i_64(deserializer);
+    return NcmSummaryDto(
+      results: var_results,
+      total: var_total,
+      succeeded: var_succeeded,
+      failed: var_failed,
+      cancelled: var_cancelled,
+      outputDirectory: var_outputDirectory,
+      matchedOnline: var_matchedOnline,
+    );
+  }
+
+  @protected
   OnlineErrorDto sse_decode_online_error_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_kind = sse_decode_String(deserializer);
@@ -4938,6 +5472,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_match_score_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  NcmFileResultDto? sse_decode_opt_box_autoadd_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_ncm_file_result_dto(deserializer));
     } else {
       return null;
     }
@@ -5845,6 +6392,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_ncm_progress_dto_Sse(
+    RustStreamSink<NcmProgressDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_ncm_progress_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_StreamSink_scan_progress_dto_Sse(
     RustStreamSink<ScanProgressDto> self,
     SseSerializer serializer,
@@ -6181,6 +6745,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_ncm_file_result_dto(
+    NcmFileResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_ncm_file_result_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_ncm_import_request_dto(
+    NcmImportRequestDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_ncm_import_request_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_online_error_dto(
     OnlineErrorDto self,
     SseSerializer serializer,
@@ -6501,6 +7083,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_ncm_file_dto(
+    List<NcmFileDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ncm_file_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_ncm_file_result_dto(
+    List<NcmFileResultDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_ncm_file_result_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_online_search_item_dto(
     List<OnlineSearchItemDto> self,
     SseSerializer serializer,
@@ -6812,6 +7418,97 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.available, serializer);
     sse_encode_i_64(self.ncm, serializer);
     sse_encode_i_64(self.missing, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_dialog_state_dto(
+    NcmDialogStateDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_String(self.folders, serializer);
+    sse_encode_String(self.outputDirectory, serializer);
+    sse_encode_String(self.downloadDirectory, serializer);
+    sse_encode_bool(self.onlineMatchAvailable, serializer);
+    sse_encode_String(self.onlineMatchHint, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_file_dto(NcmFileDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.path, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_i_64(self.size, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_file_result_dto(
+    NcmFileResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.path, serializer);
+    sse_encode_bool(self.success, serializer);
+    sse_encode_opt_String(self.outputPath, serializer);
+    sse_encode_opt_String(self.outputFileName, serializer);
+    sse_encode_opt_String(self.format, serializer);
+    sse_encode_opt_String(self.errorMessage, serializer);
+    sse_encode_opt_String(self.enrichmentMessage, serializer);
+    sse_encode_opt_String(self.title, serializer);
+    sse_encode_opt_String(self.artists, serializer);
+    sse_encode_opt_String(self.album, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_import_request_dto(
+    NcmImportRequestDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_String(self.paths, serializer);
+    sse_encode_list_String(self.folders, serializer);
+    sse_encode_String(self.outputDirectory, serializer);
+    sse_encode_bool(self.overwrite, serializer);
+    sse_encode_bool(self.autoMatchOnline, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_progress_dto(
+    NcmProgressDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.completed, serializer);
+    sse_encode_i_64(self.total, serializer);
+    sse_encode_i_64(self.index, serializer);
+    sse_encode_String(self.path, serializer);
+    sse_encode_String(self.fileName, serializer);
+    sse_encode_String(self.stage, serializer);
+    sse_encode_String(self.message, serializer);
+    sse_encode_opt_box_autoadd_ncm_file_result_dto(self.result, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_scan_dto(NcmScanDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_ncm_file_dto(self.files, serializer);
+    sse_encode_list_String(self.missingFolders, serializer);
+    sse_encode_i_64(self.skippedDirectories, serializer);
+  }
+
+  @protected
+  void sse_encode_ncm_summary_dto(
+    NcmSummaryDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_ncm_file_result_dto(self.results, serializer);
+    sse_encode_i_64(self.total, serializer);
+    sse_encode_i_64(self.succeeded, serializer);
+    sse_encode_i_64(self.failed, serializer);
+    sse_encode_bool(self.cancelled, serializer);
+    sse_encode_String(self.outputDirectory, serializer);
+    sse_encode_i_64(self.matchedOnline, serializer);
   }
 
   @protected
@@ -7132,6 +7829,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_match_score_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_ncm_file_result_dto(
+    NcmFileResultDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_ncm_file_result_dto(self, serializer);
     }
   }
 

@@ -206,7 +206,27 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用临时预览入口（`probe_m6b.dart`，用完已删）对夹具里的 `21. 夜に駆ける.mp3` 做了 DPI-aware 截图：面板在「标签信息」上方，自动搜到了 20 首候选（网易云音乐 10、QQ 音乐 10），状态行是「找到 20 首歌曲，按匹配度从高到低排序（低于 60% 的已标注）。点击结果载入标签和歌词。」，每行有标题、「歌手 · 专辑」、匹配度与时长，底部阈值提示也在。夹具标签（Queen）与真实歌曲不一致，所以匹配度偏低，属夹具数据。
 - 还没验证：点候选后回填再保存写盘的完整链路、备用词源（酷狗 / LRCLIB）的真实返回、网络失败时的状态行文案——合成点击点不动 Flutter 界面，回填只做了代码级检查。
 
+## 第 10 步：导入并解密 NCM（M7a）
+
+标题栏新增「导入 NCM」窗口：递归查找一批文件夹里的 `.ncm` 文件，解密成 MP3 / FLAC 并写回文件里自带的标签与封面，可选解密后自动在线匹配标签、封面与歌词。批量面板的「在线获取」（`batch_run`）留下一轮。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/ncm.rs` 六个命令：`ncm_get_state()` 返回上次用的文件夹、输出目录、默认下载目录，以及在线匹配是否可用与原因；`ncm_scan(folders)` 只列文件不碰内容，带回 `missingFolders`（不存在的文件夹）与 `skippedDirectories`；`ncm_save_state(folders, output_directory)` 记住这次的选择；`ncm_import(request)` 一轮跑完返回汇总；`ncm_cancel()` 置取消标志；`watch_ncm_progress()` 是逐文件进度流（`stage` 为 `decrypting` / `matching` / `finished`，`finished` 时带该文件的结果）。
+- 任务槽沿用 `lp-core` 的 `NcmJobSlot`：已经有导入在跑时第二个请求直接拿到「已有一个 NCM 导入任务正在进行」，不会两条流水线同时写同一个目录。起跑前先建好输出目录，`paths` 为空时不进任务槽、直接提示先添加文件夹。
+- 记住位置走 `state.rs` 新增的 `remember_ncm_state`：`settings.json` 读写有警告（比如被别的版本改坏过）时**不写盘**，免得把用户的其它设置覆盖掉；写成功才更新内存。
+- 状态枚举与数字在桥接层就转好：`ImportStage` → 字符串，`u64` 尺寸转 `i64`，界面不跟 Rust 枚举走。
+- 界面是新文件 `app/flutter/lib/widgets/ncm_import_dialog.dart`：说明行、「NCM 文件位置」（多个文件夹，逐行可移除）、「输出目录」、「覆盖已存在的解密文件」「解密后自动获取在线标签、封面与歌词」两个复选框（后者勾上时显示在线匹配的可用性提示，不可用时用警告色）、状态行与进度条、三列表格（文件 / 大小 / 状态，行高 38），底栏是文件计数与「开始解密」/「取消」（跑起来时换成取消）加「关闭」。
+- 文件夹和输出目录都是文本框 + 按钮，没有文件选择对话框：`file_selector` 排进 M8，先保证链路能跑通。
+- 进度按路径回填行：`finished` 带结果的行直接显示成功摘要（格式、输出文件名、在线匹配说明）或失败原因，其余行显示「待处理」；命令返回后再用 `summary.results` 覆盖一遍，没出现在结果里的行标「已取消」。关窗时如果任务还在跑，先取消再关。
+- 标题栏入口排在「歌词转逐字」左边，按钮「导入 NCM」。
+
+### 验证
+
+- Rust 测试从 1263 变成 1267 个：桥接层新增 4 个（进度阶段名稳定、文件结果的可选字段往返、扫描结果保留缺失文件夹、汇总计数转换）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用临时预览入口（`probe_m7.dart`，用完已删）做了 DPI-aware 截图：预先在便携数据目录里写好 `ncmImportFolders` 与 `ncmImportOutputDirectory`，窗口打开即恢复文件夹与输出目录、扫出 4 个 `.ncm` 文件，状态行「已发现 4 个 .ncm 文件，点击『开始解密』」，表格显示文件名与 2.9 KB / 5.9 KB / 8.8 KB / 11.7 KB，两个复选框与在线匹配提示都在，底栏「已发现 4 个文件」「开始解密」「关闭」。
+- 还没验证：真的解密一批 `.ncm`（夹具里没有可用的 `.ncm`，临时造的是空文件）、导入失败 / 取消分支、在线匹配在解密后的实际效果、进度条在真实处理中的样子。
+
 ## 下一步
 
-1. M7：NCM 导入与批量整理——`ncm_scan` / `ncm_import` / `ncm_cancel` 的导入窗口，以及批量面板的「在线获取」（`batch_run` / `batch_cancel`）。
+1. M7b：批量面板的「在线获取」——`batch_run` / `batch_cancel` 与整批匹配、写盘，和批量修改标签面板共用一套表格式交互。
 2. 之后 M8 打包收尾：文件对话框（file_selector）、拖放、安装包 / CI、版本号 3.0.0、大歌单压测。

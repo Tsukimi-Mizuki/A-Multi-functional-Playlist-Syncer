@@ -8,6 +8,7 @@ import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
 import 'api/lyrics.dart';
+import 'api/ncm.dart';
 import 'api/online.dart';
 import 'api/playlists.dart';
 import 'api/settings.dart';
@@ -37,6 +38,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RustStreamSink<LogEntryDto> dco_decode_StreamSink_log_entry_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<NcmProgressDto> dco_decode_StreamSink_ncm_progress_dto_Sse(
     dynamic raw,
   );
 
@@ -145,6 +151,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MatchScoreDto dco_decode_box_autoadd_match_score_dto(dynamic raw);
 
   @protected
+  NcmFileResultDto dco_decode_box_autoadd_ncm_file_result_dto(dynamic raw);
+
+  @protected
+  NcmImportRequestDto dco_decode_box_autoadd_ncm_import_request_dto(
+    dynamic raw,
+  );
+
+  @protected
   OnlineErrorDto dco_decode_box_autoadd_online_error_dto(dynamic raw);
 
   @protected
@@ -244,6 +258,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<LogEntryDto> dco_decode_list_log_entry_dto(dynamic raw);
 
   @protected
+  List<NcmFileDto> dco_decode_list_ncm_file_dto(dynamic raw);
+
+  @protected
+  List<NcmFileResultDto> dco_decode_list_ncm_file_result_dto(dynamic raw);
+
+  @protected
   List<OnlineSearchItemDto> dco_decode_list_online_search_item_dto(dynamic raw);
 
   @protected
@@ -320,6 +340,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchStatsDto dco_decode_match_stats_dto(dynamic raw);
+
+  @protected
+  NcmDialogStateDto dco_decode_ncm_dialog_state_dto(dynamic raw);
+
+  @protected
+  NcmFileDto dco_decode_ncm_file_dto(dynamic raw);
+
+  @protected
+  NcmFileResultDto dco_decode_ncm_file_result_dto(dynamic raw);
+
+  @protected
+  NcmImportRequestDto dco_decode_ncm_import_request_dto(dynamic raw);
+
+  @protected
+  NcmProgressDto dco_decode_ncm_progress_dto(dynamic raw);
+
+  @protected
+  NcmScanDto dco_decode_ncm_scan_dto(dynamic raw);
+
+  @protected
+  NcmSummaryDto dco_decode_ncm_summary_dto(dynamic raw);
 
   @protected
   OnlineErrorDto dco_decode_online_error_dto(dynamic raw);
@@ -399,6 +440,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchScoreDto? dco_decode_opt_box_autoadd_match_score_dto(dynamic raw);
+
+  @protected
+  NcmFileResultDto? dco_decode_opt_box_autoadd_ncm_file_result_dto(dynamic raw);
 
   @protected
   OnlineErrorDto? dco_decode_opt_box_autoadd_online_error_dto(dynamic raw);
@@ -580,6 +624,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<NcmProgressDto> sse_decode_StreamSink_ncm_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<ScanProgressDto> sse_decode_StreamSink_scan_progress_dto_Sse(
     SseDeserializer deserializer,
   );
@@ -718,6 +767,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  NcmFileResultDto sse_decode_box_autoadd_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NcmImportRequestDto sse_decode_box_autoadd_ncm_import_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   OnlineErrorDto sse_decode_box_autoadd_online_error_dto(
     SseDeserializer deserializer,
   );
@@ -845,6 +904,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<LogEntryDto> sse_decode_list_log_entry_dto(SseDeserializer deserializer);
 
   @protected
+  List<NcmFileDto> sse_decode_list_ncm_file_dto(SseDeserializer deserializer);
+
+  @protected
+  List<NcmFileResultDto> sse_decode_list_ncm_file_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<OnlineSearchItemDto> sse_decode_list_online_search_item_dto(
     SseDeserializer deserializer,
   );
@@ -939,6 +1006,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchStatsDto sse_decode_match_stats_dto(SseDeserializer deserializer);
+
+  @protected
+  NcmDialogStateDto sse_decode_ncm_dialog_state_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NcmFileDto sse_decode_ncm_file_dto(SseDeserializer deserializer);
+
+  @protected
+  NcmFileResultDto sse_decode_ncm_file_result_dto(SseDeserializer deserializer);
+
+  @protected
+  NcmImportRequestDto sse_decode_ncm_import_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NcmProgressDto sse_decode_ncm_progress_dto(SseDeserializer deserializer);
+
+  @protected
+  NcmScanDto sse_decode_ncm_scan_dto(SseDeserializer deserializer);
+
+  @protected
+  NcmSummaryDto sse_decode_ncm_summary_dto(SseDeserializer deserializer);
 
   @protected
   OnlineErrorDto sse_decode_online_error_dto(SseDeserializer deserializer);
@@ -1050,6 +1142,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchScoreDto? sse_decode_opt_box_autoadd_match_score_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NcmFileResultDto? sse_decode_opt_box_autoadd_ncm_file_result_dto(
     SseDeserializer deserializer,
   );
 
@@ -1280,6 +1377,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_ncm_progress_dto_Sse(
+    RustStreamSink<NcmProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_scan_progress_dto_Sse(
     RustStreamSink<ScanProgressDto> self,
     SseSerializer serializer,
@@ -1451,6 +1554,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ncm_file_result_dto(
+    NcmFileResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_ncm_import_request_dto(
+    NcmImportRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_online_error_dto(
     OnlineErrorDto self,
     SseSerializer serializer,
@@ -1616,6 +1731,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_ncm_file_dto(
+    List<NcmFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_ncm_file_result_dto(
+    List<NcmFileResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_online_search_item_dto(
     List<OnlineSearchItemDto> self,
     SseSerializer serializer,
@@ -1754,6 +1881,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_match_stats_dto(MatchStatsDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_ncm_dialog_state_dto(
+    NcmDialogStateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ncm_file_dto(NcmFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ncm_file_result_dto(
+    NcmFileResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ncm_import_request_dto(
+    NcmImportRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ncm_progress_dto(
+    NcmProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ncm_scan_dto(NcmScanDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ncm_summary_dto(NcmSummaryDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_online_error_dto(
     OnlineErrorDto self,
     SseSerializer serializer,
@@ -1888,6 +2048,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_match_score_dto(
     MatchScoreDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_ncm_file_result_dto(
+    NcmFileResultDto? self,
     SseSerializer serializer,
   );
 

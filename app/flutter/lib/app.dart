@@ -8,6 +8,7 @@ import 'package:lunatic_princess/pages/overview_page.dart';
 import 'package:lunatic_princess/pages/playlist_page.dart';
 import 'package:lunatic_princess/pages/settings_page.dart';
 import 'package:lunatic_princess/widgets/login_dialog.dart';
+import 'package:lunatic_princess/widgets/ncm_import_dialog.dart';
 import 'package:lunatic_princess/widgets/sidebar.dart';
 import 'package:lunatic_princess/widgets/window_buttons.dart';
 import 'package:lunatic_princess/widgets/word_lyrics_dialog.dart';
@@ -234,6 +235,18 @@ class _AppTitleBar extends StatelessWidget {
                 ),
               ),
             ),
+            Button(
+              onPressed: () => unawaited(showNcmImportDialog(context)),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  WindowsIcon(WindowsIcons.download, size: 14),
+                  SizedBox(width: 6),
+                  Text('导入 NCM'),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
             Button(
               onPressed: () => unawaited(
                 showWordLyricsDialog(
