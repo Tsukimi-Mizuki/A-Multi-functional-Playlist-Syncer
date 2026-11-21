@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:lunatic_princess/src/rust/api/batch.dart';
+import 'package:lunatic_princess/src/rust/api/online.dart';
 import 'package:lunatic_princess/src/rust/api/tags.dart';
 import 'package:lunatic_princess/widgets/tag_editor_dialog.dart';
 
@@ -36,7 +38,7 @@ const List<_FieldSpec> _fields = <_FieldSpec>[
   _FieldSpec('comment', '注释'),
 ];
 
-enum _Phase { idle, scanning, reading, saving }
+enum _Phase { idle, scanning, reading, saving, online }
 
 /// 列表里的一行：路径与文件名先有，标签是分块读回来的。
 class _BatchRow {
@@ -47,8 +49,11 @@ class _BatchRow {
   final int size;
   TagRowDto? row;
 
-  /// 保存后的逐行标记（已保存 / 失败原因）。
+  /// 保存或在线获取后的逐行标记（已保存 / 在线补全 / 失败原因）。
   String? status;
+
+  /// 上一次在线获取是否成功（成功行的状态文案用成功色）。
+  bool onlineOk = false;
 
   bool get readable => row?.readable ?? false;
 
@@ -159,6 +164,16 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
   int _saveDone = 0;
   int _saveTotal = 0;
   bool _cancelRequested = false;
+  bool _onlineCancelRequested = false;
+  bool _overwrite = false;
+  bool _fetchLyrics = true;
+  bool _preferWord = false;
+  String _tagPriorityText = '网易云音乐优先';
+  String _lyricsPriorityText = '网易云音乐优先';
+  String _thresholdPercent = '60';
+  int _onlineDone = 0;
+  int _onlineTotal = 0;
+  StreamSubscription<BatchProgressDto>? _onlineSub;
   double _viewportHeight = 320;
 
   @override
@@ -166,6 +181,7 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     super.initState();
     _folderController.text = widget.initialFolder;
     _recursive = widget.recursive;
+    unawaited(_loadOnlineOptions());
     if (widget.initialFolder.trim().isNotEmpty) {
       unawaited(_scan());
     }
@@ -173,6 +189,10 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
 
   @override
   void dispose() {
+    unawaited(_onlineSub?.cancel() ?? Future<void>.value());
+    if (_phase == _Phase.online) {
+      unawaited(batchCancel());
+    }
     _folderController.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
@@ -181,7 +201,7 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     super.dispose();
   }
 
-  bool get _busy => _phase == _Phase.saving;
+  bool get _busy => _phase == _Phase.saving || _phase == _Phase.online;
 
   bool get _loading => _phase == _Phase.scanning || _phase == _Phase.reading;
 
@@ -563,7 +583,172 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     });
   }
 
+  /// 取设置里的来源优先级与匹配度阈值，给在线获取那一行写说明。
+  Future<void> _loadOnlineOptions() async {
+    try {
+      final options = await editorOptions();
+      if (!mounted) return;
+      setState(() {
+        _tagPriorityText = options.tagPriorityText;
+        _lyricsPriorityText = options.lyricsPriorityText;
+        _thresholdPercent = options.thresholdPercent;
+      });
+    } catch (_) {
+      // 说明文字取不到不影响任务本身，用默认文案即可。
+    }
+  }
+
+  /// 在线获取的进度（逐文件）。
+  void _onOnlineProgress(BatchProgressDto event) {
+    if (!mounted || _phase != _Phase.online) return;
+    final index = _rows.indexWhere(
+      (row) => _pathKey(row.path) == _pathKey(event.path),
+    );
+    setState(() {
+      if (index >= 0) {
+        final row = _rows[index];
+        final result = event.result;
+        if (event.stage == 'finished' && result != null) {
+          _applyOnlineResult(row, result);
+        } else {
+          row.status = '正在匹配…';
+        }
+      }
+      _onlineDone = event.completed;
+      _onlineTotal = event.total;
+      _status = '正在在线获取标签、封面与歌词… $_onlineDone/$_onlineTotal';
+    });
+  }
+
+  void _applyOnlineResult(_BatchRow row, BatchResultDto result) {
+    row.status = result.message;
+    row.onlineOk = result.success;
+    if (result.success) {
+      row.onlineOk = true;
+    }
+  }
+
+  /// 批量在线获取：先匹配再写标签与封面，逐文件推进度。
+  Future<void> _runOnline() async {
+    if (_phase != _Phase.idle || _dirty) return;
+    final targets = _selectedRows.isEmpty ? _rows : _selectedRows;
+    final paths = <String>[];
+    final seen = <String>{};
+    for (final row in targets) {
+      if (seen.add(_pathKey(row.path))) paths.add(row.path);
+    }
+    if (paths.isEmpty) {
+      setState(() {
+        _status = '没有要在线获取的歌曲。';
+        _statusWarning = true;
+      });
+      return;
+    }
+    await _onlineSub?.cancel();
+    _onlineSub = watchBatchProgress().listen(_onOnlineProgress);
+    setState(() {
+      _phase = _Phase.online;
+      _onlineDone = 0;
+      _onlineTotal = paths.length;
+      _onlineCancelRequested = false;
+      _status = '正在在线获取标签、封面与歌词… 0/${paths.length}';
+      _statusWarning = false;
+      for (final row in targets) {
+        row.status = '等待处理';
+        row.onlineOk = false;
+      }
+    });
+
+    BatchRunOutcomeDto outcome;
+    try {
+      outcome = await batchRun(
+        request: BatchRunRequestDto(
+          files: paths,
+          overwriteExisting: _overwrite,
+          fetchLyrics: _fetchLyrics,
+          preferWordLyrics: _preferWord,
+        ),
+      );
+    } catch (error) {
+      await _onlineSub?.cancel();
+      _onlineSub = null;
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.idle;
+        _status = '在线获取失败：$error';
+        _statusWarning = true;
+      });
+      return;
+    }
+    await _onlineSub?.cancel();
+    _onlineSub = null;
+    if (!mounted) return;
+    final failure = outcome.error;
+    final summary = outcome.summary;
+    if (failure != null || summary == null) {
+      setState(() {
+        _phase = _Phase.idle;
+        _status = '在线获取失败：${failure?.message ?? '没有返回结果，请重试。'}';
+        _statusWarning = true;
+      });
+      return;
+    }
+    final byPath = <String, _BatchRow>{
+      for (final row in _rows) _pathKey(row.path): row,
+    };
+    final refreshed = <String>[];
+    setState(() {
+      for (final result in summary.results) {
+        final row = byPath[_pathKey(result.filePath)];
+        if (row == null) continue;
+        _applyOnlineResult(row, result);
+        if (result.success) refreshed.add(result.filePath);
+      }
+      for (final row in targets) {
+        if (row.status == '等待处理' || row.status == '正在匹配…') {
+          row.status = '已取消';
+          row.onlineOk = false;
+        }
+      }
+      _onlineDone = summary.processed;
+      _onlineTotal = summary.total;
+      _phase = _Phase.idle;
+      _statusWarning = summary.failed > 0;
+      _status = summary.cancelled
+          ? '已取消在线获取：已处理 ${summary.processed}/${summary.total}。'
+          : '在线获取完成：成功 ${summary.success}，跳过 ${summary.skipped}，失败 ${summary.failed}。';
+    });
+
+    // 写成功的行重新读一遍标签，左边面板和列表跟着刷新。
+    if (refreshed.isNotEmpty) {
+      try {
+        final rows = await readTagRows(paths: refreshed);
+        if (!mounted) return;
+        setState(() {
+          for (final dto in rows) {
+            final row = byPath[_pathKey(dto.path)];
+            if (row != null) row.row = dto;
+          }
+        });
+      } catch (_) {
+        // 读不回来时保留任务给出的状态，下次刷新会重新读。
+      }
+    }
+  }
+
+  void _cancelOnline() {
+    if (_phase != _Phase.online) return;
+    setState(() {
+      _onlineCancelRequested = true;
+      _status = '正在取消…当前文件处理完后停止';
+      _statusWarning = true;
+    });
+    unawaited(batchCancel());
+  }
   Future<void> _requestClose() async {
+    if (_phase == _Phase.online) {
+      unawaited(batchCancel());
+    }
     if (_dirty) {
       final ok = await _confirmDiscard(
         '当前修改尚未保存，关闭后会丢失这些修改。',
@@ -704,7 +889,9 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
                   _buildHeader(theme),
                   const Divider(style: DividerThemeData(horizontalMargin: EdgeInsets.zero)),
                   _buildSource(theme),
-                  if (_phase == _Phase.reading || _phase == _Phase.saving)
+                  if (_phase == _Phase.reading ||
+                      _phase == _Phase.saving ||
+                      _phase == _Phase.online)
                     ProgressBar(value: _progressPercent, strokeWidth: 3),
                   Expanded(
                     child: Padding(
@@ -733,6 +920,9 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
   double? get _progressPercent {
     if (_phase == _Phase.saving) {
       return _saveTotal == 0 ? null : _saveDone / _saveTotal * 100;
+    }
+    if (_phase == _Phase.online) {
+      return _onlineTotal == 0 ? null : _onlineDone / _onlineTotal * 100;
     }
     return _readTotal == 0 ? null : _readDone / _readTotal * 100;
   }
@@ -993,12 +1183,74 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     );
   }
 
+  /// 在线获取的设置行：选项只影响这一批任务，不写进设置。
+  Widget _buildOnlineBar(FluentThemeData theme) {
+    final resources = theme.resources;
+    final enabled = _phase == _Phase.idle;
+    return Row(
+      children: <Widget>[
+        const Text(
+          '在线获取',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 12),
+        Checkbox(
+          checked: _overwrite,
+          onChanged: enabled
+              ? (value) => setState(() => _overwrite = value ?? false)
+              : null,
+          content: const Text('覆盖已有标签与歌词'),
+        ),
+        const SizedBox(width: 8),
+        Checkbox(
+          checked: _fetchLyrics,
+          onChanged: enabled
+              ? (value) => setState(() => _fetchLyrics = value ?? false)
+              : null,
+          content: const Text('同时获取歌词'),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 170,
+          child: ComboBox<String>(
+            value: _preferWord ? 'word' : 'line',
+            isExpanded: true,
+            onChanged: enabled && _fetchLyrics
+                ? (value) => setState(() => _preferWord = value == 'word')
+                : null,
+            items: const <ComboBoxItem<String>>[
+              ComboBoxItem(value: 'line', child: Text('逐行歌词')),
+              ComboBoxItem(value: 'word', child: Text('逐字歌词（有则优先）')),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            '标签 $_tagPriorityText · 歌词 $_lyricsPriorityText · 匹配度阈值 $_thresholdPercent%（来源顺序在设置里调整；低于阈值的跳过）',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: resources.textFillColorSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildList(FluentThemeData theme) {
     final resources = theme.resources;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _viewportHeight = constraints.maxHeight;
-        return DecoratedBox(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _buildOnlineBar(theme),
+        const SizedBox(height: 8),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _viewportHeight = constraints.maxHeight;
+              return DecoratedBox(
           decoration: BoxDecoration(
             border: Border.all(color: resources.dividerStrokeColorDefault),
             borderRadius: BorderRadius.circular(10),
@@ -1045,9 +1297,12 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
                       ),
                     ),
                   ),
+              ),
+            );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -1133,7 +1388,7 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
     final bold = columnIndex == 0;
     Color? color;
     if (columnIndex == 1) {
-      if (row.saved) {
+      if (row.saved || row.onlineOk) {
         color = const Color(0xFF0F7B0F);
       } else if (row.failed) {
         color = resources.systemFillColorCritical;
@@ -1161,6 +1416,9 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
   ) {
     final resources = theme.resources;
     final saving = _phase == _Phase.saving;
+    final online = _phase == _Phase.online;
+    final onlineCount =
+        _selectedRows.isEmpty ? _rows.length : _selectedRows.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
       child: Row(
@@ -1200,7 +1458,26 @@ class _BatchTagsDialogState extends State<_BatchTagsDialog> {
               onPressed: _cancelRequested ? null : _cancelSave,
               child: Text(_cancelRequested ? '正在取消…' : '取消'),
             )
+          else if (online)
+            Button(
+              onPressed: _onlineCancelRequested ? null : _cancelOnline,
+              child: Text(_onlineCancelRequested ? '正在取消…' : '取消'),
+            )
           else ...<Widget>[
+            Tooltip(
+              message: _dirty ? '请先保存或还原左边的修改' : '联网匹配标签、封面与歌词（低于阈值的跳过）',
+              child: Button(
+                onPressed: (!_dirty && !_loading && onlineCount > 0)
+                    ? () => unawaited(_runOnline())
+                    : null,
+                child: Text(
+                  onlineCount > _selectedRows.length
+                      ? '在线获取（全部 $onlineCount 首）'
+                      : '在线获取（选中的 $onlineCount 首）',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             FilledButton(
               onPressed: (_dirty && writableCount > 0 && !_loading)
                   ? () => unawaited(_save())

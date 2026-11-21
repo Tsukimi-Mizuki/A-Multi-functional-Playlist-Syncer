@@ -165,11 +165,19 @@ class EditorOptionsDto {
   final double threshold;
   final String thresholdPercent;
 
+  /// 批量修改标签窗口显示的标签 / 封面来源优先级文案（来自设置）。
+  final String tagPriorityText;
+
+  /// 批量修改标签窗口显示的歌词来源优先级文案。
+  final String lyricsPriorityText;
+
   const EditorOptionsDto({
     required this.searchSource,
     required this.preferWordLyrics,
     required this.threshold,
     required this.thresholdPercent,
+    required this.tagPriorityText,
+    required this.lyricsPriorityText,
   });
 
   @override
@@ -177,7 +185,9 @@ class EditorOptionsDto {
       searchSource.hashCode ^
       preferWordLyrics.hashCode ^
       threshold.hashCode ^
-      thresholdPercent.hashCode;
+      thresholdPercent.hashCode ^
+      tagPriorityText.hashCode ^
+      lyricsPriorityText.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -187,7 +197,9 @@ class EditorOptionsDto {
           searchSource == other.searchSource &&
           preferWordLyrics == other.preferWordLyrics &&
           threshold == other.threshold &&
-          thresholdPercent == other.thresholdPercent;
+          thresholdPercent == other.thresholdPercent &&
+          tagPriorityText == other.tagPriorityText &&
+          lyricsPriorityText == other.lyricsPriorityText;
 }
 
 /// 备用词源（酷狗 / LRCLIB）找到的一份歌词。

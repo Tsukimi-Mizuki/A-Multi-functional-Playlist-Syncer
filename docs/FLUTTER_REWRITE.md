@@ -226,7 +226,26 @@ Tauri 版前端（`app/src/state/`、`app/src/api/`）里有一批决定「写�
 - 用临时预览入口（`probe_m7.dart`，用完已删）做了 DPI-aware 截图：预先在便携数据目录里写好 `ncmImportFolders` 与 `ncmImportOutputDirectory`，窗口打开即恢复文件夹与输出目录、扫出 4 个 `.ncm` 文件，状态行「已发现 4 个 .ncm 文件，点击『开始解密』」，表格显示文件名与 2.9 KB / 5.9 KB / 8.8 KB / 11.7 KB，两个复选框与在线匹配提示都在，底栏「已发现 4 个文件」「开始解密」「关闭」。
 - 还没验证：真的解密一批 `.ncm`（夹具里没有可用的 `.ncm`，临时造的是空文件）、导入失败 / 取消分支、在线匹配在解密后的实际效果、进度条在真实处理中的样子。
 
+## 第 11 步：批量在线获取（M7b）
+
+批量修改标签面板的右列顶部新增「在线获取」一行：整批（或选中的几首）联网匹配标签、封面与歌词并直接写盘。至此 Tauri 版的 41 条命令只剩 M8 的收尾项。
+
+- 桥接层新增 `app/crates/lp-bridge/src/api/batch.rs`：`batch_run(request)` → `{ summary | error }`，`BatchRunRequestDto` 只有 `files` / `overwrite_existing` / `fetch_lyrics` / `prefer_word_lyrics`（来源次序不传，用设置里的值）；`watch_batch_progress()` 是逐文件进度流（`stage` 为 `started` / `finished`，`finished` 时带该文件的结果）；`batch_cancel()` 取消任务，返回 `false` 表示当时没有任务在跑。`error.kind` 是 `busy` / `noFiles` / `failed`。
+- 批量任务与「歌词转逐字」共用一个任务槽（`lp-core` 的 `JobSlot`），所以两边不会同时写盘；界面上的取消按钮也走同一个 `cancel()`。
+- 界面在 `app/flutter/lib/widgets/batch_tags_dialog.dart`：右列表格上方一行「在线获取」+「覆盖已有标签与歌词」（默认关）+「同时获取歌词」（默认开）+ 逐行 / 逐字下拉（关掉歌词时禁用）+ 说明「标签 网易云音乐优先 · 歌词 网易云音乐优先 · 匹配度阈值 60%（来源顺序在设置里调整；低于阈值的跳过）」。这三个文案来自 `editor_options()` 新增的 `tag_priority_text` / `lyrics_priority_text`（`lp_core::editor::priority_label`），不在界面里拼枚举。
+- 底栏在「保存修改」左边新增「在线获取（选中的 N 首）/（全部 N 首）」：有未保存的改动时不发车（提示先保存或还原），跑起来后换成「取消」/「正在取消…」。
+- 逐行状态按进度回填：`started` 显示「正在匹配…」，`finished` 用结果里的中文说明；命令返回后再用 `summary.results` 覆盖一遍，没出现在结果里的目标行标「已取消」。成功的行重新 `read_tag_rows` 刷新左边面板与列表，状态用成功色。汇总文案：「在线获取完成：成功 S，跳过 K，失败 F。」（有失败时警告色）或「已取消在线获取：已处理 X/Y。」；异常是「在线获取失败：{原因}」。
+- 关窗或重新扫描时如果任务还在跑，先 `batch_cancel()` 再走，避免后台继续写文件。
+
+### 验证
+
+- Rust 测试从 1267 变成 1271 个：桥接层新增 4 个（结果状态与可选字段往返、汇总计数转 `i64`、进度保留阶段与结果、批量错误类别透传）。
+- `cargo fmt`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`、`flutter analyze`、`flutter test`（6 个）、`flutter build windows --release`、`build.ps1 -Test` 全过。
+- 用临时预览入口（`probe_m7b.dart`，用完已删）做了 DPI-aware 截图：面板右上方是「在线获取」+「覆盖已有标签与歌词」+「同时获取歌词」+「逐行歌词」与来源 / 阈值说明，底栏是「在线获取（全部 71 首）」「保存修改」「关闭」。
+- 还没验证：真实整批写盘（会改夹具与真实音乐文件，没有跑）、`busy` / 取消 / 失败分支的实际界面、覆盖已有标签时的合并结果。
+
 ## 下一步
 
-1. M7b：批量面板的「在线获取」——`batch_run` / `batch_cancel` 与整批匹配、写盘，和批量修改标签面板共用一套表格式交互。
-2. 之后 M8 打包收尾：文件对话框（file_selector）、拖放、安装包 / CI、版本号 3.0.0、大歌单压测。
+
+1. M8 打包收尾：文件对话框（`file_selector`，替换现在所有的路径文本框）、拖放（把文件或文件夹拖进批量面板与 NCM 导入窗口）、安装包与便携版 / CI、版本号 3.0.0、大歌单压测与整体回归。
+2. 之后把 `GUI-Flutter` 追平后再考虑合并回 `main`。

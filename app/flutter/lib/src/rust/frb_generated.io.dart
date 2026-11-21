@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/app.dart';
+import 'api/batch.dart';
 import 'api/download.dart';
 import 'api/library.dart';
 import 'api/login.dart';
@@ -35,6 +36,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RustStreamSink<AccountDto> dco_decode_StreamSink_account_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<BatchProgressDto> dco_decode_StreamSink_batch_progress_dto_Sse(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<LogEntryDto> dco_decode_StreamSink_log_entry_dto_Sse(
@@ -85,7 +91,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchJobErrorDto dco_decode_batch_job_error_dto(dynamic raw);
 
   @protected
+  BatchProgressDto dco_decode_batch_progress_dto(dynamic raw);
+
+  @protected
+  BatchResultDto dco_decode_batch_result_dto(dynamic raw);
+
+  @protected
+  BatchRunOutcomeDto dco_decode_batch_run_outcome_dto(dynamic raw);
+
+  @protected
+  BatchRunRequestDto dco_decode_batch_run_request_dto(dynamic raw);
+
+  @protected
   BatchScanDto dco_decode_batch_scan_dto(dynamic raw);
+
+  @protected
+  BatchSummaryDto dco_decode_batch_summary_dto(dynamic raw);
+
+  @protected
+  BatchTaskErrorDto dco_decode_batch_task_error_dto(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
@@ -98,6 +122,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchJobErrorDto dco_decode_box_autoadd_batch_job_error_dto(dynamic raw);
+
+  @protected
+  BatchResultDto dco_decode_box_autoadd_batch_result_dto(dynamic raw);
+
+  @protected
+  BatchRunRequestDto dco_decode_box_autoadd_batch_run_request_dto(dynamic raw);
+
+  @protected
+  BatchSummaryDto dco_decode_box_autoadd_batch_summary_dto(dynamic raw);
+
+  @protected
+  BatchTaskErrorDto dco_decode_box_autoadd_batch_task_error_dto(dynamic raw);
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
@@ -252,6 +288,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BatchFileDto> dco_decode_list_batch_file_dto(dynamic raw);
 
   @protected
+  List<BatchResultDto> dco_decode_list_batch_result_dto(dynamic raw);
+
+  @protected
   List<LocalMatchDto> dco_decode_list_local_match_dto(dynamic raw);
 
   @protected
@@ -388,6 +427,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchJobErrorDto? dco_decode_opt_box_autoadd_batch_job_error_dto(dynamic raw);
+
+  @protected
+  BatchResultDto? dco_decode_opt_box_autoadd_batch_result_dto(dynamic raw);
+
+  @protected
+  BatchSummaryDto? dco_decode_opt_box_autoadd_batch_summary_dto(dynamic raw);
+
+  @protected
+  BatchTaskErrorDto? dco_decode_opt_box_autoadd_batch_task_error_dto(
+    dynamic raw,
+  );
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
@@ -619,6 +669,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<BatchProgressDto> sse_decode_StreamSink_batch_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<LogEntryDto> sse_decode_StreamSink_log_entry_dto_Sse(
     SseDeserializer deserializer,
   );
@@ -669,7 +724,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchJobErrorDto sse_decode_batch_job_error_dto(SseDeserializer deserializer);
 
   @protected
+  BatchProgressDto sse_decode_batch_progress_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchResultDto sse_decode_batch_result_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchRunOutcomeDto sse_decode_batch_run_outcome_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchRunRequestDto sse_decode_batch_run_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BatchScanDto sse_decode_batch_scan_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchSummaryDto sse_decode_batch_summary_dto(SseDeserializer deserializer);
+
+  @protected
+  BatchTaskErrorDto sse_decode_batch_task_error_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -684,6 +763,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchJobErrorDto sse_decode_box_autoadd_batch_job_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchResultDto sse_decode_box_autoadd_batch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchRunRequestDto sse_decode_box_autoadd_batch_run_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchSummaryDto sse_decode_box_autoadd_batch_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchTaskErrorDto sse_decode_box_autoadd_batch_task_error_dto(
     SseDeserializer deserializer,
   );
 
@@ -896,6 +995,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<BatchResultDto> sse_decode_list_batch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<LocalMatchDto> sse_decode_list_local_match_dto(
     SseDeserializer deserializer,
   );
@@ -1068,6 +1172,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BatchJobErrorDto? sse_decode_opt_box_autoadd_batch_job_error_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchResultDto? sse_decode_opt_box_autoadd_batch_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchSummaryDto? sse_decode_opt_box_autoadd_batch_summary_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchTaskErrorDto? sse_decode_opt_box_autoadd_batch_task_error_dto(
     SseDeserializer deserializer,
   );
 
@@ -1371,6 +1490,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_batch_progress_dto_Sse(
+    RustStreamSink<BatchProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_log_entry_dto_Sse(
     RustStreamSink<LogEntryDto> self,
     SseSerializer serializer,
@@ -1434,7 +1559,43 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_batch_progress_dto(
+    BatchProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_result_dto(
+    BatchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_run_outcome_dto(
+    BatchRunOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_run_request_dto(
+    BatchRunRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_batch_scan_dto(BatchScanDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_batch_summary_dto(
+    BatchSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_task_error_dto(
+    BatchTaskErrorDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -1454,6 +1615,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_batch_job_error_dto(
     BatchJobErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_result_dto(
+    BatchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_run_request_dto(
+    BatchRunRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_summary_dto(
+    BatchSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_task_error_dto(
+    BatchTaskErrorDto self,
     SseSerializer serializer,
   );
 
@@ -1719,6 +1904,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_batch_result_dto(
+    List<BatchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_local_match_dto(
     List<LocalMatchDto> self,
     SseSerializer serializer,
@@ -1958,6 +2149,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_batch_job_error_dto(
     BatchJobErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_batch_result_dto(
+    BatchResultDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_batch_summary_dto(
+    BatchSummaryDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_batch_task_error_dto(
+    BatchTaskErrorDto? self,
     SseSerializer serializer,
   );
 
