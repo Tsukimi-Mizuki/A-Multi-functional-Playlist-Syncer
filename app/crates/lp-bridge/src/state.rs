@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use lp_core::auth::{LoginManager, LoginOptions};
 use lp_core::download::fetch::MediaFetcher;
-use lp_core::download::ncm_import::{NcmImportService, OnlineEnricher};
+use lp_core::download::ncm_import::{NcmImportService, NcmJobSlot, OnlineEnricher, remember_state};
 use lp_core::download::service::{DownloadApi, DownloadService, Downloader};
 use lp_core::download::task::TransferManager;
 use lp_core::library::{LibraryManager, LocalLibraryService};
@@ -59,6 +59,10 @@ pub(crate) struct Bridge {
     pub lyrics: Arc<LyricsService>,
     /// 批量任务：「歌词转逐字」的两步走与批量在线获取共用一个任务槽。
     pub batch: Arc<BatchManager>,
+    /// NCM 批量导入：解密为 mp3 / flac、写回内嵌标签与封面，可选用在线补全。
+    pub ncm: Arc<NcmImportService>,
+    /// NCM 导入任务槽（同一时间只允许一个导入）。
+    pub ncm_job: NcmJobSlot,
     /// 下载 / 同步任务（同一时间只允许一个）。
     pub transfers: Arc<TransferManager>,
 }
@@ -141,6 +145,25 @@ impl Bridge {
             }
         }
     }
+
+    /// 记住 NCM 导入窗口的输入文件夹与输出目录：只改这两个设置并写盘，不写「设置已保存」日志。
+    ///
+    /// 记忆只是便利功能，失败只记日志、不打断导入；设置文件当初读不出来时不写盘，
+    /// 免得把用户真正的设置覆盖成默认值。
+    pub fn remember_ncm_state(&self, folders: &[String], output_directory: &str) {
+        if self.settings_warning().is_some() {
+            return;
+        }
+        let mut settings = self
+            .settings
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        remember_state(&mut settings, folders, output_directory);
+        match self.settings_store.save(&settings) {
+            Ok(saved) => *settings = saved,
+            Err(error) => self.logs.warning(format!("记住 NCM 导入位置失败：{error}")),
+        }
+    }
 }
 
 static BRIDGE: OnceLock<Result<Bridge, String>> = OnceLock::new();
@@ -194,6 +217,8 @@ impl Bridge {
             online: assembled.online,
             lyrics: assembled.lyrics,
             batch: assembled.batch,
+            ncm: assembled.ncm,
+            ncm_job: assembled.ncm_job,
             transfers: assembled.transfers,
         })
     }
@@ -214,6 +239,8 @@ struct Assembled {
     online: Arc<OnlineManager>,
     lyrics: Arc<LyricsService>,
     batch: Arc<BatchManager>,
+    ncm: Arc<NcmImportService>,
+    ncm_job: NcmJobSlot,
     transfers: Arc<TransferManager>,
 }
 
@@ -350,7 +377,7 @@ impl Assembled {
             api,
             Arc::new(FileNcmDecoder),
             Arc::clone(&tags),
-            ncm,
+            Arc::clone(&ncm),
             Arc::clone(&downloader) as Arc<dyn Downloader>,
             fetcher,
             Some(enricher),
@@ -376,6 +403,8 @@ impl Assembled {
             online,
             lyrics,
             batch,
+            ncm,
+            ncm_job: NcmJobSlot::default(),
             transfers,
         })
     }

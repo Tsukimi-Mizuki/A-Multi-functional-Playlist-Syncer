@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -137902079;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1774197598;
 
 // Section: executor
 
@@ -691,6 +691,177 @@ fn wire__crate__api__online__lyrics_source_fetch_impl(
                             api_word_lyrics,
                         )
                         .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__ncm__ncm_cancel_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ncm_cancel",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::ncm::ncm_cancel()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ncm__ncm_get_state_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ncm_get_state",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::ncm::ncm_get_state()?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ncm__ncm_import_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ncm_import",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_request = <crate::api::ncm::NcmImportRequestDto>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::ncm::ncm_import(api_request).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__ncm__ncm_save_state_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ncm_save_state",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_folders = <Vec<String>>::sse_decode(&mut deserializer);
+            let api_output_directory = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok =
+                        crate::api::ncm::ncm_save_state(api_folders, api_output_directory)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__ncm__ncm_scan_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ncm_scan",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_folders = <Vec<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::ncm::ncm_scan(api_folders).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1587,6 +1758,42 @@ fn wire__crate__api__app__watch_logs_impl(
         },
     )
 }
+fn wire__crate__api__ncm__watch_ncm_progress_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "watch_ncm_progress",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_sink = <StreamSink<
+                crate::api::ncm::NcmProgressDto,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::ncm::watch_ncm_progress(api_sink)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__download__watch_transfer_progress_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1822,6 +2029,16 @@ impl SseDecode
 
 impl SseDecode
     for StreamSink<crate::api::app::LogEntryDto, flutter_rust_bridge::for_generated::SseCodec>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<crate::api::ncm::NcmProgressDto, flutter_rust_bridge::for_generated::SseCodec>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2321,6 +2538,32 @@ impl SseDecode for Vec<crate::api::app::LogEntryDto> {
     }
 }
 
+impl SseDecode for Vec<crate::api::ncm::NcmFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::ncm::NcmFileDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::ncm::NcmFileResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::ncm::NcmFileResultDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::online::OnlineSearchItemDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2729,6 +2972,144 @@ impl SseDecode for crate::api::library::MatchStatsDto {
     }
 }
 
+impl SseDecode for crate::api::ncm::NcmDialogStateDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_folders = <Vec<String>>::sse_decode(deserializer);
+        let mut var_outputDirectory = <String>::sse_decode(deserializer);
+        let mut var_downloadDirectory = <String>::sse_decode(deserializer);
+        let mut var_onlineMatchAvailable = <bool>::sse_decode(deserializer);
+        let mut var_onlineMatchHint = <String>::sse_decode(deserializer);
+        return crate::api::ncm::NcmDialogStateDto {
+            folders: var_folders,
+            output_directory: var_outputDirectory,
+            download_directory: var_downloadDirectory,
+            online_match_available: var_onlineMatchAvailable,
+            online_match_hint: var_onlineMatchHint,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_size = <i64>::sse_decode(deserializer);
+        return crate::api::ncm::NcmFileDto {
+            path: var_path,
+            name: var_name,
+            size: var_size,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmFileResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_outputPath = <Option<String>>::sse_decode(deserializer);
+        let mut var_outputFileName = <Option<String>>::sse_decode(deserializer);
+        let mut var_format = <Option<String>>::sse_decode(deserializer);
+        let mut var_errorMessage = <Option<String>>::sse_decode(deserializer);
+        let mut var_enrichmentMessage = <Option<String>>::sse_decode(deserializer);
+        let mut var_title = <Option<String>>::sse_decode(deserializer);
+        let mut var_artists = <Option<String>>::sse_decode(deserializer);
+        let mut var_album = <Option<String>>::sse_decode(deserializer);
+        return crate::api::ncm::NcmFileResultDto {
+            path: var_path,
+            success: var_success,
+            output_path: var_outputPath,
+            output_file_name: var_outputFileName,
+            format: var_format,
+            error_message: var_errorMessage,
+            enrichment_message: var_enrichmentMessage,
+            title: var_title,
+            artists: var_artists,
+            album: var_album,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmImportRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_paths = <Vec<String>>::sse_decode(deserializer);
+        let mut var_folders = <Vec<String>>::sse_decode(deserializer);
+        let mut var_outputDirectory = <String>::sse_decode(deserializer);
+        let mut var_overwrite = <bool>::sse_decode(deserializer);
+        let mut var_autoMatchOnline = <bool>::sse_decode(deserializer);
+        return crate::api::ncm::NcmImportRequestDto {
+            paths: var_paths,
+            folders: var_folders,
+            output_directory: var_outputDirectory,
+            overwrite: var_overwrite,
+            auto_match_online: var_autoMatchOnline,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmProgressDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_completed = <i64>::sse_decode(deserializer);
+        let mut var_total = <i64>::sse_decode(deserializer);
+        let mut var_index = <i64>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_fileName = <String>::sse_decode(deserializer);
+        let mut var_stage = <String>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        let mut var_result = <Option<crate::api::ncm::NcmFileResultDto>>::sse_decode(deserializer);
+        return crate::api::ncm::NcmProgressDto {
+            completed: var_completed,
+            total: var_total,
+            index: var_index,
+            path: var_path,
+            file_name: var_fileName,
+            stage: var_stage,
+            message: var_message,
+            result: var_result,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmScanDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_files = <Vec<crate::api::ncm::NcmFileDto>>::sse_decode(deserializer);
+        let mut var_missingFolders = <Vec<String>>::sse_decode(deserializer);
+        let mut var_skippedDirectories = <i64>::sse_decode(deserializer);
+        return crate::api::ncm::NcmScanDto {
+            files: var_files,
+            missing_folders: var_missingFolders,
+            skipped_directories: var_skippedDirectories,
+        };
+    }
+}
+
+impl SseDecode for crate::api::ncm::NcmSummaryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_results = <Vec<crate::api::ncm::NcmFileResultDto>>::sse_decode(deserializer);
+        let mut var_total = <i64>::sse_decode(deserializer);
+        let mut var_succeeded = <i64>::sse_decode(deserializer);
+        let mut var_failed = <i64>::sse_decode(deserializer);
+        let mut var_cancelled = <bool>::sse_decode(deserializer);
+        let mut var_outputDirectory = <String>::sse_decode(deserializer);
+        let mut var_matchedOnline = <i64>::sse_decode(deserializer);
+        return crate::api::ncm::NcmSummaryDto {
+            results: var_results,
+            total: var_total,
+            succeeded: var_succeeded,
+            failed: var_failed,
+            cancelled: var_cancelled,
+            output_directory: var_outputDirectory,
+            matched_online: var_matchedOnline,
+        };
+    }
+}
+
 impl SseDecode for crate::api::online::OnlineErrorDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3067,6 +3448,19 @@ impl SseDecode for Option<crate::api::online::MatchScoreDto> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::online::MatchScoreDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::ncm::NcmFileResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::ncm::NcmFileResultDto>::sse_decode(
                 deserializer,
             ));
         } else {
@@ -3998,58 +4392,64 @@ fn pde_ffi_dispatcher_primary_impl(
         16 => wire__crate__api__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
         17 => wire__crate__api__login__logout_impl(port, ptr, rust_vec_len, data_len),
         18 => wire__crate__api__online__lyrics_source_fetch_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__online__online_cover_size_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__online__online_load_result_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__online__online_load_tags_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__online__online_search_impl(port, ptr, rust_vec_len, data_len),
-        23 => {
+        19 => wire__crate__api__ncm__ncm_cancel_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__ncm__ncm_get_state_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__ncm__ncm_import_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__ncm__ncm_save_state_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__ncm__ncm_scan_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__online__online_cover_size_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__online__online_load_result_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__online__online_load_tags_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__online__online_search_impl(port, ptr, rust_vec_len, data_len),
+        28 => {
             wire__crate__api__online__online_tag_candidates_impl(port, ptr, rust_vec_len, data_len)
         }
-        24 => wire__crate__api__tags__patch_tags_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__playlists__playlist_tracks_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__login__qr_poll_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__login__qr_start_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__tags__read_tag_rows_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__tags__read_tags_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__app__recent_logs_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__library__watch_library_progress_impl(
+        29 => wire__crate__api__tags__patch_tags_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__playlists__playlist_tracks_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__login__qr_poll_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__login__qr_start_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__tags__read_tag_rows_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__tags__read_tags_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__app__recent_logs_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__app__shutdown_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__download__sync_playlist_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__tags__tag_cover_file_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__tags__tag_editor_open_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__tags__tag_editor_save_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__download__transfer_plan_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__download__transfers_running_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__login__validate_login_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__app__watch_account_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__library__watch_library_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        42 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__download__watch_transfer_progress_impl(
+        47 => wire__crate__api__app__watch_logs_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__ncm__watch_ncm_progress_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__download__watch_transfer_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__crate__api__download__watch_transfer_started_impl(
+        50 => wire__crate__api__download__watch_transfer_started_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        45 => wire__crate__api__lyrics__watch_word_lyrics_progress_impl(
+        51 => wire__crate__api__lyrics__watch_word_lyrics_progress_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        46 => wire__crate__api__lyrics__word_lyrics_apply_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__lyrics__word_lyrics_cancel_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__lyrics__word_lyrics_preview_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__lyrics__word_lyrics_apply_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__lyrics__word_lyrics_cancel_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__lyrics__word_lyrics_preview_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4830,6 +5230,174 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::library::MatchStatsDto>
     for crate::api::library::MatchStatsDto
 {
     fn into_into_dart(self) -> crate::api::library::MatchStatsDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmDialogStateDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.folders.into_into_dart().into_dart(),
+            self.output_directory.into_into_dart().into_dart(),
+            self.download_directory.into_into_dart().into_dart(),
+            self.online_match_available.into_into_dart().into_dart(),
+            self.online_match_hint.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::ncm::NcmDialogStateDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmDialogStateDto>
+    for crate::api::ncm::NcmDialogStateDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmDialogStateDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmFileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.size.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::ncm::NcmFileDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmFileDto>
+    for crate::api::ncm::NcmFileDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmFileDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmFileResultDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.success.into_into_dart().into_dart(),
+            self.output_path.into_into_dart().into_dart(),
+            self.output_file_name.into_into_dart().into_dart(),
+            self.format.into_into_dart().into_dart(),
+            self.error_message.into_into_dart().into_dart(),
+            self.enrichment_message.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.artists.into_into_dart().into_dart(),
+            self.album.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::ncm::NcmFileResultDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmFileResultDto>
+    for crate::api::ncm::NcmFileResultDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmFileResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmImportRequestDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.paths.into_into_dart().into_dart(),
+            self.folders.into_into_dart().into_dart(),
+            self.output_directory.into_into_dart().into_dart(),
+            self.overwrite.into_into_dart().into_dart(),
+            self.auto_match_online.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::ncm::NcmImportRequestDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmImportRequestDto>
+    for crate::api::ncm::NcmImportRequestDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmImportRequestDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmProgressDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.completed.into_into_dart().into_dart(),
+            self.total.into_into_dart().into_dart(),
+            self.index.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.file_name.into_into_dart().into_dart(),
+            self.stage.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.result.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::ncm::NcmProgressDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmProgressDto>
+    for crate::api::ncm::NcmProgressDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmProgressDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmScanDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.files.into_into_dart().into_dart(),
+            self.missing_folders.into_into_dart().into_dart(),
+            self.skipped_directories.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::ncm::NcmScanDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmScanDto>
+    for crate::api::ncm::NcmScanDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmScanDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ncm::NcmSummaryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.results.into_into_dart().into_dart(),
+            self.total.into_into_dart().into_dart(),
+            self.succeeded.into_into_dart().into_dart(),
+            self.failed.into_into_dart().into_dart(),
+            self.cancelled.into_into_dart().into_dart(),
+            self.output_directory.into_into_dart().into_dart(),
+            self.matched_online.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::ncm::NcmSummaryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ncm::NcmSummaryDto>
+    for crate::api::ncm::NcmSummaryDto
+{
+    fn into_into_dart(self) -> crate::api::ncm::NcmSummaryDto {
         self
     }
 }
@@ -5832,6 +6400,15 @@ impl SseEncode
 }
 
 impl SseEncode
+    for StreamSink<crate::api::ncm::NcmProgressDto, flutter_rust_bridge::for_generated::SseCodec>
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
+    }
+}
+
+impl SseEncode
     for StreamSink<
         crate::api::library::ScanProgressDto,
         flutter_rust_bridge::for_generated::SseCodec,
@@ -6168,6 +6745,26 @@ impl SseEncode for Vec<crate::api::app::LogEntryDto> {
     }
 }
 
+impl SseEncode for Vec<crate::api::ncm::NcmFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::ncm::NcmFileDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::ncm::NcmFileResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::ncm::NcmFileResultDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::online::OnlineSearchItemDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6442,6 +7039,89 @@ impl SseEncode for crate::api::library::MatchStatsDto {
     }
 }
 
+impl SseEncode for crate::api::ncm::NcmDialogStateDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<String>>::sse_encode(self.folders, serializer);
+        <String>::sse_encode(self.output_directory, serializer);
+        <String>::sse_encode(self.download_directory, serializer);
+        <bool>::sse_encode(self.online_match_available, serializer);
+        <String>::sse_encode(self.online_match_hint, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <i64>::sse_encode(self.size, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmFileResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <bool>::sse_encode(self.success, serializer);
+        <Option<String>>::sse_encode(self.output_path, serializer);
+        <Option<String>>::sse_encode(self.output_file_name, serializer);
+        <Option<String>>::sse_encode(self.format, serializer);
+        <Option<String>>::sse_encode(self.error_message, serializer);
+        <Option<String>>::sse_encode(self.enrichment_message, serializer);
+        <Option<String>>::sse_encode(self.title, serializer);
+        <Option<String>>::sse_encode(self.artists, serializer);
+        <Option<String>>::sse_encode(self.album, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmImportRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<String>>::sse_encode(self.paths, serializer);
+        <Vec<String>>::sse_encode(self.folders, serializer);
+        <String>::sse_encode(self.output_directory, serializer);
+        <bool>::sse_encode(self.overwrite, serializer);
+        <bool>::sse_encode(self.auto_match_online, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmProgressDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.completed, serializer);
+        <i64>::sse_encode(self.total, serializer);
+        <i64>::sse_encode(self.index, serializer);
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.file_name, serializer);
+        <String>::sse_encode(self.stage, serializer);
+        <String>::sse_encode(self.message, serializer);
+        <Option<crate::api::ncm::NcmFileResultDto>>::sse_encode(self.result, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmScanDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<crate::api::ncm::NcmFileDto>>::sse_encode(self.files, serializer);
+        <Vec<String>>::sse_encode(self.missing_folders, serializer);
+        <i64>::sse_encode(self.skipped_directories, serializer);
+    }
+}
+
+impl SseEncode for crate::api::ncm::NcmSummaryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<crate::api::ncm::NcmFileResultDto>>::sse_encode(self.results, serializer);
+        <i64>::sse_encode(self.total, serializer);
+        <i64>::sse_encode(self.succeeded, serializer);
+        <i64>::sse_encode(self.failed, serializer);
+        <bool>::sse_encode(self.cancelled, serializer);
+        <String>::sse_encode(self.output_directory, serializer);
+        <i64>::sse_encode(self.matched_online, serializer);
+    }
+}
+
 impl SseEncode for crate::api::online::OnlineErrorDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6698,6 +7378,16 @@ impl SseEncode for Option<crate::api::online::MatchScoreDto> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::online::MatchScoreDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::ncm::NcmFileResultDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::ncm::NcmFileResultDto>::sse_encode(value, serializer);
         }
     }
 }
